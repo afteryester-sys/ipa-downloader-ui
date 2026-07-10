@@ -1,0 +1,190 @@
+<UserControl x:Class="IPAStudio.App.Views.DevicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BatteryToBrushConverter x:Key="BatteryBrush" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,24">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource L.Devices.Title}" Style="{StaticResource Text.Title}" />
+                <TextBlock Text="{DynamicResource L.Devices.Subtitle}" Style="{StaticResource Text.Subtitle}" Margin="0,4,0,0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <TextBlock Text="{Binding AccountEmail}" Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Button Content="{DynamicResource L.Settings}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding OpenSettingsCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource L.Devices.SignOut}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding SignOutCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Device cards / empty state -->
+            <Grid Grid.Column="0" Margin="0,0,24,0">
+
+                <!-- Empty state: animated "waiting for iPhone" -->
+                <Border Style="{StaticResource Card}" Padding="48"
+                        Visibility="{Binding HasDevices, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Phone outline with pulsing rings -->
+                        <Grid Width="160" Height="160" Margin="0,0,0,24">
+                            <Ellipse x:Name="PulseRing1" Width="120" Height="120"
+                                     Stroke="{StaticResource Brush.Accent}" StrokeThickness="1.5" Opacity="0" />
+                            <Ellipse x:Name="PulseRing2" Width="120" Height="120"
+                                     Stroke="{StaticResource Brush.Accent}" StrokeThickness="1.5" Opacity="0" />
+                            <Border Width="52" Height="96" CornerRadius="10"
+                                    Background="{StaticResource Brush.Surface}"
+                                    BorderBrush="{StaticResource Brush.Accent}" BorderThickness="2">
+                                <Border Width="18" Height="4" CornerRadius="2"
+                                        Background="{StaticResource Brush.Accent}"
+                                        VerticalAlignment="Top" Margin="0,8,0,0" />
+                            </Border>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource L.Devices.Empty}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="{DynamicResource L.Devices.EmptyHint}" Style="{StaticResource Text.Caption}"
+                                   TextWrapping="Wrap" TextAlignment="Center" MaxWidth="420" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Connected device cards -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding HasDevices, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl ItemsSource="{Binding Devices}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource Card}" Width="280" Margin="0,0,16,16"
+                                        RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform />
+                                    </Border.RenderTransform>
+                                    <Border.Triggers>
+                                        <!-- Entry animation: scale + fade in -->
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                     From="0" To="1" Duration="0:0:0.4">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                                     From="0.92" To="1" Duration="0:0:0.4">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <BackEase EasingMode="EaseOut" Amplitude="0.4" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                                     From="0.92" To="1" Duration="0:0:0.4">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <BackEase EasingMode="EaseOut" Amplitude="0.4" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Border.Triggers>
+
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,12">
+                                            <!-- Phone glyph -->
+                                            <Border Width="44" Height="44" CornerRadius="12"
+                                                    Background="{StaticResource Brush.AccentSoft}"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                                           Foreground="{StaticResource Brush.Accent}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <!-- Connected badge -->
+                                            <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.SuccessSoft}"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="7" Height="7" Fill="{StaticResource Brush.Success}"
+                                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                    <TextBlock Text="{DynamicResource L.Devices.Connected}"
+                                                               Foreground="{StaticResource Brush.Success}" FontSize="11" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                                   FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
+                                            <Run Text="{Binding Model, Mode=OneWay}" /> · iOS <Run Text="{Binding OsVersion, Mode=OneWay}" />
+                                        </TextBlock>
+
+                                        <!-- Battery -->
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{DynamicResource L.Devices.Battery}"
+                                                       Style="{StaticResource Text.Caption}" Margin="0,0,10,0" />
+                                            <ProgressBar Grid.Column="1" Style="{StaticResource Progress.Slim}"
+                                                         Value="{Binding BatteryLevel, Mode=OneWay}" Maximum="100"
+                                                         Foreground="{Binding BatteryLevel, Converter={StaticResource BatteryBrush}}"
+                                                         VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Style="{StaticResource Text.Caption}" Margin="10,0,0,0">
+                                                <Run Text="{Binding BatteryLevel, Mode=OneWay}" />%
+                                            </TextBlock>
+                                        </Grid>
+
+                                        <Button Content="{DynamicResource L.Devices.Select}"
+                                                Style="{StaticResource Button.Primary}" Margin="0,16,0,0"
+                                                HorizontalAlignment="Stretch"
+                                                Command="{Binding DataContext.SelectDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Catalog status panel -->
+            <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Devices.Catalog}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="{Binding CatalogCount}" Style="{StaticResource Text.Title}"
+                                   Foreground="{StaticResource Brush.Accent}" />
+                        <TextBlock Text="{DynamicResource L.Devices.CatalogApps}" Style="{StaticResource Text.Caption}"
+                                   VerticalAlignment="Bottom" Margin="8,0,0,4" />
+                    </StackPanel>
+                    <StackPanel Margin="0,14,0,0"
+                                Visibility="{Binding IsCatalogLoading, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}"
+                                     Value="{Binding CatalogLoadProgress, Mode=OneWay}" Maximum="100" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}" Margin="0,6,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

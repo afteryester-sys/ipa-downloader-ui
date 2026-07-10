@@ -1,0 +1,35 @@
+<Window x:Class="IPAStudio.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:IPAStudio.App.ViewModels"
+        xmlns:views="clr-namespace:IPAStudio.App.Views"
+        Title="{DynamicResource L.AppTitle}"
+        Width="1120" Height="760" MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:LoginViewModel}">
+            <views:LoginView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DevicesViewModel}">
+            <views:DevicesView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AppPickerViewModel}">
+            <views:AppPickerView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:QueueViewModel}">
+            <views:QueueView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
+    <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
+        <ContentControl.RenderTransform>
+            <TranslateTransform x:Name="PageTranslate" />
+        </ContentControl.RenderTransform>
+    </ContentControl>
+</Window>

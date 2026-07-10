@@ -1,0 +1,161 @@
+<UserControl x:Class="IPAStudio.App.Views.AppPickerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:IconPathConverter x:Key="IconPath" />
+        <conv:InitialConverter x:Key="Initial" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Picker.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{Binding DeviceName}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Visibility="{Binding IsRefreshingStatuses, Converter={StaticResource BoolToVis}}">
+                <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="120"
+                             VerticalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Picker.RefreshingStatuses}" Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" Margin="10,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Toolbar: search, category, select all -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0" Style="{StaticResource Input.TextBox}" MaxWidth="420" HorizontalAlignment="Left"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+
+            <ComboBox Grid.Column="1" Width="180" Margin="12,0,0,0" VerticalAlignment="Center"
+                      ItemsSource="{Binding Categories}"
+                      SelectedItem="{Binding SelectedCategory}" />
+
+            <Button Grid.Column="2" Content="{DynamicResource L.Picker.SelectAll}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding SelectAllVisibleCommand}" Margin="12,0,0,0" />
+            <Button Grid.Column="3" Content="{DynamicResource L.Picker.ClearAll}" Style="{StaticResource Button.Ghost}"
+                    Command="{Binding ClearSelectionCommand}" Margin="8,0,0,0" />
+        </Grid>
+
+        <!-- App list -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4">
+            <ListBox ItemsSource="{Binding AppsView}" Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bg" Property="Background"
+                                                    Value="{StaticResource Brush.SurfaceHover}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="12,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
+                                      IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+
+                            <!-- App icon (real icon or letter placeholder) -->
+                            <Grid Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0">
+                                <Border CornerRadius="10" Background="{StaticResource Brush.AccentSoft}">
+                                    <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                               Foreground="{StaticResource Brush.Accent}" FontSize="18" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border CornerRadius="10"
+                                        Visibility="{Binding CachedIconPath, Converter={StaticResource NullToCollapsed}}">
+                                    <Border.Background>
+                                        <ImageBrush ImageSource="{Binding CachedIconPath, Converter={StaticResource IconPath}}"
+                                                    Stretch="UniformToFill" />
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
+
+                            <!-- Name + meta -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding Category}" Style="{StaticResource Text.Caption}" />
+                                    <TextBlock Text="{Binding LatestVersion, StringFormat=' · v{0}'}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Visibility="{Binding LatestVersion, Converter={StaticResource NullToCollapsed}}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Status badges -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.AccentSoft}"
+                                        Margin="0,0,6,0"
+                                        Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{DynamicResource L.Status.Downloaded}"
+                                               Foreground="{StaticResource Brush.Accent}" FontSize="11" />
+                                </Border>
+                                <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.SuccessSoft}"
+                                        Visibility="{Binding IsInstalledOnDevice, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{DynamicResource L.Status.Installed}"
+                                               Foreground="{StaticResource Brush.Success}" FontSize="11" />
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Bottom action bar -->
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource L.Picker.SelectedCount}" Style="{StaticResource Text.Body}" />
+                <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
+                           FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,0,0" />
+            </StackPanel>
+            <Button Content="{DynamicResource L.Picker.Install}" Style="{StaticResource Button.Primary}"
+                    HorizontalAlignment="Right" Padding="28,12"
+                    Command="{Binding InstallSelectedCommand}" />
+        </Grid>
+    </Grid>
+</UserControl>
