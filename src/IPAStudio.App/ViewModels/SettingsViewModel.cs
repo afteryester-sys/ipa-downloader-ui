@@ -55,7 +55,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
-        ToolsFolder = _tools.ToolsFolder;
+        ToolsFolder = _tools.ToolsRoot;
     }
 
     [RelayCommand]
