@@ -1,0 +1,77 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Common -->
+    <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
+    <sys:String x:Key="L.Back">Back</sys:String>
+    <sys:String x:Key="L.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Retry">Retry</sys:String>
+    <sys:String x:Key="L.Settings">Settings</sys:String>
+    <sys:String x:Key="L.Search">Search…</sys:String>
+    <sys:String x:Key="L.Loading">Loading…</sys:String>
+
+    <!-- Login -->
+    <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
+    <sys:String x:Key="L.Login.Subtitle">Sign in to download apps from the App Store</sys:String>
+    <sys:String x:Key="L.Login.Email">Apple ID (email)</sys:String>
+    <sys:String x:Key="L.Login.Password">Password</sys:String>
+    <sys:String x:Key="L.Login.SignIn">Sign In</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorTitle">Two-Factor Authentication</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorHint">Enter the 6-digit code sent to your Apple devices</sys:String>
+    <sys:String x:Key="L.Login.Confirm">Confirm</sys:String>
+    <sys:String x:Key="L.Login.SigningIn">Signing in…</sys:String>
+    <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
+
+    <!-- Devices -->
+    <sys:String x:Key="L.Devices.Title">Devices</sys:String>
+    <sys:String x:Key="L.Devices.Subtitle">Connect an iPhone or iPad via USB and select it</sys:String>
+    <sys:String x:Key="L.Devices.Empty">Waiting for a device…</sys:String>
+    <sys:String x:Key="L.Devices.EmptyHint">Make sure Apple Mobile Device Support (iTunes) is installed and the device is unlocked. Tap "Trust" on the device.</sys:String>
+    <sys:String x:Key="L.Devices.Battery">Battery</sys:String>
+    <sys:String x:Key="L.Devices.Select">Select</sys:String>
+    <sys:String x:Key="L.Devices.Connected">Connected</sys:String>
+    <sys:String x:Key="L.Devices.Catalog">App Catalog</sys:String>
+    <sys:String x:Key="L.Devices.CatalogApps">apps in catalog</sys:String>
+    <sys:String x:Key="L.Devices.SignOut">Sign Out</sys:String>
+
+    <!-- App picker -->
+    <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>
+    <sys:String x:Key="L.Picker.SelectedCount">Selected:</sys:String>
+    <sys:String x:Key="L.Picker.Install">Install Selected</sys:String>
+    <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
+    <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
+    <sys:String x:Key="L.Picker.All">All</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Status.Downloaded">Downloaded</sys:String>
+    <sys:String x:Key="L.Status.Licensed">Licensed</sys:String>
+    <sys:String x:Key="L.Status.NotLicensed">No License</sys:String>
+    <sys:String x:Key="L.Status.Installed">Installed</sys:String>
+
+    <!-- Queue -->
+    <sys:String x:Key="L.Queue.Title">Installing Apps</sys:String>
+    <sys:String x:Key="L.Queue.Overall">Overall Progress</sys:String>
+    <sys:String x:Key="L.Queue.Done">Done</sys:String>
+    <sys:String x:Key="L.Queue.Failed">Failed</sys:String>
+    <sys:String x:Key="L.Queue.Cancelled">Cancelled</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Cancel All</sys:String>
+    <sys:String x:Key="L.Queue.Finish">Finish</sys:String>
+    <sys:String x:Key="L.Stage.Pending">Queued</sys:String>
+    <sys:String x:Key="L.Stage.Checking">Checking</sys:String>
+    <sys:String x:Key="L.Stage.Licensing">License</sys:String>
+    <sys:String x:Key="L.Stage.Downloading">Download</sys:String>
+    <sys:String x:Key="L.Stage.Installing">Install</sys:String>
+
+    <!-- Settings -->
+    <sys:String x:Key="L.Settings.Title">Settings</sys:String>
+    <sys:String x:Key="L.Settings.Language">Interface Language</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
+    <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
+    <sys:String x:Key="L.Settings.Account">Account</sys:String>
+    <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.Save">Save</sys:String>
+
+</ResourceDictionary>

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>IPAStudio</AssemblyName>
+    <RootNamespace>IPAStudio.App</RootNamespace>
+    <ApplicationIcon Condition="Exists('Assets\app.ico')">Assets\app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <Authors>IPA Studio</Authors>
+    <Product>IPA Studio</Product>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\IPAStudio.Core\IPAStudio.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\**\*" />
+  </ItemGroup>
+
+  <!-- Copy bundled CLI tools next to the executable when present -->
+  <ItemGroup Condition="Exists('..\..\tools')">
+    <None Include="..\..\tools\**\*" LinkBase="tools" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

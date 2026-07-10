@@ -1,0 +1,77 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Общее -->
+    <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
+    <sys:String x:Key="L.Back">Назад</sys:String>
+    <sys:String x:Key="L.Cancel">Отмена</sys:String>
+    <sys:String x:Key="L.Retry">Повторить</sys:String>
+    <sys:String x:Key="L.Settings">Настройки</sys:String>
+    <sys:String x:Key="L.Search">Поиск…</sys:String>
+    <sys:String x:Key="L.Loading">Загрузка…</sys:String>
+
+    <!-- Авторизация -->
+    <sys:String x:Key="L.Login.Title">Вход в Apple ID</sys:String>
+    <sys:String x:Key="L.Login.Subtitle">Авторизуйтесь, чтобы загружать приложения из App Store</sys:String>
+    <sys:String x:Key="L.Login.Email">Apple ID (email)</sys:String>
+    <sys:String x:Key="L.Login.Password">Пароль</sys:String>
+    <sys:String x:Key="L.Login.SignIn">Войти</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorTitle">Двухфакторная аутентификация</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorHint">Введите 6-значный код, отправленный на ваши устройства Apple</sys:String>
+    <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
+    <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
+    <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
+
+    <!-- Устройства -->
+    <sys:String x:Key="L.Devices.Title">Устройства</sys:String>
+    <sys:String x:Key="L.Devices.Subtitle">Подключите iPhone или iPad по USB и выберите его</sys:String>
+    <sys:String x:Key="L.Devices.Empty">Ожидание подключения устройства…</sys:String>
+    <sys:String x:Key="L.Devices.EmptyHint">Убедитесь, что установлен Apple Mobile Device Support (iTunes) и устройство разблокировано. Нажмите «Доверять» на устройстве.</sys:String>
+    <sys:String x:Key="L.Devices.Battery">Батарея</sys:String>
+    <sys:String x:Key="L.Devices.Select">Выбрать</sys:String>
+    <sys:String x:Key="L.Devices.Connected">Подключено</sys:String>
+    <sys:String x:Key="L.Devices.Catalog">Каталог приложений</sys:String>
+    <sys:String x:Key="L.Devices.CatalogApps">приложений в каталоге</sys:String>
+    <sys:String x:Key="L.Devices.SignOut">Выйти</sys:String>
+
+    <!-- Выбор приложений -->
+    <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
+    <sys:String x:Key="L.Picker.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Picker.Install">Установить выбранные</sys:String>
+    <sys:String x:Key="L.Picker.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Picker.ClearAll">Снять выбор</sys:String>
+    <sys:String x:Key="L.Picker.All">Все</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Обновление статусов…</sys:String>
+    <sys:String x:Key="L.Status.Downloaded">Загружено</sys:String>
+    <sys:String x:Key="L.Status.Licensed">Есть лицензия</sys:String>
+    <sys:String x:Key="L.Status.NotLicensed">Нет лицензии</sys:String>
+    <sys:String x:Key="L.Status.Installed">Установлено</sys:String>
+
+    <!-- Очередь -->
+    <sys:String x:Key="L.Queue.Title">Установка приложений</sys:String>
+    <sys:String x:Key="L.Queue.Overall">Общий прогресс</sys:String>
+    <sys:String x:Key="L.Queue.Done">Готово</sys:String>
+    <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
+    <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
+    <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
+    <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
+    <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
+    <sys:String x:Key="L.Stage.Licensing">Лицензия</sys:String>
+    <sys:String x:Key="L.Stage.Downloading">Загрузка</sys:String>
+    <sys:String x:Key="L.Stage.Installing">Установка</sys:String>
+
+    <!-- Настройки -->
+    <sys:String x:Key="L.Settings.Title">Настройки</sys:String>
+    <sys:String x:Key="L.Settings.Language">Язык интерфейса</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
+    <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
+    <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
+    <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
+
+</ResourceDictionary>
