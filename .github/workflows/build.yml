@@ -2,7 +2,7 @@ name: Build IPA Studio
 
 on:
   push:
-    branches: [main]
+    branches: [main, "v0/**"]
     tags: ["v*"]
   pull_request:
     branches: [main]
