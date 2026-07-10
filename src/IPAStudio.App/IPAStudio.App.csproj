@@ -29,8 +29,13 @@
     <Resource Include="Assets\**\*" />
   </ItemGroup>
 
-  <!-- Copy bundled CLI tools next to the executable when present -->
-  <ItemGroup Condition="Exists('..\..\tools')">
+  <!-- Copy bundled CLI tools next to the executable when present.
+       Default location is src/IPAStudio.App/tools (created by build/Fetch-Tools.ps1);
+       a repo-root tools/ folder is also supported. -->
+  <ItemGroup Condition="Exists('tools')">
+    <None Include="tools\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('tools') And Exists('..\..\tools')">
     <None Include="..\..\tools\**\*" LinkBase="tools" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
