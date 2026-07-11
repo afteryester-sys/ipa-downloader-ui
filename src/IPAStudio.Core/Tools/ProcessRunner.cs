@@ -123,4 +123,105 @@ public sealed class ProcessRunner
             StdErr = stderr.ToString(),
         };
     }
+
+    /// <summary>
+    /// Runs an interactive tool, reading stdout/stderr <b>character by character</b>
+    /// so that prompts that are printed WITHOUT a trailing newline (e.g. ipatool's
+    /// "2FA code: ") are surfaced immediately. Line-buffered reads would deadlock on
+    /// such prompts because the newline never arrives until input is provided.
+    /// </summary>
+    /// <param name="onData">
+    /// Called whenever new characters arrive, with the full combined (stdout+stderr)
+    /// buffer so far and the live stdin writer. Use it to detect a prompt and reply.
+    /// </param>
+    public async Task<ProcessResult> RunInteractiveAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        Action<string, StreamWriter>? onData = null,
+        IReadOnlyDictionary<string, string>? environment = null,
+        CancellationToken ct = default)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = fileName,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+        };
+
+        foreach (var arg in arguments)
+            psi.ArgumentList.Add(arg);
+
+        if (environment is not null)
+            foreach (var (key, value) in environment)
+                psi.Environment[key] = value;
+
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        var combined = new StringBuilder();
+        var sync = new object();
+
+        using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+
+        if (!process.Start())
+            throw new InvalidOperationException($"Failed to start process: {fileName}");
+
+        var stdin = process.StandardInput;
+
+        async Task PumpAsync(StreamReader reader, StringBuilder ownSink)
+        {
+            var buffer = new char[512];
+            while (true)
+            {
+                int n;
+                try
+                {
+                    n = await reader.ReadAsync(buffer.AsMemory(), ct).ConfigureAwait(false);
+                }
+                catch
+                {
+                    break;
+                }
+                if (n <= 0) break;
+
+                var chunk = new string(buffer, 0, n);
+                string snapshot;
+                lock (sync)
+                {
+                    ownSink.Append(chunk);
+                    combined.Append(chunk);
+                    snapshot = combined.ToString();
+                }
+                onData?.Invoke(snapshot, stdin);
+            }
+        }
+
+        var pumpOut = PumpAsync(process.StandardOutput, stdout);
+        var pumpErr = PumpAsync(process.StandardError, stderr);
+
+        await using var registration = ct.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                    process.Kill(entireProcessTree: true);
+            }
+            catch { /* already exited */ }
+        });
+
+        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        try { await Task.WhenAll(pumpOut, pumpErr).ConfigureAwait(false); } catch { }
+        ct.ThrowIfCancellationRequested();
+
+        return new ProcessResult
+        {
+            ExitCode = process.ExitCode,
+            StdOut = stdout.ToString(),
+            StdErr = stderr.ToString(),
+        };
+    }
 }

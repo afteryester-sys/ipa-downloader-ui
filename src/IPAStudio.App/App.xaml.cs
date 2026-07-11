@@ -40,6 +40,7 @@ public partial class App : Application
         // App
         services.AddSingleton<LocalizationManager>();
         services.AddSingleton<ShellViewModel>();
+        services.AddSingleton<UpdaterViewModel>();
         services.AddSingleton<SetupViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<DevicesViewModel>();

@@ -34,8 +34,12 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
 
     private Page _previousPage = Page.Setup;
 
-    public ShellViewModel()
+    /// <summary>Global updater backing the corner update flyout (available everywhere).</summary>
+    public UpdaterViewModel Updater { get; }
+
+    public ShellViewModel(UpdaterViewModel updater)
     {
+        Updater = updater;
         GoTo(Page.Setup);
     }
 

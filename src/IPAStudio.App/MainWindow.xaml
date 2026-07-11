@@ -3,12 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:IPAStudio.App.ViewModels"
         xmlns:views="clr-namespace:IPAStudio.App.Views"
-        Title="{DynamicResource L.AppTitle}"
+        xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+        x:Name="Root"
         Width="1120" Height="760" MinWidth="900" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Background}">
 
     <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
         <DataTemplate DataType="{x:Type vm:SetupViewModel}">
             <views:SetupView />
         </DataTemplate>
@@ -98,5 +102,86 @@
                 </EventTrigger>
             </TextBlock.Triggers>
         </TextBlock>
+
+        <!-- ===== Update button + flyout (available on every screen) ===== -->
+        <Grid HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,12,0"
+              DataContext="{Binding Updater}">
+            <Button x:Name="UpdateButton" Width="34" Height="34" Padding="0"
+                    Cursor="Hand" ToolTip="{DynamicResource L.Update.Title}"
+                    Command="{Binding ToggleCommand}"
+                    Background="Transparent" BorderThickness="0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" CornerRadius="17"
+                                Background="Transparent" BorderThickness="1"
+                                BorderBrush="Transparent">
+                            <Grid>
+                                <!-- Download / update glyph -->
+                                <Path Stroke="{StaticResource Brush.TextMuted}" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Data="M11,4 L11,13 M11,13 L7.5,9.5 M11,13 L14.5,9.5 M5,16.5 L17,16.5"
+                                      Width="22" Height="22" Stretch="Uniform"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <!-- Blue dot when an update is available -->
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource Brush.Accent}"
+                                         HorizontalAlignment="Right" VerticalAlignment="Top"
+                                         Margin="0,3,3,0"
+                                         Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                                <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+            <Popup IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=UpdateButton}"
+                   Placement="Bottom" HorizontalOffset="-234" VerticalOffset="6"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                        Width="270" Padding="16" Margin="8">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="#000000" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Style="{StaticResource Text.Caption}">
+                                <Run Text="v" /><Run Text="{Binding VersionText, Mode=OneWay}" />
+                            </TextBlock>
+                        </Grid>
+
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                                   TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
+
+                        <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                     Value="{Binding Progress}" Margin="0,0,0,12"
+                                     Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
+
+                        <Button Content="{DynamicResource L.Update.Check}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Command="{Binding CheckCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.Update.Download}" Style="{StaticResource Button.Primary}"
+                                HorizontalAlignment="Stretch" Command="{Binding DownloadCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
+                                HorizontalAlignment="Stretch" Command="{Binding InstallCommand}"
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
     </Grid>
 </Window>

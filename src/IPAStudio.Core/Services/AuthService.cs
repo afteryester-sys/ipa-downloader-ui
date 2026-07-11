@@ -46,22 +46,29 @@ public sealed partial class AuthService
     {
         var args = new[] { "auth", "login", "-e", email, "-p", password };
 
-        StreamWriter? stdin = null;
         var gate = new object();
-        var codeHandled = false;
+        var handledUpTo = 0;   // index in the combined buffer already acted upon
+        var requesting = false;
 
-        void HandleLine(string raw)
+        // Called (from the reader) as characters stream in. Because ipatool prints its
+        // "2FA code:" prompt WITHOUT a trailing newline, we scan the growing buffer for
+        // the prompt text and, when found, ask the UI for a code and write it to stdin.
+        void OnData(string full, StreamWriter stdin)
         {
-            if (stdin is null || twoFactorProvider is null) return;
-            if (!LooksLikeTwoFactorPrompt(raw)) return;
+            if (twoFactorProvider is null) return;
 
+            string tail;
             lock (gate)
             {
-                if (codeHandled) return;
-                codeHandled = true;
+                if (requesting) return;
+                if (full.Length <= handledUpTo) return;
+                tail = full[handledUpTo..];
+                if (!LooksLikeTwoFactorPrompt(tail)) return;
+
+                requesting = true;
+                handledUpTo = full.Length;
             }
 
-            // Obtain the code off the reader thread, then feed it to ipatool's stdin.
             _ = Task.Run(async () =>
             {
                 try
@@ -72,20 +79,21 @@ public sealed partial class AuthService
                         await stdin.WriteLineAsync(code.Trim()).ConfigureAwait(false);
                         await stdin.FlushAsync().ConfigureAwait(false);
                     }
-                    // If no code: leave the process to be cancelled via the token.
                 }
                 catch { /* cancellation or write failure -> process ends via ct */ }
+                finally
+                {
+                    lock (gate) { requesting = false; }
+                }
             }, CancellationToken.None);
         }
 
         ProcessResult result;
         try
         {
-            result = await _runner.RunAsync(
+            result = await _runner.RunInteractiveAsync(
                 _tools.IpatoolPath, args,
-                onOutputLine: HandleLine,
-                onErrorLine: HandleLine,
-                onStdinReady: w => stdin = w,
+                onData: OnData,
                 ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -201,18 +209,25 @@ public sealed partial class AuthService
         return null;
     }
 
-    /// <summary>True when a line looks like ipatool prompting for the 2FA/verification code.</summary>
-    private static bool LooksLikeTwoFactorPrompt(string line)
+    /// <summary>True when the text looks like ipatool prompting for the 2FA/verification code.</summary>
+    private static bool LooksLikeTwoFactorPrompt(string text)
     {
-        var lower = line.ToLowerInvariant();
-        return lower.Contains("2fa")
+        var lower = text.ToLowerInvariant();
+
+        // Explicit 2FA phrasing.
+        if (lower.Contains("2fa")
             || lower.Contains("two-factor")
             || lower.Contains("two factor")
             || lower.Contains("verification code")
             || lower.Contains("auth code")
             || lower.Contains("authentication code")
-            || (lower.Contains("code") && lower.Contains("enter"))
-            || (lower.Contains("code") && lower.Contains(":"));
+            || lower.Contains("mfa"))
+            return true;
+
+        // Generic "code" prompt: require the word "code" together with an interactive
+        // cue (a trailing colon or the word "enter") to avoid false positives.
+        return lower.Contains("code")
+            && (lower.Contains("enter") || lower.TrimEnd().EndsWith(":") || lower.Contains("code:"));
     }
 
     /// <summary>True when ipatool text output indicates a successful login.</summary>
