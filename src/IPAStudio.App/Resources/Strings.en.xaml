@@ -11,6 +11,22 @@
     <sys:String x:Key="L.Search">Search…</sys:String>
     <sys:String x:Key="L.Loading">Loading…</sys:String>
 
+    <!-- Environment setup -->
+    <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Making sure everything needed to work with your iPhone is installed</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Apple drivers (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Required for Windows to detect a connected iPhone. Installed together with iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Recommended. Provides drivers and reliable device connectivity.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Helper utilities (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Downloaded automatically. Needed to download and install apps.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Install</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Installing… A User Account Control (UAC) prompt may appear.</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Check again</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Skip</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Could not install iTunes automatically. Please install it manually from apple.com and click "Check again".</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Could not download the helper utilities. Check your internet connection and retry.</sys:String>
+
     <!-- Login -->
     <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
     <sys:String x:Key="L.Login.Subtitle">Sign in to download apps from the App Store</sys:String>

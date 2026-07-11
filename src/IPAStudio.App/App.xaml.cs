@@ -34,10 +34,12 @@ public partial class App : Application
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
         services.AddSingleton<QueueService>();
+        services.AddSingleton<DependencyService>();
 
         // App
         services.AddSingleton<LocalizationManager>();
         services.AddSingleton<ShellViewModel>();
+        services.AddSingleton<SetupViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<DevicesViewModel>();
         services.AddSingleton<AppPickerViewModel>();

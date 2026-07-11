@@ -6,6 +6,7 @@ namespace IPAStudio.App.ViewModels;
 
 public enum Page
 {
+    Setup,
     Login,
     Devices,
     AppPicker,
@@ -29,13 +30,13 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     private ObservableObject _currentViewModel = null!;
 
     [ObservableProperty]
-    private Page _currentPage = Page.Login;
+    private Page _currentPage = Page.Setup;
 
-    private Page _previousPage = Page.Login;
+    private Page _previousPage = Page.Setup;
 
     public ShellViewModel()
     {
-        GoTo(Page.Login);
+        GoTo(Page.Setup);
     }
 
     public void GoTo(Page page)
@@ -44,6 +45,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         CurrentPage = page;
         CurrentViewModel = page switch
         {
+            Page.Setup => Resolve<SetupViewModel>(),
             Page.Login => Resolve<LoginViewModel>(),
             Page.Devices => Resolve<DevicesViewModel>(),
             Page.AppPicker => Resolve<AppPickerViewModel>(),

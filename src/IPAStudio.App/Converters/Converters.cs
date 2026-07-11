@@ -23,6 +23,19 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>DependencyState Missing/Failed -> Visible (an action button is needed).</summary>
+public sealed class DependencyStateNeedsActionConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is Core.Services.DependencyState state
+           && state is Core.Services.DependencyState.Missing or Core.Services.DependencyState.Failed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Null/empty string -> Collapsed.</summary>
 public sealed class NullToCollapsedConverter : IValueConverter
 {

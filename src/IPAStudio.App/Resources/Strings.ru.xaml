@@ -11,6 +11,22 @@
     <sys:String x:Key="L.Search">Поиск…</sys:String>
     <sys:String x:Key="L.Loading">Загрузка…</sys:String>
 
+    <!-- Проверка окружения -->
+    <sys:String x:Key="L.Setup.Title">Проверка окружения</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Убедимся, что всё необходимое для работы с iPhone установлено</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Драйверы Apple (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Нужны, чтобы Windows видел подключённый iPhone. Устанавливаются вместе с iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Рекомендуется. Обеспечивает драйверы и корректное подключение устройств.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Служебные утилиты (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Загружаются автоматически. Нужны для загрузки и установки приложений.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Установить</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Идёт установка… Может открыться окно контроля учётных записей (UAC).</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Проверить снова</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Не удалось установить iTunes автоматически. Установите его вручную с сайта apple.com и нажмите «Проверить снова».</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Не удалось загрузить служебные утилиты. Проверьте подключение к интернету и повторите.</sys:String>
+
     <!-- Авторизация -->
     <sys:String x:Key="L.Login.Title">Вход в Apple ID</sys:String>
     <sys:String x:Key="L.Login.Subtitle">Авторизуйтесь, чтобы загружать приложения из App Store</sys:String>

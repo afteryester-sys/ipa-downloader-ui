@@ -21,7 +21,14 @@ public sealed class ToolLocator
         _baseDir = baseDirectory ?? AppContext.BaseDirectory;
     }
 
-    public string ToolsRoot => Path.Combine(_baseDir, "tools");
+    /// <summary>
+    /// When set, tools are resolved from this folder instead of the default
+    /// install location (used when Program Files is not writable and tools
+    /// were auto-downloaded into LocalAppData).
+    /// </summary>
+    public string? ToolsRootOverride { get; set; }
+
+    public string ToolsRoot => ToolsRootOverride ?? Path.Combine(_baseDir, "tools");
 
     public string IpatoolPath => Path.Combine(
         ToolsRoot,

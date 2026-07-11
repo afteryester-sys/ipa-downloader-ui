@@ -9,6 +9,9 @@
         Background="{StaticResource Brush.Background}">
 
     <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:SetupViewModel}">
+            <views:SetupView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:LoginViewModel}">
             <views:LoginView />
         </DataTemplate>
