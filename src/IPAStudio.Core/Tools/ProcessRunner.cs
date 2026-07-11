@@ -20,6 +20,18 @@ public sealed class ProcessResult
 /// </summary>
 public sealed class ProcessRunner
 {
+    private readonly ProcessJobObject? _job;
+
+    /// <summary>
+    /// The <paramref name="job"/> (optional) ties every spawned process to a Windows
+    /// Job Object so they are all killed when the app exits, leaving no orphaned tools
+    /// holding the portable folder open.
+    /// </summary>
+    public ProcessRunner(ProcessJobObject? job = null)
+    {
+        _job = job;
+    }
+
     /// <summary>
     /// Runs a process to completion.
     /// </summary>
@@ -84,6 +96,8 @@ public sealed class ProcessRunner
 
         if (!process.Start())
             throw new InvalidOperationException($"Failed to start process: {fileName}");
+
+        _job?.Track(process);
 
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
@@ -169,6 +183,8 @@ public sealed class ProcessRunner
 
         if (!process.Start())
             throw new InvalidOperationException($"Failed to start process: {fileName}");
+
+        _job?.Track(process);
 
         var stdin = process.StandardInput;
 
