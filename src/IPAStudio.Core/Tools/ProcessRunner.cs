@@ -28,6 +28,11 @@ public sealed class ProcessRunner
     /// <param name="onOutputLine">Callback for each stdout line, invoked in real time.</param>
     /// <param name="onErrorLine">Callback for each stderr line, invoked in real time.</param>
     /// <param name="stdinLines">Lines written to stdin after start (e.g. a 2FA code).</param>
+    /// <param name="onStdinReady">
+    /// Invoked once right after the process starts, receiving the live stdin writer.
+    /// Use this for interactive tools (e.g. ipatool) that prompt on stdout/stderr and
+    /// wait for a reply on stdin. The writer stays open until the process exits.
+    /// </param>
     /// <param name="environment">Extra environment variables.</param>
     /// <param name="ct">Cancellation token; kills the process tree when cancelled.</param>
     public async Task<ProcessResult> RunAsync(
@@ -36,6 +41,7 @@ public sealed class ProcessRunner
         Action<string>? onOutputLine = null,
         Action<string>? onErrorLine = null,
         IReadOnlyList<string>? stdinLines = null,
+        Action<StreamWriter>? onStdinReady = null,
         IReadOnlyDictionary<string, string>? environment = null,
         CancellationToken ct = default)
     {
@@ -45,7 +51,7 @@ public sealed class ProcessRunner
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = stdinLines is { Count: > 0 },
+            RedirectStandardInput = stdinLines is { Count: > 0 } || onStdinReady is not null,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
@@ -82,7 +88,12 @@ public sealed class ProcessRunner
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        if (stdinLines is { Count: > 0 })
+        if (onStdinReady is not null)
+        {
+            // Hand the live stdin writer to the caller for interactive prompts.
+            onStdinReady(process.StandardInput);
+        }
+        else if (stdinLines is { Count: > 0 })
         {
             foreach (var line in stdinLines)
                 await process.StandardInput.WriteLineAsync(line).ConfigureAwait(false);

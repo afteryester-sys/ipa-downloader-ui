@@ -1,18 +1,19 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
 
 /// <summary>
-/// Apple ID authentication via ipatool:
-///   auth login  -e email -p password [--auth-code code]
-///   auth info
+/// Apple ID authentication via ipatool. The bundled ipatool build is interactive:
+///   auth login -e email -p password   -> prompts for a 2FA code on stdin
+///   auth info                          -> prints "email=..." (text)
 ///   auth revoke
-/// Uses --format json --non-interactive so output is machine-readable.
-/// For ipatool v3 an anisette helper process is started automatically.
+/// We drive it interactively: when it asks for the 2FA code we obtain one from the
+/// UI (the code is pushed to the user's trusted device by Apple) and write it to stdin.
 /// </summary>
-public sealed class AuthService
+public sealed partial class AuthService
 {
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
@@ -28,32 +29,64 @@ public sealed class AuthService
         _runner = runner;
     }
 
+    [GeneratedRegex(@"email[=:]\s*([^\s""]+)", RegexOptions.IgnoreCase)]
+    private static partial Regex EmailRegex();
+
     /// <summary>
-    /// Attempts sign-in. When <paramref name="twoFactorCode"/> is null and the account
-    /// has 2FA enabled, returns <see cref="AuthResult.NeedTwoFactor"/> so the UI can
-    /// prompt for a code and call again.
+    /// Signs in with email + password. If the account has two-factor authentication,
+    /// <paramref name="twoFactorProvider"/> is invoked (once) to obtain the code that
+    /// Apple sent to the user's trusted device; the code is then written to ipatool's
+    /// stdin. Pass a provider that shows the 2FA UI and awaits user input.
     /// </summary>
     public async Task<AuthResult> LoginAsync(
-        string email, string password, string? twoFactorCode = null, CancellationToken ct = default)
+        string email,
+        string password,
+        Func<CancellationToken, Task<string?>>? twoFactorProvider = null,
+        CancellationToken ct = default)
     {
-        var args = new List<string>
+        var args = new[] { "auth", "login", "-e", email, "-p", password };
+
+        StreamWriter? stdin = null;
+        var gate = new object();
+        var codeHandled = false;
+
+        void HandleLine(string raw)
         {
-            "auth", "login",
-            "-e", email,
-            "-p", password,
-            "--format", "json",
-            "--non-interactive",
-        };
-        if (!string.IsNullOrWhiteSpace(twoFactorCode))
-        {
-            args.Add("--auth-code");
-            args.Add(twoFactorCode.Trim());
+            if (stdin is null || twoFactorProvider is null) return;
+            if (!LooksLikeTwoFactorPrompt(raw)) return;
+
+            lock (gate)
+            {
+                if (codeHandled) return;
+                codeHandled = true;
+            }
+
+            // Obtain the code off the reader thread, then feed it to ipatool's stdin.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var code = await twoFactorProvider(ct).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(code))
+                    {
+                        await stdin.WriteLineAsync(code.Trim()).ConfigureAwait(false);
+                        await stdin.FlushAsync().ConfigureAwait(false);
+                    }
+                    // If no code: leave the process to be cancelled via the token.
+                }
+                catch { /* cancellation or write failure -> process ends via ct */ }
+            }, CancellationToken.None);
         }
 
         ProcessResult result;
         try
         {
-            result = await _runner.RunAsync(_tools.IpatoolPath, args, ct: ct).ConfigureAwait(false);
+            result = await _runner.RunAsync(
+                _tools.IpatoolPath, args,
+                onOutputLine: HandleLine,
+                onErrorLine: HandleLine,
+                onStdinReady: w => stdin = w,
+                ct: ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -63,17 +96,15 @@ public sealed class AuthService
 
         var output = result.CombinedOutput;
 
-        if (result.Success)
+        if (result.Success || IsLoginSuccess(output))
         {
-            var account = ParseAccount(output) ?? new AccountInfo { Email = email };
+            var account = ParseAccount(output)
+                          ?? await TryRestoreSessionAsync(ct).ConfigureAwait(false)
+                          ?? new AccountInfo { Email = email };
             CurrentAccount = account;
             AccountChanged?.Invoke(this, account);
             return AuthResult.Ok(account);
         }
-
-        // ipatool reports 2FA requirement in its error output.
-        if (twoFactorCode is null && IsTwoFactorError(output))
-            return AuthResult.NeedTwoFactor();
 
         return AuthResult.Fail(ExtractError(output));
     }
@@ -88,7 +119,7 @@ public sealed class AuthService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "info", "--format", "json", "--non-interactive" },
+                new[] { "auth", "info" },
                 ct: ct).ConfigureAwait(false);
 
             if (!result.Success) return null;
@@ -115,7 +146,7 @@ public sealed class AuthService
         {
             await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "revoke", "--format", "json", "--non-interactive" },
+                new[] { "auth", "revoke" },
                 ct: ct).ConfigureAwait(false);
         }
         finally
@@ -131,7 +162,14 @@ public sealed class AuthService
     {
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (!line.StartsWith('{')) continue;
+            if (!line.StartsWith('{'))
+            {
+                // Text format from "ipatool auth info": e.g. "email=user@example.com name=..."
+                var m = EmailRegex().Match(line);
+                if (m.Success)
+                    return new AccountInfo { Email = m.Groups[1].Value.Trim() };
+                continue;
+            }
             try
             {
                 using var doc = JsonDocument.Parse(line);
@@ -163,13 +201,28 @@ public sealed class AuthService
         return null;
     }
 
-    private static bool IsTwoFactorError(string output)
+    /// <summary>True when a line looks like ipatool prompting for the 2FA/verification code.</summary>
+    private static bool LooksLikeTwoFactorPrompt(string line)
     {
-        return output.Contains("2FA", StringComparison.OrdinalIgnoreCase)
-            || output.Contains("auth-code", StringComparison.OrdinalIgnoreCase)
-            || output.Contains("verification code", StringComparison.OrdinalIgnoreCase)
-            || output.Contains("customerMessage", StringComparison.OrdinalIgnoreCase)
-               && output.Contains("code", StringComparison.OrdinalIgnoreCase);
+        var lower = line.ToLowerInvariant();
+        return lower.Contains("2fa")
+            || lower.Contains("two-factor")
+            || lower.Contains("two factor")
+            || lower.Contains("verification code")
+            || lower.Contains("auth code")
+            || lower.Contains("authentication code")
+            || (lower.Contains("code") && lower.Contains("enter"))
+            || (lower.Contains("code") && lower.Contains(":"));
+    }
+
+    /// <summary>True when ipatool text output indicates a successful login.</summary>
+    private static bool IsLoginSuccess(string output)
+    {
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("\"success\":true")
+            || lower.Contains("successfully")
+            || lower.Contains("logged in")
+            || lower.Contains("authenticated");
     }
 
     private static string ExtractError(string output)
@@ -185,6 +238,9 @@ public sealed class AuthService
             }
             catch (JsonException) { }
         }
-        return string.IsNullOrWhiteSpace(output) ? "Unknown authentication error" : output.Trim();
+
+        // Text output: return the last non-empty line (usually the error message).
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return lines.Length > 0 ? lines[^1] : "Unknown authentication error";
     }
 }
