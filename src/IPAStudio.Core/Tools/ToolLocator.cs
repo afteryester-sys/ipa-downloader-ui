@@ -13,6 +13,14 @@ public sealed class ToolLocator
 {
     private readonly string _baseDir;
 
+    /// <summary>
+    /// Fixed passphrase used to lock/unlock ipatool's local keychain file. ipatool
+    /// requires this in non-interactive mode; using a constant lets every command
+    /// (login, info, purchase, download) unlock the same keychain without ever
+    /// prompting on a terminal (which deadlocks when stdin is redirected).
+    /// </summary>
+    public const string KeychainPassphrase = "ipastudio-local-keychain";
+
     /// <summary>Selected ipatool major version (2 or 3). Default is 2 (no iCloud requirement).</summary>
     public int IpatoolVersion { get; set; } = 2;
 

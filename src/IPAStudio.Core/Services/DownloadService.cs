@@ -52,7 +52,8 @@ public sealed partial class DownloadService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "purchase", "-i", appId.ToString(), "--format", "json", "--non-interactive" },
+                new[] { "purchase", "-i", appId.ToString(), "--format", "json", "--non-interactive",
+                        "--keychain-passphrase", ToolLocator.KeychainPassphrase },
                 ct: ct).ConfigureAwait(false);
 
             if (result.Success) return LicenseState.Owned;
@@ -79,7 +80,8 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "purchase", "-i", appId.ToString(), "--format", "json", "--non-interactive" },
+            new[] { "purchase", "-i", appId.ToString(), "--format", "json", "--non-interactive",
+                    "--keychain-passphrase", ToolLocator.KeychainPassphrase },
             ct: ct).ConfigureAwait(false);
 
         if (result.Success || result.CombinedOutput.Contains("already", StringComparison.OrdinalIgnoreCase))
@@ -111,6 +113,7 @@ public sealed partial class DownloadService
             "-o", outputPath,
             "--format", "json",
             "--non-interactive",
+            "--keychain-passphrase", ToolLocator.KeychainPassphrase,
         };
         if (autoPurchase) args.Add("--purchase");
 
@@ -171,7 +174,8 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "search", term, "--limit", limit.ToString(), "--format", "json", "--non-interactive" },
+            new[] { "search", term, "--limit", limit.ToString(), "--format", "json", "--non-interactive",
+                    "--keychain-passphrase", ToolLocator.KeychainPassphrase },
             ct: ct).ConfigureAwait(false);
 
         var apps = new List<AppEntry>();
@@ -210,7 +214,8 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "download", "-i", appId.ToString(), "--list-versions", "--format", "json", "--non-interactive" },
+            new[] { "download", "-i", appId.ToString(), "--list-versions", "--format", "json", "--non-interactive",
+                    "--keychain-passphrase", ToolLocator.KeychainPassphrase },
             ct: ct).ConfigureAwait(false);
 
         var versions = new List<string>();

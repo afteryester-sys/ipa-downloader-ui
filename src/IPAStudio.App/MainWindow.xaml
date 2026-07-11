@@ -45,9 +45,9 @@
 
         <!-- Semi-transparent "iShop" wordmark in the bottom-right corner -->
         <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                   Margin="0,0,26,18" IsHitTestVisible="False"
-                   FontFamily="{StaticResource Font.Body}" FontSize="46" FontWeight="Bold"
-                   Opacity="0.07">
+                   Margin="0,0,22,16" IsHitTestVisible="False"
+                   FontFamily="{StaticResource Font.Body}" FontSize="22" FontWeight="SemiBold"
+                   Opacity="0.06">
             <Run Text="i" Foreground="{StaticResource Brush.Text}" />
             <Run Text="Shop" Foreground="{StaticResource Brush.Accent}" />
         </TextBlock>

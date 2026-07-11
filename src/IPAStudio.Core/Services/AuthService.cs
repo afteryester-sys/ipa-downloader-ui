@@ -6,12 +6,13 @@ using IPAStudio.Core.Tools;
 namespace IPAStudio.Core.Services;
 
 /// <summary>
-/// Apple ID authentication via ipatool. The bundled ipatool build is interactive:
-///   auth login -e email -p password   -> prompts for a 2FA code on stdin
-///   auth info                          -> prints "email=..." (text)
-///   auth revoke
-/// We drive it interactively: when it asks for the 2FA code we obtain one from the
-/// UI (the code is pushed to the user's trusted device by Apple) and write it to stdin.
+/// Apple ID authentication via ipatool. We run ipatool strictly NON-interactively so
+/// it never blocks on a terminal prompt (which deadlocks when stdin is redirected):
+///   1. "auth login" WITHOUT a code -> Apple pushes the 2FA code to the trusted device
+///      and ipatool reports "2FA code is required ... use the --auth-code flag".
+///   2. We collect the code from the UI and re-run "auth login --auth-code CODE".
+/// A fixed --keychain-passphrase is passed to every command so the local keychain can
+/// be unlocked without prompting.
 /// </summary>
 public sealed partial class AuthService
 {
@@ -44,77 +45,76 @@ public sealed partial class AuthService
         Func<CancellationToken, Task<string?>>? twoFactorProvider = null,
         CancellationToken ct = default)
     {
-        var args = new[] { "auth", "login", "-e", email, "-p", password };
-
-        var gate = new object();
-        var handledUpTo = 0;   // index in the combined buffer already acted upon
-        var requesting = false;
-
-        // Called (from the reader) as characters stream in. Because ipatool prints its
-        // "2FA code:" prompt WITHOUT a trailing newline, we scan the growing buffer for
-        // the prompt text and, when found, ask the UI for a code and write it to stdin.
-        void OnData(string full, StreamWriter stdin)
-        {
-            if (twoFactorProvider is null) return;
-
-            string tail;
-            lock (gate)
-            {
-                if (requesting) return;
-                if (full.Length <= handledUpTo) return;
-                tail = full[handledUpTo..];
-                if (!LooksLikeTwoFactorPrompt(tail)) return;
-
-                requesting = true;
-                handledUpTo = full.Length;
-            }
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var code = await twoFactorProvider(ct).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(code))
-                    {
-                        await stdin.WriteLineAsync(code.Trim()).ConfigureAwait(false);
-                        await stdin.FlushAsync().ConfigureAwait(false);
-                    }
-                }
-                catch { /* cancellation or write failure -> process ends via ct */ }
-                finally
-                {
-                    lock (gate) { requesting = false; }
-                }
-            }, CancellationToken.None);
-        }
-
-        ProcessResult result;
+        // ---- Step 1: attempt login WITHOUT a 2FA code. ------------------------------
+        // In non-interactive mode ipatool never blocks on a terminal prompt: if the
+        // account has 2FA it asks Apple to push the code (which the user receives) and
+        // then prints "2FA code is required; ... use the --auth-code flag" and exits.
+        ProcessResult first;
         try
         {
-            result = await _runner.RunInteractiveAsync(
-                _tools.IpatoolPath, args,
-                onData: OnData,
-                ct: ct).ConfigureAwait(false);
+            first = await RunLoginAsync(email, password, authCode: null, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
+        catch (Exception ex) { return AuthResult.Fail(ex.Message); }
+
+        var account = ParseAccount(first.CombinedOutput);
+        if (account is not null)
+            return Complete(account);
+
+        if (!RequiresTwoFactor(first.CombinedOutput))
+            return AuthResult.Fail(ExtractError(first.CombinedOutput));
+
+        // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
+        if (twoFactorProvider is null)
+            return AuthResult.NeedTwoFactor();
+
+        var code = await twoFactorProvider(ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(code))
+            return AuthResult.Fail("Sign-in was cancelled.");
+
+        ProcessResult second;
+        try
         {
-            return AuthResult.Fail(ex.Message);
+            second = await RunLoginAsync(email, password, code.Trim(), ct).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex) { return AuthResult.Fail(ex.Message); }
 
-        var output = result.CombinedOutput;
+        var account2 = ParseAccount(second.CombinedOutput);
+        if (account2 is not null)
+            return Complete(account2);
 
-        if (result.Success || IsLoginSuccess(output))
+        return AuthResult.Fail(ExtractError(second.CombinedOutput));
+
+        AuthResult Complete(AccountInfo acc)
         {
-            var account = ParseAccount(output)
-                          ?? await TryRestoreSessionAsync(ct).ConfigureAwait(false)
-                          ?? new AccountInfo { Email = email };
-            CurrentAccount = account;
-            AccountChanged?.Invoke(this, account);
-            return AuthResult.Ok(account);
+            if (string.IsNullOrEmpty(acc.Email))
+                acc = new AccountInfo { Email = email, Name = acc.Name };
+            CurrentAccount = acc;
+            AccountChanged?.Invoke(this, acc);
+            return AuthResult.Ok(acc);
         }
+    }
 
-        return AuthResult.Fail(ExtractError(output));
+    /// <summary>Runs a single non-interactive "auth login" (optionally with a 2FA code).</summary>
+    private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
+    {
+        var args = new List<string>
+        {
+            "auth", "login",
+            "-e", email,
+            "-p", password,
+            "--format", "json",
+            "--non-interactive",
+            "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+        };
+        if (!string.IsNullOrWhiteSpace(authCode))
+        {
+            args.Add("--auth-code");
+            args.Add(authCode!);
+        }
+        return _runner.RunAsync(_tools.IpatoolPath, args, ct: ct);
     }
 
     /// <summary>
@@ -127,7 +127,8 @@ public sealed partial class AuthService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "info" },
+                new[] { "auth", "info", "--format", "json", "--non-interactive",
+                        "--keychain-passphrase", ToolLocator.KeychainPassphrase },
                 ct: ct).ConfigureAwait(false);
 
             if (!result.Success) return null;
@@ -154,7 +155,8 @@ public sealed partial class AuthService
         {
             await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "revoke" },
+                new[] { "auth", "revoke", "--format", "json", "--non-interactive",
+                        "--keychain-passphrase", ToolLocator.KeychainPassphrase },
                 ct: ct).ConfigureAwait(false);
         }
         finally
@@ -209,35 +211,19 @@ public sealed partial class AuthService
         return null;
     }
 
-    /// <summary>True when the text looks like ipatool prompting for the 2FA/verification code.</summary>
-    private static bool LooksLikeTwoFactorPrompt(string text)
-    {
-        var lower = text.ToLowerInvariant();
-
-        // Explicit 2FA phrasing.
-        if (lower.Contains("2fa")
-            || lower.Contains("two-factor")
-            || lower.Contains("two factor")
-            || lower.Contains("verification code")
-            || lower.Contains("auth code")
-            || lower.Contains("authentication code")
-            || lower.Contains("mfa"))
-            return true;
-
-        // Generic "code" prompt: require the word "code" together with an interactive
-        // cue (a trailing colon or the word "enter") to avoid false positives.
-        return lower.Contains("code")
-            && (lower.Contains("enter") || lower.TrimEnd().EndsWith(":") || lower.Contains("code:"));
-    }
-
-    /// <summary>True when ipatool text output indicates a successful login.</summary>
-    private static bool IsLoginSuccess(string output)
+    /// <summary>
+    /// True when ipatool reports (in non-interactive mode) that a 2FA code is needed.
+    /// ipatool prints: "2FA code is required; run the command again and supply a code
+    /// using the `--auth-code` flag".
+    /// </summary>
+    private static bool RequiresTwoFactor(string output)
     {
         var lower = output.ToLowerInvariant();
-        return lower.Contains("\"success\":true")
-            || lower.Contains("successfully")
-            || lower.Contains("logged in")
-            || lower.Contains("authenticated");
+        return lower.Contains("2fa code is required")
+            || lower.Contains("--auth-code")
+            || lower.Contains("auth-code flag")
+            || (lower.Contains("2fa") && lower.Contains("required"))
+            || (lower.Contains("code is required"));
     }
 
     private static string ExtractError(string output)
