@@ -1,0 +1,60 @@
+<Window x:Class="IPAStudio.App.Views.LogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource L.Logs.Title}"
+        Width="820" Height="560" MinWidth="560" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Background}">
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,4">
+            <TextBlock Text="{DynamicResource L.Logs.Title}" Style="{StaticResource Text.Body}"
+                       FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="{DynamicResource L.Logs.Hint}" Style="{StaticResource Text.Caption}"
+                       TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Toolbar -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,10">
+            <Button Content="{DynamicResource L.Logs.Copy}" Style="{StaticResource Button.Primary}"
+                    Command="{Binding CopyCommand}" MinWidth="150" Margin="0,0,8,0" />
+            <Button Content="{DynamicResource L.Logs.Refresh}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding RefreshCommand}" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="{DynamicResource L.Logs.OpenFile}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding OpenFileCommand}" MinWidth="150" Margin="0,0,8,0" />
+            <Button Content="{DynamicResource L.Logs.Clear}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding ClearLogCommand}" MinWidth="90" />
+            <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                       VerticalAlignment="Center" Margin="14,0,0,0" />
+        </StackPanel>
+
+        <!-- Log body -->
+        <Border Grid.Row="2" CornerRadius="10" Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Padding="2">
+            <TextBox x:Name="LogBox" Text="{Binding Text, Mode=OneWay}"
+                     IsReadOnly="True" IsReadOnlyCaretVisible="False"
+                     Background="Transparent" BorderThickness="0"
+                     Foreground="{StaticResource Brush.Text}"
+                     FontFamily="Consolas, Cascadia Mono, monospace" FontSize="12"
+                     TextWrapping="NoWrap"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     VerticalContentAlignment="Top" Padding="10" />
+        </Border>
+
+        <!-- Footer: file path -->
+        <TextBlock Grid.Row="3" Margin="2,10,0,0" Style="{StaticResource Text.Caption}"
+                   TextTrimming="CharacterEllipsis">
+            <Run Text="{DynamicResource L.Logs.File}" />
+            <Run Text=" " />
+            <Run Text="{Binding LogFilePath, Mode=OneWay}" />
+        </TextBlock>
+    </Grid>
+</Window>

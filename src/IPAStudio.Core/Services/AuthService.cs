@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -50,41 +51,56 @@ public sealed partial class AuthService
         // If the account has 2FA, ipatool asks Apple to push the code (which the user
         // receives on their trusted device) and then exits with:
         //   "Error: two-factor auth code required. Retry with --auth-code CODE"
+        AppLog.Info($"Login: step 1 (no code) for '{email}' using ipatool v{_tools.IpatoolVersion}.");
         ProcessResult first;
         try
         {
             first = await RunLoginAsync(email, password, authCode: null, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { return AuthResult.Fail(ex.Message); }
+        catch (Exception ex) { AppLog.Error("Login step 1 threw.", ex); return AuthResult.Fail(ex.Message); }
 
         // Success (no 2FA on the account) -> done.
         if (first.Success)
+        {
+            AppLog.Info("Login: succeeded without 2FA.");
             return Complete(ParseAccount(first.CombinedOutput));
+        }
 
         // Not a 2FA request -> real failure (bad password, etc.).
         if (!RequiresTwoFactor(first.CombinedOutput))
+        {
+            AppLog.Warn($"Login failed (not a 2FA prompt): {ExtractError(first.CombinedOutput)}");
             return AuthResult.Fail(ExtractError(first.CombinedOutput));
+        }
 
         // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
+        AppLog.Info("Login: ipatool requested a 2FA code; prompting the user.");
         if (twoFactorProvider is null)
             return AuthResult.NeedTwoFactor();
 
         var code = await twoFactorProvider(ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(code))
+        {
+            AppLog.Info("Login: 2FA entry cancelled by the user.");
             return AuthResult.Fail("Sign-in was cancelled.");
+        }
 
+        AppLog.Info("Login: step 2 (with 2FA code).");
         ProcessResult second;
         try
         {
             second = await RunLoginAsync(email, password, code.Trim(), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { return AuthResult.Fail(ex.Message); }
+        catch (Exception ex) { AppLog.Error("Login step 2 threw.", ex); return AuthResult.Fail(ex.Message); }
 
         if (second.Success)
+        {
+            AppLog.Info("Login: succeeded after 2FA.");
             return Complete(ParseAccount(second.CombinedOutput));
+        }
 
         // Wrong/expired code -> a clearer message when ipatool says so.
         var lower = second.CombinedOutput.ToLowerInvariant();

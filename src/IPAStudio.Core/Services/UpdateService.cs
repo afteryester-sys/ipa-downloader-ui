@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
+using IPAStudio.Core.Diagnostics;
 
 namespace IPAStudio.Core.Services;
 
@@ -15,6 +17,22 @@ public enum UpdateState
     Downloading,
     ReadyToInstall,
     Failed,
+}
+
+/// <summary>Why the last update check did not yield a downloadable newer build.</summary>
+public enum UpdateFailureReason
+{
+    None,
+    /// <summary>Could not reach the server (no internet / DNS / TLS).</summary>
+    Network,
+    /// <summary>Request timed out.</summary>
+    Timeout,
+    /// <summary>Server reachable but no releases have been published yet (404).</summary>
+    NoReleases,
+    /// <summary>Server returned an unexpected HTTP error.</summary>
+    ServerError,
+    /// <summary>Response could not be understood.</summary>
+    BadResponse,
 }
 
 /// <summary>
@@ -34,6 +52,9 @@ public sealed class UpdateService
     private readonly HttpClient _http;
 
     public UpdateState State { get; private set; } = UpdateState.Unknown;
+    public UpdateFailureReason FailureReason { get; private set; } = UpdateFailureReason.None;
+    /// <summary>Technical detail of the last failure (HTTP status, exception message).</summary>
+    public string? LastErrorDetail { get; private set; }
     public Version CurrentVersion { get; }
     public Version? LatestVersion { get; private set; }
     public string? ReleaseNotes { get; private set; }
@@ -59,46 +80,111 @@ public sealed class UpdateService
     /// <summary>Checks GitHub for a newer release. Safe to call repeatedly.</summary>
     public async Task<bool> CheckForUpdatesAsync(CancellationToken ct = default)
     {
+        FailureReason = UpdateFailureReason.None;
+        LastErrorDetail = null;
         Set(UpdateState.Checking);
+        AppLog.Info($"Update check: current v{CurrentVersion}, querying {LatestReleaseApi}");
+
+        HttpResponseMessage response;
         try
         {
-            var release = await _http.GetFromJsonAsync<GitHubRelease>(LatestReleaseApi, ct);
-            if (release is null || string.IsNullOrWhiteSpace(release.TagName))
-            {
-                Set(UpdateState.Failed);
-                return false;
-            }
-
-            LatestVersion = ParseVersion(release.TagName);
-            ReleaseNotes = release.Body;
-
-            // Prefer an installer asset (Setup*.exe), otherwise any .exe/.zip.
-            var asset =
-                release.Assets?.FirstOrDefault(a =>
-                    a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
-                    a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                ?? release.Assets?.FirstOrDefault(a =>
-                    a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                ?? release.Assets?.FirstOrDefault(a =>
-                    a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
-
-            _downloadUrl = asset?.DownloadUrl;
-
-            if (LatestVersion is not null && LatestVersion > CurrentVersion)
-            {
-                Set(UpdateState.Available);
-                return true;
-            }
-
-            Set(UpdateState.UpToDate);
-            return false;
+            response = await _http.GetAsync(LatestReleaseApi, ct);
         }
-        catch (OperationCanceledException) { throw; }
-        catch
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
+            // GetAsync throws TaskCanceledException (an OCE) on HttpClient timeout.
+            FailureReason = UpdateFailureReason.Timeout;
+            LastErrorDetail = "Request timed out.";
+            AppLog.Error("Update check timed out.");
             Set(UpdateState.Failed);
             return false;
         }
+        catch (OperationCanceledException) { throw; }
+        catch (HttpRequestException ex)
+        {
+            FailureReason = UpdateFailureReason.Network;
+            LastErrorDetail = ex.Message;
+            AppLog.Error("Update check failed: cannot reach the update server.", ex);
+            Set(UpdateState.Failed);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            FailureReason = UpdateFailureReason.Network;
+            LastErrorDetail = ex.Message;
+            AppLog.Error("Update check failed (unexpected).", ex);
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        // The server was reached; interpret the HTTP status precisely.
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            FailureReason = UpdateFailureReason.NoReleases;
+            LastErrorDetail = "GitHub returned 404 (no published releases).";
+            AppLog.Warn("Update check: repository has no published releases yet (HTTP 404).");
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            FailureReason = UpdateFailureReason.ServerError;
+            LastErrorDetail = $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}";
+            AppLog.Error($"Update check: server error {LastErrorDetail}.");
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        GitHubRelease? release;
+        try
+        {
+            release = await response.Content.ReadFromJsonAsync<GitHubRelease>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            FailureReason = UpdateFailureReason.BadResponse;
+            LastErrorDetail = ex.Message;
+            AppLog.Error("Update check: could not parse the server response.", ex);
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        if (release is null || string.IsNullOrWhiteSpace(release.TagName))
+        {
+            FailureReason = UpdateFailureReason.NoReleases;
+            LastErrorDetail = "Latest release had no tag.";
+            AppLog.Warn("Update check: latest release response was empty.");
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        LatestVersion = ParseVersion(release.TagName);
+        ReleaseNotes = release.Body;
+        AppLog.Info($"Update check: latest published release is '{release.TagName}' (parsed {LatestVersion?.ToString() ?? "n/a"}).");
+
+        // Prefer an installer asset (Setup*.exe), otherwise any .exe/.zip.
+        var asset =
+            release.Assets?.FirstOrDefault(a =>
+                a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
+                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            ?? release.Assets?.FirstOrDefault(a =>
+                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            ?? release.Assets?.FirstOrDefault(a =>
+                a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+
+        _downloadUrl = asset?.DownloadUrl;
+
+        if (LatestVersion is not null && LatestVersion > CurrentVersion)
+        {
+            AppLog.Info($"Update available: v{LatestVersion} > v{CurrentVersion}.");
+            Set(UpdateState.Available);
+            return true;
+        }
+
+        AppLog.Info("Update check: already on the latest version.");
+        Set(UpdateState.UpToDate);
+        return false;
     }
 
     /// <summary>

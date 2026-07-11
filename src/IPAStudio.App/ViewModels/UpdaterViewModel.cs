@@ -69,11 +69,25 @@ public sealed partial class UpdaterViewModel : ObservableObject
                 StatusText = string.Format(Str("L.Update.Available"),
                     $"{latest.Major}.{latest.Minor}.{latest.Build}");
             }
+            else if (_updates.State == UpdateState.UpToDate)
+            {
+                var v = _updates.CurrentVersion;
+                StatusText = string.Format(Str("L.Update.UpToDateVer"),
+                    $"{v.Major}.{v.Minor}.{v.Build}");
+            }
             else
             {
-                StatusText = _updates.State == UpdateState.UpToDate
-                    ? Str("L.Update.UpToDate")
-                    : Str("L.Update.Failed");
+                // Precise, actionable reason instead of a generic message.
+                StatusText = _updates.FailureReason switch
+                {
+                    UpdateFailureReason.NoReleases  => Str("L.Update.NoReleases"),
+                    UpdateFailureReason.Network     => Str("L.Update.NoConnection"),
+                    UpdateFailureReason.Timeout     => Str("L.Update.Timeout"),
+                    UpdateFailureReason.ServerError => string.Format(Str("L.Update.ServerError"),
+                                                          _updates.LastErrorDetail),
+                    UpdateFailureReason.BadResponse => Str("L.Update.BadResponse"),
+                    _                               => Str("L.Update.Failed"),
+                };
             }
         }
         catch
@@ -125,6 +139,29 @@ public sealed partial class UpdaterViewModel : ObservableObject
             Application.Current.Shutdown();
         else
             _updates.OpenReleasesPage();
+    }
+
+    /// <summary>Opens the detailed log viewer (used to copy errors for support).</summary>
+    [RelayCommand]
+    private void ShowLogs()
+    {
+        IsOpen = false;
+
+        // Reuse an already-open log window instead of stacking duplicates.
+        foreach (var w in Application.Current.Windows)
+        {
+            if (w is Views.LogWindow existing)
+            {
+                existing.Activate();
+                return;
+            }
+        }
+
+        var win = new Views.LogWindow
+        {
+            Owner = Application.Current.MainWindow,
+        };
+        win.Show();
     }
 
     private static string Str(string key) =>

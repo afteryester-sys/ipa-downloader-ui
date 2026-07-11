@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using IPAStudio.Core.Diagnostics;
 
 namespace IPAStudio.Core.Tools;
 
@@ -77,6 +78,8 @@ public sealed class ProcessRunner
             foreach (var (key, value) in environment)
                 psi.Environment[key] = value;
 
+        AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
 
@@ -96,7 +99,10 @@ public sealed class ProcessRunner
         };
 
         if (!process.Start())
+        {
+            AppLog.Error($"Failed to start process: {fileName}");
             throw new InvalidOperationException($"Failed to start process: {fileName}");
+        }
 
         _job?.Track(process);
 
@@ -138,13 +144,30 @@ public sealed class ProcessRunner
         await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
 
-        return new ProcessResult
+        var result = new ProcessResult
         {
             ExitCode = process.ExitCode,
             StdOut = stdout.ToString(),
             StdErr = stderr.ToString(),
         };
+
+        AppLog.Info($"EXIT {ExeName(fileName)} code={result.ExitCode}");
+        var err = result.StdErr.Trim();
+        if (err.Length > 0)
+            AppLog.Warn($"  stderr: {Truncate(err, 1500)}");
+        if (!result.Success && result.StdOut.Trim().Length > 0)
+            AppLog.Warn($"  stdout: {Truncate(result.StdOut.Trim(), 1500)}");
+
+        return result;
     }
+
+    private static string ExeName(string path)
+    {
+        try { return Path.GetFileName(path); } catch { return path; }
+    }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + $"… (+{s.Length - max} chars)";
 
     /// <summary>
     /// Runs an interactive tool, reading stdout/stderr <b>character by character</b>

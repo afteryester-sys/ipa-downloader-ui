@@ -107,7 +107,7 @@
         <Grid HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,12,0"
               DataContext="{Binding Updater}">
             <Button x:Name="UpdateButton" Width="34" Height="34" Padding="0"
-                    Cursor="Hand" ToolTip="{DynamicResource L.Update.Title}"
+                    Cursor="Hand" ToolTip="{DynamicResource L.Menu.Title}"
                     Command="{Binding ToggleCommand}"
                     Background="Transparent" BorderThickness="0">
                 <Button.Template>
@@ -116,14 +116,11 @@
                                 Background="Transparent" BorderThickness="1"
                                 BorderBrush="Transparent">
                             <Grid>
-                                <!-- Download / update glyph -->
-                                <Path Stroke="{StaticResource Brush.TextMuted}" StrokeThickness="1.6"
-                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      Data="M11,4 L11,13 M11,13 L7.5,9.5 M11,13 L14.5,9.5 M5,16.5 L17,16.5"
-                                      Width="22" Height="22" Stretch="Uniform"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <!-- Blue dot when an update is available -->
+                                <!-- Settings (gear) glyph -->
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="17" Foreground="{StaticResource Brush.TextMuted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <!-- Accent dot when an update is available -->
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource Brush.Accent}"
                                          HorizontalAlignment="Right" VerticalAlignment="Top"
                                          Margin="0,3,3,0"
@@ -150,21 +147,26 @@
                         <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="#000000" />
                     </Border.Effect>
                     <StackPanel>
-                        <Grid Margin="0,0,0,10">
-                            <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Body}"
-                                       FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <!-- Menu header -->
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="{DynamicResource L.Menu.Title}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
                             <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                                        Style="{StaticResource Text.Caption}">
                                 <Run Text="v" /><Run Text="{Binding VersionText, Mode=OneWay}" />
                             </TextBlock>
                         </Grid>
 
+                        <!-- Updates section -->
+                        <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+
                         <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
-                                   TextWrapping="Wrap" Margin="0,0,0,12"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
                                    Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
 
                         <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
-                                     Value="{Binding Progress}" Margin="0,0,0,12"
+                                     Value="{Binding Progress}" Margin="0,0,0,10"
                                      Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
 
                         <Button Content="{DynamicResource L.Update.Check}" Style="{StaticResource Button.Secondary}"
@@ -179,6 +181,16 @@
                         <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
                                 HorizontalAlignment="Stretch" Command="{Binding InstallCommand}"
                                 Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
+                        <!-- Diagnostics section -->
+                        <TextBlock Text="{DynamicResource L.Menu.Diagnostics}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+                        <Button Content="{DynamicResource L.Menu.Logs}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Command="{Binding ShowLogsCommand}" />
                     </StackPanel>
                 </Border>
             </Popup>
