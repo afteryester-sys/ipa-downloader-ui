@@ -55,6 +55,7 @@ public sealed class ProcessRunner
         IReadOnlyList<string>? stdinLines = null,
         Action<StreamWriter>? onStdinReady = null,
         IReadOnlyDictionary<string, string>? environment = null,
+        bool closeStdin = false,
         CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
@@ -63,7 +64,7 @@ public sealed class ProcessRunner
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = stdinLines is { Count: > 0 } || onStdinReady is not null,
+            RedirectStandardInput = closeStdin || stdinLines is { Count: > 0 } || onStdinReady is not null,
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
@@ -111,6 +112,13 @@ public sealed class ProcessRunner
         {
             foreach (var line in stdinLines)
                 await process.StandardInput.WriteLineAsync(line).ConfigureAwait(false);
+            process.StandardInput.Close();
+        }
+        else if (closeStdin)
+        {
+            // Close stdin immediately so any interactive prompt (e.g. ipatool's
+            // "Enter 2FA code: ") receives EOF and falls back to its non-interactive
+            // path instead of blocking forever waiting for input.
             process.StandardInput.Close();
         }
 

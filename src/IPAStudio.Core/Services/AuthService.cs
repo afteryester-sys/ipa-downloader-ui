@@ -6,13 +6,14 @@ using IPAStudio.Core.Tools;
 namespace IPAStudio.Core.Services;
 
 /// <summary>
-/// Apple ID authentication via ipatool. We run ipatool strictly NON-interactively so
-/// it never blocks on a terminal prompt (which deadlocks when stdin is redirected):
-///   1. "auth login" WITHOUT a code -> Apple pushes the 2FA code to the trusted device
-///      and ipatool reports "2FA code is required ... use the --auth-code flag".
-///   2. We collect the code from the UI and re-run "auth login --auth-code CODE".
-/// A fixed --keychain-passphrase is passed to every command so the local keychain can
-/// be unlocked without prompting.
+/// Apple ID authentication via the bundled ipatool fork. That fork exposes only two
+/// global flags (--format, --keychain-passphrase) and has NO --non-interactive flag.
+/// Its 2FA handling is:
+///   1. "auth login" WITHOUT a code -> Apple pushes the code to the trusted device and
+///      ipatool exits with "two-factor auth code required. Retry with --auth-code CODE".
+///   2. We collect the code from the UI and re-run "auth login ... --auth-code CODE".
+/// stdin is closed on every call so ipatool's interactive prompts get EOF instead of
+/// hanging, and a fixed --keychain-passphrase unlocks the local keychain silently.
 /// </summary>
 public sealed partial class AuthService
 {
@@ -46,9 +47,9 @@ public sealed partial class AuthService
         CancellationToken ct = default)
     {
         // ---- Step 1: attempt login WITHOUT a 2FA code. ------------------------------
-        // In non-interactive mode ipatool never blocks on a terminal prompt: if the
-        // account has 2FA it asks Apple to push the code (which the user receives) and
-        // then prints "2FA code is required; ... use the --auth-code flag" and exits.
+        // If the account has 2FA, ipatool asks Apple to push the code (which the user
+        // receives on their trusted device) and then exits with:
+        //   "Error: two-factor auth code required. Retry with --auth-code CODE"
         ProcessResult first;
         try
         {
@@ -57,10 +58,11 @@ public sealed partial class AuthService
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return AuthResult.Fail(ex.Message); }
 
-        var account = ParseAccount(first.CombinedOutput);
-        if (account is not null)
-            return Complete(account);
+        // Success (no 2FA on the account) -> done.
+        if (first.Success)
+            return Complete(ParseAccount(first.CombinedOutput));
 
+        // Not a 2FA request -> real failure (bad password, etc.).
         if (!RequiresTwoFactor(first.CombinedOutput))
             return AuthResult.Fail(ExtractError(first.CombinedOutput));
 
@@ -81,14 +83,19 @@ public sealed partial class AuthService
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return AuthResult.Fail(ex.Message); }
 
-        var account2 = ParseAccount(second.CombinedOutput);
-        if (account2 is not null)
-            return Complete(account2);
+        if (second.Success)
+            return Complete(ParseAccount(second.CombinedOutput));
+
+        // Wrong/expired code -> a clearer message when ipatool says so.
+        var lower = second.CombinedOutput.ToLowerInvariant();
+        if (lower.Contains("rejected") || lower.Contains("invalid") || RequiresTwoFactor(second.CombinedOutput))
+            return AuthResult.Fail("The verification code was incorrect. Please try again.");
 
         return AuthResult.Fail(ExtractError(second.CombinedOutput));
 
-        AuthResult Complete(AccountInfo acc)
+        AuthResult Complete(AccountInfo? acc)
         {
+            acc ??= new AccountInfo { Email = email };
             if (string.IsNullOrEmpty(acc.Email))
                 acc = new AccountInfo { Email = email, Name = acc.Name };
             CurrentAccount = acc;
@@ -97,7 +104,12 @@ public sealed partial class AuthService
         }
     }
 
-    /// <summary>Runs a single non-interactive "auth login" (optionally with a 2FA code).</summary>
+    /// <summary>
+    /// Runs a single "auth login" (optionally with a 2FA code). The bundled ipatool
+    /// fork exposes only --format and --keychain-passphrase as global flags (there is
+    /// no --non-interactive); stdin is closed so its interactive "Enter 2FA code:"
+    /// prompt gets EOF and it falls back to the "--auth-code required" error path.
+    /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
         var args = new List<string>
@@ -105,16 +117,15 @@ public sealed partial class AuthService
             "auth", "login",
             "-e", email,
             "-p", password,
-            "--format", "json",
-            "--non-interactive",
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            "--format", "json",
         };
         if (!string.IsNullOrWhiteSpace(authCode))
         {
             args.Add("--auth-code");
-            args.Add(authCode!);
+            args.Add(authCode!.Trim());
         }
-        return _runner.RunAsync(_tools.IpatoolPath, args, ct: ct);
+        return _runner.RunAsync(_tools.IpatoolPath, args, closeStdin: true, ct: ct);
     }
 
     /// <summary>
@@ -127,8 +138,9 @@ public sealed partial class AuthService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "info", "--format", "json", "--non-interactive",
-                        "--keychain-passphrase", ToolLocator.KeychainPassphrase },
+                new[] { "auth", "info", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+                        "--format", "json" },
+                closeStdin: true,
                 ct: ct).ConfigureAwait(false);
 
             if (!result.Success) return null;
@@ -155,8 +167,9 @@ public sealed partial class AuthService
         {
             await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "revoke", "--format", "json", "--non-interactive",
-                        "--keychain-passphrase", ToolLocator.KeychainPassphrase },
+                new[] { "auth", "revoke", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+                        "--format", "json" },
+                closeStdin: true,
                 ct: ct).ConfigureAwait(false);
         }
         finally
@@ -212,18 +225,19 @@ public sealed partial class AuthService
     }
 
     /// <summary>
-    /// True when ipatool reports (in non-interactive mode) that a 2FA code is needed.
-    /// ipatool prints: "2FA code is required; run the command again and supply a code
-    /// using the `--auth-code` flag".
+    /// True when ipatool reports that a 2FA code is needed. The bundled fork prints:
+    /// "Error: two-factor auth code required. Retry with --auth-code CODE"
+    /// (and, in other spots, "auth code is required" / "Enter 2FA code:").
     /// </summary>
     private static bool RequiresTwoFactor(string output)
     {
         var lower = output.ToLowerInvariant();
-        return lower.Contains("2fa code is required")
+        return lower.Contains("two-factor auth code required")
+            || lower.Contains("auth code is required")
             || lower.Contains("--auth-code")
-            || lower.Contains("auth-code flag")
+            || lower.Contains("enter 2fa code")
             || (lower.Contains("2fa") && lower.Contains("required"))
-            || (lower.Contains("code is required"));
+            || (lower.Contains("two-factor") && lower.Contains("required"));
     }
 
     private static string ExtractError(string output)
