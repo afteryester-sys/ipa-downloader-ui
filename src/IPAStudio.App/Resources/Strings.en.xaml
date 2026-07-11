@@ -10,6 +10,7 @@
     <sys:String x:Key="L.Settings">Settings</sys:String>
     <sys:String x:Key="L.Search">Search…</sys:String>
     <sys:String x:Key="L.Loading">Loading…</sys:String>
+    <sys:String x:Key="L.Credit">developed by Poslevcherashniy</sys:String>
 
     <!-- Environment setup -->
     <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
@@ -89,5 +90,19 @@
     <sys:String x:Key="L.Settings.Account">Account</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
+
+    <!-- Updates -->
+    <sys:String x:Key="L.Update.Title">Updates</sys:String>
+    <sys:String x:Key="L.Update.Version">Current version:</sys:String>
+    <sys:String x:Key="L.Update.Check">Check for updates</sys:String>
+    <sys:String x:Key="L.Update.Download">Download update</sys:String>
+    <sys:String x:Key="L.Update.Install">Install and restart</sys:String>
+    <sys:String x:Key="L.Update.Checking">Checking for updates…</sys:String>
+    <sys:String x:Key="L.Update.Available">A new version {0} is available</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">You are running the latest version</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Downloading update…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Update downloaded. Click "Install and restart".</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">The releases page was opened in your browser — download the installer manually.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Could not check for updates. Check your internet connection.</sys:String>
 
 </ResourceDictionary>

@@ -10,6 +10,7 @@
     <sys:String x:Key="L.Settings">Настройки</sys:String>
     <sys:String x:Key="L.Search">Поиск…</sys:String>
     <sys:String x:Key="L.Loading">Загрузка…</sys:String>
+    <sys:String x:Key="L.Credit">разработано Послевчерашним</sys:String>
 
     <!-- Проверка окружения -->
     <sys:String x:Key="L.Setup.Title">Проверка окружения</sys:String>
@@ -89,5 +90,19 @@
     <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
+
+    <!-- Обновления -->
+    <sys:String x:Key="L.Update.Title">Обновления</sys:String>
+    <sys:String x:Key="L.Update.Version">Текущая версия:</sys:String>
+    <sys:String x:Key="L.Update.Check">Проверить обновления</sys:String>
+    <sys:String x:Key="L.Update.Download">Скачать обновление</sys:String>
+    <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
+    <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
+    <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас установлена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">Страница релизов открыта в браузере — скачайте установщик вручную.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Не удалось проверить обновления. Проверьте подключение к интернету.</sys:String>
 
 </ResourceDictionary>

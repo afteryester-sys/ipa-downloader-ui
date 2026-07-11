@@ -1,10 +1,14 @@
 <UserControl x:Class="IPAStudio.App.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
     <UserControl.Resources>
         <sys:Int32 x:Key="V2">2</sys:Int32>
         <sys:Int32 x:Key="V3">3</sys:Int32>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -79,6 +83,45 @@
                     <Button Content="{DynamicResource L.Settings.SignOut}" Style="{StaticResource Button.Danger}"
                             HorizontalAlignment="Left"
                             Command="{Binding SignOutCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Updates -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="{DynamicResource L.Update.Version}" Style="{StaticResource Text.Caption}"
+                                       VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding CurrentVersion}" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.Accent}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,12"
+                               Visibility="{Binding UpdateStatus, Converter={StaticResource NullToCollapsed}}" />
+
+                    <!-- Download progress -->
+                    <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                 Value="{Binding UpdateProgress}" Margin="0,0,0,12"
+                                 Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVis}}" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource L.Update.Check}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding IsUpdateBusy, Converter={StaticResource InverseBool}}"
+                                Margin="0,0,10,0" />
+                        <Button Content="{DynamicResource L.Update.Download}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding DownloadUpdateCommand}"
+                                IsEnabled="{Binding IsUpdateBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,10,0" />
+                        <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding InstallUpdateCommand}"
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

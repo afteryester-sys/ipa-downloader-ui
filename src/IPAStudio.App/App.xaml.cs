@@ -35,6 +35,7 @@ public partial class App : Application
         services.AddSingleton<InstallService>();
         services.AddSingleton<QueueService>();
         services.AddSingleton<DependencyService>();
+        services.AddSingleton<UpdateService>();
 
         // App
         services.AddSingleton<LocalizationManager>();

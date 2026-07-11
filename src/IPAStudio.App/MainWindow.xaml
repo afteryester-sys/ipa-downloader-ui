@@ -29,10 +29,74 @@
         </DataTemplate>
     </Window.Resources>
 
-    <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
-    <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
-        <ContentControl.RenderTransform>
-            <TranslateTransform x:Name="PageTranslate" />
-        </ContentControl.RenderTransform>
-    </ContentControl>
+    <Grid>
+        <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
+        <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
+            <ContentControl.RenderTransform>
+                <TranslateTransform x:Name="PageTranslate" />
+            </ContentControl.RenderTransform>
+        </ContentControl>
+
+        <!-- ===== Decorative overlay (non-interactive) ===== -->
+
+        <!-- Semi-transparent "iShop" wordmark in the bottom-right corner -->
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Margin="0,0,26,18" IsHitTestVisible="False"
+                   FontFamily="{StaticResource Font.Body}" FontSize="46" FontWeight="Bold"
+                   Opacity="0.07">
+            <Run Text="i" Foreground="{StaticResource Brush.Text}" />
+            <Run Text="Shop" Foreground="{StaticResource Brush.Accent}" />
+        </TextBlock>
+
+        <!-- Animated developer credit with a shimmering sweep -->
+        <TextBlock x:Name="CreditText" Text="{DynamicResource L.Credit}"
+                   HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                   Margin="26,0,0,20" IsHitTestVisible="False"
+                   FontFamily="{StaticResource Font.Body}" FontSize="12"
+                   FontWeight="SemiBold" Opacity="0">
+            <TextBlock.RenderTransform>
+                <TranslateTransform x:Name="CreditSlide" Y="8" />
+            </TextBlock.RenderTransform>
+            <TextBlock.Foreground>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                    <GradientStop x:Name="Shimmer1" Color="{StaticResource Color.TextMuted}" Offset="-0.4" />
+                    <GradientStop x:Name="Shimmer2" Color="{StaticResource Color.Accent}" Offset="-0.2" />
+                    <GradientStop x:Name="Shimmer3" Color="{StaticResource Color.TextMuted}" Offset="0.0" />
+                </LinearGradientBrush>
+            </TextBlock.Foreground>
+            <TextBlock.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <!-- Intro: fade + slide up -->
+                            <DoubleAnimation Storyboard.TargetName="CreditText"
+                                             Storyboard.TargetProperty="Opacity"
+                                             To="0.85" Duration="0:0:0.9" />
+                            <DoubleAnimation Storyboard.TargetName="CreditSlide"
+                                             Storyboard.TargetProperty="Y"
+                                             To="0" Duration="0:0:0.9">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+
+                            <!-- Looping shimmer sweep across the text -->
+                            <DoubleAnimation Storyboard.TargetName="Shimmer1"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="-0.4" To="1.0" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                            <DoubleAnimation Storyboard.TargetName="Shimmer2"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="-0.2" To="1.2" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                            <DoubleAnimation Storyboard.TargetName="Shimmer3"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="0.0" To="1.4" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </TextBlock.Triggers>
+        </TextBlock>
+    </Grid>
 </Window>

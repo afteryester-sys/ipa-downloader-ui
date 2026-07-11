@@ -23,6 +23,16 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>bool -> inverse bool (for IsEnabled bindings against a "busy" flag).</summary>
+public sealed class InverseBoolConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not true;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not true;
+}
+
 /// <summary>DependencyState Missing/Failed -> Visible (an action button is needed).</summary>
 public sealed class DependencyStateNeedsActionConverter : IValueConverter
 {
