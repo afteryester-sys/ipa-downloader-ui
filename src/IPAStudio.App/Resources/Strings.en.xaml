@@ -54,6 +54,7 @@
 
     <!-- App picker -->
     <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Search</sys:String>
     <sys:String x:Key="L.Picker.SelectedCount">Selected:</sys:String>
     <sys:String x:Key="L.Picker.Install">Install Selected</sys:String>
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>

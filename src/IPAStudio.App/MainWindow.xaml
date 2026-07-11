@@ -43,20 +43,13 @@
 
         <!-- ===== Decorative overlay (non-interactive) ===== -->
 
-        <!-- Semi-transparent "iShop" wordmark in the bottom-right corner -->
-        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                   Margin="0,0,22,16" IsHitTestVisible="False"
-                   FontFamily="{StaticResource Font.Body}" FontSize="22" FontWeight="SemiBold"
-                   Opacity="0.06">
-            <Run Text="i" Foreground="{StaticResource Brush.Text}" />
-            <Run Text="Shop" Foreground="{StaticResource Brush.Accent}" />
-        </TextBlock>
-
-        <!-- Animated developer credit with a shimmering sweep -->
+        <!-- Animated developer credit with a shimmering sweep.
+             Centered at the very bottom edge and kept tiny so it never overlaps
+             the content / action bars of the individual pages. -->
         <TextBlock x:Name="CreditText" Text="{DynamicResource L.Credit}"
-                   HorizontalAlignment="Left" VerticalAlignment="Bottom"
-                   Margin="26,0,0,20" IsHitTestVisible="False"
-                   FontFamily="{StaticResource Font.Body}" FontSize="12"
+                   HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                   Margin="0,0,0,6" IsHitTestVisible="False"
+                   FontFamily="{StaticResource Font.Body}" FontSize="10"
                    FontWeight="SemiBold" Opacity="0">
             <TextBlock.RenderTransform>
                 <TranslateTransform x:Name="CreditSlide" Y="8" />

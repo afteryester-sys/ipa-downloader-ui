@@ -54,6 +54,7 @@
 
     <!-- Выбор приложений -->
     <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Поиск</sys:String>
     <sys:String x:Key="L.Picker.SelectedCount">Выбрано:</sys:String>
     <sys:String x:Key="L.Picker.Install">Установить выбранные</sys:String>
     <sys:String x:Key="L.Picker.SelectAll">Выбрать все</sys:String>
