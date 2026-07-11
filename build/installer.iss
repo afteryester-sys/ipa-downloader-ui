@@ -11,7 +11,10 @@
 ; =============================================================================
 
 #define MyAppName "IPA Studio"
-#define MyAppVersion "1.0.0"
+; MyAppVersion may be provided by the build pipeline via /DMyAppVersion=x.y.z
+#ifndef MyAppVersion
+  #define MyAppVersion "1.1.0"
+#endif
 #define MyAppPublisher "IPA Studio"
 #define MyAppExeName "IPAStudio.App.exe"
 #define MyAppURL "https://github.com/kda2495/IPA_Downloader"
