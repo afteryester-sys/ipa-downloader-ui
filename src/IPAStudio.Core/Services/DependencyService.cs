@@ -127,20 +127,72 @@ public sealed class DependencyService
     {
         if (!OperatingSystem.IsWindows()) return DependencyState.Missing;
 
-        // Classic desktop install
-        using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Apple Computer, Inc.\iTunes"))
+        // 1. Classic 64-bit desktop install (apple.com installer).
+        using (var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Apple Computer, Inc.\iTunes"))
         {
             if (key is not null) return DependencyState.Ok;
         }
 
-        // Microsoft Store version registers the AMDS driver but a different key;
-        // presence of the driver service is treated as equivalent above, so here
-        // we only report the desktop app.
+        // 2. 32-bit node on 64-bit Windows (older iTunes installers).
         using (var key = Registry.LocalMachine.OpenSubKey(
             @"SOFTWARE\WOW6432Node\Apple Computer, Inc.\iTunes"))
         {
-            return key is not null ? DependencyState.Ok : DependencyState.Missing;
+            if (key is not null) return DependencyState.Ok;
         }
+
+        // 3. Standard Uninstall entry (present for both MSI and the newer
+        //    Apple installer regardless of bitness).
+        string[] uninstallRoots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ];
+        foreach (var root in uninstallRoots)
+        {
+            using var rootKey = Registry.LocalMachine.OpenSubKey(root);
+            if (rootKey is null) continue;
+            foreach (var sub in rootKey.GetSubKeyNames())
+            {
+                using var subKey = rootKey.OpenSubKey(sub);
+                var name = subKey?.GetValue("DisplayName") as string ?? "";
+                if (name.Contains("iTunes", StringComparison.OrdinalIgnoreCase))
+                    return DependencyState.Ok;
+            }
+        }
+
+        // 4. Microsoft Store version — package family name known since iTunes 12.10.
+        using (var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppleInc.iTunes_nzyj5cx40ttqa"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+
+        // 5. Fallback: iTunes.exe on disk in the two canonical locations.
+        string[] exePaths =
+        [
+            @"C:\Program Files\iTunes\iTunes.exe",
+            @"C:\Program Files (x86)\iTunes\iTunes.exe",
+        ];
+        if (exePaths.Any(File.Exists)) return DependencyState.Ok;
+
+        // 6. Current-user Uninstall hive (per-user installs).
+        using (var cuRoot = Registry.CurrentUser.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
+        {
+            if (cuRoot is not null)
+            {
+                foreach (var sub in cuRoot.GetSubKeyNames())
+                {
+                    using var subKey = cuRoot.OpenSubKey(sub);
+                    var name = subKey?.GetValue("DisplayName") as string ?? "";
+                    if (name.Contains("iTunes", StringComparison.OrdinalIgnoreCase))
+                        return DependencyState.Ok;
+                }
+            }
+        }
+
+        return DependencyState.Missing;
     }
 
     // ---------------------------------------------------------------- installs

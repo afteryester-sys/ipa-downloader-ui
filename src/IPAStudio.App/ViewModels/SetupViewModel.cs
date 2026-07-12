@@ -16,7 +16,11 @@ namespace IPAStudio.App.ViewModels;
 public sealed partial class SetupViewModel : ObservableObject, IPageAware
 {
     private const string ITunesUrl = "https://www.apple.com/itunes/download/win64";
-    private const string ICloudUrl  = "https://support.apple.com/en-us/111907"; // iCloud for Windows
+
+    // Direct link to iCloud for Windows in the Microsoft Store (opens Store app).
+    // Fallback web page if Store doesn't open: support.apple.com/en-us/103232
+    private const string ICloudStoreUrl = "ms-windows-store://pdp/?ProductId=9PKTQ5699M62";
+    private const string ICloudWebUrl   = "https://support.apple.com/en-us/103232";
 
     private readonly DependencyService _deps;
     private readonly SettingsService _settings;
@@ -196,12 +200,22 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
         catch { /* ignore */ }
     }
 
-    /// <summary>Opens the official iCloud for Windows download page in the default browser.</summary>
+    /// <summary>
+    /// Opens iCloud for Windows in the Microsoft Store.
+    /// Falls back to the Apple support web page if the Store URI fails.
+    /// </summary>
     [RelayCommand]
     private void OpenICloudPage()
     {
-        try { Process.Start(new ProcessStartInfo(ICloudUrl) { UseShellExecute = true }); }
-        catch { /* ignore */ }
+        try
+        {
+            Process.Start(new ProcessStartInfo(ICloudStoreUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo(ICloudWebUrl) { UseShellExecute = true }); }
+            catch { /* ignore */ }
+        }
     }
 
     [RelayCommand]
