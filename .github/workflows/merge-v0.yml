@@ -1,0 +1,75 @@
+# Triggered when v0 pushes to a v0/** branch.
+# 1. Bumps the patch segment of <Version> in IPAStudio.App.csproj.
+# 2. Commits the bump to the v0 branch.
+# 3. Merges (fast-forward or merge commit) into main.
+# This means every change from the v0 chat automatically lands in main
+# with a fresh version number, which then triggers auto-release.yml and
+# produces a new installer that the running app can pick up.
+name: Merge v0 branch into main
+
+on:
+  push:
+    branches: ["v0/**"]
+
+jobs:
+  bump-and-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ---- Bump patch version in csproj ------------------------------------
+      - name: Bump patch version
+        id: bump
+        shell: bash
+        run: |
+          FILE="src/IPAStudio.App/IPAStudio.App.csproj"
+
+          # Extract current version
+          CURRENT=$(grep -oP '(?<=<Version>)[^<]+' "$FILE" | head -1 | tr -d '[:space:]')
+          echo "Current version: $CURRENT"
+
+          # Split into parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          NEW="$MAJOR.$MINOR.$PATCH"
+
+          echo "New version: $NEW"
+          echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
+
+          # Write back
+          sed -i "s|<Version>${CURRENT}</Version>|<Version>${NEW}</Version>|g" "$FILE"
+
+      # ---- Commit the bump on the v0 branch --------------------------------
+      - name: Commit version bump
+        run: |
+          git add src/IPAStudio.App/IPAStudio.App.csproj
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [auto]" \
+            || echo "Nothing to commit (version unchanged)"
+
+      - name: Push bump to v0 branch
+        run: git push origin HEAD:${{ github.ref_name }}
+
+      # ---- Merge v0 branch into main ---------------------------------------
+      - name: Fetch main
+        run: git fetch origin main
+
+      - name: Merge into main
+        run: |
+          git checkout main
+          git merge --no-ff "${{ github.ref_name }}" \
+            -m "chore: merge ${{ github.ref_name }} -> main (v${{ steps.bump.outputs.new_version }})"
+
+      - name: Push main
+        run: git push origin main
