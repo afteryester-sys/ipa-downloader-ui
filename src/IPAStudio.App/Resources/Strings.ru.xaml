@@ -25,6 +25,7 @@
     <sys:String x:Key="L.Setup.Installing">Идёт установка… Может открыться окно контроля учётных записей (UAC).</sys:String>
     <sys:String x:Key="L.Setup.Recheck">Проверить снова</sys:String>
     <sys:String x:Key="L.Setup.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Setup.AllReady">Всё готово — открываем вход…</sys:String>
     <sys:String x:Key="L.Setup.ITunesFailed">Не удалось установить iTunes автоматически. Установите его вручную с сайта apple.com и нажмите «Проверить снова».</sys:String>
     <sys:String x:Key="L.Setup.ToolsFailed">Не удалось загрузить служебные утилиты. Проверьте подключение к интернету и повторите.</sys:String>
     <sys:String x:Key="L.Setup.DriversInstallNote">Драйверы Apple не найдены. Установите iTunes — он включает все необходимые драйверы.</sys:String>

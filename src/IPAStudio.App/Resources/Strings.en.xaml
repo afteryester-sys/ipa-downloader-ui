@@ -25,6 +25,7 @@
     <sys:String x:Key="L.Setup.Installing">Installing… A User Account Control (UAC) prompt may appear.</sys:String>
     <sys:String x:Key="L.Setup.Recheck">Check again</sys:String>
     <sys:String x:Key="L.Setup.Skip">Skip</sys:String>
+    <sys:String x:Key="L.Setup.AllReady">Everything is ready — opening sign-in…</sys:String>
     <sys:String x:Key="L.Setup.ITunesFailed">Could not install iTunes automatically. Please install it manually from apple.com and click "Check again".</sys:String>
     <sys:String x:Key="L.Setup.ToolsFailed">Could not download the helper utilities. Check your internet connection and retry.</sys:String>
     <sys:String x:Key="L.Setup.DriversInstallNote">Apple drivers not found. Install iTunes — it includes all required drivers.</sys:String>
