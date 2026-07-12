@@ -27,6 +27,12 @@
     <sys:String x:Key="L.Setup.Skip">Пропустить</sys:String>
     <sys:String x:Key="L.Setup.ITunesFailed">Не удалось установить iTunes автоматически. Установите его вручную с сайта apple.com и нажмите «Проверить снова».</sys:String>
     <sys:String x:Key="L.Setup.ToolsFailed">Не удалось загрузить служебные утилиты. Проверьте подключение к интернету и повторите.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Драйверы Apple не найдены. Установите iTunes — он включает все необходимые драйверы.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Скачать iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Или скачайте вручную:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud для Windows (требуется для ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Скачать iCloud для Windows</sys:String>
 
     <!-- Авторизация -->
     <sys:String x:Key="L.Login.Title">Вход в Apple ID</sys:String>
@@ -65,6 +71,7 @@
     <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
     <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
     <!-- Фото (Фотоплёнка) -->
     <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>

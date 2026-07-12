@@ -45,6 +45,19 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _storageSummary = "";
 
+    /// <summary>Battery charge level 0-100; -1 = unknown.</summary>
+    [ObservableProperty]
+    private int _batteryLevel = -1;
+
+    /// <summary>True when battery level is known (>= 0), so the card is shown.</summary>
+    public bool BatteryVisible => BatteryLevel >= 0;
+
+    partial void OnBatteryLevelChanged(int value) => OnPropertyChanged(nameof(BatteryVisible));
+
+    /// <summary>Placeholder for future charging state; false until ideviceinfo reports it.</summary>
+    [ObservableProperty]
+    private bool _batteryCharging;
+
     public ObservableCollection<DeviceInfoRow> Rows { get; } = new();
 
     public DeviceInfoViewModel(DeviceService devices, AuthService auth)
@@ -99,6 +112,9 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             ? Math.Clamp(100.0 * (_device.TotalDiskCapacity - _device.FreeDiskSpace) / _device.TotalDiskCapacity, 0, 100)
             : -1;
 
+        // Battery card
+        BatteryLevel = _device.BatteryLevel;
+
         Rows.Clear();
         AddRow("Модель", _device.Model);
         AddRow("Идентификатор модели", _device.ProductType);
@@ -111,8 +127,6 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         AddRow("Регион", _device.RegionInfo);
         AddRow("Wi-Fi адрес", _device.WifiAddress);
         AddRow("Bluetooth адрес", _device.BluetoothAddress);
-        if (_device.BatteryLevel >= 0)
-            AddRow("Батарея", $"{_device.BatteryLevel}%");
     }
 
     private void AddRow(string label, string value)

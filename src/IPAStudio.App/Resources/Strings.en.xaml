@@ -27,6 +27,12 @@
     <sys:String x:Key="L.Setup.Skip">Skip</sys:String>
     <sys:String x:Key="L.Setup.ITunesFailed">Could not install iTunes automatically. Please install it manually from apple.com and click "Check again".</sys:String>
     <sys:String x:Key="L.Setup.ToolsFailed">Could not download the helper utilities. Check your internet connection and retry.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Apple drivers not found. Install iTunes — it includes all required drivers.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Download iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Or download manually:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud for Windows (required for ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Download iCloud for Windows</sys:String>
 
     <!-- Login -->
     <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
@@ -65,6 +71,7 @@
     <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">The Apple ID is not exposed by the device. Recent iOS versions hide it for privacy.</sys:String>
     <sys:String x:Key="L.DeviceInfo.Storage">Storage</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Battery</sys:String>
 
     <!-- Photos (Camera Roll) -->
     <sys:String x:Key="L.Photos.Title">Photos</sys:String>

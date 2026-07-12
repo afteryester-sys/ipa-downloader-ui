@@ -5,6 +5,7 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:BatteryToBrushConverter x:Key="BatteryToBrush" />
     </UserControl.Resources>
 
     <Grid Margin="32">
@@ -29,15 +30,74 @@
 
                 <!-- Apple ID -->
                 <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource L.DeviceInfo.AppleId}" Style="{StaticResource Text.Caption}" />
-                        <TextBlock Text="{Binding AppleId}" Style="{StaticResource Text.Body}"
-                                   FontSize="17" FontWeight="SemiBold" Margin="0,4,0,0"
-                                   Visibility="{Binding AppleId, Converter={StaticResource NullToCollapsed}}" />
-                        <TextBlock Text="{DynamicResource L.DeviceInfo.AppleIdUnknown}" Style="{StaticResource Text.Caption}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Visibility="{Binding AppleId, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
-                    </StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="40" Height="40" CornerRadius="9" Margin="0,0,14,0"
+                                Background="{StaticResource Brush.AccentSoft}">
+                            <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L.DeviceInfo.AppleId}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <!-- Known Apple ID -->
+                            <TextBlock Text="{Binding AppleId}" Style="{StaticResource Text.Body}"
+                                       FontSize="15" FontWeight="SemiBold" Margin="0,2,0,0"
+                                       Visibility="{Binding AppleId, Converter={StaticResource NullToCollapsed}}" />
+                            <!-- Not available -->
+                            <TextBlock Text="{DynamicResource L.DeviceInfo.AppleIdUnknown}"
+                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Visibility="{Binding AppleId, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Battery -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16"
+                        Visibility="{Binding BatteryVisible, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="40" Height="40" CornerRadius="9" Margin="0,0,14,0"
+                                Background="{StaticResource Brush.AccentSoft}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xE83F;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BatteryCharging}" Value="True">
+                                                <Setter Property="Text" Value="&#xEC08;" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L.DeviceInfo.Battery}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <ProgressBar Style="{StaticResource Progress.Slim}"
+                                         Value="{Binding BatteryLevel, Mode=OneWay}" Maximum="100"
+                                         Margin="0,6,0,4"
+                                         Foreground="{Binding BatteryLevel, Converter={StaticResource BatteryToBrush}}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="14,0,0,0"
+                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18"
+                                   Foreground="{Binding BatteryLevel, Converter={StaticResource BatteryToBrush}}">
+                            <TextBlock.Text>
+                                <Binding Path="BatteryLevel" StringFormat="{}{0}%" />
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </Grid>
                 </Border>
 
                 <!-- Storage -->

@@ -46,6 +46,18 @@ public sealed class DependencyStateNeedsActionConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>DependencyState Missing -> Visible (shows install/download links for missing deps).</summary>
+public sealed class DependencyStateMissingConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is Core.Services.DependencyState.Missing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Null/empty string -> Collapsed (parameter "invert" flips the mapping).</summary>
 public sealed class NullToCollapsedConverter : IValueConverter
 {

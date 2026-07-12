@@ -22,6 +22,9 @@ public sealed class DependencyStatus
     public DependencyState ITunes { get; set; } = DependencyState.Unknown;
     public DependencyState CliTools { get; set; } = DependencyState.Unknown;
 
+    /// <summary>iCloud for Windows — only checked when ipatool v3 is active.</summary>
+    public DependencyState ICloud { get; set; } = DependencyState.Unknown;
+
     /// <summary>Everything required for device detection and installs is present.</summary>
     public bool AllReady =>
         AppleDrivers == DependencyState.Ok && CliTools == DependencyState.Ok;
@@ -70,6 +73,7 @@ public sealed class DependencyService
         Status.AppleDrivers = DependencyState.Checking;
         Status.ITunes = DependencyState.Checking;
         Status.CliTools = DependencyState.Checking;
+        Status.ICloud = DependencyState.Checking;
         StatusChanged?.Invoke();
 
         Status.AppleDrivers = await Task.Run(CheckAppleMobileDeviceSupport, ct);
@@ -77,8 +81,36 @@ public sealed class DependencyService
         Status.CliTools = _tools.ValidateTools().Count == 0
             ? DependencyState.Ok
             : DependencyState.Missing;
+        Status.ICloud = await Task.Run(CheckICloudInstalled, ct);
 
         StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Checks whether iCloud for Windows is installed.
+    /// ipatool v3 uses it for anisette data (Apple ID authentication).
+    /// </summary>
+    private static DependencyState CheckICloudInstalled()
+    {
+        if (!OperatingSystem.IsWindows()) return DependencyState.Missing;
+
+        // Classic MSI / exe installer.
+        using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Apple Inc.\iCloud"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+        // 32-bit registry view on 64-bit Windows.
+        using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Apple Inc.\iCloud"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+        // Microsoft Store version.
+        using (var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppleInc.iCloud_nzyj5cx40ttqa"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+        return DependencyState.Missing;
     }
 
     /// <summary>Apple Mobile Device Support service is registered (installed with iTunes).</summary>

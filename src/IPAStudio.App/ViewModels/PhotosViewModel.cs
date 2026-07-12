@@ -19,6 +19,10 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    /// <summary>Small thumbnail (64 px wide) loaded asynchronously after the list is built.</summary>
+    [ObservableProperty]
+    private BitmapImage? _thumbnail;
+
     public string FileName => Item.FileName;
     public string Album => Item.Album;
     public bool IsVideo => Item.IsVideo;
@@ -94,6 +98,16 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _previewUnavailable;
 
+    /// <summary>True = list layout; false = tile/grid layout.</summary>
+    [ObservableProperty]
+    private bool _isListView = true;
+
+    public bool IsGridView => !IsListView;
+
+    partial void OnIsListViewChanged(bool value) => OnPropertyChanged(nameof(IsGridView));
+
+    private CancellationTokenSource? _thumbCts;
+
     public PhotosViewModel(PhotoService photos)
     {
         _photos = photos;
@@ -118,7 +132,10 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private bool Filter(object obj)
     {
         if (obj is not PhotoItemViewModel p) return false;
-        if (!string.IsNullOrEmpty(SelectedAlbum) && p.Album != SelectedAlbum) return false;
+        // "Все альбомы" (or empty) means show all.
+        if (!string.IsNullOrEmpty(SelectedAlbum) &&
+            SelectedAlbum != "Все альбомы" &&
+            p.Album != SelectedAlbum) return false;
         return SelectedMediaType switch
         {
             "Фото" => !p.IsVideo,
@@ -130,6 +147,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private async Task LoadAsync()
     {
         if (_device is null) return;
+
+        // Cancel any running thumbnail loader before rebuilding the list.
+        _thumbCts?.Cancel();
+        _thumbCts?.Dispose();
+        _thumbCts = new CancellationTokenSource();
+
         IsBusy = true;
         StatusText = "Чтение медиатеки…";
         Photos.Clear();
@@ -148,14 +171,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             }
 
             Albums.Clear();
-            Albums.Add("");
+            Albums.Add("Все альбомы");
             foreach (var album in items.Select(i => i.Album).Distinct().OrderBy(a => a))
                 Albums.Add(album);
+            SelectedAlbum = "Все альбомы";
 
             TotalCount = Photos.Count;
             StatusText = Photos.Count == 0
                 ? "Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ."
                 : $"Найдено медиафайлов: {Photos.Count}";
+
+            // Start thumbnail loading in background.
+            _ = LoadThumbnailsAsync(_thumbCts.Token);
         }
         catch (Exception ex)
         {
@@ -297,6 +324,69 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             IsTransferring = false;
             _cts?.Dispose();
             _cts = null;
+        }
+    }
+
+    [RelayCommand]
+    private void SetListView() => IsListView = true;
+
+    [RelayCommand]
+    private void SetGridView() => IsListView = false;
+
+    /// <summary>
+    /// Loads small thumbnails for photos (not videos/HEIC) in the background.
+    /// Cancelled and restarted each time the list is refreshed.
+    /// </summary>
+    private async Task LoadThumbnailsAsync(CancellationToken ct)
+    {
+        // Process in batches: 3 at a time to avoid AFC session overload.
+        const int batchSize = 3;
+        var jpegItems = Photos
+            .Where(p => !p.IsVideo)
+            .ToList();
+
+        for (var i = 0; i < jpegItems.Count; i += batchSize)
+        {
+            if (ct.IsCancellationRequested) return;
+            var batch = jpegItems.Skip(i).Take(batchSize).ToList();
+
+            await Task.WhenAll(batch.Select(async item =>
+            {
+                if (item.Thumbnail is not null) return;
+                if (ct.IsCancellationRequested) return;
+
+                var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
+                if (ext is ".heic" or ".heif") return; // WPF can't decode HEIC
+
+                try
+                {
+                    if (_device is null) return;
+                    var bytes = await _photos.ReadFileAsync(_device.Udid, item.Item.RemotePath, 0, ct);
+                    if (bytes is null || bytes.Length == 0) return;
+
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        try
+                        {
+                            var img = new BitmapImage();
+                            using var ms = new MemoryStream(bytes);
+                            img.BeginInit();
+                            img.CacheOption = BitmapCacheOption.OnLoad;
+                            img.DecodePixelWidth = 128; // small thumb
+                            img.StreamSource = ms;
+                            img.EndInit();
+                            img.Freeze();
+                            item.Thumbnail = img;
+                        }
+                        catch { /* corrupt image — skip */ }
+                    });
+                }
+                catch (OperationCanceledException) { /* stop */ }
+                catch { /* skip this thumb */ }
+            }));
+
+            // Small pause so we don't starve the AFC session used by preview loading.
+            await Task.Delay(80, ct).ConfigureAwait(false);
         }
     }
 

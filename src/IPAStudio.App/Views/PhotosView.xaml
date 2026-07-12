@@ -6,6 +6,143 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
+
+        <!-- ── Shared item thumbnail style ── -->
+        <Style x:Key="ThumbBorder" TargetType="Border">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+
+        <!-- ── LIST row item template ── -->
+        <DataTemplate x:Key="ListItemTemplate">
+            <Grid Margin="12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
+                          IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+
+                <!-- Thumbnail or type glyph -->
+                <Border Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0"
+                        Style="{StaticResource ThumbBorder}">
+                    <!-- Real image preview -->
+                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                           Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                    <!-- Fallback glyph when no thumb yet -->
+                    <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                               FontFamily="Segoe MDL2 Assets" FontSize="20"
+                               Foreground="{StaticResource Brush.Accent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="&#xEB9F;" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                        <Setter Property="Text" Value="&#xE714;" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding Album}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding DateText, StringFormat=' · {0}'}"
+                                   Style="{StaticResource Text.Caption}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Grid.Column="3" Text="{Binding SizeText}"
+                           Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ── GRID (tile) item template ── -->
+        <DataTemplate x:Key="GridItemTemplate">
+            <Grid Width="130" Margin="6">
+                <StackPanel>
+                    <Grid>
+                        <Border Width="130" Height="110" Style="{StaticResource ThumbBorder}">
+                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                   Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                            <!-- Fallback glyph -->
+                            <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                       FontFamily="Segoe MDL2 Assets" FontSize="36"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xEB9F;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                                <Setter Property="Text" Value="&#xE714;" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+                        <!-- Video badge -->
+                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Background="#88000000" CornerRadius="0,0,9,0" Padding="5,3"
+                                Visibility="{Binding IsVideo, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                       Foreground="White" />
+                        </Border>
+                        <!-- Selection checkbox overlay -->
+                        <CheckBox Style="{StaticResource Check.Base}" IsChecked="{Binding IsSelected}"
+                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
+                    </Grid>
+                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Caption}"
+                               TextTrimming="CharacterEllipsis" Margin="2,5,2,1" />
+                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.TextMuted}" Margin="2,0,2,0" FontSize="11" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <!-- ListBox item container (used in both views) -->
+        <Style x:Key="PhotoListItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- View-mode toggle button style -->
+        <Style x:Key="ViewToggle" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32">
@@ -40,6 +177,8 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <!-- View toggle -->
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <ComboBox Grid.Column="0" Width="180" Height="46" VerticalAlignment="Center"
@@ -57,6 +196,14 @@
             </StackPanel>
             <Button Grid.Column="4" Content="{DynamicResource L.Photos.Import}" Style="{StaticResource Button.Secondary}"
                     Command="{Binding ImportCommand}" Margin="12,0,0,0" />
+
+            <!-- List / Grid toggle -->
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                <Button Style="{StaticResource ViewToggle}" ToolTip="Список"
+                        Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
+                <Button Style="{StaticResource ViewToggle}" ToolTip="Плитка"
+                        Content="&#xF0E2;" Command="{Binding SetGridViewCommand}" Margin="4,0,0,0" />
+            </StackPanel>
         </Grid>
 
         <!-- Body: list + preview -->
@@ -66,90 +213,19 @@
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
 
-            <!-- File list -->
-            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="4">
+            <!-- File list (List mode) -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="4"
+                    Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <ListBox ItemsSource="{Binding PhotosView}"
                              SelectedItem="{Binding SelectedPhoto}"
                              Background="Transparent" BorderThickness="0"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True"
-                             VirtualizingPanel.VirtualizationMode="Recycling">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2">
-                                                <ContentPresenter />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background"
-                                                            Value="{StaticResource Brush.SurfaceHover}" />
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="Bg" Property="Background"
-                                                            Value="{StaticResource Brush.AccentSoft}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="12,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ItemContainerStyle="{StaticResource PhotoListItem}"
+                             ItemTemplate="{StaticResource ListItemTemplate}" />
 
-                                    <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
-                                              IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
-
-                                    <!-- Type glyph -->
-                                    <Border Grid.Column="1" Width="40" Height="40" CornerRadius="9"
-                                            Margin="12,0,14,0" Background="{StaticResource Brush.AccentSoft}">
-                                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="18"
-                                                   Foreground="{StaticResource Brush.Accent}"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="&#xEB9F;" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsVideo}" Value="True">
-                                                            <Setter Property="Text" Value="&#xE714;" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                    </Border>
-
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Body}"
-                                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                            <TextBlock Text="{Binding Album}" Style="{StaticResource Text.Caption}" />
-                                            <TextBlock Text="{Binding DateText, StringFormat=' · {0}'}"
-                                                       Style="{StaticResource Text.Caption}" />
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <TextBlock Grid.Column="3" Text="{Binding SizeText}"
-                                               Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-
-                    <!-- Loading overlay -->
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
                         <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
@@ -159,10 +235,37 @@
                 </Grid>
             </Border>
 
-            <!-- Preview -->
+            <!-- File grid (Grid / tile mode) -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="8"
+                    Visibility="{Binding IsGridView, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <ListBox ItemsSource="{Binding PhotosView}"
+                             SelectedItem="{Binding SelectedPhoto}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ItemContainerStyle="{StaticResource PhotoListItem}"
+                             ItemTemplate="{StaticResource GridItemTemplate}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Preview panel -->
             <Border Grid.Column="1" Style="{StaticResource Card}" Margin="16,0,0,0">
                 <Grid>
-                    <!-- Empty state -->
                     <TextBlock Text="{DynamicResource L.Photos.NoSelection}" Style="{StaticResource Text.Caption}"
                                TextWrapping="Wrap" TextAlignment="Center"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -204,7 +307,6 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <!-- Transfer progress -->
                 <Grid Visibility="{Binding IsTransferring, Converter={StaticResource BoolToVis}}">
                     <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="100"
                                  Value="{Binding TransferProgress}" Width="300" HorizontalAlignment="Left" />
