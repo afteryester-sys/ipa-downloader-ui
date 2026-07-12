@@ -39,6 +39,8 @@
     <sys:String x:Key="L.Login.Confirm">Confirm</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Signing in…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Skip sign-in</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">You can go straight to your devices. Apple ID sign-in is only required when installing apps.</sys:String>
 
     <!-- Devices -->
     <sys:String x:Key="L.Devices.Title">Devices</sys:String>
@@ -51,6 +53,27 @@
     <sys:String x:Key="L.Devices.Catalog">App Catalog</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">apps in catalog</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Sign Out</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Sign in to Apple ID</sys:String>
+
+    <!-- Device info -->
+    <sys:String x:Key="L.Devices.Info">Info</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Photos</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Device Information</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">The Apple ID is not exposed by the device. Recent iOS versions hide it for privacy.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Storage</sys:String>
+
+    <!-- Photos (Camera Roll) -->
+    <sys:String x:Key="L.Photos.Title">Photos</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
+    <sys:String x:Key="L.Photos.Import">Import to device</sys:String>
+    <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Select a file from the list to see details and a preview.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Preview is not available for this format (HEIC / video).</sys:String>
 
     <!-- App picker -->
     <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>

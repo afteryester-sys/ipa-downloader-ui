@@ -5,6 +5,7 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
     </UserControl.Resources>
 
     <Grid Margin="32">
@@ -28,7 +29,7 @@
             <Button Content="{DynamicResource L.Photos.Refresh}" Style="{StaticResource Button.Secondary}"
                     HorizontalAlignment="Right" VerticalAlignment="Center"
                     Command="{Binding RefreshCommand}"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
         </Grid>
 
         <!-- Toolbar -->

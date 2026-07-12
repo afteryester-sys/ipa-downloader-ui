@@ -39,6 +39,8 @@
     <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">Можно сразу перейти к устройствам. Вход в Apple ID потребуется только при установке приложений.</sys:String>
 
     <!-- Устройства -->
     <sys:String x:Key="L.Devices.Title">Устройства</sys:String>
@@ -51,6 +53,27 @@
     <sys:String x:Key="L.Devices.Catalog">Каталог приложений</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">приложений в каталоге</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Выйти</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Войти в Apple ID</sys:String>
+
+    <!-- Информация об устройстве -->
+    <sys:String x:Key="L.Devices.Info">Информация</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Фото</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
+
+    <!-- Фото (Фотоплёнка) -->
+    <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
+    <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
+    <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
 
     <!-- Выбор приложений -->
     <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
