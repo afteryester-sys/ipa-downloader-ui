@@ -129,14 +129,33 @@ public sealed partial class UpdaterViewModel : ObservableObject
                 UpdateAvailable = false;
                 StatusText = Str("L.Update.Ready");
             }
+            else if (_updates.State == UpdateState.Failed)
+            {
+                // Map FailureReason to a user-readable string (same as CheckAsync).
+                StatusText = _updates.FailureReason switch
+                {
+                    UpdateFailureReason.Timeout     => Str("L.Update.Timeout"),
+                    UpdateFailureReason.Network     => Str("L.Update.NoConnection"),
+                    UpdateFailureReason.ServerError => string.Format(Str("L.Update.ServerError"),
+                                                          _updates.LastErrorDetail),
+                    _                               => Str("L.Update.Failed"),
+                };
+                AppLog.Error($"Update download failed: {_updates.FailureReason} — {_updates.LastErrorDetail}");
+            }
             else
             {
+                // DownloadUrl was absent — the releases page was opened instead.
                 StatusText = Str("L.Update.OpenedBrowser");
             }
         }
-        catch
+        catch (OperationCanceledException)
+        {
+            StatusText = Str("L.Update.Timeout");
+        }
+        catch (Exception ex)
         {
             StatusText = Str("L.Update.Failed");
+            AppLog.Error($"DownloadAsync unhandled exception: {ex.Message}", ex);
         }
         finally
         {
