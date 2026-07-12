@@ -119,36 +119,27 @@ public sealed partial class DownloadService
         if (autoPurchase) args.Add("--purchase");
 
         var totalBytes = app.FileSizeBytes ?? 0L;
-        var lastBytes = 0L;
-        var lastTime = DateTimeOffset.Now;
 
+        // Under "--format json" ipatool prints NO textual progress bar (only a final
+        // JSON line), so parsing stdout for a percentage never fires. Instead we watch
+        // the output file grow on disk and derive an accurate percentage from its size
+        // versus the known total (from the iTunes lookup). Falls back to text parsing
+        // if the tool ever does emit "NN%".
         void ParseLine(string line)
         {
-            // ipatool renders a progress bar / percentage on stdout; extract "NN%".
             var match = PercentRegex().Match(line);
             if (!match.Success) return;
-
             if (!double.TryParse(match.Groups[1].Value.Replace(',', '.'),
                     System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out var percent))
                 return;
-
             percent = Math.Clamp(percent, 0, 100);
             var downloaded = totalBytes > 0 ? (long)(totalBytes * percent / 100.0) : 0L;
-
-            var now = DateTimeOffset.Now;
-            var elapsed = (now - lastTime).TotalSeconds;
-            var speed = elapsed > 0.2 && downloaded > lastBytes
-                ? (downloaded - lastBytes) / elapsed
-                : 0;
-            if (elapsed > 0.2)
-            {
-                lastBytes = downloaded;
-                lastTime = now;
-            }
-
-            progress?.Report(new DownloadProgress(percent, downloaded, totalBytes, speed));
+            progress?.Report(new DownloadProgress(percent, downloaded, totalBytes, 0));
         }
+
+        using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var pollTask = PollFileProgressAsync(outputPath, totalBytes, progress, pollCts.Token);
 
         var result = await _runner.RunAsync(
             _tools.IpatoolPath, args,
@@ -156,6 +147,9 @@ public sealed partial class DownloadService
             onErrorLine: ParseLine,
             closeStdin: true,
             ct: ct).ConfigureAwait(false);
+
+        pollCts.Cancel();
+        try { await pollTask.ConfigureAwait(false); } catch { /* ignore poller shutdown */ }
 
         if (result.Success && File.Exists(outputPath))
         {
@@ -169,6 +163,68 @@ public sealed partial class DownloadService
             return DownloadResult.Ok(resolvedPath);
 
         return DownloadResult.Fail(ExtractError(result.CombinedOutput));
+    }
+
+    /// <summary>
+    /// Polls the growing download file and reports accurate byte/percent progress.
+    /// Works regardless of ipatool's output format. Reports as indeterminate-friendly
+    /// data (percent 0) when the total size is unknown.
+    /// </summary>
+    private static async Task PollFileProgressAsync(
+        string outputPath, long totalBytes, IProgress<DownloadProgress>? progress, CancellationToken ct)
+    {
+        if (progress is null) return;
+
+        var dir = Path.GetDirectoryName(outputPath)!;
+        var stem = Path.GetFileNameWithoutExtension(outputPath);
+        long lastBytes = 0;
+        var lastTime = DateTimeOffset.Now;
+
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(300, ct).ConfigureAwait(false);
+
+                long size = 0;
+                try
+                {
+                    var fi = new FileInfo(outputPath);
+                    if (fi.Exists)
+                    {
+                        size = fi.Length;
+                    }
+                    else if (Directory.Exists(dir))
+                    {
+                        // ipatool may stream into a temp/partial file first.
+                        var partial = new DirectoryInfo(dir).GetFiles(stem + "*")
+                            .OrderByDescending(f => f.LastWriteTimeUtc)
+                            .FirstOrDefault();
+                        if (partial is not null) size = partial.Length;
+                    }
+                }
+                catch { /* file locked mid-write; try again next tick */ }
+
+                if (size <= 0) continue;
+
+                var now = DateTimeOffset.Now;
+                var elapsed = (now - lastTime).TotalSeconds;
+                double speed = 0;
+                if (elapsed >= 0.4 && size > lastBytes)
+                {
+                    speed = (size - lastBytes) / elapsed;
+                    lastBytes = size;
+                    lastTime = now;
+                }
+
+                // Cap at 99% until the process confirms completion.
+                var percent = totalBytes > 0
+                    ? Math.Clamp(size / (double)totalBytes * 100.0, 0, 99)
+                    : 0;
+                progress.Report(new DownloadProgress(percent, size, totalBytes, speed));
+            }
+        }
+        catch (OperationCanceledException) { /* expected on completion */ }
     }
 
     /// <summary>Searches the App Store (ipatool search).</summary>

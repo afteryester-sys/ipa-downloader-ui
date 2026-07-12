@@ -56,35 +56,51 @@ public sealed partial class InstallService
 
             void ParseLine(string line)
             {
-                if (line.Contains("Copying", StringComparison.OrdinalIgnoreCase))
+                // ideviceinstaller emits phase lines such as:
+                //   "Copying '...' to device..."
+                //   "Installing 'com.bundle.id'"
+                //   "CreatingStagingDirectory (5%)"  /  "Install: Complete (100%)"
+                //   "Complete"
+                var match = PercentRegex().Match(line);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var pct))
                 {
-                    progress?.Report(new InstallProgress(5, "Copying"));
+                    // The device reports the real 0-100 percentage; use it directly so
+                    // the bar reflects genuine install progress.
+                    var status = line.Contains("Complete", StringComparison.OrdinalIgnoreCase)
+                        ? "Complete"
+                        : "Installing";
+                    progress?.Report(new InstallProgress(Math.Clamp(pct, 1, 100), status));
+                }
+                else if (line.Contains("Copying", StringComparison.OrdinalIgnoreCase))
+                {
+                    progress?.Report(new InstallProgress(3, "Copying"));
                 }
                 else if (line.Contains("Installing", StringComparison.OrdinalIgnoreCase))
                 {
-                    var match = PercentRegex().Match(line);
-                    var percent = match.Success && int.TryParse(match.Groups[1].Value, out var p) ? p : 50;
-                    // Map the device-reported 0-100 install phase onto 10-99 so
-                    // "Copying" (5%) always precedes it visually.
-                    progress?.Report(new InstallProgress(10 + percent * 0.89, "Installing"));
+                    progress?.Report(new InstallProgress(6, "Installing"));
                 }
                 else if (line.Contains("Complete", StringComparison.OrdinalIgnoreCase))
                 {
                     progress?.Report(new InstallProgress(100, "Complete"));
                 }
-                else if (line.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
-                         line.Contains("failed", StringComparison.OrdinalIgnoreCase))
+
+                if (line.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("failed", StringComparison.OrdinalIgnoreCase))
                 {
                     failed = true;
                     errorLine = line.Trim();
                 }
             }
 
+            // Bundled ideviceinstaller (libimobiledevice 1.x) selects the mode via a
+            // flag: -i/--install ARCHIVE (NOT an "install" subcommand). Using a
+            // subcommand caused "ERROR: No mode/command was supplied."
             var result = await _runner.RunAsync(
                 _tools.IdeviceInstallerPath,
-                new[] { "-u", udid, "install", ipaPath },
+                new[] { "-u", udid, "-i", ipaPath },
                 onOutputLine: ParseLine,
                 onErrorLine: ParseLine,
+                closeStdin: true,
                 ct: ct).ConfigureAwait(false);
 
             if (result.Success && !failed)
@@ -109,7 +125,8 @@ public sealed partial class InstallService
         {
             var result = await _runner.RunAsync(
                 _tools.IdeviceInstallerPath,
-                new[] { "-u", udid, "list" },
+                new[] { "-u", udid, "-l" },
+                closeStdin: true,
                 ct: ct).ConfigureAwait(false);
 
             foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))

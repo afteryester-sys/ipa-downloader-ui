@@ -126,6 +126,7 @@
                                         <!-- Animated progress: only for active items -->
                                         <ProgressBar Style="{StaticResource Progress.Slim}" Margin="0,8,0,0"
                                                      Value="{Binding StageProgress, Mode=OneWay}" Maximum="100"
+                                                     IsIndeterminate="{Binding IsIndeterminate}"
                                                      Foreground="{Binding Stage, Converter={StaticResource StageBrush}}"
                                                      Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
 

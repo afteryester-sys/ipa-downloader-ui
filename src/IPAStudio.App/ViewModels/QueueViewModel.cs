@@ -32,6 +32,8 @@ public sealed partial class QueueItemViewModel : ObservableObject
 
     public bool IsActive => Stage is QueueStage.Checking or QueueStage.Licensing
         or QueueStage.Downloading or QueueStage.Installing;
+    /// <summary>Show a moving (indeterminate) bar while active but no % is measured yet.</summary>
+    public bool IsIndeterminate => IsActive && StageProgress <= 0.5;
     public bool IsDone => Stage == QueueStage.Done;
     public bool IsFailed => Stage is QueueStage.Failed or QueueStage.Cancelled;
     public bool IsPending => Stage == QueueStage.Pending;
@@ -54,6 +56,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
             : "";
 
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(IsIndeterminate));
         OnPropertyChanged(nameof(IsDone));
         OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(IsPending));
