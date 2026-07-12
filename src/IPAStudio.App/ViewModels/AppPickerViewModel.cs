@@ -403,8 +403,8 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
                 var cats = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var app in purchased)
                 {
-                    // Mark every app as licensed since we got it from the purchase history.
-                    app.License = LicenseState.Licensed;
+                    // Mark every app as owned since we got it from the purchase history.
+                    app.License = LicenseState.Owned;
                     Apps.Add(new AppItemViewModel(app));
                     if (!string.IsNullOrEmpty(app.Category)) cats.Add(app.Category!);
                 }
