@@ -51,6 +51,8 @@
     <sys:String x:Key="L.Login.ICloudTitle">Couldn't read iCloud data</sys:String>
     <sys:String x:Key="L.Login.ICloudHint">ipatool v3 gets sign-in data from Apple iCloud for Windows. The Microsoft Store version often doesn't work — you need the classic version from apple.com/icloud. The easiest option is to switch to ipatool v2 — it doesn't need iCloud and works right away.</sys:String>
     <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
+    <sys:String x:Key="L.Login.CodeNotArrived">Code didn&apos;t arrive?</sys:String>
+    <sys:String x:Key="L.Login.ResendCode">Resend</sys:String>
 
     <!-- Devices -->
     <sys:String x:Key="L.Devices.Title">Devices</sys:String>

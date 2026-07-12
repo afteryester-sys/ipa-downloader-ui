@@ -44,6 +44,8 @@
     <sys:String x:Key="L.Login.TwoFactorTitle">Двухфакторная аутентификация</sys:String>
     <sys:String x:Key="L.Login.TwoFactorHint">Введите 6-значный код, отправленный на ваши устройства Apple</sys:String>
     <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
+    <sys:String x:Key="L.Login.CodeNotArrived">Код не пришёл?</sys:String>
+    <sys:String x:Key="L.Login.ResendCode">Отправить снова</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
     <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
@@ -82,7 +84,7 @@
     <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
-    <sys:String x:Key="L.Photos.SelectedCount">Вы��рано:</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
     <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
     <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
 
@@ -163,7 +165,7 @@
 
     <!-- Журнал -->
     <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>
-    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разработчику, чтобы помочь найти причину ошибки.</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разраб��тчику, чтобы помочь найти причину ошибки.</sys:String>
     <sys:String x:Key="L.Logs.Copy">Копировать всё</sys:String>
     <sys:String x:Key="L.Logs.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
