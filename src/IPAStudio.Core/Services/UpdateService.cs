@@ -61,6 +61,7 @@ public sealed class UpdateService
     public string ReleasesUrl => ReleasesPage;
 
     private string? _downloadUrl;
+    private string? _downloadFallbackUrl;   // always the browser_download_url (public CDN)
     private string? _downloadFileName;
     private string? _downloadedInstallerPath;
 
@@ -204,6 +205,9 @@ public sealed class UpdateService
 
         // For a private repo we must download via the asset's API URL with a
         // token; browser_download_url only works for public repos / browsers.
+        // We always keep both URLs: ApiUrl for the initial attempt (auth'd) and
+        // DownloadUrl as a public CDN fallback when auth fails or is absent.
+        _downloadFallbackUrl = asset?.DownloadUrl;
         _downloadUrl = HasToken
             ? (asset?.ApiUrl ?? asset?.DownloadUrl)
             : asset?.DownloadUrl;
@@ -230,11 +234,19 @@ public sealed class UpdateService
     {
         if (string.IsNullOrWhiteSpace(_downloadUrl))
         {
+            AppLog.Warn("DownloadUpdateAsync: no download URL — opening releases page.");
             OpenReleasesPage();
             return false;
         }
 
         Set(UpdateState.Downloading);
+
+        // Use a firm per-download timeout so a stalled connection never freezes
+        // the UI indefinitely. 3 minutes is generous for a ~20 MB installer.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        using var linked  = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        var effectiveCt   = linked.Token;
+
         try
         {
             // Prefer the real asset name (API URLs have no filename in the path).
@@ -244,22 +256,81 @@ public sealed class UpdateService
             if (string.IsNullOrWhiteSpace(fileName)) fileName = "IPAStudio-Update.exe";
             var dest = Path.Combine(Path.GetTempPath(), fileName);
 
-            // Private-repo assets require the token + octet-stream Accept header.
-            using var request = BuildRequest(_downloadUrl, octetStream: true);
+            AppLog.Info($"Downloading update asset: {_downloadUrl} → {dest}");
+
+            // GitHub asset downloads always redirect from api.github.com to
+            // objects.githubusercontent.com. The HttpClient follows the 302
+            // automatically, but strips the Authorization header on the
+            // cross-origin redirect, which is exactly what GitHub expects for
+            // the final CDN hop. So we DON'T set octetStream on the API URL —
+            // we set it only when downloading via browser_download_url directly.
+            bool isApiUrl = _downloadUrl.Contains("api.github.com", StringComparison.OrdinalIgnoreCase);
+            using var request = BuildRequest(_downloadUrl, octetStream: !isApiUrl);
+
             using var response = await _http.SendAsync(
-                request, HttpCompletionOption.ResponseHeadersRead, ct);
-            response.EnsureSuccessStatusCode();
+                request, HttpCompletionOption.ResponseHeadersRead, effectiveCt);
+
+            // If the token is invalid / expired the API returns 401; fall back
+            // to the browser_download_url (public URL, no auth needed).
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
+                || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                AppLog.Warn($"Asset download: got {(int)response.StatusCode}, retrying with browser_download_url.");
+                response.Dispose();
+                request.Dispose();
+
+                // Retry with the public browser_download_url (no auth needed for public repos).
+                if (!string.IsNullOrWhiteSpace(_downloadFallbackUrl)
+                    && _downloadFallbackUrl != _downloadUrl)
+                {
+                    AppLog.Info("Retrying download with browser_download_url.");
+                    using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, _downloadFallbackUrl);
+                    using var fallbackResp = await _http.SendAsync(
+                        fallbackReq, HttpCompletionOption.ResponseHeadersRead, effectiveCt);
+                    fallbackResp.EnsureSuccessStatusCode();
+
+                    var total2 = fallbackResp.Content.Headers.ContentLength ?? -1;
+                    var dest2   = Path.Combine(Path.GetTempPath(), _downloadFileName ?? "IPAStudio-Update.exe");
+                    await using var src2  = await fallbackResp.Content.ReadAsStreamAsync(effectiveCt);
+                    await using var file2 = File.Create(dest2);
+                    var buf2 = new byte[81920]; long rd2 = 0; int n2;
+                    while ((n2 = await src2.ReadAsync(buf2, effectiveCt)) > 0)
+                    {
+                        await file2.WriteAsync(buf2.AsMemory(0, n2), effectiveCt);
+                        rd2 += n2;
+                        if (total2 > 0) progress?.Report(Math.Min(1.0, (double)rd2 / total2));
+                    }
+                    _downloadedInstallerPath = dest2;
+                    progress?.Report(1.0);
+                    AppLog.Info($"Fallback download complete: {dest2}.");
+                    Set(UpdateState.ReadyToInstall);
+                    return true;
+                }
+
+                AppLog.Warn("No fallback URL available — opening releases page.");
+                OpenReleasesPage();
+                Set(UpdateState.Failed);
+                FailureReason = UpdateFailureReason.ServerError;
+                LastErrorDetail = "Authentication failed; visit the releases page to download manually.";
+                return false;
+            }
+            else
+            {
+                response.EnsureSuccessStatusCode();
+            }
 
             var total = response.Content.Headers.ContentLength ?? -1;
-            await using (var source = await response.Content.ReadAsStreamAsync(ct))
+            AppLog.Info($"Download started, content-length: {(total > 0 ? $"{total / 1024} KB" : "unknown")}.");
+
+            await using (var source = await response.Content.ReadAsStreamAsync(effectiveCt))
             await using (var file = File.Create(dest))
             {
                 var buffer = new byte[81920];
                 long read = 0;
                 int count;
-                while ((count = await source.ReadAsync(buffer, ct)) > 0)
+                while ((count = await source.ReadAsync(buffer, effectiveCt)) > 0)
                 {
-                    await file.WriteAsync(buffer.AsMemory(0, count), ct);
+                    await file.WriteAsync(buffer.AsMemory(0, count), effectiveCt);
                     read += count;
                     if (total > 0) progress?.Report(Math.Min(1.0, (double)read / total));
                 }
@@ -267,12 +338,32 @@ public sealed class UpdateService
 
             _downloadedInstallerPath = dest;
             progress?.Report(1.0);
+            AppLog.Info($"Download complete: {dest} ({new FileInfo(dest).Length / 1024} KB).");
             Set(UpdateState.ReadyToInstall);
             return true;
         }
-        catch (OperationCanceledException) { throw; }
-        catch
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
         {
+            FailureReason = UpdateFailureReason.Timeout;
+            LastErrorDetail = "Download timed out after 3 minutes.";
+            AppLog.Error("Update download timed out.");
+            Set(UpdateState.Failed);
+            return false;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (HttpRequestException ex)
+        {
+            FailureReason = UpdateFailureReason.Network;
+            LastErrorDetail = ex.Message;
+            AppLog.Error("Update download network error.", ex);
+            Set(UpdateState.Failed);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            FailureReason = UpdateFailureReason.Network;
+            LastErrorDetail = ex.Message;
+            AppLog.Error("Update download failed.", ex);
             Set(UpdateState.Failed);
             return false;
         }
