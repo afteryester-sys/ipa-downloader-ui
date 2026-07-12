@@ -104,12 +104,29 @@ public sealed class DependencyService
         {
             if (key is not null) return DependencyState.Ok;
         }
-        // Microsoft Store version.
-        using (var key = Registry.LocalMachine.OpenSubKey(
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppleInc.iCloud_nzyj5cx40ttqa"))
+        // Uninstall hive scan (catches any classic installer variant).
+        string[] uninstallRoots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ];
+        foreach (var root in uninstallRoots)
         {
-            if (key is not null) return DependencyState.Ok;
+            using var rootKey = Registry.LocalMachine.OpenSubKey(root);
+            if (rootKey is null) continue;
+            foreach (var sub in rootKey.GetSubKeyNames())
+            {
+                using var subKey = rootKey.OpenSubKey(sub);
+                var name = subKey?.GetValue("DisplayName") as string ?? "";
+                if (name.Contains("iCloud", StringComparison.OrdinalIgnoreCase))
+                    return DependencyState.Ok;
+            }
         }
+
+        // Microsoft Store (AppX) version — scan the AppModel repository.
+        if (StorePackageInstalled("iCloud"))
+            return DependencyState.Ok;
+
         return DependencyState.Missing;
     }
 
@@ -121,6 +138,65 @@ public sealed class DependencyService
         using var key = Registry.LocalMachine.OpenSubKey(
             @"SYSTEM\CurrentControlSet\Services\Apple Mobile Device Service");
         return key is not null ? DependencyState.Ok : DependencyState.Missing;
+    }
+
+    /// <summary>True when the Apple Mobile Device Support driver/service is present.</summary>
+    private static bool AppleDriversPresent()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        using var key = Registry.LocalMachine.OpenSubKey(
+            @"SYSTEM\CurrentControlSet\Services\Apple Mobile Device Service");
+        return key is not null;
+    }
+
+    /// <summary>
+    /// Detects a Microsoft Store (AppX/MSIX) package whose family name contains
+    /// <paramref name="nameFragment"/>. Store apps do NOT appear under the
+    /// classic Uninstall hive — they live in the AppModel repository, which is
+    /// readable per-user without elevation.
+    /// </summary>
+    private static bool StorePackageInstalled(string nameFragment)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        string[] repositories =
+        [
+            // Per-user package repository (most reliable, no elevation needed).
+            @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages",
+        ];
+
+        foreach (var path in repositories)
+        {
+            try
+            {
+                using var root = Registry.CurrentUser.OpenSubKey(path);
+                if (root is null) continue;
+                foreach (var sub in root.GetSubKeyNames())
+                {
+                    if (sub.Contains(nameFragment, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch { /* ignore unreadable hives */ }
+        }
+
+        // Machine-wide AppX state repository (package display names).
+        try
+        {
+            using var pkgRoot = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModel\StateRepository\Cache\Package\Index\PackageFullName");
+            if (pkgRoot is not null)
+            {
+                foreach (var sub in pkgRoot.GetSubKeyNames())
+                {
+                    if (sub.Contains(nameFragment, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+        }
+        catch { /* ignore */ }
+
+        return false;
     }
 
     private static DependencyState CheckITunesInstalled()
@@ -161,14 +237,12 @@ public sealed class DependencyService
             }
         }
 
-        // 4. Microsoft Store version — package family name known since iTunes 12.10.
-        using (var key = Registry.LocalMachine.OpenSubKey(
-            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AppleInc.iTunes_nzyj5cx40ttqa"))
-        {
-            if (key is not null) return DependencyState.Ok;
-        }
+        // 4. Microsoft Store (AppX) version — scan the AppModel repository,
+        //    which is where Store apps actually live (NOT the Uninstall hive).
+        if (StorePackageInstalled("iTunes"))
+            return DependencyState.Ok;
 
-        // 5. Fallback: iTunes.exe on disk in the two canonical locations.
+        // 5. Fallback: iTunes.exe on disk in the canonical locations.
         string[] exePaths =
         [
             @"C:\Program Files\iTunes\iTunes.exe",
@@ -191,6 +265,13 @@ public sealed class DependencyService
                 }
             }
         }
+
+        // 7. Heuristic last resort: the Apple Mobile Device Support service is
+        //    installed BY iTunes. If it is present, iTunes (or its driver
+        //    bundle) is effectively installed — treat iTunes as OK so the user
+        //    isn't wrongly told to install it again.
+        if (AppleDriversPresent())
+            return DependencyState.Ok;
 
         return DependencyState.Missing;
     }
