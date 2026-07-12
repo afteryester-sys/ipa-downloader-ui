@@ -31,7 +31,7 @@
     <sys:String x:Key="L.Setup.InstallITunesLink">Download iTunes</sys:String>
     <sys:String x:Key="L.Setup.OrDownloadManual">Or download manually:</sys:String>
     <sys:String x:Key="L.Setup.ICloud">iCloud for Windows (required for ipatool v3)</sys:String>
-    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID. You need the classic version from apple.com — the Microsoft Store version does not work.</sys:String>
     <sys:String x:Key="L.Setup.OpenICloudPage">Download iCloud for Windows</sys:String>
 
     <!-- Login -->
@@ -47,8 +47,8 @@
     <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
     <sys:String x:Key="L.Login.Skip">Skip sign-in</sys:String>
     <sys:String x:Key="L.Login.SkipHint">You can go straight to your devices. Apple ID sign-in is only required when installing apps.</sys:String>
-    <sys:String x:Key="L.Login.ICloudTitle">iCloud not installed</sys:String>
-    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 requires Apple iCloud for Windows. Install iCloud or switch to v2 — it works without iCloud out of the box.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">Couldn't read iCloud data</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 gets sign-in data from Apple iCloud for Windows. The Microsoft Store version often doesn't work — you need the classic version from apple.com/icloud. The easiest option is to switch to ipatool v2 — it doesn't need iCloud and works right away.</sys:String>
     <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
 
     <!-- Devices -->
