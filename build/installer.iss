@@ -16,7 +16,10 @@
   #define MyAppVersion "1.1.0"
 #endif
 #define MyAppPublisher "IPA Studio"
-#define MyAppExeName "IPAStudio.App.exe"
+; Must match <AssemblyName> in IPAStudio.App.csproj (currently "IPAStudio"),
+; which produces IPAStudio.exe — NOT IPAStudio.App.exe. A mismatch here makes
+; every shortcut point at a non-existent file ("missing shortcut" dialog).
+#define MyAppExeName "IPAStudio.exe"
 #define MyAppURL "https://github.com/kda2495/IPA_Downloader"
 
 [Setup]
