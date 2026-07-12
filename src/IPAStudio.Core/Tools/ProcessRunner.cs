@@ -200,6 +200,11 @@ public sealed class ProcessRunner
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            // Set the working directory to the tool's folder so side-by-side
+            // helpers (e.g. anisette.exe for ipatool v3) are found by Windows
+            // when the tool calls CreateProcess("anisette.exe", ...) without
+            // a full path — Windows searches CWD before PATH.
+            WorkingDirectory = Path.GetDirectoryName(fileName) ?? "",
         };
 
         foreach (var arg in arguments)
