@@ -58,6 +58,25 @@ jobs:
           "exists=$exists" >> $env:GITHUB_OUTPUT
           Write-Host "Tag $tag exists: $exists"
 
+      # ---- Inject the read-only update token into UpdateSecrets.cs ---------
+      # UPDATE_TOKEN must be a fine-grained PAT with ONLY "Contents: read" on
+      # this repo. If the secret is missing the placeholder is left as-is and
+      # the app simply reports "no updates" instead of failing the build.
+      - name: Inject update token
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
+        run: |
+          $file = "src/IPAStudio.Core/Services/UpdateSecrets.cs"
+          if ([string]::IsNullOrWhiteSpace($env:UPDATE_TOKEN)) {
+            Write-Warning "UPDATE_TOKEN secret is empty — in-app updates will not work for the private repo."
+          } else {
+            (Get-Content $file -Raw).Replace('__UPDATE_TOKEN__', $env:UPDATE_TOKEN) |
+              Set-Content $file -NoNewline
+            Write-Host "Update token injected."
+          }
+
       # ---- Restore & Build -------------------------------------------------
       - name: Restore
         if: steps.check_tag.outputs.exists == 'false'

@@ -61,6 +61,7 @@ public sealed class UpdateService
     public string ReleasesUrl => ReleasesPage;
 
     private string? _downloadUrl;
+    private string? _downloadFileName;
     private string? _downloadedInstallerPath;
 
     public event Action? StateChanged;
@@ -69,6 +70,33 @@ public sealed class UpdateService
     {
         _http = http;
         CurrentVersion = Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(1, 0, 0, 0);
+    }
+
+    /// <summary>
+    /// True when a usable embedded token is present. The placeholder value
+    /// (left untouched by non-CI/local builds) is treated as "no token".
+    /// </summary>
+    private static bool HasToken =>
+        !string.IsNullOrWhiteSpace(UpdateSecrets.GitHubToken) &&
+        UpdateSecrets.GitHubToken != "__UPDATE_TOKEN__";
+
+    /// <summary>
+    /// Builds a GitHub API request with the standard headers and, when
+    /// available, the embedded read-only token so private-repo releases can
+    /// be read. <paramref name="octetStream"/> switches Accept to the raw
+    /// asset download media type.
+    /// </summary>
+    private static HttpRequestMessage BuildRequest(string url, bool octetStream = false)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.Accept.ParseAdd(octetStream
+            ? "application/octet-stream"
+            : "application/vnd.github+json");
+        req.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        if (HasToken)
+            req.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UpdateSecrets.GitHubToken);
+        return req;
     }
 
     private void Set(UpdateState state)
@@ -88,7 +116,8 @@ public sealed class UpdateService
         HttpResponseMessage response;
         try
         {
-            response = await _http.GetAsync(LatestReleaseApi, ct);
+            using var request = BuildRequest(LatestReleaseApi);
+            response = await _http.SendAsync(request, ct);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -173,7 +202,12 @@ public sealed class UpdateService
             ?? release.Assets?.FirstOrDefault(a =>
                 a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
 
-        _downloadUrl = asset?.DownloadUrl;
+        // For a private repo we must download via the asset's API URL with a
+        // token; browser_download_url only works for public repos / browsers.
+        _downloadUrl = HasToken
+            ? (asset?.ApiUrl ?? asset?.DownloadUrl)
+            : asset?.DownloadUrl;
+        _downloadFileName = asset?.Name;
 
         if (LatestVersion is not null && LatestVersion > CurrentVersion)
         {
@@ -203,12 +237,17 @@ public sealed class UpdateService
         Set(UpdateState.Downloading);
         try
         {
-            var fileName = Path.GetFileName(new Uri(_downloadUrl).LocalPath);
+            // Prefer the real asset name (API URLs have no filename in the path).
+            var fileName = _downloadFileName;
+            if (string.IsNullOrWhiteSpace(fileName))
+                fileName = Path.GetFileName(new Uri(_downloadUrl).LocalPath);
             if (string.IsNullOrWhiteSpace(fileName)) fileName = "IPAStudio-Update.exe";
             var dest = Path.Combine(Path.GetTempPath(), fileName);
 
-            using var response = await _http.GetAsync(
-                _downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            // Private-repo assets require the token + octet-stream Accept header.
+            using var request = BuildRequest(_downloadUrl, octetStream: true);
+            using var response = await _http.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
 
             var total = response.Content.Headers.ContentLength ?? -1;
@@ -307,5 +346,7 @@ public sealed class UpdateService
     {
         [JsonPropertyName("name")] public string Name { get; set; } = "";
         [JsonPropertyName("browser_download_url")] public string DownloadUrl { get; set; } = "";
+        /// <summary>API URL of the asset — required to download from a private repo with a token.</summary>
+        [JsonPropertyName("url")] public string ApiUrl { get; set; } = "";
     }
 }
