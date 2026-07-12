@@ -40,6 +40,10 @@ public sealed class QueueService
     /// <summary>Raised when the whole queue finishes (all items terminal).</summary>
     public event EventHandler? QueueCompleted;
 
+    /// <summary>Raised when any ipatool command reports that the session has expired.
+    /// The UI should redirect the user to the login screen.</summary>
+    public event EventHandler? SessionExpired;
+
     /// <summary>Overall queue progress, 0-100 (equal weight per item).</summary>
     public double OverallProgress
     {
@@ -134,10 +138,20 @@ public sealed class QueueService
 
             _catalog.RefreshDownloadedFlags(new[] { item.App });
 
-            if (item.App.License == LicenseState.Unknown || item.App.License == LicenseState.CheckFailed)
+            if (item.App.License == LicenseState.Unknown
+                || item.App.License == LicenseState.CheckFailed
+                || item.App.License == LicenseState.SessionExpired)
             {
                 item.App.License = await _download.CheckLicenseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
                 Notify(item);
+            }
+
+            // Session expired -> inform the UI so it redirects to the login screen.
+            if (item.App.License == LicenseState.SessionExpired)
+            {
+                Fail(item, DownloadService.SessionExpiredMessage);
+                SessionExpired?.Invoke(this, EventArgs.Empty);
+                return;
             }
 
             // ---- Stage 2: Licensing (obtain license when the account doesn't own it) ----
@@ -147,6 +161,8 @@ public sealed class QueueService
                 var (ok, error) = await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
                 if (!ok)
                 {
+                    if (error == DownloadService.SessionExpiredMessage)
+                        SessionExpired?.Invoke(this, EventArgs.Empty);
                     Fail(item, error ?? "Failed to obtain license");
                     return;
                 }
@@ -172,6 +188,8 @@ public sealed class QueueService
                 var result = await _download.DownloadAsync(item.App, autoPurchase: true, progress, ct).ConfigureAwait(false);
                 if (!result.Success || result.IpaPath is null)
                 {
+                    if (result.Error == DownloadService.SessionExpiredMessage)
+                        SessionExpired?.Invoke(this, EventArgs.Empty);
                     Fail(item, result.Error ?? "Download failed");
                     return;
                 }

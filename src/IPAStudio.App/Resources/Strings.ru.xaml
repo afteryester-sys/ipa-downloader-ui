@@ -97,6 +97,9 @@
     <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Файл авторизации повреждён или создан без шифрования. Войдите снова, чтобы продолжить.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
     <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
     <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
     <sys:String x:Key="L.Stage.Licensing">Лицензия</sys:String>

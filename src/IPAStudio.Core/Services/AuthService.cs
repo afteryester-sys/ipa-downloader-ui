@@ -159,7 +159,13 @@ public sealed partial class AuthService
                 closeStdin: true,
                 ct: ct).ConfigureAwait(false);
 
-            if (!result.Success) return null;
+            // The keychain file exists but is unprotected / created with a different
+            // passphrase -> treat as "not logged in" so the UI shows the login screen.
+            if (!result.Success || IsSessionExpiredError(result.CombinedOutput))
+            {
+                CurrentAccount = null;
+                return null;
+            }
 
             var account = ParseAccount(result.CombinedOutput);
             if (account is not null)
@@ -238,6 +244,23 @@ public sealed partial class AuthService
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// True when ipatool says the keychain/account file is not protected or the
+    /// session is no longer valid. The user must sign in again so ipatool can
+    /// re-create the file with the correct passphrase.
+    /// Messages observed:
+    ///   "account file is not protected. Please run 'auth login' again."
+    ///   "not logged in"
+    /// </summary>
+    public static bool IsSessionExpiredError(string output)
+    {
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("account file is not protected")
+            || lower.Contains("not logged in")
+            || lower.Contains("please run 'auth login'")
+            || lower.Contains("please run \"auth login\"");
     }
 
     /// <summary>

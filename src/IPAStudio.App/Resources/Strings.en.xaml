@@ -97,6 +97,9 @@
     <sys:String x:Key="L.Queue.Cancelled">Cancelled</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Cancel All</sys:String>
     <sys:String x:Key="L.Queue.Finish">Finish</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Apple ID session expired</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">The auth file is unprotected or was created with a different passphrase. Sign in again to continue.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Sign in again</sys:String>
     <sys:String x:Key="L.Stage.Pending">Queued</sys:String>
     <sys:String x:Key="L.Stage.Checking">Checking</sys:String>
     <sys:String x:Key="L.Stage.Licensing">License</sys:String>

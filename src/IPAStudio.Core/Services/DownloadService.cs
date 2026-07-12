@@ -33,6 +33,11 @@ public sealed partial class DownloadService
     [GeneratedRegex(@"license.*required|not.*purchased|purchase.*required|9610", RegexOptions.IgnoreCase)]
     private static partial Regex LicenseRequiredRegex();
 
+    /// <summary>Canonical error string used when the ipatool session has expired.
+    /// QueueService and the UI key on this to redirect the user to the login screen.</summary>
+    public const string SessionExpiredMessage =
+        "SESSION_EXPIRED: account file is not protected. Please sign in again.";
+
     public DownloadService(ToolLocator tools, ProcessRunner runner)
     {
         _tools = tools;
@@ -60,6 +65,11 @@ public sealed partial class DownloadService
             if (result.Success) return LicenseState.Owned;
 
             var output = result.CombinedOutput;
+
+            // Session is stale / keychain unprotected -> bubble up so the UI can re-login.
+            if (AuthService.IsSessionExpiredError(output))
+                return LicenseState.SessionExpired;
+
             // "already purchased" style errors also mean the license exists.
             if (output.Contains("already", StringComparison.OrdinalIgnoreCase))
                 return LicenseState.Owned;
@@ -88,6 +98,9 @@ public sealed partial class DownloadService
 
         if (result.Success || result.CombinedOutput.Contains("already", StringComparison.OrdinalIgnoreCase))
             return (true, null);
+
+        if (AuthService.IsSessionExpiredError(result.CombinedOutput))
+            return (false, SessionExpiredMessage);
 
         return (false, ExtractError(result.CombinedOutput));
     }
@@ -161,6 +174,10 @@ public sealed partial class DownloadService
         var resolvedPath = ExtractOutputPath(result.CombinedOutput);
         if (result.Success && resolvedPath is not null && File.Exists(resolvedPath))
             return DownloadResult.Ok(resolvedPath);
+
+        // Session expired / keychain unprotected -> return a recognisable error string.
+        if (AuthService.IsSessionExpiredError(result.CombinedOutput))
+            return DownloadResult.Fail(SessionExpiredMessage);
 
         return DownloadResult.Fail(ExtractError(result.CombinedOutput));
     }

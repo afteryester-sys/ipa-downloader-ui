@@ -106,6 +106,10 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _deviceName = "";
 
+    /// <summary>Set when the session expires mid-queue; the view shows a "sign in again" banner.</summary>
+    [ObservableProperty]
+    private bool _sessionExpired;
+
     public bool IsFinished => !IsRunning && Items.Count > 0;
 
     public QueueViewModel(QueueService queue)
@@ -113,6 +117,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         _queue = queue;
         _queue.ItemChanged += OnItemChanged;
         _queue.QueueCompleted += OnQueueCompleted;
+        _queue.SessionExpired += OnSessionExpired;
     }
 
     public void OnNavigatedTo(INavigator navigator)
@@ -151,6 +156,15 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         });
     }
 
+    private void OnSessionExpired(object? sender, EventArgs e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            SessionExpired = true;
+            IsRunning = false;
+        });
+    }
+
     private void RecountAndProgress()
     {
         OverallProgress = _queue.OverallProgress;
@@ -177,4 +191,12 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     [RelayCommand(CanExecute = nameof(CanGoBack))]
     private void BackToDevices() => _navigator?.GoTo(Page.Devices);
+
+    [RelayCommand]
+    private void SignInAgain()
+    {
+        // Reset the flag so the banner disappears if the user navigates back and re-enters the queue.
+        SessionExpired = false;
+        _navigator?.GoTo(Page.Login);
+    }
 }
