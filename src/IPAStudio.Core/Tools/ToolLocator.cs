@@ -71,7 +71,24 @@ public sealed class ToolLocator
     /// <summary>Verifies that the required tool binaries exist; returns missing paths.</summary>
     public IReadOnlyList<string> ValidateTools()
     {
-        var required = new[] { IpatoolPath, IdeviceInstallerPath, IdeviceIdPath, IdeviceInfoPath };
+        var required = new List<string>
+        {
+            IpatoolPath,
+            IdeviceInstallerPath,
+            IdeviceIdPath,
+            IdeviceInfoPath,
+        };
+        // ipatool v3 spawns anisette.exe from the same directory; it is mandatory.
+        if (IpatoolVersion == 3)
+            required.Add(AnisettePath);
         return required.Where(p => !File.Exists(p)).ToList();
     }
+
+    /// <summary>
+    /// Returns the directory that ipatool expects to find its side-by-side helpers
+    /// (e.g. anisette.exe) in — always the folder that contains ipatool.exe.
+    /// Pass this as the working directory when launching ipatool.
+    /// </summary>
+    public string IpatoolWorkingDirectory =>
+        Path.GetDirectoryName(IpatoolPath) ?? AppContext.BaseDirectory;
 }

@@ -57,6 +57,7 @@ public sealed class ProcessRunner
         Action<StreamWriter>? onStdinReady = null,
         IReadOnlyDictionary<string, string>? environment = null,
         bool closeStdin = false,
+        string? workingDirectory = null,
         CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
@@ -69,6 +70,9 @@ public sealed class ProcessRunner
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            // Ensure side-by-side helpers (e.g. anisette.exe for ipatool v3) are
+            // discoverable — set the working directory to the tool's own folder.
+            WorkingDirectory = workingDirectory ?? Path.GetDirectoryName(fileName) ?? "",
         };
 
         foreach (var arg in arguments)
