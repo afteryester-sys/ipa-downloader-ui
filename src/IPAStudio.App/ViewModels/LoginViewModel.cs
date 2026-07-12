@@ -53,6 +53,11 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string? _errorMessage;
 
+    /// <summary>True when the last login attempt failed because anisette could
+    /// not find iCloud for Windows (ipatool v3 only). Shows a "switch to v2" button.</summary>
+    [ObservableProperty]
+    private bool _isICloudError;
+
     public LoginViewModel(AuthService auth, SettingsService settings, DeviceService devices)
     {
         _auth = auth;
@@ -133,6 +138,7 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
         IsBusy = true;
         IsTwoFactorStep = false;
         ErrorMessage = null;
+        IsICloudError = false;
         _loginCts = new CancellationTokenSource();
 
         try
@@ -147,6 +153,12 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
                 try { _settings.Save(); } catch { /* non-fatal */ }
 
                 NavigateAfterLogin();
+            }
+            else if (result.ICloudNotFound)
+            {
+                // anisette couldn't find iCloud for Windows; offer switching to v2.
+                IsICloudError = true;
+                ErrorMessage = null; // shown via dedicated banner, not the generic error box
             }
             else
             {
@@ -213,6 +225,19 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
         IsTwoFactorStep = false;
         IsBusy = false;
         TwoFactorCode = "";
+        ErrorMessage = null;
+    }
+
+    /// <summary>
+    /// Switches ipatool to v2 (does not require iCloud for Windows) and clears
+    /// the iCloud error so the user can immediately retry the login.
+    /// </summary>
+    [RelayCommand]
+    private void SwitchToV2()
+    {
+        _settings.Current.IpatoolVersion = 2;
+        try { _settings.Save(); } catch { /* non-fatal */ }
+        IsICloudError = false;
         ErrorMessage = null;
     }
 }

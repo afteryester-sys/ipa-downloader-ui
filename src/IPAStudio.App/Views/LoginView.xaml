@@ -81,7 +81,26 @@
                                HorizontalAlignment="Center" Margin="0,8,0,0" />
                 </StackPanel>
 
-                <!-- Error -->
+                <!-- iCloud Not Found banner (ipatool v3 only) -->
+                <Border Background="{StaticResource Brush.DangerSoft}"
+                        BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,12" Margin="0,20,0,0"
+                        Visibility="{Binding IsICloudError, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.Login.ICloudTitle}"
+                                   Foreground="{StaticResource Brush.Danger}"
+                                   FontWeight="SemiBold" FontSize="13" />
+                        <TextBlock Text="{DynamicResource L.Login.ICloudHint}"
+                                   Foreground="{StaticResource Brush.Danger}"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10" />
+                        <Button Content="{DynamicResource L.Login.SwitchToV2}"
+                                Style="{StaticResource Button.Danger}"
+                                Command="{Binding SwitchToV2Command}"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Generic error -->
                 <Border Background="{StaticResource Brush.DangerSoft}" CornerRadius="8" Padding="12,10" Margin="0,20,0,0"
                         Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"

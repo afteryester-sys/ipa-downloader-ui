@@ -72,17 +72,21 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
         {
             await _deps.CheckAllAsync();
 
-            // Auto-download CLI tools silently — no user action needed.
+            // If everything is already present: skip this screen entirely —
+            // no delay, no user interaction required.
+            if (_deps.Status.AllReady)
+            {
+                _navigator?.GoTo(Page.Login);
+                return;
+            }
+
+            // Auto-download CLI tools silently when they are the only thing missing.
             if (_deps.Status.CliTools == DependencyState.Missing)
                 await InstallToolsAsync();
 
-            // Everything present? Move on after a short beat so the user
-            // sees the green checkmarks.
+            // After auto-install, check again and skip if now ready.
             if (_deps.Status.AllReady)
-            {
-                await Task.Delay(900);
                 _navigator?.GoTo(Page.Login);
-            }
         }
         finally
         {

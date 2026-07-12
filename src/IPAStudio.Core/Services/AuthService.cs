@@ -67,11 +67,18 @@ public sealed partial class AuthService
             return Complete(ParseAccount(first.CombinedOutput));
         }
 
-        // Not a 2FA request -> real failure (bad password, etc.).
+        // Not a 2FA request -> real failure (bad password, iCloud missing, etc.).
         if (!RequiresTwoFactor(first.CombinedOutput))
         {
-            AppLog.Warn($"Login failed (not a 2FA prompt): {ExtractError(first.CombinedOutput)}");
-            return AuthResult.Fail(ExtractError(first.CombinedOutput));
+            var errText = ExtractError(first.CombinedOutput);
+            AppLog.Warn($"Login failed (not a 2FA prompt): {errText}");
+
+            // Special case: anisette says iCloud is not installed.
+            // Return a typed result so the UI can offer switching to v2.
+            if (IsICloudNotFoundError(first.CombinedOutput))
+                return AuthResult.ICloudMissing(errText);
+
+            return AuthResult.Fail(errText);
         }
 
         // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
@@ -261,6 +268,20 @@ public sealed partial class AuthService
             || lower.Contains("not logged in")
             || lower.Contains("please run 'auth login'")
             || lower.Contains("please run \"auth login\"");
+    }
+
+    /// <summary>
+    /// True when anisette exits with "iCloud Not Found" — ipatool v3 requires
+    /// Apple iCloud for Windows to be installed locally.
+    /// Messages observed:
+    ///   "iCloud Not Found (1)"
+    ///   "anisette exited with code 1"
+    /// </summary>
+    public static bool IsICloudNotFoundError(string output)
+    {
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("icloud not found")
+            || (lower.Contains("anisette") && lower.Contains("code 1"));
     }
 
     /// <summary>

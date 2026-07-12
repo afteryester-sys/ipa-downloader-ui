@@ -41,6 +41,9 @@
     <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
     <sys:String x:Key="L.Login.Skip">Skip sign-in</sys:String>
     <sys:String x:Key="L.Login.SkipHint">You can go straight to your devices. Apple ID sign-in is only required when installing apps.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">iCloud not installed</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 requires Apple iCloud for Windows. Install iCloud or switch to v2 — it works without iCloud out of the box.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
 
     <!-- Devices -->
     <sys:String x:Key="L.Devices.Title">Devices</sys:String>

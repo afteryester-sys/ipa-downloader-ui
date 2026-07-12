@@ -41,6 +41,9 @@
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
     <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
     <sys:String x:Key="L.Login.SkipHint">Можно сразу перейти к устройствам. Вход в Apple ID потребуется только при установке приложений.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">iCloud не установлен</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 требует приложение Apple iCloud для Windows. Установите iCloud или переключитесь на v2 — он не требует iCloud и работает сразу.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Переключить на ipatool v2</sys:String>
 
     <!-- Устройства -->
     <sys:String x:Key="L.Devices.Title">Устройства</sys:String>
