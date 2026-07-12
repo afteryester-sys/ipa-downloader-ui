@@ -30,25 +30,28 @@
                 <!-- Thumbnail or type glyph -->
                 <Border Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0"
                         Style="{StaticResource ThumbBorder}">
-                    <!-- Real image preview -->
-                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
-                           Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
-                    <!-- Fallback glyph when no thumb yet -->
-                    <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
-                               FontFamily="Segoe MDL2 Assets" FontSize="20"
-                               Foreground="{StaticResource Brush.Accent}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="&#xEB9F;" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsVideo}" Value="True">
-                                        <Setter Property="Text" Value="&#xE714;" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <!-- Grid allows Image + fallback TextBlock to overlap in same cell -->
+                    <Grid>
+                        <!-- Real image preview -->
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                        <!-- Fallback glyph when no thumb yet -->
+                        <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                   FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                   Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xEB9F;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                            <Setter Property="Text" Value="&#xE714;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
                 </Border>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
@@ -72,24 +75,26 @@
                 <StackPanel>
                     <Grid>
                         <Border Width="130" Height="110" Style="{StaticResource ThumbBorder}">
-                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
-                                   Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
-                            <!-- Fallback glyph -->
-                            <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
-                                       FontFamily="Segoe MDL2 Assets" FontSize="36"
-                                       Foreground="{StaticResource Brush.Accent}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="&#xEB9F;" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
-                                                <Setter Property="Text" Value="&#xE714;" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <Grid>
+                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                       Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                                <!-- Fallback glyph -->
+                                <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="36"
+                                           Foreground="{StaticResource Brush.Accent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="&#xEB9F;" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                                    <Setter Property="Text" Value="&#xE714;" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
                         </Border>
                         <!-- Video badge -->
                         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
