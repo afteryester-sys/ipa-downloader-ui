@@ -1,3 +1,4 @@
+using System.IO;
 using IPAStudio.Core.Models;
 
 namespace IPAStudio.Core.Services;
@@ -73,6 +74,36 @@ public sealed class QueueService
         }
     }
 
+    /// <summary>
+    /// Builds a queue from IPA files already on disk (Direct IPA install mode).
+    /// These items skip Checking/Licensing/Downloading and go straight to Installing.
+    /// The install is independent of the signed-in Apple ID.
+    /// </summary>
+    public void BuildFromIpaFiles(IEnumerable<string> ipaPaths, Device device)
+    {
+        lock (_items)
+        {
+            _items.Clear();
+            foreach (var path in ipaPaths)
+            {
+                var name = Path.GetFileNameWithoutExtension(path);
+                var app = new AppEntry
+                {
+                    Name = name,
+                    AppStoreId = 0,
+                    LocalIpaPath = path,
+                    IsDownloaded = true,
+                };
+                _items.Add(new QueueItem
+                {
+                    App = app,
+                    TargetDevice = device,
+                    IsDirectIpaInstall = true,
+                });
+            }
+        }
+    }
+
     /// <summary>Starts processing the queue. No-op when already running.</summary>
     public async Task RunAsync()
     {
@@ -135,6 +166,18 @@ public sealed class QueueService
         item.StartedAt = DateTimeOffset.Now;
         try
         {
+            // ---- Direct IPA install (file-picker mode): skip all store stages ----
+            if (item.IsDirectIpaInstall)
+            {
+                if (string.IsNullOrEmpty(item.App.LocalIpaPath) || !File.Exists(item.App.LocalIpaPath))
+                {
+                    Fail(item, $"Файл IPA не найден: {item.App.LocalIpaPath}");
+                    return;
+                }
+                await RunInstallStageAsync(item, item.App.LocalIpaPath!, ct).ConfigureAwait(false);
+                return;
+            }
+
             // ---- Stage 1: Checking (local cache + account license) ----
             SetStage(item, QueueStage.Checking, "Checking local files and license");
 
@@ -220,41 +263,7 @@ public sealed class QueueService
                 return;
             }
 
-            SetStage(item, QueueStage.Installing, "Waiting for device…");
-
-            var installProgress = new Progress<InstallProgress>(p =>
-            {
-                // Map install stages to sub-ranges so the bar is never stuck at 0:
-                //   Copying      → 3-9 %
-                //   Installing N → 10-90 % (proportional to ideviceinstaller output)
-                //   Complete     → 100 %
-                var displayPct = p.Status switch
-                {
-                    "Copying"  => Math.Max(3.0, p.Percent),
-                    "Complete" => 100.0,
-                    _          => Math.Max(10.0, p.Percent), // Installing 0% → at least 10%
-                };
-                item.StageProgress = displayPct;
-                item.StatusDetail = p.Percent > 0
-                    ? $"{p.Status} {p.Percent:0}%"
-                    : p.Status;
-                Notify(item);
-            });
-
-            var installResult = await _install.InstallAsync(
-                item.TargetDevice.Udid, item.App.LocalIpaPath!, installProgress, ct).ConfigureAwait(false);
-
-            if (!installResult.Success)
-            {
-                Fail(item, installResult.Error ?? "Installation failed");
-                return;
-            }
-
-            item.App.IsInstalledOnDevice = true;
-            item.CompletedAt = DateTimeOffset.Now;
-            SetStage(item, QueueStage.Done, "Installed");
-            item.StageProgress = 100;
-            Notify(item);
+            await RunInstallStageAsync(item, item.App.LocalIpaPath!, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -267,6 +276,90 @@ public sealed class QueueService
         {
             Fail(item, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Runs the install stage for a given IPA path, updating <paramref name="item"/>
+    /// progress and stage. Shared by the normal pipeline and the direct IPA mode.
+    /// </summary>
+    private async Task RunInstallStageAsync(QueueItem item, string ipaPath, CancellationToken ct)
+    {
+        SetStage(item, QueueStage.Installing, "Ожидание устройства…");
+
+        var installProgress = new Progress<InstallProgress>(p =>
+        {
+            // Map install stages to sub-ranges so the bar is never stuck at 0:
+            //   Copying      → 3-9 %
+            //   Installing N → 10-90 % (proportional to ideviceinstaller output)
+            //   Complete     → 100 %
+            var displayPct = p.Status switch
+            {
+                "Copying"  => Math.Max(3.0, p.Percent),
+                "Complete" => 100.0,
+                _          => Math.Max(10.0, p.Percent),
+            };
+            item.StageProgress = displayPct;
+            item.StatusDetail = p.Percent > 0
+                ? $"{p.Status} {p.Percent:0}%"
+                : p.Status;
+            Notify(item);
+        });
+
+        var installResult = await _install.InstallAsync(
+            item.TargetDevice.Udid, ipaPath, installProgress, ct).ConfigureAwait(false);
+
+        if (!installResult.Success)
+        {
+            Fail(item, HumanizeInstallError(installResult.Error ?? "Installation failed"));
+            return;
+        }
+
+        item.App.IsInstalledOnDevice = true;
+        item.CompletedAt = DateTimeOffset.Now;
+        SetStage(item, QueueStage.Done, "Установлено");
+        item.StageProgress = 100;
+        Notify(item);
+    }
+
+    /// <summary>
+    /// Translates raw ideviceinstaller error strings into human-readable messages
+    /// that explain what the user should do.
+    /// </summary>
+    private static string HumanizeInstallError(string raw)
+    {
+        var lower = raw.ToLowerInvariant();
+
+        if (lower.Contains("applicationverificationfailed") || lower.Contains("verification failed"))
+            return "Ошибка верификации приложения. IPA повреждён или подпись недействительна.";
+
+        if (lower.Contains("installedappdevcertrevoked") || lower.Contains("certrevoked") || lower.Contains("revoked"))
+            return "Сертификат подписи отозван. Используйте другой IPA.";
+
+        if (lower.Contains("deviceosdataversionincompatible") || lower.Contains("incompatible"))
+            return "IPA несовместим с версией iOS на устройстве.";
+
+        if (lower.Contains("applicationalreadyinstalled"))
+            return "Это приложение уже установлено на устройстве.";
+
+        if (lower.Contains("bundleidentifieralreadyinuse") || lower.Contains("bundle id"))
+            return "Bundle ID уже занят другим приложением.";
+
+        if (lower.Contains("devicedisconnected") || lower.Contains("connection to the host"))
+            return "Устройство отключилось во время установки. Подключите снова и повторите.";
+
+        if (lower.Contains("installdaemon") || lower.Contains("connection refused"))
+            return "Служба установки на устройстве не отвечает. Перезагрузите устройство.";
+
+        if (lower.Contains("missingentitlement"))
+            return "IPA использует entitlements, требующие платного Apple Developer аккаунта.";
+
+        if (lower.Contains("not purchased") || lower.Contains("9610") || lower.Contains("license"))
+            return "Это приложение не было куплено на текущем Apple ID. Попробуйте установить IPA напрямую через режим 'Установить IPA из файла'.";
+
+        if (lower.Contains("authenticate"))
+            return "Ошибка аутентификации. Проверьте подключение и разблокируйте устройство.";
+
+        return raw;
     }
 
     private void SetStage(QueueItem item, QueueStage stage, string detail)

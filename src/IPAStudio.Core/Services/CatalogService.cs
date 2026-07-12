@@ -175,6 +175,54 @@ public sealed class CatalogService
     }
 
     /// <summary>
+    /// Looks up an app in the App Store by its Bundle ID using the iTunes Lookup API.
+    /// Returns the found entries (usually 0 or 1).
+    /// </summary>
+    public async Task<IReadOnlyList<AppEntry>> SearchByBundleIdAsync(
+        string bundleId,
+        CancellationToken ct = default)
+    {
+        var results = new List<AppEntry>();
+        try
+        {
+            var url = $"https://itunes.apple.com/lookup?bundleId={Uri.EscapeDataString(bundleId)}&entity=software";
+            using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct).ConfigureAwait(false);
+
+            if (doc.RootElement.TryGetProperty("results", out var arr))
+            {
+                foreach (var item in arr.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("trackId", out var trackId)) continue;
+                    var name = GetString(item, "trackName") ?? GetString(item, "trackCensoredName") ?? bundleId;
+                    var entry = new AppEntry
+                    {
+                        Name = name,
+                        AppStoreId = trackId.GetInt64(),
+                        BundleId = GetString(item, "bundleId"),
+                        Category = GetString(item, "primaryGenreName"),
+                        LatestVersion = GetString(item, "version"),
+                        Developer = GetString(item, "sellerName"),
+                        IconUrl = GetString(item, "artworkUrl100"),
+                        MinimumOsVersion = GetString(item, "minimumOsVersion"),
+                    };
+                    if (item.TryGetProperty("fileSizeBytes", out var size))
+                        entry.FileSizeBytes = size.ValueKind == JsonValueKind.String
+                            ? long.TryParse(size.GetString(), out var parsed) ? parsed : null
+                            : size.GetInt64();
+                    results.Add(entry);
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* network failure — return empty */ }
+        return results;
+    }
+
+    /// <summary>
     /// Marks entries whose IPA already exists in the local Apps folder.
     /// File name convention (same as the original project): Name_AppID_Version.ipa
     /// </summary>

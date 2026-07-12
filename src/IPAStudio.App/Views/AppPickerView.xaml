@@ -7,10 +7,12 @@
         <conv:IconPathConverter x:Key="IconPath" />
         <conv:InitialConverter x:Key="Initial" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
     </UserControl.Resources>
 
     <Grid Margin="32">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -36,8 +38,45 @@
             </StackPanel>
         </Grid>
 
+        <!-- Apple ID mismatch warning banner -->
+        <Border Grid.Row="1" Margin="0,0,0,12" CornerRadius="10"
+                Background="{StaticResource Brush.WarningSoft}"
+                Padding="16,12"
+                Visibility="{Binding ShowAppleIdMismatch, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                           Foreground="{StaticResource Brush.Warning}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource L.Picker.AppleIdMismatch}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="Аккаунт: " Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding AccountAppleId}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="   |   Устройство: " Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding DeviceAppleId}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="{DynamicResource L.Picker.AppleIdMismatchContinue}"
+                            Style="{StaticResource Button.Secondary}" Padding="14,8" Margin="0,0,8,0"
+                            Command="{Binding DismissMismatchWarningCommand}" />
+                    <Button Content="{DynamicResource L.Picker.AppleIdMismatchCancel}"
+                            Style="{StaticResource Button.Ghost}" Padding="14,8"
+                            Command="{Binding GoBackCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Toolbar: search, category, select all -->
-        <Grid Grid.Row="1" Margin="0,0,0,16">
+        <Grid Grid.Row="2" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -77,7 +116,7 @@
         </Grid>
 
         <!-- App list -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="4">
+        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="4">
             <ListBox ItemsSource="{Binding AppsView}" Background="Transparent" BorderThickness="0"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
@@ -165,15 +204,83 @@
         </Border>
 
         <!-- Bottom action bar -->
-        <Grid Grid.Row="3" Margin="0,16,0,0">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="{DynamicResource L.Picker.SelectedCount}" Style="{StaticResource Text.Body}" />
-                <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
-                           FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,0,0" />
-            </StackPanel>
-            <Button Content="{DynamicResource L.Picker.Install}" Style="{StaticResource Button.Primary}"
-                    HorizontalAlignment="Right" Padding="28,12"
-                    Command="{Binding InstallSelectedCommand}" />
+        <Grid Grid.Row="4" Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Row 0: Bundle ID input (collapsed until toggled) -->
+            <Border Grid.Row="0" Style="{StaticResource Card}" Padding="16,12" Margin="0,0,0,12"
+                    Visibility="{Binding IsBundleIdPanelVisible, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
+                               Text="{DynamicResource L.Picker.BundleIdHint}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,8" />
+
+                    <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource Input.TextBox}"
+                             Padding="12,10" Height="44"
+                             Text="{Binding BundleIdInput, UpdateSourceTrigger=PropertyChanged}"
+                             VerticalContentAlignment="Center" />
+
+                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource Button.Primary}"
+                            Content="{DynamicResource L.Picker.BundleIdInstall}"
+                            Margin="8,0,0,0" Height="44" Padding="16,0"
+                            Command="{Binding InstallByBundleIdCommand}"
+                            IsEnabled="{Binding IsBundleIdBusy, Converter={StaticResource InverseBool}}" />
+
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                            Content="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                            Margin="4,0,0,0" Width="44" Height="44" ToolTip="Закрыть"
+                            Command="{Binding ToggleBundleIdPanelCommand}" />
+
+                    <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                               Visibility="{Binding BundleIdError, Converter={StaticResource NullToCollapsed}}"
+                               Text="{Binding BundleIdError}"
+                               Foreground="{StaticResource Brush.Danger}" Style="{StaticResource Text.Caption}" />
+                </Grid>
+            </Border>
+
+            <!-- Row 1: main action bar -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource L.Picker.SelectedCount}" Style="{StaticResource Text.Body}" />
+                    <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Bundle ID mode button -->
+                    <Button Content="{DynamicResource L.Picker.InstallByBundleId}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding ToggleBundleIdPanelCommand}" />
+                    <!-- Direct IPA install mode button -->
+                    <Button Content="{DynamicResource L.Picker.InstallIpa}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding InstallFromIpaCommand}" />
+                    <!-- Catalog install -->
+                    <Button Content="{DynamicResource L.Picker.Install}" Style="{StaticResource Button.Primary}"
+                            Padding="28,12"
+                            Command="{Binding InstallSelectedCommand}" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

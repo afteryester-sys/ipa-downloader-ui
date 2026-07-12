@@ -34,6 +34,14 @@ public sealed class QueueItem
 
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary>
+    /// When true the IPA file is already on disk (App.LocalIpaPath is set) and
+    /// came from a direct file-picker selection, not from the App Store catalog.
+    /// The queue skips Checking/Licensing/Downloading and goes straight to Installing.
+    /// The install ignores the signed-in Apple ID — any IPA can be sideloaded this way.
+    /// </summary>
+    public bool IsDirectIpaInstall { get; init; }
 }
 
 /// <summary>

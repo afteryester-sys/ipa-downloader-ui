@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
@@ -59,6 +60,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private readonly CatalogService _catalog;
     private readonly InstallService _install;
     private readonly QueueService _queue;
+    private readonly AuthService _auth;
     private INavigator? _navigator;
 
     public Device? TargetDevice { get; set; }
@@ -84,14 +86,58 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _deviceName = "";
 
-    public AppPickerViewModel(CatalogService catalog, InstallService install, QueueService queue)
+    // ---- Apple ID mismatch banner ----
+
+    /// <summary>
+    /// True when the signed-in Apple ID differs from the Apple ID on the device.
+    /// Shows an inline warning banner. The user can dismiss it (and proceed) or go back.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showAppleIdMismatch;
+
+    [ObservableProperty]
+    private string _deviceAppleId = "";
+
+    [ObservableProperty]
+    private string _accountAppleId = "";
+
+    [RelayCommand]
+    private void DismissMismatchWarning() => ShowAppleIdMismatch = false;
+
+    public AppPickerViewModel(CatalogService catalog, InstallService install, QueueService queue, AuthService auth)
     {
         _catalog = catalog;
         _install = install;
         _queue = queue;
+        _auth = auth;
 
         AppsView = CollectionViewSource.GetDefaultView(Apps);
         AppsView.Filter = FilterApp;
+
+        // Refresh icon paths and metadata on the list items as the background
+        // metadata loader fills them in (runs once per session after catalog load).
+        _catalog.MetadataUpdated += OnCatalogMetadataUpdated;
+    }
+
+    private void OnCatalogMetadataUpdated(object? sender, IReadOnlyList<AppEntry> updated)
+    {
+        // Build a lookup from the updated entries so we can patch only the affected items.
+        var updatedIds = updated.Select(e => e.AppStoreId).ToHashSet();
+        var affected = Apps.Where(a => updatedIds.Contains(a.App.AppStoreId)).ToList();
+        if (affected.Count == 0) return;
+
+        RunOnUi(() =>
+        {
+            foreach (var item in affected)
+                item.SyncFromModel();
+        });
+    }
+
+    private static void RunOnUi(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        else dispatcher.InvokeAsync(action);
     }
 
     partial void OnSearchTextChanged(string value) => AppsView.Refresh();
@@ -101,6 +147,24 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     {
         _navigator = navigator;
         DeviceName = TargetDevice?.Name ?? "";
+
+        // Check whether the signed-in Apple ID matches the device's Apple ID.
+        // If they differ, show an inline warning banner so the user can decide
+        // whether to proceed or abort (they might be installing on the wrong account).
+        ShowAppleIdMismatch = false;
+        if (TargetDevice is not null
+            && !string.IsNullOrWhiteSpace(TargetDevice.AppleId)
+            && _auth.CurrentAccount is not null
+            && !string.Equals(
+                TargetDevice.AppleId.Trim(),
+                _auth.CurrentAccount.Email.Trim(),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            DeviceAppleId = TargetDevice.AppleId;
+            AccountAppleId = _auth.CurrentAccount.Email;
+            ShowAppleIdMismatch = true;
+        }
+
         _ = LoadAsync();
     }
 
@@ -196,6 +260,100 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         var selected = Apps.Where(a => a.IsSelected).Select(a => a.App).ToList();
         _queue.Build(selected, TargetDevice);
         _navigator?.GoTo(Page.Queue);
+    }
+
+    /// <summary>
+    /// IPA install mode: open a Windows file picker, select one or more .ipa files
+    /// and install them directly onto the device without touching the App Store.
+    /// Works regardless of which Apple ID is signed in (or whether one is signed in at all).
+    /// </summary>
+    [RelayCommand]
+    private void InstallFromIpa()
+    {
+        if (TargetDevice is null) return;
+
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Выберите IPA для установки",
+            Filter = "Файлы IPA|*.ipa|Все файлы|*.*",
+            Multiselect = true,
+        };
+        if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
+
+        _queue.BuildFromIpaFiles(dialog.FileNames, TargetDevice);
+        _navigator?.GoTo(Page.Queue);
+    }
+
+    // ---- Install by Bundle ID ----
+
+    [ObservableProperty]
+    private bool _isBundleIdPanelVisible;
+
+    [RelayCommand]
+    private void ToggleBundleIdPanel()
+    {
+        IsBundleIdPanelVisible = !IsBundleIdPanelVisible;
+        BundleIdError = "";
+    }
+
+    [ObservableProperty]
+    private string _bundleIdInput = "";
+
+    [ObservableProperty]
+    private string _bundleIdError = "";
+
+    [ObservableProperty]
+    private bool _isBundleIdBusy;
+
+    [RelayCommand]
+    private async Task InstallByBundleIdAsync()
+    {
+        if (TargetDevice is null) return;
+
+        var bundleId = BundleIdInput.Trim();
+        if (string.IsNullOrEmpty(bundleId))
+        {
+            BundleIdError = "Введите Bundle ID, например: com.apple.mobilemail";
+            return;
+        }
+
+        BundleIdError = "";
+        IsBundleIdBusy = true;
+        try
+        {
+            // 1. Try to find the app in the local catalog first (no network required).
+            var devicesVm = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                .GetRequiredService<DevicesViewModel>(App.Services);
+            var fromCatalog = devicesVm.Catalog.FirstOrDefault(e =>
+                string.Equals(e.BundleId, bundleId, StringComparison.OrdinalIgnoreCase));
+
+            if (fromCatalog is not null)
+            {
+                _queue.Build(new[] { fromCatalog }, TargetDevice);
+                _navigator?.GoTo(Page.Queue);
+                return;
+            }
+
+            // 2. Not in catalog: search the App Store by bundle ID.
+            var results = await _catalog.SearchByBundleIdAsync(bundleId).ConfigureAwait(false);
+            if (results is null || results.Count == 0)
+            {
+                BundleIdError = $"Приложение с Bundle ID «{bundleId}» не найдено в App Store.";
+                return;
+            }
+
+            var app = results[0];
+            _queue.Build(new[] { app }, TargetDevice);
+            _navigator?.GoTo(Page.Queue);
+        }
+        catch (Exception ex)
+        {
+            BundleIdError = $"Ошибка поиска: {ex.Message}";
+        }
+        finally
+        {
+            IsBundleIdBusy = false;
+        }
     }
 
     [RelayCommand]
