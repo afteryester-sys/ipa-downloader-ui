@@ -45,6 +45,9 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
 
     [ObservableProperty] private bool _isChecking;
 
+    /// <summary>True briefly when all checks passed, before auto-continuing.</summary>
+    [ObservableProperty] private bool _isReadySuccess;
+
     /// <summary>0..1 install progress; negative means indeterminate.</summary>
     [ObservableProperty] private double _installProgress = -1;
 
@@ -92,22 +95,19 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     private async Task RunChecksAsync()
     {
         IsChecking = true;
+        IsReadySuccess = false;
         CanSkip    = false;
         ErrorMessage = null;
         try
         {
+            // Keep the checking state visible for a moment so the user actually
+            // sees the environment being verified instead of an instant skip.
+            var minVisible = Task.Delay(700);
             await _deps.CheckAllAsync();
 
             // Check iCloud when v3 is active.
             if (NeedsICloud)
                 ICloudState = _deps.Status.ICloud;
-
-            // Everything ready → skip screen entirely.
-            if (_deps.Status.AllReady && (!NeedsICloud || ICloudState == DependencyState.Ok))
-            {
-                _navigator?.GoTo(Page.Login);
-                return;
-            }
 
             // Auto-download CLI tools silently when they are the only thing missing.
             if (_deps.Status.CliTools == DependencyState.Missing &&
@@ -116,17 +116,23 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
                 await InstallToolsAsync();
             }
 
-            // After auto-install, skip if now ready.
-            if (_deps.Status.AllReady && (!NeedsICloud || ICloudState == DependencyState.Ok))
-            {
-                _navigator?.GoTo(Page.Login);
-                return;
-            }
+            await minVisible;
         }
         finally
         {
             IsChecking = false;
             CanSkip    = true; // always allow skip after first check
+        }
+
+        // Decide whether everything required is in place.
+        var ready = _deps.Status.AllReady && (!NeedsICloud || ICloudState == DependencyState.Ok);
+        if (ready)
+        {
+            // Show a visible success state, then continue automatically so the
+            // user can confirm the environment was actually checked.
+            IsReadySuccess = true;
+            await Task.Delay(1200);
+            _navigator?.GoTo(Page.Login);
         }
     }
 
