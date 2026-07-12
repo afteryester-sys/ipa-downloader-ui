@@ -14,6 +14,8 @@
   <ItemGroup>
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <!-- Managed AFC access to the device Camera Roll (bundles its own native libs). -->
+    <PackageReference Include="imobiledevice-net" Version="1.3.17" />
   </ItemGroup>
 
 </Project>

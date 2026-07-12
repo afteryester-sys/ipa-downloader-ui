@@ -31,6 +31,12 @@
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DeviceInfoViewModel}">
+            <views:DeviceInfoView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PhotosViewModel}">
+            <views:PhotosView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>

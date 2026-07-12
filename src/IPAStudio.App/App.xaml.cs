@@ -33,6 +33,7 @@ public partial class App : Application
         services.AddSingleton<AuthService>();
         services.AddSingleton<CatalogService>();
         services.AddSingleton<DeviceService>();
+        services.AddSingleton<PhotoService>();
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
         services.AddSingleton<QueueService>();
@@ -49,6 +50,8 @@ public partial class App : Application
         services.AddSingleton<AppPickerViewModel>();
         services.AddSingleton<QueueViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DeviceInfoViewModel>();
+        services.AddSingleton<PhotosViewModel>();
 
         Services = services.BuildServiceProvider();
 
