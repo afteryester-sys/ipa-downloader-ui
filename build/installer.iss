@@ -144,17 +144,19 @@ begin
     if not IsAppleMobileDeviceSupportInstalled() then
     begin
       if ActiveLanguage() = 'russian' then
-        MsgBox('Драйверы Apple (Apple Mobile Device Support) не обнаружены.' + #13#10 +
-               'Для установки приложений на iPhone установите iTunes с сайта Apple.' +
-               #13#10#13#10 +
-               'Загрузка IPA-файлов будет работать и без драйверов.',
-               mbInformation, MB_OK)
+        MsgBox(
+          'Драйверы Apple (Apple Mobile Device Support) не обнаружены.' + Chr(13) + Chr(10) +
+          'Для установки приложений на iPhone установите iTunes с сайта Apple.' +
+          Chr(13) + Chr(10) + Chr(13) + Chr(10) +
+          'Загрузка IPA-файлов будет работать и без драйверов.',
+          mbInformation, MB_OK)
       else
-        MsgBox('Apple drivers (Apple Mobile Device Support) were not detected.' + #13#10 +
-               'To install apps onto an iPhone, please install iTunes from Apple''s website.' +
-               #13#10#13#10 +
-               'Downloading IPA files will work without the drivers.',
-               mbInformation, MB_OK);
+        MsgBox(
+          'Apple drivers (Apple Mobile Device Support) were not detected.' + Chr(13) + Chr(10) +
+          'To install apps onto an iPhone, please install iTunes from Apple''s website.' +
+          Chr(13) + Chr(10) + Chr(13) + Chr(10) +
+          'Downloading IPA files will work without the drivers.',
+          mbInformation, MB_OK);
     end;
   end;
 end;
