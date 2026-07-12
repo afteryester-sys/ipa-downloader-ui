@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write   # needed to dispatch auto-release.yml
 
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +61,15 @@ jobs:
           git diff --cached --quiet \
             || git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [auto]"
 
-      # ---- Push main (triggers auto-release.yml) --------------------------
+      # ---- Push main -------------------------------------------------------
+      # NOTE: a push made with GITHUB_TOKEN does NOT trigger other workflows
+      # (GitHub anti-recursion rule), so we cannot rely on auto-release.yml's
+      # `push` trigger. Instead we dispatch it explicitly below —
+      # workflow_dispatch IS allowed to run even when invoked with GITHUB_TOKEN.
       - name: Push main
         run: git push origin main
+
+      - name: Trigger auto-release on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run auto-release.yml --ref main
