@@ -153,6 +153,13 @@
     <sys:String x:Key="L.Menu.Title">Menu</sys:String>
     <sys:String x:Key="L.Menu.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Menu.Logs">Show log</sys:String>
+    <sys:String x:Key="L.Menu.Maintenance">Maintenance</sys:String>
+    <sys:String x:Key="L.Menu.ClearCache">Clear cache</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmTitle">Clear cache?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">This will delete downloaded apps (.ipa), the icon cache and the catalog cache — about {0}. Your settings and sign-in will be kept. Continue?</sys:String>
+    <sys:String x:Key="L.Cache.Clearing">Clearing…</sys:String>
+    <sys:String x:Key="L.Cache.Done">Done. Freed {0}.</sys:String>
+    <sys:String x:Key="L.Cache.Failed">Couldn't clear the cache. See the log for details.</sys:String>
 
     <!-- Logs -->
     <sys:String x:Key="L.Logs.Title">Application log</sys:String>
