@@ -17,14 +17,16 @@ public sealed class QueueService
     private readonly DownloadService _download;
     private readonly InstallService _install;
     private readonly CatalogService _catalog;
+    private readonly SettingsService _settings;
     private readonly List<QueueItem> _items = new();
     private CancellationTokenSource? _cts;
 
-    public QueueService(DownloadService download, InstallService install, CatalogService catalog)
+    public QueueService(DownloadService download, InstallService install, CatalogService catalog, SettingsService settings)
     {
         _download = download;
         _install = install;
         _catalog = catalog;
+        _settings = settings;
     }
 
     public IReadOnlyList<QueueItem> Items
@@ -170,10 +172,13 @@ public sealed class QueueService
                 Notify(item);
             }
 
-            // ---- Stage 3: Downloading (skipped when IPA is already local) ----
-            if (!item.App.IsDownloaded || item.App.LocalIpaPath is null)
+            // ---- Stage 3: Downloading (skipped when IPA is already local or mode = install-only) ----
+            var skipDownload = _settings.InstallMode == InstallMode.InstallExistingOnly
+                || item.App.IsDownloaded && item.App.LocalIpaPath is not null;
+
+            if (!skipDownload)
             {
-                SetStage(item, QueueStage.Downloading, "Downloading IPA");
+                SetStage(item, QueueStage.Downloading, "Preparing download…");
 
                 var progress = new Progress<DownloadProgress>(p =>
                 {
@@ -181,7 +186,13 @@ public sealed class QueueService
                     item.DownloadedBytes = p.DownloadedBytes;
                     item.TotalBytes = p.TotalBytes;
                     item.DownloadSpeedBps = p.SpeedBps;
-                    item.StatusDetail = $"Downloading {p.Percent:0}%";
+                    // When total size is unknown we never get a real percent, so show
+                    // downloaded bytes so the user can see activity.
+                    item.StatusDetail = p.TotalBytes > 0 && p.Percent > 0.1
+                        ? $"Downloading {p.Percent:0.0}%"
+                        : p.DownloadedBytes > 0
+                            ? $"Downloading {FormatBytes(p.DownloadedBytes)}…"
+                            : "Preparing download…";
                     Notify(item);
                 });
 
@@ -199,12 +210,34 @@ public sealed class QueueService
             }
 
             // ---- Stage 4: Installing (serialized on the device) ----
+            // Skip install when the user only wants to download the IPA.
+            if (_settings.InstallMode == InstallMode.DownloadOnly)
+            {
+                item.CompletedAt = DateTimeOffset.Now;
+                SetStage(item, QueueStage.Done, "Downloaded (install skipped)");
+                item.StageProgress = 100;
+                Notify(item);
+                return;
+            }
+
             SetStage(item, QueueStage.Installing, "Waiting for device…");
 
             var installProgress = new Progress<InstallProgress>(p =>
             {
-                item.StageProgress = p.Percent;
-                item.StatusDetail = $"{p.Status} {p.Percent:0}%";
+                // Map install stages to sub-ranges so the bar is never stuck at 0:
+                //   Copying      → 3-9 %
+                //   Installing N → 10-90 % (proportional to ideviceinstaller output)
+                //   Complete     → 100 %
+                var displayPct = p.Status switch
+                {
+                    "Copying"  => Math.Max(3.0, p.Percent),
+                    "Complete" => 100.0,
+                    _          => Math.Max(10.0, p.Percent), // Installing 0% → at least 10%
+                };
+                item.StageProgress = displayPct;
+                item.StatusDetail = p.Percent > 0
+                    ? $"{p.Status} {p.Percent:0}%"
+                    : p.Status;
                 Notify(item);
             });
 
@@ -257,6 +290,14 @@ public sealed class QueueService
 
     private static bool IsTerminal(QueueStage stage)
         => stage is QueueStage.Done or QueueStage.Failed or QueueStage.Cancelled;
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:0.0} GB";
+        if (bytes >= 1_048_576)     return $"{bytes / 1_048_576.0:0.0} MB";
+        if (bytes >= 1_024)         return $"{bytes / 1_024.0:0.0} KB";
+        return $"{bytes} B";
+    }
 
     /// <summary>Weight of a single item toward overall progress (0..1).</summary>
     private static double ItemProgressShare(QueueItem item) => item.Stage switch

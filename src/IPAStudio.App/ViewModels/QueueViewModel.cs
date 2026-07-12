@@ -32,8 +32,19 @@ public sealed partial class QueueItemViewModel : ObservableObject
 
     public bool IsActive => Stage is QueueStage.Checking or QueueStage.Licensing
         or QueueStage.Downloading or QueueStage.Installing;
-    /// <summary>Show a moving (indeterminate) bar while active but no % is measured yet.</summary>
-    public bool IsIndeterminate => IsActive && StageProgress <= 0.5;
+
+    /// <summary>
+    /// Show a moving (indeterminate) bar for stages where no measurable progress exists.
+    /// Checking and Licensing are always indeterminate.
+    /// Downloading is indeterminate only until the first byte arrives.
+    /// Installing always uses a determinate bar (always starts at >=3%).
+    /// </summary>
+    public bool IsIndeterminate => Stage switch
+    {
+        QueueStage.Checking or QueueStage.Licensing => true,
+        QueueStage.Downloading => StageProgress <= 0.5 && Item.DownloadedBytes <= 0,
+        _ => false,
+    };
     public bool IsDone => Stage == QueueStage.Done;
     public bool IsFailed => Stage is QueueStage.Failed or QueueStage.Cancelled;
     public bool IsPending => Stage == QueueStage.Pending;

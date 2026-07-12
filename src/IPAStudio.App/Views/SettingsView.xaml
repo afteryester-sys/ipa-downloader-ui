@@ -74,6 +74,23 @@
                 </StackPanel>
             </Border>
 
+            <!-- Install mode -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.InstallMode}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.DownloadAndInstall}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsDownloadAndInstall}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.DownloadOnly}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsDownloadOnly}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.InstallExistingOnly}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsInstallExistingOnly}" />
+                </StackPanel>
+            </Border>
+
             <!-- Account -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,24">
                 <StackPanel>

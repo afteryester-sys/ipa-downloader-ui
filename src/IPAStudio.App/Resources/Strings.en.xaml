@@ -129,6 +129,10 @@
     <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
     <sys:String x:Key="L.Settings.Account">Account</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.InstallMode">Install Mode</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Download and install (default)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Download IPA only (do not install)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Install existing IPA only (skip download)</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
 
     <!-- Updates -->

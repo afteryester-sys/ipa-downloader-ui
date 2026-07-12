@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Services;
 using IPAStudio.Core.Tools;
+using static IPAStudio.Core.Services.InstallMode;
 
 namespace IPAStudio.App.ViewModels;
 
@@ -31,6 +32,29 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private int _maxParallelDownloads = 3;
+
+    // Install mode: three RadioButtons bound via bool helpers below.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ModeIsDownloadAndInstall))]
+    [NotifyPropertyChangedFor(nameof(ModeIsDownloadOnly))]
+    [NotifyPropertyChangedFor(nameof(ModeIsInstallExistingOnly))]
+    private InstallMode _installMode = DownloadAndInstall;
+
+    public bool ModeIsDownloadAndInstall
+    {
+        get => InstallMode == DownloadAndInstall;
+        set { if (value) InstallMode = DownloadAndInstall; }
+    }
+    public bool ModeIsDownloadOnly
+    {
+        get => InstallMode == DownloadOnly;
+        set { if (value) InstallMode = DownloadOnly; }
+    }
+    public bool ModeIsInstallExistingOnly
+    {
+        get => InstallMode == InstallExistingOnly;
+        set { if (value) InstallMode = InstallExistingOnly; }
+    }
 
     [ObservableProperty]
     private string _accountEmail = "";
@@ -85,6 +109,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
         ToolsFolder = _tools.ToolsRoot;
+        InstallMode = _settings.Current.InstallMode;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -178,6 +203,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.IpatoolVersion = IpatoolVersion;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 5);
+        _settings.Current.InstallMode = InstallMode;
         _settings.Save();
 
         _queue.MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
