@@ -153,6 +153,13 @@
     <sys:String x:Key="L.Menu.Title">Меню</sys:String>
     <sys:String x:Key="L.Menu.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Menu.Logs">Показать журнал (логи)</sys:String>
+    <sys:String x:Key="L.Menu.Maintenance">Обслуживание</sys:String>
+    <sys:String x:Key="L.Menu.ClearCache">Очистить кэш</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmTitle">Очистить кэш?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">Будут удалены загруженные приложения (.ipa), кэш иконок и каталога — примерно {0}. Настройки и вход сохранятся. Продолжить?</sys:String>
+    <sys:String x:Key="L.Cache.Clearing">Очистка…</sys:String>
+    <sys:String x:Key="L.Cache.Done">Готово. Освобождено {0}.</sys:String>
+    <sys:String x:Key="L.Cache.Failed">Не удалось очистить кэш. Подробности в журнале.</sys:String>
 
     <!-- Журнал -->
     <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>
