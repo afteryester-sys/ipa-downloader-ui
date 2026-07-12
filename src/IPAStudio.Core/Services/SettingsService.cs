@@ -17,6 +17,9 @@ public sealed class AppSettings
 
     /// <summary>Number of parallel downloads (1-5).</summary>
     public int MaxParallelDownloads { get; set; } = 3;
+
+    /// <summary>Last Apple ID used to sign in; pre-filled on the login screen.</summary>
+    public string? LastAppleId { get; set; }
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>

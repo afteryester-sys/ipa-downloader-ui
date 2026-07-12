@@ -10,6 +10,29 @@
     <sys:String x:Key="L.Settings">Настройки</sys:String>
     <sys:String x:Key="L.Search">Поиск…</sys:String>
     <sys:String x:Key="L.Loading">Загрузка…</sys:String>
+    <sys:String x:Key="L.Credit">разработано Послевчерашним</sys:String>
+
+    <!-- Проверка окружения -->
+    <sys:String x:Key="L.Setup.Title">Проверка окружения</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Убедимся, что всё необходимое для работы с iPhone установлено</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Драйверы Apple (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Нужны, чтобы Windows видел подключённый iPhone. Устанавливаются вместе с iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Рекомендуется. Обеспечивает драйверы и корректное подключение устройств.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Служебные утилиты (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Загружаются автоматически. Нужны для загрузки и установки приложений.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Установить</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Идёт установка… Может открыться окно контроля учётных записей (UAC).</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Проверить снова</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Не удалось установить iTunes автоматически. Установите его вручную с сайта apple.com и нажмите «Проверить снова».</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Не удалось загрузить служебные утилиты. Проверьте подключение к интернету и повторите.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Драйверы Apple не найдены. Установите iTunes — он включает все необходимые драйверы.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Скачать iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Или скачайте вручную:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud для Windows (требуется для ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Скачать iCloud для Windows</sys:String>
 
     <!-- Авторизация -->
     <sys:String x:Key="L.Login.Title">Вход в Apple ID</sys:String>
@@ -22,6 +45,11 @@
     <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">Можно сразу перейти к устройствам. Вход в Apple ID потребуется только при установке приложений.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">iCloud не установлен</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 требует приложение Apple iCloud для Windows. Установите iCloud или переключитесь на v2 — он не требует iCloud и работает сразу.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Переключить на ipatool v2</sys:String>
 
     <!-- Устройства -->
     <sys:String x:Key="L.Devices.Title">Устройства</sys:String>
@@ -34,9 +62,32 @@
     <sys:String x:Key="L.Devices.Catalog">Каталог приложений</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">приложений в каталоге</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Выйти</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Войти в Apple ID</sys:String>
+
+    <!-- Информация об устройстве -->
+    <sys:String x:Key="L.Devices.Info">Информация</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Фото</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
+
+    <!-- Фото (Фотоплёнка) -->
+    <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
+    <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
+    <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
 
     <!-- Выбор приложений -->
     <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Поиск</sys:String>
     <sys:String x:Key="L.Picker.SelectedCount">Выбрано:</sys:String>
     <sys:String x:Key="L.Picker.Install">Установить выбранные</sys:String>
     <sys:String x:Key="L.Picker.SelectAll">Выбрать все</sys:String>
@@ -56,6 +107,9 @@
     <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Файл авторизации повреждён или создан без шифрования. Войдите снова, чтобы продолжить.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
     <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
     <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
     <sys:String x:Key="L.Stage.Licensing">Лицензия</sys:String>
@@ -73,5 +127,39 @@
     <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
+
+    <!-- Обновления -->
+    <sys:String x:Key="L.Update.Title">Обновления</sys:String>
+    <sys:String x:Key="L.Update.Version">Текущая версия:</sys:String>
+    <sys:String x:Key="L.Update.Check">Проверить обновления</sys:String>
+    <sys:String x:Key="L.Update.Download">Скачать обновление</sys:String>
+    <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
+    <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
+    <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас установлена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.UpToDateVer">У вас установлена последняя версия (v{0})</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">Страница релизов открыта в браузере — скачайте установщик вручную.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Не удалось проверить обновления.</sys:String>
+    <sys:String x:Key="L.Update.NoReleases">Обновлений нет: на сервере ещё не опубликован ни один релиз.</sys:String>
+    <sys:String x:Key="L.Update.NoConnection">Не удалось подключиться к серверу обновлений. Проверьте подключение к интернету.</sys:String>
+    <sys:String x:Key="L.Update.Timeout">Превышено время ожидания сервера обновлений. Повторите попытку.</sys:String>
+    <sys:String x:Key="L.Update.ServerError">Сервер обновлений вернул ошибку: {0}</sys:String>
+    <sys:String x:Key="L.Update.BadResponse">Не удалось разобрать ответ сервера обновлений.</sys:String>
+
+    <!-- Меню (шестерёнка) -->
+    <sys:String x:Key="L.Menu.Title">Меню</sys:String>
+    <sys:String x:Key="L.Menu.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Menu.Logs">Показать журнал (логи)</sys:String>
+
+    <!-- Журнал -->
+    <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разработчику, чтобы помочь найти причину ошибки.</sys:String>
+    <sys:String x:Key="L.Logs.Copy">Копировать всё</sys:String>
+    <sys:String x:Key="L.Logs.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
+    <sys:String x:Key="L.Logs.Clear">Очистить</sys:String>
+    <sys:String x:Key="L.Logs.File">Файл журнала:</sys:String>
 
 </ResourceDictionary>

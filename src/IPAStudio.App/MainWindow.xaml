@@ -3,12 +3,19 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:IPAStudio.App.ViewModels"
         xmlns:views="clr-namespace:IPAStudio.App.Views"
-        Title="{DynamicResource L.AppTitle}"
+        xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+        x:Name="Root"
         Width="1120" Height="760" MinWidth="900" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Background}">
 
     <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+        <DataTemplate DataType="{x:Type vm:SetupViewModel}">
+            <views:SetupView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:LoginViewModel}">
             <views:LoginView />
         </DataTemplate>
@@ -24,12 +31,171 @@
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
             <views:SettingsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DeviceInfoViewModel}">
+            <views:DeviceInfoView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:PhotosViewModel}">
+            <views:PhotosView />
+        </DataTemplate>
     </Window.Resources>
 
-    <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
-    <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
-        <ContentControl.RenderTransform>
-            <TranslateTransform x:Name="PageTranslate" />
-        </ContentControl.RenderTransform>
-    </ContentControl>
+    <Grid>
+        <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
+        <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
+            <ContentControl.RenderTransform>
+                <TranslateTransform x:Name="PageTranslate" />
+            </ContentControl.RenderTransform>
+        </ContentControl>
+
+        <!-- ===== Decorative overlay (non-interactive) ===== -->
+
+        <!-- Animated developer credit with a shimmering sweep.
+             Centered at the very bottom edge and kept tiny so it never overlaps
+             the content / action bars of the individual pages. -->
+        <TextBlock x:Name="CreditText" Text="{DynamicResource L.Credit}"
+                   HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                   Margin="0,0,0,6" IsHitTestVisible="False"
+                   FontFamily="{StaticResource Font.Body}" FontSize="10"
+                   FontWeight="SemiBold" Opacity="0">
+            <TextBlock.RenderTransform>
+                <TranslateTransform x:Name="CreditSlide" Y="8" />
+            </TextBlock.RenderTransform>
+            <TextBlock.Foreground>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0" SpreadMethod="Repeat">
+                    <GradientStop x:Name="Shimmer1" Color="{StaticResource Color.TextMuted}" Offset="-0.4" />
+                    <GradientStop x:Name="Shimmer2" Color="{StaticResource Color.Accent}" Offset="-0.2" />
+                    <GradientStop x:Name="Shimmer3" Color="{StaticResource Color.TextMuted}" Offset="0.0" />
+                </LinearGradientBrush>
+            </TextBlock.Foreground>
+            <TextBlock.Triggers>
+                <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <!-- Intro: fade + slide up -->
+                            <DoubleAnimation Storyboard.TargetName="CreditText"
+                                             Storyboard.TargetProperty="Opacity"
+                                             To="0.85" Duration="0:0:0.9" />
+                            <DoubleAnimation Storyboard.TargetName="CreditSlide"
+                                             Storyboard.TargetProperty="Y"
+                                             To="0" Duration="0:0:0.9">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+
+                            <!-- Looping shimmer sweep across the text -->
+                            <DoubleAnimation Storyboard.TargetName="Shimmer1"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="-0.4" To="1.0" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                            <DoubleAnimation Storyboard.TargetName="Shimmer2"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="-0.2" To="1.2" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                            <DoubleAnimation Storyboard.TargetName="Shimmer3"
+                                             Storyboard.TargetProperty="Offset"
+                                             From="0.0" To="1.4" Duration="0:0:2.6"
+                                             BeginTime="0:0:1.0" RepeatBehavior="Forever" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </TextBlock.Triggers>
+        </TextBlock>
+
+        <!-- ===== Update/menu button + flyout ===== -->
+        <!-- Positioned at top-right with enough top margin so it clears the
+             per-page header row (DevicesView, etc.) — never overlaps their buttons. -->
+        <Grid HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0"
+              DataContext="{Binding Updater}"
+              Panel.ZIndex="10">
+            <Button x:Name="UpdateButton" Width="34" Height="34" Padding="0"
+                    Cursor="Hand" ToolTip="{DynamicResource L.Menu.Title}"
+                    Command="{Binding ToggleCommand}"
+                    Background="Transparent" BorderThickness="0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" CornerRadius="17"
+                                Background="Transparent" BorderThickness="1"
+                                BorderBrush="Transparent">
+                            <Grid>
+                                <!-- Settings (gear) glyph -->
+                                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="17" Foreground="{StaticResource Brush.TextMuted}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <!-- Accent dot when an update is available -->
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource Brush.Accent}"
+                                         HorizontalAlignment="Right" VerticalAlignment="Top"
+                                         Margin="0,3,3,0"
+                                         Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                                <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+            <Popup IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=UpdateButton}"
+                   Placement="Bottom" HorizontalOffset="-234" VerticalOffset="6"
+                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+                <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                        Width="270" Padding="16" Margin="8">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="#000000" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <!-- Menu header -->
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="{DynamicResource L.Menu.Title}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" />
+                            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Style="{StaticResource Text.Caption}">
+                                <Run Text="v" /><Run Text="{Binding VersionText, Mode=OneWay}" />
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Updates section -->
+                        <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+
+                        <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                                   TextWrapping="Wrap" Margin="0,0,0,10"
+                                   Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
+
+                        <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                     Value="{Binding Progress}" Margin="0,0,0,10"
+                                     Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
+
+                        <Button Content="{DynamicResource L.Update.Check}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Command="{Binding CheckCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.Update.Download}" Style="{StaticResource Button.Primary}"
+                                HorizontalAlignment="Stretch" Command="{Binding DownloadCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
+                                HorizontalAlignment="Stretch" Command="{Binding InstallCommand}"
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
+                        <!-- Diagnostics section -->
+                        <TextBlock Text="{DynamicResource L.Menu.Diagnostics}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+                        <Button Content="{DynamicResource L.Menu.Logs}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Command="{Binding ShowLogsCommand}" />
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
+    </Grid>
 </Window>

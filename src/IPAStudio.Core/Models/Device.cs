@@ -26,6 +26,33 @@ public sealed class Device
     /// <summary>Device class: iPhone / iPad / iPod.</summary>
     public string DeviceClass { get; set; } = "iPhone";
 
+    /// <summary>Apple ID associated with the device, when it can be read (best effort).</summary>
+    public string? AppleId { get; set; }
+
+    /// <summary>Hardware serial number.</summary>
+    public string SerialNumber { get; set; } = "";
+
+    /// <summary>Phone number of the SIM, when present.</summary>
+    public string PhoneNumber { get; set; } = "";
+
+    /// <summary>Wi-Fi MAC address.</summary>
+    public string WifiAddress { get; set; } = "";
+
+    /// <summary>Bluetooth MAC address.</summary>
+    public string BluetoothAddress { get; set; } = "";
+
+    /// <summary>Total disk capacity in bytes, or -1 when unknown.</summary>
+    public long TotalDiskCapacity { get; set; } = -1;
+
+    /// <summary>Free disk space in bytes, or -1 when unknown.</summary>
+    public long FreeDiskSpace { get; set; } = -1;
+
+    /// <summary>Region info / sold-in region, e.g. "LL/A".</summary>
+    public string RegionInfo { get; set; } = "";
+
+    /// <summary>Build version, e.g. "21E236".</summary>
+    public string BuildVersion { get; set; } = "";
+
     /// <summary>When the device was first seen in the current session.</summary>
     public DateTimeOffset ConnectedAt { get; init; } = DateTimeOffset.Now;
 }

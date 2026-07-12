@@ -1,0 +1,284 @@
+<UserControl x:Class="IPAStudio.App.Views.SetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:core="clr-namespace:IPAStudio.Core.Services;assembly=IPAStudio.Core">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:DependencyStateNeedsActionConverter x:Key="StateNeedsAction" />
+        <conv:DependencyStateMissingConverter x:Key="StateMissing" />
+
+        <Style x:Key="StatusIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Text" Value="&#xE895;" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+            <Style.Triggers>
+                <Trigger Property="Tag" Value="{x:Static core:DependencyState.Ok}">
+                    <Setter Property="Text" Value="&#xE73E;" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Success}" />
+                </Trigger>
+                <Trigger Property="Tag" Value="{x:Static core:DependencyState.Missing}">
+                    <Setter Property="Text" Value="&#xE711;" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                </Trigger>
+                <Trigger Property="Tag" Value="{x:Static core:DependencyState.Failed}">
+                    <Setter Property="Text" Value="&#xE783;" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                </Trigger>
+                <Trigger Property="Tag" Value="{x:Static core:DependencyState.Installing}">
+                    <Setter Property="Text" Value="&#xE896;" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever">
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="1" To="0.35" Duration="0:0:0.6" AutoReverse="True" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                </Trigger>
+                <Trigger Property="Tag" Value="{x:Static core:DependencyState.Checking}">
+                    <Setter Property="Text" Value="&#xE895;" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard RepeatBehavior="Forever">
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 From="1" To="0.35" Duration="0:0:0.6" AutoReverse="True" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DepRow" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16,14" />
+            <Style.Triggers>
+                <!-- Highlight rows that need action -->
+                <DataTrigger Binding="{Binding}" Value="{x:Static core:DependencyState.Missing}">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                    <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Border Style="{StaticResource Card}" Width="560" Padding="40"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel>
+
+                <!-- Logo -->
+                <Border Width="72" Height="72" CornerRadius="18"
+                        Background="{StaticResource Brush.AccentSoft}"
+                        HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="34"
+                               Foreground="{StaticResource Brush.Accent}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <TextBlock Text="{DynamicResource L.Setup.Title}" Style="{StaticResource Text.Title}"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Setup.Subtitle}" Style="{StaticResource Text.Subtitle}"
+                           HorizontalAlignment="Center" TextAlignment="Center" Margin="0,8,0,28" />
+
+                <!-- ── Apple drivers (installed via iTunes) ── -->
+                <Border Margin="0,0,0,10" Padding="16,14" CornerRadius="10"
+                        Background="{StaticResource Brush.Surface}"
+                        BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DriversState}"
+                                             Value="{x:Static core:DependencyState.Missing}">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource StatusIcon}"
+                                       Tag="{Binding DriversState}" Margin="0,0,14,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L.Setup.Drivers}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource L.Setup.DriversHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <!-- Missing: show install button + direct link -->
+                        <StackPanel Margin="34,12,0,0"
+                                    Visibility="{Binding DriversState, Converter={StaticResource StateMissing}}">
+                            <TextBlock Text="{DynamicResource L.Setup.DriversInstallNote}"
+                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="{DynamicResource L.Setup.InstallITunesLink}"
+                                        Style="{StaticResource Button.Primary}" Padding="16,8"
+                                        Command="{Binding OpenITunesPageCommand}" />
+                                <Button Content="{DynamicResource L.Setup.Install}"
+                                        Style="{StaticResource Button.Secondary}" Padding="16,8"
+                                        Margin="10,0,0,0"
+                                        Command="{Binding InstallITunesCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── iTunes ── -->
+                <Border Margin="0,0,0,10" Padding="16,14" CornerRadius="10"
+                        Background="{StaticResource Brush.Surface}"
+                        BorderThickness="1">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ItunesState}"
+                                             Value="{x:Static core:DependencyState.Missing}">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource StatusIcon}"
+                                       Tag="{Binding ItunesState}" Margin="0,0,14,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L.Setup.ITunes}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource L.Setup.ITunesHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Content="{DynamicResource L.Setup.Install}"
+                                    Style="{StaticResource Button.Primary}" Padding="14,8"
+                                    VerticalAlignment="Top" Margin="12,0,0,0"
+                                    Command="{Binding InstallITunesCommand}"
+                                    Visibility="{Binding ItunesState, Converter={StaticResource StateNeedsAction}}" />
+                        </Grid>
+                        <!-- Direct link when missing -->
+                        <StackPanel Orientation="Horizontal" Margin="34,10,0,0"
+                                    Visibility="{Binding ItunesState, Converter={StaticResource StateMissing}}">
+                            <TextBlock Text="{DynamicResource L.Setup.OrDownloadManual}"
+                                       Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <Button Content="apple.com/itunes" Style="{StaticResource Button.Ghost}"
+                                    Padding="0" FontSize="12"
+                                    Command="{Binding OpenITunesPageCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── iCloud (needed for ipatool v3) ── -->
+                <Border Margin="0,0,0,10" Padding="16,14" CornerRadius="10"
+                        Background="{StaticResource Brush.Surface}"
+                        BorderThickness="1"
+                        Visibility="{Binding NeedsICloud, Converter={StaticResource BoolToVis}}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ICloudState}"
+                                             Value="{x:Static core:DependencyState.Missing}">
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                                    <Setter Property="Background" Value="{StaticResource Brush.DangerSoft}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Style="{StaticResource StatusIcon}"
+                                       Tag="{Binding ICloudState}" Margin="0,0,14,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L.Setup.ICloud}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource L.Setup.ICloudHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Margin="34,10,0,0"
+                                    Visibility="{Binding ICloudState, Converter={StaticResource StateMissing}}">
+                            <Button Content="{DynamicResource L.Setup.OpenICloudPage}"
+                                    Style="{StaticResource Button.Primary}" Padding="16,8"
+                                    Command="{Binding OpenICloudPageCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── CLI tools (auto-downloaded) ── -->
+                <Border Margin="0,0,0,0" Padding="16,14" CornerRadius="10"
+                        Background="{StaticResource Brush.Surface}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource StatusIcon}"
+                                   Tag="{Binding ToolsState}" Margin="0,0,14,0" />
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{DynamicResource L.Setup.Tools}"
+                                       Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            <TextBlock Text="{DynamicResource L.Setup.ToolsHint}"
+                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Install progress -->
+                <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                            Margin="0,18,0,0">
+                    <ProgressBar Style="{StaticResource Progress.Slim}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                 Value="{Binding InstallProgress, Mode=OneWay}" Maximum="1" />
+                    <TextBlock Text="{DynamicResource L.Setup.Installing}"
+                               Style="{StaticResource Text.Caption}"
+                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                </StackPanel>
+
+                <!-- Error -->
+                <Border Background="{StaticResource Brush.DangerSoft}" CornerRadius="8"
+                        Padding="12,10" Margin="0,18,0,0"
+                        Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"
+                               FontSize="13" TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Actions -->
+                <Grid Margin="0,24,0,0">
+                    <Button Content="{DynamicResource L.Setup.Recheck}" Style="{StaticResource Button.Secondary}"
+                            HorizontalAlignment="Left" Command="{Binding RecheckCommand}" />
+                    <Button Content="{DynamicResource L.Setup.Skip}" Style="{StaticResource Button.Ghost}"
+                            HorizontalAlignment="Right" Command="{Binding SkipCommand}"
+                            Visibility="{Binding CanSkip, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

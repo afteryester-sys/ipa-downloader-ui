@@ -32,6 +32,8 @@ public sealed partial class QueueItemViewModel : ObservableObject
 
     public bool IsActive => Stage is QueueStage.Checking or QueueStage.Licensing
         or QueueStage.Downloading or QueueStage.Installing;
+    /// <summary>Show a moving (indeterminate) bar while active but no % is measured yet.</summary>
+    public bool IsIndeterminate => IsActive && StageProgress <= 0.5;
     public bool IsDone => Stage == QueueStage.Done;
     public bool IsFailed => Stage is QueueStage.Failed or QueueStage.Cancelled;
     public bool IsPending => Stage == QueueStage.Pending;
@@ -54,6 +56,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
             : "";
 
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(IsIndeterminate));
         OnPropertyChanged(nameof(IsDone));
         OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(IsPending));
@@ -103,6 +106,10 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _deviceName = "";
 
+    /// <summary>Set when the session expires mid-queue; the view shows a "sign in again" banner.</summary>
+    [ObservableProperty]
+    private bool _sessionExpired;
+
     public bool IsFinished => !IsRunning && Items.Count > 0;
 
     public QueueViewModel(QueueService queue)
@@ -110,6 +117,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         _queue = queue;
         _queue.ItemChanged += OnItemChanged;
         _queue.QueueCompleted += OnQueueCompleted;
+        _queue.SessionExpired += OnSessionExpired;
     }
 
     public void OnNavigatedTo(INavigator navigator)
@@ -148,6 +156,15 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         });
     }
 
+    private void OnSessionExpired(object? sender, EventArgs e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            SessionExpired = true;
+            IsRunning = false;
+        });
+    }
+
     private void RecountAndProgress()
     {
         OverallProgress = _queue.OverallProgress;
@@ -174,4 +191,12 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     [RelayCommand(CanExecute = nameof(CanGoBack))]
     private void BackToDevices() => _navigator?.GoTo(Page.Devices);
+
+    [RelayCommand]
+    private void SignInAgain()
+    {
+        // Reset the flag so the banner disappears if the user navigates back and re-enters the queue.
+        SessionExpired = false;
+        _navigator?.GoTo(Page.Login);
+    }
 }

@@ -13,6 +13,14 @@ public sealed class ToolLocator
 {
     private readonly string _baseDir;
 
+    /// <summary>
+    /// Fixed passphrase used to lock/unlock ipatool's local keychain file. ipatool
+    /// requires this in non-interactive mode; using a constant lets every command
+    /// (login, info, purchase, download) unlock the same keychain without ever
+    /// prompting on a terminal (which deadlocks when stdin is redirected).
+    /// </summary>
+    public const string KeychainPassphrase = "ipastudio-local-keychain";
+
     /// <summary>Selected ipatool major version (2 or 3). Default is 2 (no iCloud requirement).</summary>
     public int IpatoolVersion { get; set; } = 2;
 
@@ -21,7 +29,14 @@ public sealed class ToolLocator
         _baseDir = baseDirectory ?? AppContext.BaseDirectory;
     }
 
-    public string ToolsRoot => Path.Combine(_baseDir, "tools");
+    /// <summary>
+    /// When set, tools are resolved from this folder instead of the default
+    /// install location (used when Program Files is not writable and tools
+    /// were auto-downloaded into LocalAppData).
+    /// </summary>
+    public string? ToolsRootOverride { get; set; }
+
+    public string ToolsRoot => ToolsRootOverride ?? Path.Combine(_baseDir, "tools");
 
     public string IpatoolPath => Path.Combine(
         ToolsRoot,
@@ -56,7 +71,24 @@ public sealed class ToolLocator
     /// <summary>Verifies that the required tool binaries exist; returns missing paths.</summary>
     public IReadOnlyList<string> ValidateTools()
     {
-        var required = new[] { IpatoolPath, IdeviceInstallerPath, IdeviceIdPath, IdeviceInfoPath };
+        var required = new List<string>
+        {
+            IpatoolPath,
+            IdeviceInstallerPath,
+            IdeviceIdPath,
+            IdeviceInfoPath,
+        };
+        // ipatool v3 spawns anisette.exe from the same directory; it is mandatory.
+        if (IpatoolVersion == 3)
+            required.Add(AnisettePath);
         return required.Where(p => !File.Exists(p)).ToList();
     }
+
+    /// <summary>
+    /// Returns the directory that ipatool expects to find its side-by-side helpers
+    /// (e.g. anisette.exe) in — always the folder that contains ipatool.exe.
+    /// Pass this as the working directory when launching ipatool.
+    /// </summary>
+    public string IpatoolWorkingDirectory =>
+        Path.GetDirectoryName(IpatoolPath) ?? AppContext.BaseDirectory;
 }

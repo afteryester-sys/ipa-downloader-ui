@@ -1,0 +1,129 @@
+# Runs on every push to main (including merges from v0/** branches).
+# Reads the version from csproj, builds the installer, and creates/updates
+# a GitHub Release tagged vX.Y.Z so the in-app updater can find it.
+#
+# If the same version tag already exists the release job is skipped (no
+# duplicate releases).  Bump Version in csproj before pushing to get a
+# new release.
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ------------------------------------------------------------------ build --
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      tag_exists: ${{ steps.check_tag.outputs.exists }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # need full history for tag check
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # ---- Read version from csproj ----------------------------------------
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src/IPAStudio.App/IPAStudio.App.csproj
+          $v = ($proj.Project.PropertyGroup.Version |
+                Where-Object { $_ } |
+                Select-Object -First 1).Trim()
+          if (-not $v) { $v = "0.0.0" }
+          "value=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      # ---- Check whether tag already exists --------------------------------
+      - name: Check if tag exists
+        id: check_tag
+        shell: pwsh
+        run: |
+          $tag = "v${{ steps.version.outputs.value }}"
+          $exists = (git tag -l $tag) -ne ""
+          "exists=$($exists.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Tag $tag exists: $exists"
+
+      # ---- Restore & Build -------------------------------------------------
+      - name: Restore
+        if: steps.check_tag.outputs.exists == 'false'
+        run: dotnet restore IPAStudio.sln
+
+      - name: Build
+        if: steps.check_tag.outputs.exists == 'false'
+        run: dotnet build IPAStudio.sln -c Release --no-restore
+
+      # ---- Publish self-contained win-x64 ----------------------------------
+      - name: Publish
+        if: steps.check_tag.outputs.exists == 'false'
+        run: >
+          dotnet publish src/IPAStudio.App/IPAStudio.App.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=false
+          -o build/publish
+
+      # ---- Download bundled CLI tools --------------------------------------
+      - name: Fetch tools
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: ./build/Fetch-Tools.ps1 -OutDir build/publish/tools
+
+      # ---- Build installer via Inno Setup ----------------------------------
+      - name: Build installer
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=${{ steps.version.outputs.value }}" `
+            build\installer.iss
+
+      # ---- Upload installer as artifact ------------------------------------
+      - name: Upload installer artifact
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: IPAStudio-Setup-${{ steps.version.outputs.value }}
+          path: build/output/*.exe
+
+  # ----------------------------------------------------------------- release --
+  release:
+    needs: build
+    if: needs.build.outputs.tag_exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download installer
+        uses: actions/download-artifact@v4
+        with:
+          name: IPAStudio-Setup-${{ needs.build.outputs.version }}
+          path: dist
+
+      # Create an annotated tag first so softprops/action-gh-release finds it.
+      - name: Create tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ needs.build.outputs.version }}" \
+            -m "Release v${{ needs.build.outputs.version }}"
+          git push origin "v${{ needs.build.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: IPA Studio v${{ needs.build.outputs.version }}
+          generate_release_notes: true
+          files: dist/*.exe

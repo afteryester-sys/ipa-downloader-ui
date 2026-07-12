@@ -71,4 +71,8 @@ public enum LicenseState
 
     /// <summary>License check failed (network / tool error).</summary>
     CheckFailed,
+
+    /// <summary>The ipatool session has expired (keychain unprotected / wrong passphrase).
+    /// The user must sign in again before the download can proceed.</summary>
+    SessionExpired,
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -22,13 +23,51 @@ public sealed class BoolToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>Null/empty string -> Collapsed.</summary>
+/// <summary>bool -> inverse bool (for IsEnabled bindings against a "busy" flag).</summary>
+public sealed class InverseBoolConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not true;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is not true;
+}
+
+/// <summary>DependencyState Missing/Failed -> Visible (an action button is needed).</summary>
+public sealed class DependencyStateNeedsActionConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is Core.Services.DependencyState state
+           && state is Core.Services.DependencyState.Missing or Core.Services.DependencyState.Failed
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>DependencyState Missing -> Visible (shows install/download links for missing deps).</summary>
+public sealed class DependencyStateMissingConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is Core.Services.DependencyState.Missing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
+/// <summary>Null/empty string -> Collapsed (parameter "invert" flips the mapping).</summary>
 public sealed class NullToCollapsedConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is null || (value is string s && string.IsNullOrEmpty(s))
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+    {
+        var isEmpty = value is null || (value is string s && string.IsNullOrEmpty(s));
+        if (string.Equals(parameter as string, "invert", StringComparison.OrdinalIgnoreCase))
+            isEmpty = !isEmpty;
+        return isEmpty ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();

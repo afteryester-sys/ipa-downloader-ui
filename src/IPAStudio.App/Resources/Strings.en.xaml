@@ -10,6 +10,29 @@
     <sys:String x:Key="L.Settings">Settings</sys:String>
     <sys:String x:Key="L.Search">Search…</sys:String>
     <sys:String x:Key="L.Loading">Loading…</sys:String>
+    <sys:String x:Key="L.Credit">developed by Poslevcherashniy</sys:String>
+
+    <!-- Environment setup -->
+    <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Making sure everything needed to work with your iPhone is installed</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Apple drivers (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Required for Windows to detect a connected iPhone. Installed together with iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Recommended. Provides drivers and reliable device connectivity.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Helper utilities (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Downloaded automatically. Needed to download and install apps.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Install</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Installing… A User Account Control (UAC) prompt may appear.</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Check again</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Skip</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Could not install iTunes automatically. Please install it manually from apple.com and click "Check again".</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Could not download the helper utilities. Check your internet connection and retry.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Apple drivers not found. Install iTunes — it includes all required drivers.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Download iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Or download manually:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud for Windows (required for ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Download iCloud for Windows</sys:String>
 
     <!-- Login -->
     <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
@@ -22,6 +45,11 @@
     <sys:String x:Key="L.Login.Confirm">Confirm</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Signing in…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Skip sign-in</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">You can go straight to your devices. Apple ID sign-in is only required when installing apps.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">iCloud not installed</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 requires Apple iCloud for Windows. Install iCloud or switch to v2 — it works without iCloud out of the box.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
 
     <!-- Devices -->
     <sys:String x:Key="L.Devices.Title">Devices</sys:String>
@@ -34,9 +62,32 @@
     <sys:String x:Key="L.Devices.Catalog">App Catalog</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">apps in catalog</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Sign Out</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Sign in to Apple ID</sys:String>
+
+    <!-- Device info -->
+    <sys:String x:Key="L.Devices.Info">Info</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Photos</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Device Information</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">The Apple ID is not exposed by the device. Recent iOS versions hide it for privacy.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Storage</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Battery</sys:String>
+
+    <!-- Photos (Camera Roll) -->
+    <sys:String x:Key="L.Photos.Title">Photos</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
+    <sys:String x:Key="L.Photos.Import">Import to device</sys:String>
+    <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Select a file from the list to see details and a preview.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Preview is not available for this format (HEIC / video).</sys:String>
 
     <!-- App picker -->
     <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Search</sys:String>
     <sys:String x:Key="L.Picker.SelectedCount">Selected:</sys:String>
     <sys:String x:Key="L.Picker.Install">Install Selected</sys:String>
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
@@ -56,6 +107,9 @@
     <sys:String x:Key="L.Queue.Cancelled">Cancelled</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Cancel All</sys:String>
     <sys:String x:Key="L.Queue.Finish">Finish</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Apple ID session expired</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">The auth file is unprotected or was created with a different passphrase. Sign in again to continue.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Sign in again</sys:String>
     <sys:String x:Key="L.Stage.Pending">Queued</sys:String>
     <sys:String x:Key="L.Stage.Checking">Checking</sys:String>
     <sys:String x:Key="L.Stage.Licensing">License</sys:String>
@@ -73,5 +127,39 @@
     <sys:String x:Key="L.Settings.Account">Account</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
+
+    <!-- Updates -->
+    <sys:String x:Key="L.Update.Title">Updates</sys:String>
+    <sys:String x:Key="L.Update.Version">Current version:</sys:String>
+    <sys:String x:Key="L.Update.Check">Check for updates</sys:String>
+    <sys:String x:Key="L.Update.Download">Download update</sys:String>
+    <sys:String x:Key="L.Update.Install">Install and restart</sys:String>
+    <sys:String x:Key="L.Update.Checking">Checking for updates…</sys:String>
+    <sys:String x:Key="L.Update.Available">A new version {0} is available</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">You are running the latest version</sys:String>
+    <sys:String x:Key="L.Update.UpToDateVer">You are running the latest version (v{0})</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Downloading update…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Update downloaded. Click "Install and restart".</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">The releases page was opened in your browser — download the installer manually.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Could not check for updates.</sys:String>
+    <sys:String x:Key="L.Update.NoReleases">No updates: no release has been published on the server yet.</sys:String>
+    <sys:String x:Key="L.Update.NoConnection">Could not reach the update server. Check your internet connection.</sys:String>
+    <sys:String x:Key="L.Update.Timeout">The update server timed out. Please try again.</sys:String>
+    <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
+    <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
+
+    <!-- Menu (gear) -->
+    <sys:String x:Key="L.Menu.Title">Menu</sys:String>
+    <sys:String x:Key="L.Menu.Diagnostics">Diagnostics</sys:String>
+    <sys:String x:Key="L.Menu.Logs">Show log</sys:String>
+
+    <!-- Logs -->
+    <sys:String x:Key="L.Logs.Title">Application log</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Detailed activity log. Copy it and send it to the developer to help diagnose an error.</sys:String>
+    <sys:String x:Key="L.Logs.Copy">Copy all</sys:String>
+    <sys:String x:Key="L.Logs.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.Logs.OpenFile">Open file</sys:String>
+    <sys:String x:Key="L.Logs.Clear">Clear</sys:String>
+    <sys:String x:Key="L.Logs.File">Log file:</sys:String>
 
 </ResourceDictionary>

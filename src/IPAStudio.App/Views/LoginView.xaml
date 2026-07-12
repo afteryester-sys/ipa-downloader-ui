@@ -12,11 +12,11 @@
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <StackPanel>
 
-                <!-- Apple-style logo mark -->
-                <Border Width="72" Height="72" CornerRadius="18"
+                <!-- Minimal logo mark -->
+                <Border Width="44" Height="44" CornerRadius="12"
                         Background="{StaticResource Brush.AccentSoft}"
-                        HorizontalAlignment="Center" Margin="0,0,0,20">
-                    <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="34"
+                        HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="20"
                                Foreground="{StaticResource Brush.Accent}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
@@ -47,6 +47,12 @@
                     <Button Content="{DynamicResource L.Login.SignIn}" Style="{StaticResource Button.Primary}"
                             Command="{Binding SignInCommand}" Margin="0,24,0,0"
                             HorizontalAlignment="Stretch" />
+
+                    <Button Content="{DynamicResource L.Login.Skip}" Style="{StaticResource Button.Ghost}"
+                            Command="{Binding SkipCommand}" Margin="0,8,0,0"
+                            HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource L.Login.SkipHint}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" />
                 </StackPanel>
 
                 <!-- Step 2: two-factor code -->
@@ -75,7 +81,26 @@
                                HorizontalAlignment="Center" Margin="0,8,0,0" />
                 </StackPanel>
 
-                <!-- Error -->
+                <!-- iCloud Not Found banner (ipatool v3 only) -->
+                <Border Background="{StaticResource Brush.DangerSoft}"
+                        BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,12" Margin="0,20,0,0"
+                        Visibility="{Binding IsICloudError, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.Login.ICloudTitle}"
+                                   Foreground="{StaticResource Brush.Danger}"
+                                   FontWeight="SemiBold" FontSize="13" />
+                        <TextBlock Text="{DynamicResource L.Login.ICloudHint}"
+                                   Foreground="{StaticResource Brush.Danger}"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,4,0,10" />
+                        <Button Content="{DynamicResource L.Login.SwitchToV2}"
+                                Style="{StaticResource Button.Danger}"
+                                Command="{Binding SwitchToV2Command}"
+                                HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Generic error -->
                 <Border Background="{StaticResource Brush.DangerSoft}" CornerRadius="8" Padding="12,10" Margin="0,20,0,0"
                         Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsed}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"

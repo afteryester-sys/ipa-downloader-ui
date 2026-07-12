@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Animation;
 using IPAStudio.App.ViewModels;
@@ -10,7 +11,16 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = BuildTitle();
         DataContextChanged += (_, _) => HookShell();
+    }
+
+    /// <summary>"IPA Studio 1.1.0" — app name plus the running assembly version.</summary>
+    private static string BuildTitle()
+    {
+        var v = Assembly.GetEntryAssembly()?.GetName().Version;
+        var version = v is null ? "" : $" {v.Major}.{v.Minor}.{v.Build}";
+        return $"IPA Studio{version}";
     }
 
     private void HookShell()

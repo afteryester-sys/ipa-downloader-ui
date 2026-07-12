@@ -2,7 +2,7 @@ name: Build IPA Studio
 
 on:
   push:
-    branches: [main]
+    branches: [main, "v0/**"]
     tags: ["v*"]
   pull_request:
     branches: [main]
@@ -11,6 +11,8 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
 
     steps:
       - name: Checkout
@@ -20,6 +22,16 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - name: Read version from csproj
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$proj = Get-Content src/IPAStudio.App/IPAStudio.App.csproj
+          $v = ($proj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
+          if (-not $v) { $v = "0.0.0" }
+          "value=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "App version: $v"
 
       - name: Restore
         run: dotnet restore IPAStudio.sln
@@ -42,18 +54,20 @@ jobs:
         shell: pwsh
         run: |
           # Inno Setup 6 is pre-installed on windows-latest runners.
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" build\installer.iss
+          # Pass the version so OutputBaseFilename / AppVersion match the csproj.
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DMyAppVersion=${{ steps.version.outputs.value }}" build\installer.iss
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPAStudio-Setup
+          name: IPAStudio-Setup-${{ steps.version.outputs.value }}
           path: build/output/*.exe
 
       - name: Upload portable build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPAStudio-Portable
+          name: IPAStudio-Portable-${{ steps.version.outputs.value }}
           path: build/publish/
 
   release:
@@ -66,7 +80,7 @@ jobs:
       - name: Download installer
         uses: actions/download-artifact@v4
         with:
-          name: IPAStudio-Setup
+          name: IPAStudio-Setup-${{ needs.build.outputs.version }}
           path: dist
 
       - name: Create GitHub Release
