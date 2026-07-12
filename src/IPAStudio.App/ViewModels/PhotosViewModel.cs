@@ -24,7 +24,27 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     private BitmapImage? _thumbnail;
 
     public string FileName => Item.FileName;
+
+    /// <summary>Raw DCIM folder name (e.g. "100APPLE") — used for filtering.</summary>
     public string Album => Item.Album;
+
+    /// <summary>
+    /// Human-readable album label shown in the UI.
+    /// iOS stores Camera Roll photos in numbered DCIM sub-folders (100APPLE,
+    /// 101APPLE, …). We can't read real album names over AFC, so we display
+    /// "Камера" (or "Камера 2" for the second folder, etc.).
+    /// </summary>
+    public string FriendlyAlbumName => MakeFriendlyAlbumNameStatic(Item.Album);
+
+    public static string MakeFriendlyAlbumNameStatic(string folder)
+    {
+        if (string.IsNullOrEmpty(folder)) return "Камера";
+        // "100APPLE" → index 1, "101APPLE" → index 2, etc.
+        if (folder.Length >= 3 && int.TryParse(folder[..3], out var num))
+            return num == 100 ? "Камера" : $"Камера {num - 99}";
+        return folder;
+    }
+
     public bool IsVideo => Item.IsVideo;
     public string SizeText => FormatSize(Item.SizeBytes);
     public string DateText => Item.ModifiedUtc?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "";
@@ -51,6 +71,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private INavigator? _navigator;
     private Device? _device;
     private CancellationTokenSource? _cts;
+    /// <summary>Maps friendly album label (shown in the picker) to raw DCIM folder name.</summary>
+    private readonly Dictionary<string, string> _albumFriendlyToRaw = new();
 
     public ObservableCollection<PhotoItemViewModel> Photos { get; } = new();
     public ICollectionView PhotosView { get; }
@@ -133,9 +155,13 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     {
         if (obj is not PhotoItemViewModel p) return false;
         // "Все альбомы" (or empty) means show all.
-        if (!string.IsNullOrEmpty(SelectedAlbum) &&
-            SelectedAlbum != "Все альбомы" &&
-            p.Album != SelectedAlbum) return false;
+        if (!string.IsNullOrEmpty(SelectedAlbum) && SelectedAlbum != "Все альбомы")
+        {
+            // Resolve friendly name back to raw DCIM folder name for comparison.
+            var rawFolder = _albumFriendlyToRaw.TryGetValue(SelectedAlbum, out var raw)
+                ? raw : SelectedAlbum;
+            if (p.Album != rawFolder) return false;
+        }
         return SelectedMediaType switch
         {
             "Фото" => !p.IsVideo,
@@ -172,8 +198,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
             Albums.Clear();
             Albums.Add("Все альбомы");
+            // Show friendly names in the picker but keep raw folder name as the
+            // value for filtering (both happen to be the same string here —
+            // the filter compares p.Album which is the raw folder name).
             foreach (var album in items.Select(i => i.Album).Distinct().OrderBy(a => a))
-                Albums.Add(album);
+            {
+                var friendly = PhotoItemViewModel.MakeFriendlyAlbumNameStatic(album);
+                Albums.Add(friendly == album ? album : friendly);
+            }
+            // Rebuild album map so the filter can resolve friendly → raw folder.
+            _albumFriendlyToRaw.Clear();
+            foreach (var vm in Photos)
+            {
+                var friendly = vm.FriendlyAlbumName;
+                if (!_albumFriendlyToRaw.ContainsKey(friendly))
+                    _albumFriendlyToRaw[friendly] = vm.Album;
+            }
             SelectedAlbum = "Все альбомы";
 
             TotalCount = Photos.Count;
@@ -335,12 +375,19 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     /// <summary>
     /// Loads small thumbnails for photos (not videos/HEIC) in the background.
+    /// Reads only the first 65 KB of each file so AFC transfers are fast, then
+    /// extracts the built-in EXIF thumbnail via JpegBitmapDecoder.Thumbnail
+    /// (present in every iPhone JPEG). Falls back to a full-file decode if the
+    /// EXIF thumbnail is absent.
     /// Cancelled and restarted each time the list is refreshed.
     /// </summary>
     private async Task LoadThumbnailsAsync(CancellationToken ct)
     {
-        // Process in batches: 3 at a time to avoid AFC session overload.
-        const int batchSize = 3;
+        // Use a larger batch: 6 concurrent reads. Each read is now tiny (~64 KB)
+        // instead of the full multi-MB file, so AFC handles the load fine.
+        const int batchSize = 6;
+        const long ExifHeaderBytes = 65_536; // first 64 KB contains EXIF block on all iPhone photos
+
         var jpegItems = Photos
             .Where(p => !p.IsVideo)
             .ToList();
@@ -356,38 +403,107 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 if (ct.IsCancellationRequested) return;
 
                 var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
-                if (ext is ".heic" or ".heif") return; // WPF can't decode HEIC
+                if (ext is ".heic" or ".heif") return; // WPF has no HEIC codec
 
                 try
                 {
                     if (_device is null) return;
-                    var bytes = await _photos.ReadFileAsync(_device.Udid, item.Item.RemotePath, 0, ct);
-                    if (bytes is null || bytes.Length == 0) return;
+
+                    // First attempt: read only the EXIF header (64 KB) and extract
+                    // the embedded thumbnail. This is ~50-100x faster than reading
+                    // the full 3-8 MB JPEG over AFC.
+                    var headerBytes = await _photos.ReadFileAsync(
+                        _device.Udid, item.Item.RemotePath, ExifHeaderBytes, ct);
+
+                    BitmapSource? thumb = null;
+
+                    if (headerBytes is { Length: > 0 })
+                        thumb = TryExtractExifThumbnail(headerBytes);
+
+                    // Fall back: read the full file and decode at low resolution.
+                    if (thumb is null)
+                    {
+                        var fullBytes = await _photos.ReadFileAsync(
+                            _device.Udid, item.Item.RemotePath, 0, ct);
+                        if (fullBytes is { Length: > 0 })
+                            thumb = TryDecodeFullJpeg(fullBytes, 128);
+                    }
+
+                    if (thumb is null) return;
 
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        try
-                        {
-                            var img = new BitmapImage();
-                            using var ms = new MemoryStream(bytes);
-                            img.BeginInit();
-                            img.CacheOption = BitmapCacheOption.OnLoad;
-                            img.DecodePixelWidth = 128; // small thumb
-                            img.StreamSource = ms;
-                            img.EndInit();
-                            img.Freeze();
-                            item.Thumbnail = img;
-                        }
-                        catch { /* corrupt image — skip */ }
+                        item.Thumbnail = thumb as BitmapImage ?? WrapAsBitmapImage(thumb);
                     });
                 }
-                catch (OperationCanceledException) { /* stop */ }
-                catch { /* skip this thumb */ }
+                catch (OperationCanceledException) { /* stop gracefully */ }
+                catch { /* skip corrupt / unsupported file */ }
             }));
 
-            // Small pause so we don't starve the AFC session used by preview loading.
-            await Task.Delay(80, ct).ConfigureAwait(false);
+            // No delay between batches — reads are small enough now.
         }
+    }
+
+    /// <summary>
+    /// Tries to extract the embedded EXIF thumbnail from a partial JPEG byte array.
+    /// WPF's JpegBitmapDecoder exposes it via Thumbnail without needing the full file.
+    /// </summary>
+    private static BitmapSource? TryExtractExifThumbnail(byte[] header)
+    {
+        try
+        {
+            using var ms = new MemoryStream(header);
+            var decoder = System.Windows.Media.Imaging.BitmapDecoder.Create(
+                ms,
+                System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
+                System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+
+            var thumb = decoder.Thumbnail
+                ?? (decoder.Frames.Count > 0 ? decoder.Frames[0].Thumbnail : null);
+
+            if (thumb is null) return null;
+            thumb.Freeze();
+            return thumb;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Decodes a full JPEG byte array at a small target width.</summary>
+    private static BitmapImage? TryDecodeFullJpeg(byte[] bytes, int decodeWidth)
+    {
+        try
+        {
+            var img = new BitmapImage();
+            using var ms = new MemoryStream(bytes);
+            img.BeginInit();
+            img.CacheOption = BitmapCacheOption.OnLoad;
+            img.DecodePixelWidth = decodeWidth;
+            img.StreamSource = ms;
+            img.EndInit();
+            img.Freeze();
+            return img;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Converts a generic BitmapSource (e.g. BitmapFrame) to a BitmapImage so the
+    /// PhotoItemViewModel.Thumbnail property stays a consistent type.
+    /// </summary>
+    private static BitmapImage WrapAsBitmapImage(BitmapSource source)
+    {
+        var img = new BitmapImage();
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
+        using var ms = new MemoryStream();
+        encoder.Save(ms);
+        ms.Seek(0, SeekOrigin.Begin);
+        img.BeginInit();
+        img.CacheOption = BitmapCacheOption.OnLoad;
+        img.StreamSource = ms;
+        img.EndInit();
+        img.Freeze();
+        return img;
     }
 
     [RelayCommand]

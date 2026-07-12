@@ -129,6 +129,10 @@
     <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
     <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
     <!-- Обновления -->
@@ -165,7 +169,7 @@
 
     <!-- Журнал -->
     <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>
-    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разраб��тчику, чтобы помочь найти причину ошибки.</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разраб��тчику, чтобы помочь найти причину ошиб��и.</sys:String>
     <sys:String x:Key="L.Logs.Copy">Копировать всё</sys:String>
     <sys:String x:Key="L.Logs.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
