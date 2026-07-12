@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Animation;
@@ -45,5 +46,34 @@ public partial class MainWindow : Window
 
         PageHost.BeginAnimation(OpacityProperty, fade);
         PageTranslate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slide);
+    }
+
+    // ---- Developer credit popup ----
+
+    private void CreditButton_Click(object sender, RoutedEventArgs e)
+        => ContactPopup.IsOpen = !ContactPopup.IsOpen;
+
+    private void ContactEmail_Click(object sender, RoutedEventArgs e)
+    {
+        ContactPopup.IsOpen = false;
+        OpenUrl("mailto:leq77751@gmail.com");
+    }
+
+    private void ContactTelegram_Click(object sender, RoutedEventArgs e)
+    {
+        ContactPopup.IsOpen = false;
+        OpenUrl("https://t.me/alfredyester");
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch
+        {
+            // Silently ignore — can't open browser.
+        }
     }
 }

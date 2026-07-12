@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Windows;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -60,6 +62,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private readonly InstallService _install;
     private readonly QueueService _queue;
     private readonly AuthService _auth;
+    private readonly DownloadService _download;
     private INavigator? _navigator;
 
     public Device? TargetDevice { get; set; }
@@ -103,12 +106,13 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void DismissMismatchWarning() => ShowAppleIdMismatch = false;
 
-    public AppPickerViewModel(CatalogService catalog, InstallService install, QueueService queue, AuthService auth)
+    public AppPickerViewModel(CatalogService catalog, InstallService install, QueueService queue, AuthService auth, DownloadService download)
     {
         _catalog = catalog;
         _install = install;
         _queue = queue;
         _auth = auth;
+        _download = download;
 
         AppsView = CollectionViewSource.GetDefaultView(Apps);
         AppsView.Filter = FilterApp;
@@ -351,6 +355,79 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         {
             IsBundleIdBusy = false;
         }
+    }
+
+    // ---- Load Purchased / Downloaded apps from Apple ID ----
+
+    [ObservableProperty]
+    private bool _isLoadingPurchased;
+
+    [ObservableProperty]
+    private string _purchasedStatusMessage = "";
+
+    /// <summary>
+    /// Fetches all apps purchased or previously downloaded under the signed-in
+    /// Apple ID via ipatool (purchase-history / library command). Replaces the
+    /// current list and marks the "Licensed" state so users can queue them for
+    /// re-download/re-install in one click.
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadPurchasedAppsAsync()
+    {
+        if (IsLoadingPurchased) return;
+
+        if (!_auth.IsAuthenticated)
+        {
+            PurchasedStatusMessage = "Войдите в Apple ID чтобы просмотреть купленные приложения.";
+            return;
+        }
+
+        IsLoadingPurchased = true;
+        PurchasedStatusMessage = "Загружаем список купленных приложений…";
+
+        try
+        {
+            var purchased = await _download.ListPurchasedAsync().ConfigureAwait(false);
+
+            await RunOnUiAsync(() =>
+            {
+                Apps.Clear();
+                Categories.Clear();
+
+                if (purchased.Count == 0)
+                {
+                    PurchasedStatusMessage = "Купленные приложения не найдены (или команда не поддерживается текущей версией ipatool).";
+                    return;
+                }
+
+                var cats = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var app in purchased)
+                {
+                    // Mark every app as licensed since we got it from the purchase history.
+                    app.License = LicenseState.Licensed;
+                    Apps.Add(new AppItemViewModel(app));
+                    if (!string.IsNullOrEmpty(app.Category)) cats.Add(app.Category!);
+                }
+                foreach (var c in cats) Categories.Add(c);
+
+                PurchasedStatusMessage = $"Найдено купленных приложений: {purchased.Count}";
+            });
+        }
+        catch (Exception ex)
+        {
+            PurchasedStatusMessage = $"Ошибка загрузки: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingPurchased = false;
+        }
+    }
+
+    private static Task RunOnUiAsync(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) { action(); return Task.CompletedTask; }
+        return dispatcher.InvokeAsync(action).Task;
     }
 
     [RelayCommand]
