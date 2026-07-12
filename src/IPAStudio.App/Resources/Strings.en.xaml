@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
@@ -97,6 +98,13 @@
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
     <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
+    <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdHint">Enter the app Bundle ID (e.g. com.apple.mobilemail). It will be found on the App Store and installed.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdInstall">Find &amp; Install</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatch">The signed-in Apple ID and the device Apple ID differ. Are you sure you want to install?</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchContinue">Continue</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchCancel">Cancel</sys:String>
     <sys:String x:Key="L.Status.Downloaded">Downloaded</sys:String>
     <sys:String x:Key="L.Status.Licensed">Licensed</sys:String>
     <sys:String x:Key="L.Status.NotLicensed">No License</sys:String>

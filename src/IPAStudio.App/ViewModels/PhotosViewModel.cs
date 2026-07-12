@@ -39,9 +39,18 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     public static string MakeFriendlyAlbumNameStatic(string folder)
     {
         if (string.IsNullOrEmpty(folder)) return "Камера";
-        // "100APPLE" → index 1, "101APPLE" → index 2, etc.
+        // DCIM sub-folder convention: "100APPLE", "101APPLE", … or "100CLOUD", etc.
+        // iOS uses 100APPLE for the primary Camera Roll; higher numbers are additional
+        // rolls (burst, imports, screen recordings that overflowed, etc.). We don't
+        // have access to the real album names via AFC, so we show the folder number
+        // in a human-friendly way: "Камера" for 100, "Камера (101)" for the rest.
         if (folder.Length >= 3 && int.TryParse(folder[..3], out var num))
-            return num == 100 ? "Камера" : $"Камера {num - 99}";
+        {
+            if (num == 100) return "Камера";
+            // Show the numeric index so users can distinguish multiple rolls
+            // without inventing fake sequential names (39, 40, …).
+            return $"Камера ({num})";
+        }
         return folder;
     }
 
@@ -375,72 +384,72 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     /// <summary>
     /// Loads small thumbnails for photos (not videos/HEIC) in the background.
-    /// Reads only the first 65 KB of each file so AFC transfers are fast, then
-    /// extracts the built-in EXIF thumbnail via JpegBitmapDecoder.Thumbnail
-    /// (present in every iPhone JPEG). Falls back to a full-file decode if the
-    /// EXIF thumbnail is absent.
-    /// Cancelled and restarted each time the list is refreshed.
+    ///
+    /// Strategy: batch files into groups of <c>SessionBatchSize</c>. Each batch opens
+    /// ONE AFC session and reads all files in it — avoiding the expensive USB/lockdown
+    /// handshake per file that made the previous implementation slow. Within the batch
+    /// reads are done in a single serial pass (AFC is not thread-safe per session), but
+    /// because each read is only ~64 KB the total time per batch is very short.
+    /// After reading, thumbnail extraction runs in parallel on the CPU thread pool.
     /// </summary>
     private async Task LoadThumbnailsAsync(CancellationToken ct)
     {
-        // Use a larger batch: 6 concurrent reads. Each read is now tiny (~64 KB)
-        // instead of the full multi-MB file, so AFC handles the load fine.
-        const int batchSize = 6;
-        const long ExifHeaderBytes = 65_536; // first 64 KB contains EXIF block on all iPhone photos
+        const int SessionBatchSize = 20;        // files per single AFC session
+        const long ExifHeaderBytes = 65_536;    // first 64 KB — contains EXIF block on all iPhone photos
 
         var jpegItems = Photos
-            .Where(p => !p.IsVideo)
+            .Where(p => !p.IsVideo
+                && Path.GetExtension(p.FileName).ToLowerInvariant() is not ".heic" and not ".heif")
             .ToList();
 
-        for (var i = 0; i < jpegItems.Count; i += batchSize)
+        if (_device is null) return;
+
+        for (var i = 0; i < jpegItems.Count; i += SessionBatchSize)
         {
-            if (ct.IsCancellationRequested) return;
-            var batch = jpegItems.Skip(i).Take(batchSize).ToList();
+            ct.ThrowIfCancellationRequested();
 
-            await Task.WhenAll(batch.Select(async item =>
+            var batch = jpegItems.Skip(i).Take(SessionBatchSize).ToList();
+            var paths = batch
+                .Where(p => p.Thumbnail is null)
+                .Select(p => p.Item.RemotePath)
+                .ToList();
+            if (paths.Count == 0) continue;
+
+            // Read all headers in ONE AFC session on a background thread.
+            Dictionary<string, byte[]> rawMap;
+            try
             {
-                if (item.Thumbnail is not null) return;
-                if (ct.IsCancellationRequested) return;
+                rawMap = await _photos.ReadFilesAsync(_device.Udid, paths, ExifHeaderBytes, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { return; }
+            catch { continue; } // device disconnected; try next batch
 
-                var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
-                if (ext is ".heic" or ".heif") return; // WPF has no HEIC codec
-
-                try
+            // Decode thumbnails in parallel (CPU-bound, no AFC involved).
+            var decoded = await Task.Run(() =>
+            {
+                var result = new List<(PhotoItemViewModel item, BitmapSource thumb)>();
+                foreach (var item in batch)
                 {
-                    if (_device is null) return;
+                    if (ct.IsCancellationRequested) break;
+                    if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null) continue;
 
-                    // First attempt: read only the EXIF header (64 KB) and extract
-                    // the embedded thumbnail. This is ~50-100x faster than reading
-                    // the full 3-8 MB JPEG over AFC.
-                    var headerBytes = await _photos.ReadFileAsync(
-                        _device.Udid, item.Item.RemotePath, ExifHeaderBytes, ct);
-
-                    BitmapSource? thumb = null;
-
-                    if (headerBytes is { Length: > 0 })
-                        thumb = TryExtractExifThumbnail(headerBytes);
-
-                    // Fall back: read the full file and decode at low resolution.
-                    if (thumb is null)
-                    {
-                        var fullBytes = await _photos.ReadFileAsync(
-                            _device.Udid, item.Item.RemotePath, 0, ct);
-                        if (fullBytes is { Length: > 0 })
-                            thumb = TryDecodeFullJpeg(fullBytes, 128);
-                    }
-
-                    if (thumb is null) return;
-
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        item.Thumbnail = thumb as BitmapImage ?? WrapAsBitmapImage(thumb);
-                    });
+                    var thumb = TryExtractExifThumbnail(bytes);
+                    if (thumb is null) thumb = TryDecodeFullJpeg(bytes, 128);
+                    if (thumb is not null) result.Add((item, thumb));
                 }
-                catch (OperationCanceledException) { /* stop gracefully */ }
-                catch { /* skip corrupt / unsupported file */ }
-            }));
+                return result;
+            }, ct).ConfigureAwait(false);
 
-            // No delay between batches — reads are small enough now.
+            // Marshal thumbnail assignments back to the UI thread in one pass.
+            if (decoded.Count > 0)
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    foreach (var (item, thumb) in decoded)
+                        item.Thumbnail = thumb as BitmapImage ?? WrapAsBitmapImage(thumb);
+                });
+            }
         }
     }
 

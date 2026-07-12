@@ -217,6 +217,58 @@ public sealed class PhotoService
             return done;
         }, ct);
 
+    /// <summary>
+    /// Reads multiple files in a single AFC session, returning their raw bytes up to
+    /// <paramref name="maxBytesEach"/> each. Much faster than opening a new session per
+    /// file, because the USB/lockdown handshake happens only once.
+    /// </summary>
+    public Task<Dictionary<string, byte[]>> ReadFilesAsync(
+        string udid,
+        IReadOnlyList<string> remotePaths,
+        long maxBytesEach,
+        CancellationToken ct = default)
+        => Task.Run<Dictionary<string, byte[]>>(() =>
+        {
+            var results = new Dictionary<string, byte[]>(remotePaths.Count);
+            if (remotePaths.Count == 0) return results;
+
+            using var session = OpenSession(udid);
+            var afc = session.Afc;
+            var client = session.Client;
+
+            foreach (var remotePath in remotePaths)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                ulong handle = 0;
+                if (afc.afc_file_open(client, remotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
+                    continue;
+
+                try
+                {
+                    using var ms = new MemoryStream();
+                    var buffer = new byte[ChunkSize];
+                    uint read;
+                    do
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        read = 0;
+                        if (afc.afc_file_read(client, handle, buffer, ChunkSize, ref read) != AfcError.Success) break;
+                        if (read > 0) ms.Write(buffer, 0, (int)read);
+                        if (maxBytesEach > 0 && ms.Length >= maxBytesEach) break;
+                    }
+                    while (read > 0);
+                    results[remotePath] = ms.ToArray();
+                }
+                finally
+                {
+                    afc.afc_file_close(client, handle);
+                }
+            }
+
+            return results;
+        }, ct);
+
     /// <summary>Reads one media file fully into memory (used for thumbnails/preview).</summary>
     public Task<byte[]?> ReadFileAsync(string udid, string remotePath, long maxBytes, CancellationToken ct = default)
         => Task.Run<byte[]?>(() =>

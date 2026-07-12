@@ -58,7 +58,7 @@
                     <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Body}"
                                FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                        <TextBlock Text="{Binding Album}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding FriendlyAlbumName}" Style="{StaticResource Text.Caption}" />
                         <TextBlock Text="{Binding DateText, StringFormat=' · {0}'}"
                                    Style="{StaticResource Text.Caption}" />
                     </StackPanel>
@@ -296,7 +296,7 @@
 
                         <TextBlock Text="{Binding SelectedPhoto.FileName}" Style="{StaticResource Text.Body}"
                                    FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,14,0,0" />
-                        <TextBlock Text="{Binding SelectedPhoto.Album}" Style="{StaticResource Text.Caption}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding SelectedPhoto.FriendlyAlbumName}" Style="{StaticResource Text.Caption}" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding SelectedPhoto.SizeText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                         <TextBlock Text="{Binding SelectedPhoto.DateText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                     </StackPanel>
