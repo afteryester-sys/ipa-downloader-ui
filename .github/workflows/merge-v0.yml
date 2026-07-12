@@ -1,10 +1,10 @@
 # Triggered when v0 pushes to a v0/** branch.
-# 1. Bumps the patch segment of <Version> in IPAStudio.App.csproj.
-# 2. Commits the bump to the v0 branch.
-# 3. Merges (fast-forward or merge commit) into main.
-# This means every change from the v0 chat automatically lands in main
-# with a fresh version number, which then triggers auto-release.yml and
-# produces a new installer that the running app can pick up.
+# 1. Checks out main, merges the v0 branch into it.
+# 2. Bumps the patch version directly on main (never writes back to v0/**).
+# 3. Pushes main — this triggers auto-release.yml which builds the installer.
+#
+# Deliberately does NOT push anything back to the v0/** branch so that v0
+# can always push cleanly on the next change.
 name: Merge v0 branch into main
 
 on:
@@ -12,7 +12,7 @@ on:
     branches: ["v0/**"]
 
 jobs:
-  bump-and-merge:
+  merge-and-bump:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -29,47 +29,37 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ---- Bump patch version in csproj ------------------------------------
+      # ---- Merge v0 branch into main (already on main) --------------------
+      - name: Fetch v0 branch
+        run: git fetch origin ${{ github.ref_name }}
+
+      - name: Merge v0 branch
+        run: |
+          git merge --no-ff "origin/${{ github.ref_name }}" \
+            -m "chore: merge ${{ github.ref_name }} -> main [auto]" \
+            || true   # conflicts are rare; if they occur the job fails clearly
+
+      # ---- Bump patch version in csproj on main ---------------------------
       - name: Bump patch version
         id: bump
         shell: bash
         run: |
           FILE="src/IPAStudio.App/IPAStudio.App.csproj"
-
-          # Extract current version
           CURRENT=$(grep -oP '(?<=<Version>)[^<]+' "$FILE" | head -1 | tr -d '[:space:]')
-          echo "Current version: $CURRENT"
-
-          # Split into parts
+          echo "Current: $CURRENT"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
           PATCH=$((PATCH + 1))
           NEW="$MAJOR.$MINOR.$PATCH"
-
-          echo "New version: $NEW"
+          echo "New: $NEW"
           echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
-
-          # Write back
           sed -i "s|<Version>${CURRENT}</Version>|<Version>${NEW}</Version>|g" "$FILE"
 
-      # ---- Commit the bump on the v0 branch --------------------------------
-      - name: Commit version bump
+      - name: Commit version bump on main
         run: |
           git add src/IPAStudio.App/IPAStudio.App.csproj
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [auto]" \
-            || echo "Nothing to commit (version unchanged)"
+          git diff --cached --quiet \
+            || git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [auto]"
 
-      - name: Push bump to v0 branch
-        run: git push origin HEAD:${{ github.ref_name }}
-
-      # ---- Merge v0 branch into main ---------------------------------------
-      - name: Fetch main
-        run: git fetch origin main
-
-      - name: Merge into main
-        run: |
-          git checkout main
-          git merge --no-ff "${{ github.ref_name }}" \
-            -m "chore: merge ${{ github.ref_name }} -> main (v${{ steps.bump.outputs.new_version }})"
-
+      # ---- Push main (triggers auto-release.yml) --------------------------
       - name: Push main
         run: git push origin main
