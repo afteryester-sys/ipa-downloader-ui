@@ -1,7 +1,9 @@
 using System.Net.Http;
 using System.Windows;
+using System.Windows.Threading;
 using IPAStudio.App.Services;
 using IPAStudio.App.ViewModels;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Services;
 using IPAStudio.Core.Tools;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,6 +17,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Global safety net — installed FIRST so nothing can silently kill the
+        // app. Any unhandled exception is logged with a full stack trace and
+        // surfaced in a dialog instead of terminating the process.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         var services = new ServiceCollection();
 
@@ -71,6 +80,54 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<ShellViewModel>(),
         };
         window.Show();
+    }
+
+    // ---------------------------------------------------- crash safety net --
+
+    /// <summary>
+    /// Handles exceptions raised on the UI thread. Marks them handled so the
+    /// app keeps running, logs the full stack and tells the user where to find
+    /// the details.
+    /// </summary>
+    private void OnDispatcherUnhandledException(
+        object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        AppLog.Error("Unhandled UI-thread exception (recovered).", e.Exception);
+        e.Handled = true;
+        ShowError(e.Exception);
+    }
+
+    /// <summary>Logs fatal exceptions from non-UI threads (cannot be recovered).</summary>
+    private static void OnDomainUnhandledException(
+        object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+            AppLog.Error("Unhandled background exception.", ex);
+        else
+            AppLog.Error($"Unhandled background error: {e.ExceptionObject}");
+    }
+
+    /// <summary>Observes faulted background tasks so they don't escalate.</summary>
+    private void OnUnobservedTaskException(
+        object? sender, System.Threading.Tasks.UnobservedTaskExceptionEventArgs e)
+    {
+        AppLog.Error("Unobserved task exception (recovered).", e.Exception);
+        e.SetObserved();
+    }
+
+    private static void ShowError(Exception ex)
+    {
+        try
+        {
+            MessageBox.Show(
+                "Произошла ошибка, но приложение продолжит работу.\n\n" +
+                $"{ex.GetType().Name}: {ex.Message}\n\n" +
+                "Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).",
+                "IPA Studio",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch { /* never let the error handler itself crash */ }
     }
 
     protected override void OnExit(ExitEventArgs e)
