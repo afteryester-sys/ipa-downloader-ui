@@ -69,8 +69,19 @@
                     <Button Content="{DynamicResource L.Login.Confirm}" Style="{StaticResource Button.Primary}"
                             Command="{Binding ConfirmTwoFactorCommand}" Margin="0,20,0,0"
                             HorizontalAlignment="Stretch" />
+
+                    <!-- "Code didn't arrive?" row -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                        <TextBlock Text="{DynamicResource L.Login.CodeNotArrived}"
+                                   Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Button Content="{DynamicResource L.Login.ResendCode}"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ResendCodeCommand}"
+                                Padding="8,4" FontSize="12" />
+                    </StackPanel>
+
                     <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
-                            Command="{Binding BackToCredentialsCommand}" Margin="0,8,0,0"
+                            Command="{Binding BackToCredentialsCommand}" Margin="0,6,0,0"
                             HorizontalAlignment="Center" />
                 </StackPanel>
 

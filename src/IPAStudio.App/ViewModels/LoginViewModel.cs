@@ -229,6 +229,30 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
+    /// Cancels the current login attempt and immediately retries step 1 to trigger
+    /// Apple to send a new push notification with a fresh 2FA code.
+    /// Useful when the code never arrived (push delivery failure, wrong trusted device, etc.).
+    /// </summary>
+    [RelayCommand]
+    private async Task ResendCodeAsync()
+    {
+        // Cancel the in-flight login that is waiting for the code.
+        _loginCts?.Cancel();
+        _twoFactorTcs?.TrySetResult(null);
+        IsTwoFactorStep = false;
+        IsBusy = false;
+        TwoFactorCode = "";
+        ErrorMessage = null;
+
+        // Small pause so the previous ipatool process has time to exit cleanly.
+        await Task.Delay(600);
+
+        // Re-run sign-in; this triggers Apple to push a new code.
+        if (SignInCommand.CanExecute(null))
+            await SignInAsync();
+    }
+
+    /// <summary>
     /// Switches ipatool to v2 (does not require iCloud for Windows) and clears
     /// the iCloud error so the user can immediately retry the login.
     /// </summary>
