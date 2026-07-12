@@ -49,8 +49,13 @@ jobs:
         shell: pwsh
         run: |
           $tag = "v${{ steps.version.outputs.value }}"
-          $exists = (git tag -l $tag) -ne ""
-          "exists=$($exists.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          # Ensure tags are present locally, then look for an exact match.
+          git fetch --tags --quiet 2>$null
+          $found = git tag -l $tag
+          # NOTE: in PowerShell `$null -ne ""` is TRUE, so we must test for
+          # null/empty explicitly instead of comparing to "".
+          $exists = if ([string]::IsNullOrWhiteSpace($found)) { "false" } else { "true" }
+          "exists=$exists" >> $env:GITHUB_OUTPUT
           Write-Host "Tag $tag exists: $exists"
 
       # ---- Restore & Build -------------------------------------------------
