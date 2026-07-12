@@ -117,8 +117,22 @@ public sealed partial class DownloadService
     {
         _tools.EnsureFolders();
 
-        var safeName = string.Join("_", app.Name.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
-        var version = app.LatestVersion ?? "latest";
+        // IMPORTANT: the output path is handed to native tools (ipatool v3 is Go +
+        // C++ nlohmann/json + libzip). Non-ASCII bytes in the path break them:
+        //   - nlohmann json.dump() throws "invalid UTF-8 byte" (type_error.316)
+        //   - libzip zip_open fails with ENOENT (18) on the mangled name
+        // So we build a strictly ASCII-safe filename (transliterating Cyrillic
+        // for readability) and fall back to the bundle id / app id if nothing
+        // usable remains.
+        var safeName = MakeAsciiSafeName(app.Name);
+        if (string.IsNullOrEmpty(safeName))
+            safeName = MakeAsciiSafeName(app.BundleId ?? "") ;
+        if (string.IsNullOrEmpty(safeName))
+            safeName = "app";
+
+        var version = MakeAsciiSafeName(app.LatestVersion ?? "latest");
+        if (string.IsNullOrEmpty(version)) version = "latest";
+
         var outputPath = Path.Combine(_tools.AppsFolder, $"{safeName}_{app.AppStoreId}_{version}.ipa");
 
         var args = new List<string>
@@ -310,6 +324,53 @@ public sealed partial class DownloadService
             catch (JsonException) { }
         }
         return versions;
+    }
+
+    // Russian Cyrillic -> Latin transliteration table (covers the common case
+    // for App Store names shown to Russian users). Anything not covered here
+    // and not already ASCII is dropped.
+    private static readonly Dictionary<char, string> Translit = new()
+    {
+        ['а']="a",['б']="b",['в']="v",['г']="g",['д']="d",['е']="e",['ё']="e",
+        ['ж']="zh",['з']="z",['и']="i",['й']="y",['к']="k",['л']="l",['м']="m",
+        ['н']="n",['о']="o",['п']="p",['р']="r",['с']="s",['т']="t",['у']="u",
+        ['ф']="f",['х']="h",['ц']="ts",['ч']="ch",['ш']="sh",['щ']="sch",
+        ['ъ']="",['ы']="y",['ь']="",['э']="e",['ю']="yu",['я']="ya",
+    };
+
+    /// <summary>
+    /// Produces a strictly ASCII, filesystem-safe token from an arbitrary app
+    /// name. Cyrillic is transliterated; every remaining non-[A-Za-z0-9] run is
+    /// collapsed to a single underscore. Returns "" when nothing usable remains.
+    /// </summary>
+    private static string MakeAsciiSafeName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return "";
+
+        var sb = new System.Text.StringBuilder(input.Length);
+        foreach (var ch in input)
+        {
+            if (ch <= 0x7F && (char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_'))
+            {
+                sb.Append(ch);
+            }
+            else if (Translit.TryGetValue(char.ToLowerInvariant(ch), out var mapped))
+            {
+                // Preserve capitalisation of the first letter for readability.
+                if (char.IsUpper(ch) && mapped.Length > 0)
+                    sb.Append(char.ToUpperInvariant(mapped[0])).Append(mapped.AsSpan(1));
+                else
+                    sb.Append(mapped);
+            }
+            else
+            {
+                sb.Append('_');
+            }
+        }
+
+        // Collapse repeated / leading / trailing underscores.
+        var collapsed = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "_+", "_");
+        return collapsed.Trim('_', '.');
     }
 
     private static string? ExtractOutputPath(string output)
