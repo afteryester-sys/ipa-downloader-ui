@@ -195,12 +195,21 @@ public sealed class DeviceService : IAsyncDisposable
     /// </summary>
     public async Task<string?> TryReadAppleIdAsync(string udid, CancellationToken ct = default)
     {
+        // Probe list — ordered from most reliable (iOS 14+) to fallback.
+        // The Apple ID key moved between iOS releases; we try every known location.
         string[][] probes =
         {
-            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes", "-k", "AppleID" },
+            // iOS 14+ root-level key (no domain needed)
+            new[] { "-u", udid, "-k", "AppleID" },
+            // Older iOS / iPadOS (≤13)
+            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes",       "-k", "AppleID" },
             new[] { "-u", udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AppleID" },
-            new[] { "-u", udid, "-q", "com.apple.mobile.data_sync", "-k", "AccountName" },
-            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes", "-k", "AccountUsername" },
+            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes",       "-k", "AccountUsername" },
+            new[] { "-u", udid, "-q", "com.apple.mobile.data_sync",    "-k", "AccountName" },
+            // Backup-service domain (present on iOS 12-15)
+            new[] { "-u", udid, "-q", "com.apple.mobile.backup",       "-k", "LastiTunesAccountHash" },
+            // MobileDeviceCompatibility (works with newer libimobiledevice)
+            new[] { "-u", udid, "-q", "com.apple.MobileDeviceCompatibility", "-k", "AppleID" },
         };
 
         foreach (var args in probes)
@@ -209,14 +218,50 @@ public sealed class DeviceService : IAsyncDisposable
             {
                 var result = await _runner.RunAsync(_tools.IdeviceInfoPath, args, ct: ct).ConfigureAwait(false);
                 var value = result.StdOut.Trim();
-                if (value.Contains('@') && value.Length is > 3 and < 128 && !value.Contains(' '))
+                if (IsValidEmail(value))
                     return value;
             }
             catch (OperationCanceledException) { throw; }
             catch { /* try the next probe */ }
         }
+
+        // Last resort: try to read the Apple Account plist via AFC (requires
+        // a trusted pair and libimobiledevice's ideviceenterrecovery/afc tool).
+        // We shell out to ideviceinfo asking for the whole iTunes domain and parse
+        // the text output for any line containing '@'.
+        try
+        {
+            var dump = await _runner.RunAsync(
+                _tools.IdeviceInfoPath,
+                new[] { "-u", udid, "-q", "com.apple.mobile.iTunes" },
+                ct: ct).ConfigureAwait(false);
+
+            foreach (var line in dump.StdOut.Split('\n'))
+            {
+                var trimmed = line.Trim().Trim('"');
+                if (IsValidEmail(trimmed))
+                    return trimmed;
+                // "AppleID: user@example.com" format
+                if (trimmed.Contains(':'))
+                {
+                    var val = trimmed.Split(':', 2).Last().Trim().Trim('"');
+                    if (IsValidEmail(val))
+                        return val;
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* no result */ }
+
         return null;
     }
+
+    private static bool IsValidEmail(string? s) =>
+        !string.IsNullOrWhiteSpace(s) &&
+        s.Contains('@') &&
+        s.Length is > 3 and < 128 &&
+        !s.Contains(' ') &&
+        !s.StartsWith('-'); // guard against ideviceinfo error strings
 
     private async Task<int> ReadBatteryAsync(string udid, CancellationToken ct)
     {
