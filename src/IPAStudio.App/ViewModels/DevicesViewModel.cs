@@ -66,6 +66,9 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private string _accountEmail = "";
 
     [ObservableProperty]
+    private bool _isSignedIn;
+
+    [ObservableProperty]
     private bool _hasDevices;
 
     public DevicesViewModel(DeviceService devices, CatalogService catalog, AuthService auth)
@@ -82,6 +85,7 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     public void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;
+        IsSignedIn = _auth.IsAuthenticated;
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
 
         if (_initialized) return;
@@ -121,16 +125,42 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private void SelectDevice(DeviceViewModel? device)
     {
         if (device is null) return;
-        _navigator?.GoToAppPicker(device.Device);
+
+        // App Store features require a signed-in Apple ID. When the user skipped
+        // sign-in, send them to the login screen (pre-filled for this device) and
+        // continue to the app picker automatically afterwards.
+        if (_auth.IsAuthenticated)
+            _navigator?.GoToAppPicker(device.Device);
+        else
+            _navigator?.GoToLoginForDevice(device.Device);
+    }
+
+    [RelayCommand]
+    private void OpenDeviceInfo(DeviceViewModel? device)
+    {
+        if (device is null) return;
+        _navigator?.GoToDeviceInfo(device.Device);
+    }
+
+    [RelayCommand]
+    private void OpenPhotos(DeviceViewModel? device)
+    {
+        if (device is null) return;
+        _navigator?.GoToPhotos(device.Device);
     }
 
     [RelayCommand]
     private void OpenSettings() => _navigator?.GoTo(Page.Settings);
 
     [RelayCommand]
+    private void SignIn() => _navigator?.GoTo(Page.Login);
+
+    [RelayCommand]
     private async Task SignOutAsync()
     {
         await _auth.LogoutAsync();
+        IsSignedIn = false;
+        AccountEmail = "";
         _navigator?.GoTo(Page.Login);
     }
 

@@ -46,13 +46,16 @@ public sealed class DependencyStateNeedsActionConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
-/// <summary>Null/empty string -> Collapsed.</summary>
+/// <summary>Null/empty string -> Collapsed (parameter "invert" flips the mapping).</summary>
 public sealed class NullToCollapsedConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is null || (value is string s && string.IsNullOrEmpty(s))
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+    {
+        var isEmpty = value is null || (value is string s && string.IsNullOrEmpty(s));
+        if (string.Equals(parameter as string, "invert", StringComparison.OrdinalIgnoreCase))
+            isEmpty = !isEmpty;
+        return isEmpty ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();

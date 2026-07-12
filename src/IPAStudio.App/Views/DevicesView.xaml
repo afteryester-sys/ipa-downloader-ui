@@ -25,7 +25,11 @@
                 <Button Content="{DynamicResource L.Settings}" Style="{StaticResource Button.Secondary}"
                         Command="{Binding OpenSettingsCommand}" Margin="0,0,8,0" />
                 <Button Content="{DynamicResource L.Devices.SignOut}" Style="{StaticResource Button.Ghost}"
-                        Command="{Binding SignOutCommand}" />
+                        Command="{Binding SignOutCommand}"
+                        Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}" />
+                <Button Content="{DynamicResource L.Devices.SignInPrompt}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding SignInCommand}"
+                        Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
             </StackPanel>
         </Grid>
 
@@ -158,6 +162,24 @@
                                                 HorizontalAlignment="Stretch"
                                                 Command="{Binding DataContext.SelectDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
+
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="8" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="{DynamicResource L.Devices.Info}"
+                                                    Style="{StaticResource Button.Secondary}"
+                                                    HorizontalAlignment="Stretch"
+                                                    Command="{Binding DataContext.OpenDeviceInfoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Grid.Column="2" Content="{DynamicResource L.Devices.Photos}"
+                                                    Style="{StaticResource Button.Secondary}"
+                                                    HorizontalAlignment="Stretch"
+                                                    Command="{Binding DataContext.OpenPhotosCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

@@ -2,6 +2,7 @@ using System.Threading;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
 namespace IPAStudio.App.ViewModels;
@@ -14,8 +15,14 @@ namespace IPAStudio.App.ViewModels;
 public sealed partial class LoginViewModel : ObservableObject, IPageAware
 {
     private readonly AuthService _auth;
+    private readonly SettingsService _settings;
+    private readonly DeviceService _devices;
     private INavigator? _navigator;
     private bool _sessionChecked;
+
+    /// <summary>When set, the user picked this device before signing in; after a
+    /// successful login we jump straight to the app picker for it.</summary>
+    private Device? _pendingDevice;
 
     private TaskCompletionSource<string?>? _twoFactorTcs;
     private CancellationTokenSource? _loginCts;
@@ -36,22 +43,54 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
     private bool _isTwoFactorStep;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SkipCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SkipCommand))]
     private bool _isRestoringSession;
 
     [ObservableProperty]
     private string? _errorMessage;
 
-    public LoginViewModel(AuthService auth)
+    public LoginViewModel(AuthService auth, SettingsService settings, DeviceService devices)
     {
         _auth = auth;
+        _settings = settings;
+        _devices = devices;
+    }
+
+    /// <summary>
+    /// Called by the shell before navigation. Remembers the device the user picked
+    /// (if any) and pre-fills the email with the last-used Apple ID so only the
+    /// password remains to be entered.
+    /// </summary>
+    public void SetPendingDevice(Device? device)
+    {
+        _pendingDevice = device;
+
+        if (string.IsNullOrWhiteSpace(Email))
+        {
+            var remembered = device?.AppleId ?? _settings.Current.LastAppleId;
+            if (!string.IsNullOrWhiteSpace(remembered))
+                Email = remembered!;
+        }
     }
 
     public async void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;
+
+        // Best-effort: read the Apple ID off the device to pre-fill the email.
+        if (_pendingDevice is not null && string.IsNullOrWhiteSpace(Email))
+        {
+            try
+            {
+                var appleId = await _devices.TryReadAppleIdAsync(_pendingDevice.Udid);
+                if (!string.IsNullOrWhiteSpace(appleId)) Email = appleId!;
+            }
+            catch { /* ignored — falls back to manual entry */ }
+        }
 
         if (_sessionChecked) return;
         _sessionChecked = true;
@@ -61,13 +100,29 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
         {
             var account = await _auth.TryRestoreSessionAsync();
             if (account is not null)
-                _navigator?.GoTo(Page.Devices);
+                NavigateAfterLogin();
         }
         finally
         {
             IsRestoringSession = false;
         }
     }
+
+    /// <summary>Goes to the app picker for the pending device, or the devices list.</summary>
+    private void NavigateAfterLogin()
+    {
+        if (_pendingDevice is not null)
+            _navigator?.GoToAppPicker(_pendingDevice);
+        else
+            _navigator?.GoTo(Page.Devices);
+    }
+
+    private bool CanSkip() => !IsBusy && !IsRestoringSession;
+
+    /// <summary>Continues without signing in (device tools still work; App Store
+    /// features prompt for sign-in when needed).</summary>
+    [RelayCommand(CanExecute = nameof(CanSkip))]
+    private void Skip() => _navigator?.GoTo(Page.Devices);
 
     private bool CanSignIn() =>
         !IsBusy && !string.IsNullOrWhiteSpace(Email) && !string.IsNullOrEmpty(Password);
@@ -87,7 +142,11 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
 
             if (result.Success)
             {
-                _navigator?.GoTo(Page.Devices);
+                // Remember the Apple ID so it can be pre-filled next time.
+                _settings.Current.LastAppleId = Email.Trim();
+                try { _settings.Save(); } catch { /* non-fatal */ }
+
+                NavigateAfterLogin();
             }
             else
             {

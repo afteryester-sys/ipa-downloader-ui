@@ -139,11 +139,83 @@ public sealed class DeviceService : IAsyncDisposable
                     break;
                 case "ProductVersion": device.OsVersion = value; break;
                 case "DeviceClass": device.DeviceClass = value; break;
+                case "SerialNumber": device.SerialNumber = value; break;
+                case "PhoneNumber": device.PhoneNumber = value; break;
+                case "WiFiAddress": device.WifiAddress = value; break;
+                case "BluetoothAddress": device.BluetoothAddress = value; break;
+                case "RegionInfo": device.RegionInfo = value; break;
+                case "BuildVersion": device.BuildVersion = value; break;
             }
         }
 
         device.BatteryLevel = await ReadBatteryAsync(udid, ct).ConfigureAwait(false);
         return device;
+    }
+
+    /// <summary>
+    /// Fetches extra details that aren't in the default lockdown domain (disk usage,
+    /// and a best-effort Apple ID). Safe to call repeatedly; failures are ignored so
+    /// the info screen still shows whatever could be read.
+    /// </summary>
+    public async Task EnrichInfoAsync(Device device, CancellationToken ct = default)
+    {
+        try
+        {
+            var disk = await _runner.RunAsync(
+                _tools.IdeviceInfoPath,
+                new[] { "-u", device.Udid, "-q", "com.apple.disk_usage" },
+                ct: ct).ConfigureAwait(false);
+
+            foreach (var line in disk.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var idx = line.IndexOf(':');
+                if (idx <= 0) continue;
+                var key = line[..idx].Trim();
+                var value = line[(idx + 1)..].Trim();
+                switch (key)
+                {
+                    case "TotalDiskCapacity" when long.TryParse(value, out var total):
+                        device.TotalDiskCapacity = total; break;
+                    case "TotalDataAvailable" when long.TryParse(value, out var free):
+                        device.FreeDiskSpace = free; break;
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* disk usage domain unavailable */ }
+
+        if (string.IsNullOrEmpty(device.AppleId))
+            device.AppleId = await TryReadAppleIdAsync(device.Udid, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Best-effort read of the Apple ID associated with the device. Modern iOS hides
+    /// this behind privacy protections, so several lockdown domains are probed and the
+    /// first value that looks like an email is returned; null when nothing is exposed.
+    /// </summary>
+    public async Task<string?> TryReadAppleIdAsync(string udid, CancellationToken ct = default)
+    {
+        string[][] probes =
+        {
+            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes", "-k", "AppleID" },
+            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AppleID" },
+            new[] { "-u", udid, "-q", "com.apple.mobile.data_sync", "-k", "AccountName" },
+            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes", "-k", "AccountUsername" },
+        };
+
+        foreach (var args in probes)
+        {
+            try
+            {
+                var result = await _runner.RunAsync(_tools.IdeviceInfoPath, args, ct: ct).ConfigureAwait(false);
+                var value = result.StdOut.Trim();
+                if (value.Contains('@') && value.Length is > 3 and < 128 && !value.Contains(' '))
+                    return value;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* try the next probe */ }
+        }
+        return null;
     }
 
     private async Task<int> ReadBatteryAsync(string udid, CancellationToken ct)

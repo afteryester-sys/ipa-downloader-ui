@@ -47,6 +47,12 @@
                     <Button Content="{DynamicResource L.Login.SignIn}" Style="{StaticResource Button.Primary}"
                             Command="{Binding SignInCommand}" Margin="0,24,0,0"
                             HorizontalAlignment="Stretch" />
+
+                    <Button Content="{DynamicResource L.Login.Skip}" Style="{StaticResource Button.Ghost}"
+                            Command="{Binding SkipCommand}" Margin="0,8,0,0"
+                            HorizontalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource L.Login.SkipHint}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,4,0,0" />
                 </StackPanel>
 
                 <!-- Step 2: two-factor code -->
