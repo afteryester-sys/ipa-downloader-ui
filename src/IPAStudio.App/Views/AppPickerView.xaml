@@ -258,13 +258,26 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource L.Picker.SelectedCount}" Style="{StaticResource Text.Body}" />
                     <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
-                               FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,0,0" />
+                               FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,16,0" />
+                    <!-- Purchased status hint (shown after load) -->
+                    <TextBlock Text="{Binding PurchasedStatusMessage}"
+                               Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding PurchasedStatusMessage, Converter={StaticResource NullToCollapsed}}" />
+                    <ProgressBar IsIndeterminate="True" Width="80" Height="4" Margin="8,0,0,0"
+                                 Visibility="{Binding IsLoadingPurchased, Converter={StaticResource BoolToVis}}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Load Purchased mode button -->
+                    <Button Content="{DynamicResource L.Picker.LoadPurchased}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding LoadPurchasedAppsCommand}"
+                            IsEnabled="{Binding IsLoadingPurchased, Converter={StaticResource InverseBool}}" />
                     <!-- Bundle ID mode button -->
                     <Button Content="{DynamicResource L.Picker.InstallByBundleId}"
                             Style="{StaticResource Button.Secondary}"
