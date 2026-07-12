@@ -196,7 +196,52 @@ public sealed class DependencyService
         }
         catch { /* ignore */ }
 
+        // Ground-truth fallback: ask Windows directly via Get-AppxPackage.
+        // The registry hives above are frequently unreadable for normal users
+        // (StateRepository is SYSTEM-only, the per-user Repository often denies
+        // enumeration), so this is the only reliable elevation-free method.
+        if (StorePackageViaPowerShell(nameFragment))
+            return true;
+
         return false;
+    }
+
+    // Cache PowerShell results per fragment for the lifetime of the process —
+    // spawning PowerShell is slow and the answer doesn't change while running.
+    private static readonly Dictionary<string, bool> _storeCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool StorePackageViaPowerShell(string nameFragment)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        if (_storeCache.TryGetValue(nameFragment, out var cached)) return cached;
+
+        var result = false;
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo("powershell")
+            {
+                Arguments =
+                    "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command " +
+                    $"\"if (Get-AppxPackage -Name '*{nameFragment}*') {{ 'FOUND' }}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            if (proc is not null)
+            {
+                var output = proc.StandardOutput.ReadToEnd();
+                // Guard against a hung PowerShell — don't block the UI forever.
+                if (proc.WaitForExit(8000))
+                    result = output.Contains("FOUND", StringComparison.OrdinalIgnoreCase);
+                else
+                    try { proc.Kill(true); } catch { /* ignore */ }
+            }
+        }
+        catch { /* PowerShell unavailable — treat as not found */ }
+
+        _storeCache[nameFragment] = result;
+        return result;
     }
 
     private static DependencyState CheckITunesInstalled()

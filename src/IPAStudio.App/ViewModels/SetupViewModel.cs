@@ -17,10 +17,12 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
 {
     private const string ITunesUrl = "https://www.apple.com/itunes/download/win64";
 
-    // Direct link to iCloud for Windows in the Microsoft Store (opens Store app).
-    // Fallback web page if Store doesn't open: support.apple.com/en-us/103232
-    private const string ICloudStoreUrl = "ms-windows-store://pdp/?ProductId=9PKTQ5699M62";
-    private const string ICloudWebUrl   = "https://support.apple.com/en-us/103232";
+    // We intentionally point at the CLASSIC (legacy, non-Store) iCloud for
+    // Windows. ipatool v3's anisette reads Apple's ADI libraries from the
+    // classic install path; the Microsoft Store version sandboxes those DLLs
+    // under WindowsApps where anisette cannot reach them, so the Store build
+    // does NOT work for sign-in.
+    private const string ICloudWebUrl = "https://support.apple.com/en-us/106383";
 
     private readonly DependencyService _deps;
     private readonly SettingsService _settings;
@@ -201,21 +203,14 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Opens iCloud for Windows in the Microsoft Store.
-    /// Falls back to the Apple support web page if the Store URI fails.
+    /// Opens the Apple page for the classic (non-Store) iCloud for Windows,
+    /// which is the version that works with ipatool v3's anisette.
     /// </summary>
     [RelayCommand]
     private void OpenICloudPage()
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(ICloudStoreUrl) { UseShellExecute = true });
-        }
-        catch
-        {
-            try { Process.Start(new ProcessStartInfo(ICloudWebUrl) { UseShellExecute = true }); }
-            catch { /* ignore */ }
-        }
+        try { Process.Start(new ProcessStartInfo(ICloudWebUrl) { UseShellExecute = true }); }
+        catch { /* ignore */ }
     }
 
     [RelayCommand]

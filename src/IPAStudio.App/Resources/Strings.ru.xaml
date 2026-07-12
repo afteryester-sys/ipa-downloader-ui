@@ -31,7 +31,7 @@
     <sys:String x:Key="L.Setup.InstallITunesLink">Скачать iTunes</sys:String>
     <sys:String x:Key="L.Setup.OrDownloadManual">Или скачайте вручную:</sys:String>
     <sys:String x:Key="L.Setup.ICloud">iCloud для Windows (требуется для ipatool v3)</sys:String>
-    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID.</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID. Нужна классическая версия с apple.com — версия из Microsoft Store не подходит.</sys:String>
     <sys:String x:Key="L.Setup.OpenICloudPage">Скачать iCloud для Windows</sys:String>
 
     <!-- Авторизация -->
@@ -47,8 +47,8 @@
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
     <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
     <sys:String x:Key="L.Login.SkipHint">Можно сразу перейти к устройствам. Вход в Apple ID потребуется только при установке приложений.</sys:String>
-    <sys:String x:Key="L.Login.ICloudTitle">iCloud не установлен</sys:String>
-    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 требует приложение Apple iCloud для Windows. Установите iCloud или переключитесь на v2 — он не требует iCloud и работает сразу.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">Не удалось получить данные iCloud</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 берёт данные для входа из Apple iCloud для Windows. Версия из Microsoft Store часто не подходит — нужна классическая версия с apple.com/icloud. Проще всего переключиться на ipatool v2 — он не требует iCloud и работает сразу.</sys:String>
     <sys:String x:Key="L.Login.SwitchToV2">Переключить на ipatool v2</sys:String>
 
     <!-- Устройства -->
@@ -81,7 +81,7 @@
     <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
-    <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Вы��рано:</sys:String>
     <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
     <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
 
