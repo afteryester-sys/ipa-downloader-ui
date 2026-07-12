@@ -7,7 +7,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace IPAStudio.App.ViewModels;
 
@@ -170,9 +169,8 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
     private async Task LoadAsync()
     {
-        // Reuse the catalog already loaded by DevicesViewModel.
-        var devicesVm = App.Services.GetRequiredService<DevicesViewModel>();
-        var catalog = devicesVm.Catalog;
+        // Load the bundled catalog via the injected CatalogService.
+        var catalog = _catalog.LoadBundledCatalog().ToList();
 
         Apps.Clear();
         foreach (var entry in catalog)
@@ -321,11 +319,10 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         IsBundleIdBusy = true;
         try
         {
-            // 1. Try to find the app in the local catalog first (no network required).
-            var devicesVm = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                .GetRequiredService<DevicesViewModel>(App.Services);
-            var fromCatalog = devicesVm.Catalog.FirstOrDefault(e =>
-                string.Equals(e.BundleId, bundleId, StringComparison.OrdinalIgnoreCase));
+            // 1. Try to find the app in the already-loaded catalog list (no network required).
+            var fromCatalog = Apps
+                .Select(a => a.App)
+                .FirstOrDefault(e => string.Equals(e.BundleId, bundleId, StringComparison.OrdinalIgnoreCase));
 
             if (fromCatalog is not null)
             {
@@ -334,7 +331,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
                 return;
             }
 
-            // 2. Not in catalog: search the App Store by bundle ID.
+            // 2. Not in catalog: search the App Store by bundle ID via iTunes Lookup API.
             var results = await _catalog.SearchByBundleIdAsync(bundleId).ConfigureAwait(false);
             if (results is null || results.Count == 0)
             {
