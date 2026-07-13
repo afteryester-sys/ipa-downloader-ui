@@ -376,30 +376,74 @@ public sealed partial class DownloadService
 
     private static void ParseIpatoolAppList(string output, List<AppEntry> apps)
     {
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        if (string.IsNullOrWhiteSpace(output)) return;
+
+        // ipatool may output:
+        //   A) A single JSON array on one line:  [{"id":123,...},...]
+        //   B) One JSON object per line:          {"id":123,...}\n{"id":456,...}
+        //   C) A wrapped object: {"apps":[...]}
+        //
+        // Try to parse the entire output as a single document first (covers A and C).
+        // If that fails, fall back to line-by-line parsing (covers B and mixed output).
+
+        // Strip ANSI escape codes that ipatool may emit before JSON.
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(output, @"\x1B\[[^@-~]*[@-~]", "");
+
+        // Find the first '[' or '{' to skip any leading log lines.
+        var jsonStart = -1;
+        for (var i = 0; i < cleaned.Length; i++)
         {
-            if (!line.StartsWith('{')) continue;
+            if (cleaned[i] == '[' || cleaned[i] == '{') { jsonStart = i; break; }
+        }
+        if (jsonStart < 0) return;
+        var jsonPart = cleaned[jsonStart..].Trim();
+
+        // Attempt whole-document parse first.
+        try
+        {
+            using var doc = JsonDocument.Parse(jsonPart);
+            var root = doc.RootElement;
+
+            // A) Flat array [ {...}, ... ]
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in root.EnumerateArray())
+                    TryAddEntry(item, apps);
+                return;
+            }
+            // C) Wrapper { "apps": [...] }
+            if (root.TryGetProperty("apps", out var arr))
+            {
+                foreach (var item in arr.EnumerateArray())
+                    TryAddEntry(item, apps);
+                return;
+            }
+            // Single object entry
+            TryAddEntry(root, apps);
+            return;
+        }
+        catch (JsonException) { /* fall through to line-by-line */ }
+
+        // B) Line-by-line: each line may start with '{' or '['
+        foreach (var line in jsonPart.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (line[0] != '{' && line[0] != '[') continue;
             try
             {
                 using var doc = JsonDocument.Parse(line);
                 var root = doc.RootElement;
-
-                // Wrap array: { "apps": [...] }
-                if (root.TryGetProperty("apps", out var array))
-                {
-                    foreach (var item in array.EnumerateArray())
-                        TryAddEntry(item, apps);
-                    continue;
-                }
-                // Flat array: [ {...}, ... ]
                 if (root.ValueKind == JsonValueKind.Array)
                 {
-                    foreach (var item in root.EnumerateArray())
-                        TryAddEntry(item, apps);
-                    continue;
+                    foreach (var item in root.EnumerateArray()) TryAddEntry(item, apps);
                 }
-                // Single entry
-                TryAddEntry(root, apps);
+                else if (root.TryGetProperty("apps", out var arr))
+                {
+                    foreach (var item in arr.EnumerateArray()) TryAddEntry(item, apps);
+                }
+                else
+                {
+                    TryAddEntry(root, apps);
+                }
             }
             catch (JsonException) { }
         }
@@ -407,17 +451,42 @@ public sealed partial class DownloadService
 
     private static void TryAddEntry(JsonElement item, List<AppEntry> apps)
     {
-        var id   = item.TryGetProperty("id",       out var idEl)   ? idEl.GetInt64()        : 0;
-        var name = item.TryGetProperty("name",     out var nameEl) ? nameEl.GetString()      : null;
+        // ipatool forks use different key names for the App Store ID.
+        long id = 0;
+        foreach (var key in new[] { "id", "trackId", "adamId", "adamid", "appAdamId" })
+        {
+            if (!item.TryGetProperty(key, out var idEl)) continue;
+            if (idEl.ValueKind == JsonValueKind.Number) { id = idEl.GetInt64(); break; }
+            if (idEl.ValueKind == JsonValueKind.String && long.TryParse(idEl.GetString(), out var parsed)) { id = parsed; break; }
+        }
+
+        // App name may be under "name", "trackName", or "title".
+        string? name = null;
+        foreach (var key in new[] { "name", "trackName", "title" })
+        {
+            if (item.TryGetProperty(key, out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+            { name = nameEl.GetString(); break; }
+        }
+
         if (id == 0 || string.IsNullOrEmpty(name)) return;
+
+        // Bundle ID key varies: "bundleID", "bundleId", "bundleIdentifier".
+        string? bundleId = null;
+        foreach (var key in new[] { "bundleID", "bundleId", "bundleIdentifier" })
+        {
+            if (item.TryGetProperty(key, out var bEl) && bEl.ValueKind == JsonValueKind.String)
+            { bundleId = bEl.GetString(); break; }
+        }
 
         apps.Add(new AppEntry
         {
             Name          = name!,
             AppStoreId    = id,
-            BundleId      = item.TryGetProperty("bundleID", out var b) ? b.GetString() : null,
-            LatestVersion = item.TryGetProperty("version",  out var v) ? v.GetString() : null,
-            Developer     = item.TryGetProperty("author",   out var a) ? a.GetString() : null,
+            BundleId      = bundleId,
+            LatestVersion = item.TryGetProperty("version",  out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null,
+            Developer     = item.TryGetProperty("author",   out var a) && a.ValueKind == JsonValueKind.String ? a.GetString()
+                          : item.TryGetProperty("artistName", out var an) && an.ValueKind == JsonValueKind.String ? an.GetString() : null,
+            IconUrl       = item.TryGetProperty("artworkUrl100", out var ic) && ic.ValueKind == JsonValueKind.String ? ic.GetString() : null,
         });
     }
 
