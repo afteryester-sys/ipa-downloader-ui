@@ -100,7 +100,6 @@
     <sys:String x:Key="L.Picker.RefreshingStatuses">Обновление статусов…</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Установить IPA из файла</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Установить по Bundle ID</sys:String>
-    <sys:String x:Key="L.Picker.LoadPurchased">Купленные приложения</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Введите Bundle ID приложения (например: com.apple.mobilemail). Будет найдено в App Store и установлено.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdInstall">Найти и установить</sys:String>
     <sys:String x:Key="L.Picker.AppleIdMismatch">Авторизованный Apple ID и Apple ID на устройстве отличаются. Уверены, что хотите установить?</sys:String>

@@ -118,6 +118,15 @@
                                FontSize="13" TextWrapping="Wrap" />
                 </Border>
 
+                <!-- Faint "iShop" wordmark: capital purple "I", the rest muted.
+                     Only shown on the Apple ID sign-in screen. -->
+                <TextBlock HorizontalAlignment="Center" Margin="0,24,0,0"
+                           FontFamily="{StaticResource Font.Body}" FontSize="11"
+                           FontWeight="SemiBold" Opacity="0.28">
+                    <Run Text="I" Foreground="#7C3AED" />
+                    <Run Text="Shop" Foreground="{StaticResource Brush.TextMuted}" />
+                </TextBlock>
+
             </StackPanel>
         </Border>
     </Grid>

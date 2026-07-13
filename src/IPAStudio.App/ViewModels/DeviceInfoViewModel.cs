@@ -148,15 +148,20 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 
     private static string FormatBytes(long bytes)
     {
+        // Apple reports storage in DECIMAL units (1 GB = 1000 MB) everywhere the
+        // user sees it — iOS Settings, Finder and iTunes. Using binary units
+        // (÷1024) here made a 128 GB iPhone read as "119 GB", which looked wrong.
+        // Divide by 1000 so our numbers match what the device itself shows.
         string[] units = { "Б", "КБ", "МБ", "ГБ", "ТБ" };
         double value = bytes;
         var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
+        while (value >= 1000 && unit < units.Length - 1)
         {
-            value /= 1024;
+            value /= 1000;
             unit++;
         }
-        return $"{value:0.#} {units[unit]}";
+        // Whole numbers for GB/TB (matches iOS), one decimal for smaller units.
+        return unit >= 3 ? $"{value:0.#} {units[unit]}" : $"{value:0.#} {units[unit]}";
     }
 
     [RelayCommand]
