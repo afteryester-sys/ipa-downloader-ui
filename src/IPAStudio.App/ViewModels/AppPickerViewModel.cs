@@ -173,31 +173,64 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
     private async Task LoadAsync()
     {
-        // Load the bundled catalog via the injected CatalogService.
+        // 1. Load bare catalog (name + id only) — instant.
         var catalog = _catalog.LoadBundledCatalog().ToList();
 
-        Apps.Clear();
-        foreach (var entry in catalog)
+        // 2. Apply on-disk metadata cache so icons/categories appear immediately.
+        await _catalog.ApplyCachedMetadataAsync(catalog).ConfigureAwait(false);
+
+        // 3. Populate the observable list on the UI thread.
+        await RunOnUiAsync(() =>
         {
-            var item = new AppItemViewModel(entry);
-            item.PropertyChanged += (_, e) =>
+            Apps.Clear();
+            foreach (var entry in catalog)
             {
-                if (e.PropertyName == nameof(AppItemViewModel.IsSelected))
-                    SelectedCount = Apps.Count(a => a.IsSelected);
-            };
-            Apps.Add(item);
-        }
+                var item = new AppItemViewModel(entry);
+                item.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(AppItemViewModel.IsSelected))
+                        SelectedCount = Apps.Count(a => a.IsSelected);
+                };
+                Apps.Add(item);
+            }
 
-        Categories.Clear();
-        Categories.Add("");
-        foreach (var category in catalog
-                     .Select(c => c.Category)
-                     .Where(c => !string.IsNullOrEmpty(c))
-                     .Distinct()
-                     .OrderBy(c => c))
-            Categories.Add(category!);
+            Categories.Clear();
+            Categories.Add("");
+            foreach (var category in catalog
+                         .Select(c => c.Category)
+                         .Where(c => !string.IsNullOrEmpty(c))
+                         .Distinct()
+                         .OrderBy(c => c))
+                Categories.Add(category!);
+        });
 
-        await RefreshStatusesAsync();
+        // 4. Refresh download/install badges.
+        await RefreshStatusesAsync().ConfigureAwait(false);
+
+        // 5. Background metadata refresh from iTunes API (fills missing icons and
+        //    categories; hooks MetadataUpdated to push icon paths to the live list).
+        _catalog.MetadataUpdated -= OnMetadataUpdated;
+        _catalog.MetadataUpdated += OnMetadataUpdated;
+        _ = _catalog.RefreshMetadataAsync(catalog).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Pushes newly-loaded icon paths from the background metadata refresh back into
+    /// the live AppItemViewModel list so icons appear as they are downloaded.
+    /// Called from a background thread; dispatches to UI.
+    /// </summary>
+    private void OnMetadataUpdated(object? sender, IReadOnlyList<AppEntry> updated)
+    {
+        _ = RunOnUiAsync(() =>
+        {
+            // Build fast lookup: appStoreId -> item (cheap on 570 entries).
+            var map = Apps.ToDictionary(a => a.App.AppStoreId);
+            foreach (var entry in updated)
+            {
+                if (!map.TryGetValue(entry.AppStoreId, out var item)) continue;
+                item.SyncFromModel();
+            }
+        });
     }
 
     /// <summary>Refreshes "downloaded" and "installed on device" badges.</summary>

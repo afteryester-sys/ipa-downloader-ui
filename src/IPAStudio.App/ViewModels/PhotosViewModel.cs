@@ -386,16 +386,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// Loads small thumbnails for photos (not videos/HEIC) in the background.
     ///
     /// Strategy: batch files into groups of <c>SessionBatchSize</c>. Each batch opens
-    /// ONE AFC session and reads all files in it — avoiding the expensive USB/lockdown
-    /// handshake per file that made the previous implementation slow. Within the batch
-    /// reads are done in a single serial pass (AFC is not thread-safe per session), but
-    /// because each read is only ~64 KB the total time per batch is very short.
-    /// After reading, thumbnail extraction runs in parallel on the CPU thread pool.
+    /// ONE AFC session and reads all files in it, avoiding the expensive per-file
+    /// USB/lockdown handshake. Thumbnail extraction runs in parallel on the thread
+    /// pool. UI updates are dispatched with low priority so the main thread stays
+    /// responsive (the dispatcher never blocks between batches).
     /// </summary>
     private async Task LoadThumbnailsAsync(CancellationToken ct)
     {
-        const int SessionBatchSize = 20;        // files per single AFC session
-        const long ExifHeaderBytes = 65_536;    // first 64 KB — contains EXIF block on all iPhone photos
+        const int SessionBatchSize = 20;     // files per single AFC session
+        const long ExifHeaderBytes = 65_536; // 64 KB — covers the EXIF block on iPhone JPEGs
 
         var jpegItems = Photos
             .Where(p => !p.IsVideo
@@ -408,6 +407,10 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         {
             ct.ThrowIfCancellationRequested();
 
+            // Yield to the UI thread between every batch so it can process input
+            // and paint incremental thumbnail updates without freezing.
+            await Task.Delay(1, ct).ConfigureAwait(false);
+
             var batch = jpegItems.Skip(i).Take(SessionBatchSize).ToList();
             var paths = batch
                 .Where(p => p.Thumbnail is null)
@@ -415,7 +418,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 .ToList();
             if (paths.Count == 0) continue;
 
-            // Read all headers in ONE AFC session on a background thread.
+            // Read all EXIF headers in ONE AFC session on a background thread.
             Dictionary<string, byte[]> rawMap;
             try
             {
@@ -423,41 +426,47 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) { return; }
-            catch { continue; } // device disconnected; try next batch
+            catch { continue; } // device disconnected; skip batch
 
             // Decode thumbnails in parallel (CPU-bound, no AFC involved).
             var decoded = await Task.Run(() =>
             {
-                var result = new List<(PhotoItemViewModel item, BitmapSource thumb)>();
+                var result = new List<(PhotoItemViewModel item, BitmapImage thumb)>();
                 foreach (var item in batch)
                 {
                     if (ct.IsCancellationRequested) break;
-                    if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null) continue;
+                    if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null || bytes.Length == 0) continue;
 
-                    var thumb = TryExtractExifThumbnail(bytes);
-                    if (thumb is null) thumb = TryDecodeFullJpeg(bytes, 128);
+                    // Prefer the EXIF embedded thumbnail (fast, tiny). Fall back to
+                    // down-scaled full-decode only when EXIF thumbnail is absent.
+                    BitmapImage? thumb = TryExtractExifThumbnailAsBitmapImage(bytes)
+                                      ?? TryDecodeFullJpeg(bytes, 96);
                     if (thumb is not null) result.Add((item, thumb));
                 }
                 return result;
             }, ct).ConfigureAwait(false);
 
-            // Marshal thumbnail assignments back to the UI thread in one pass.
+            // Dispatch thumbnail assignments at Background priority so painting
+            // never blocks input events on the UI thread.
             if (decoded.Count > 0)
             {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    foreach (var (item, thumb) in decoded)
-                        item.Thumbnail = thumb as BitmapImage ?? WrapAsBitmapImage(thumb);
-                });
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                    () =>
+                    {
+                        foreach (var (item, thumb) in decoded)
+                            item.Thumbnail = thumb;
+                    },
+                    System.Windows.Threading.DispatcherPriority.Background);
             }
         }
     }
 
     /// <summary>
-    /// Tries to extract the embedded EXIF thumbnail from a partial JPEG byte array.
-    /// WPF's JpegBitmapDecoder exposes it via Thumbnail without needing the full file.
+    /// Extracts the EXIF embedded thumbnail from a partial JPEG byte header and
+    /// returns it as a frozen <see cref="BitmapImage"/> ready for data binding.
+    /// Returns null when no thumbnail is present in the header.
     /// </summary>
-    private static BitmapSource? TryExtractExifThumbnail(byte[] header)
+    private static BitmapImage? TryExtractExifThumbnailAsBitmapImage(byte[] header)
     {
         try
         {
@@ -467,12 +476,29 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
                 System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
 
-            var thumb = decoder.Thumbnail
-                ?? (decoder.Frames.Count > 0 ? decoder.Frames[0].Thumbnail : null);
+            // Prefer the dedicated EXIF thumbnail; fall back to the first frame's
+            // thumbnail metadata when present.
+            BitmapSource? thumb = decoder.Thumbnail;
+            if (thumb is null && decoder.Frames.Count > 0)
+                thumb = decoder.Frames[0].Thumbnail;
 
             if (thumb is null) return null;
-            thumb.Freeze();
-            return thumb;
+
+            // Re-encode to BitmapImage so the binding type is consistent.
+            // Use JPEG (not PNG) for speed — thumbnails are already lossy.
+            var img = new BitmapImage();
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 85 };
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(thumb));
+            using var outMs = new MemoryStream();
+            encoder.Save(outMs);
+            outMs.Position = 0;
+            img.BeginInit();
+            img.CacheOption = BitmapCacheOption.OnLoad;
+            img.DecodePixelWidth = 96;
+            img.StreamSource = outMs;
+            img.EndInit();
+            img.Freeze();
+            return img;
         }
         catch { return null; }
     }
@@ -493,26 +519,6 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             return img;
         }
         catch { return null; }
-    }
-
-    /// <summary>
-    /// Converts a generic BitmapSource (e.g. BitmapFrame) to a BitmapImage so the
-    /// PhotoItemViewModel.Thumbnail property stays a consistent type.
-    /// </summary>
-    private static BitmapImage WrapAsBitmapImage(BitmapSource source)
-    {
-        var img = new BitmapImage();
-        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
-        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(source));
-        using var ms = new MemoryStream();
-        encoder.Save(ms);
-        ms.Seek(0, SeekOrigin.Begin);
-        img.BeginInit();
-        img.CacheOption = BitmapCacheOption.OnLoad;
-        img.StreamSource = ms;
-        img.EndInit();
-        img.Freeze();
-        return img;
     }
 
     [RelayCommand]
