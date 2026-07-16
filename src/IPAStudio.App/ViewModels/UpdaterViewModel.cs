@@ -17,6 +17,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
 {
     private readonly UpdateService _updates;
     private readonly ToolLocator _tools;
+    private readonly SettingsService _settings;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -53,16 +54,57 @@ public sealed partial class UpdaterViewModel : ObservableObject
 
     public bool IsBusy => IsChecking || IsDownloading;
 
-    public UpdaterViewModel(UpdateService updates, ToolLocator tools)
+    public UpdaterViewModel(UpdateService updates, ToolLocator tools, SettingsService settings)
     {
         _updates = updates;
         _tools = tools;
+        _settings = settings;
         var v = _updates.CurrentVersion;
         VersionText = $"{v.Major}.{v.Minor}.{v.Build}";
     }
 
     [RelayCommand]
     private void Toggle() => IsOpen = !IsOpen;
+
+    // ---- Appearance (color theme) ------------------------------------------
+    // Two RadioButtons in the menu popup bind to these. Selecting a different
+    // theme saves the setting and restarts the app so the palette re-applies.
+
+    public bool ThemeIsDark
+    {
+        get => !string.Equals(_settings.Current.Theme, "light", StringComparison.OrdinalIgnoreCase);
+        set { if (value) ApplyTheme("dark"); }
+    }
+
+    public bool ThemeIsLight
+    {
+        get => string.Equals(_settings.Current.Theme, "light", StringComparison.OrdinalIgnoreCase);
+        set { if (value) ApplyTheme("light"); }
+    }
+
+    private void ApplyTheme(string theme)
+    {
+        if (string.Equals(_settings.Current.Theme, theme, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _settings.Current.Theme = theme;
+        _settings.Save();
+        OnPropertyChanged(nameof(ThemeIsDark));
+        OnPropertyChanged(nameof(ThemeIsLight));
+
+        // The palette is resolved once at startup, so a restart is required.
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exePath))
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Theme change relaunch failed: {ex.Message}");
+        }
+        Application.Current.Shutdown();
+    }
 
     [RelayCommand]
     private async Task CheckAsync()
