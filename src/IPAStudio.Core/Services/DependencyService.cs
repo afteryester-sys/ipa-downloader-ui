@@ -46,6 +46,13 @@ public sealed class DependencyService
 {
     private const string ITunesDownloadUrl = "https://www.apple.com/itunes/download/win64";
 
+    // Classic (non-Store) iCloud for Windows installer, hosted on Apple's own CDN.
+    // This is the version ipatool v3's anisette needs (the Microsoft Store build
+    // sandboxes the ADI DLLs where anisette can't reach them). Verified live:
+    // HTTP 200, ~161 MB, application/x-msdownload, supports range requests.
+    private const string ICloudDownloadUrl =
+        "https://updates.cdn-apple.com/2020/windows/001-39935-20200911-1A70AA56-F448-11EA-8CC0-99D41950005E/iCloudSetup.exe";
+
     private const string RepoRaw =
         "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp";
 
@@ -361,6 +368,46 @@ public sealed class DependencyService
         {
             Status.ITunes = DependencyState.Failed;
             Status.AppleDrivers = DependencyState.Failed;
+            StatusChanged?.Invoke();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the classic iCloud for Windows installer from Apple's CDN and runs
+    /// it. iCloud's installer does not support a reliable silent switch, so we launch
+    /// it interactively (the user clicks through the short wizard). Reports download
+    /// progress via <paramref name="progress"/> (0..1, or -1 for indeterminate).
+    /// </summary>
+    public async Task<bool> InstallICloudAsync(
+        IProgress<(double fraction, string stage)>? progress = null,
+        CancellationToken ct = default)
+    {
+        Status.ICloud = DependencyState.Installing;
+        StatusChanged?.Invoke();
+
+        try
+        {
+            var setupPath = Path.Combine(Path.GetTempPath(), "iCloudSetup.exe");
+            await DownloadWithProgressAsync(ICloudDownloadUrl, setupPath,
+                f => progress?.Report((f, "download")), ct);
+
+            progress?.Report((-1, "install"));
+            // Launch the installer (elevated). We do NOT delete it afterwards because
+            // the wizard keeps running after the launcher returns.
+            var proc = Process.Start(new ProcessStartInfo(setupPath)
+            {
+                UseShellExecute = true,
+            });
+            if (proc is not null)
+                await proc.WaitForExitAsync(ct);
+
+            await CheckAllAsync(ct);
+            return Status.ICloud == DependencyState.Ok;
+        }
+        catch
+        {
+            Status.ICloud = DependencyState.Failed;
             StatusChanged?.Invoke();
             return false;
         }
