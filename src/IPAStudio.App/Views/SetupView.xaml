@@ -225,7 +225,7 @@
                                     Visibility="{Binding ICloudState, Converter={StaticResource StateMissing}}">
                             <Button Content="{DynamicResource L.Setup.OpenICloudPage}"
                                     Style="{StaticResource Button.Primary}" Padding="16,8"
-                                    Command="{Binding OpenICloudPageCommand}" />
+                                    Command="{Binding InstallICloudCommand}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

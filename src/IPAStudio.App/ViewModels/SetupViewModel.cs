@@ -41,6 +41,7 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(InstallITunesCommand))]
     [NotifyCanExecuteChangedFor(nameof(InstallToolsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(InstallICloudCommand))]
     [NotifyCanExecuteChangedFor(nameof(RecheckCommand))]
     private bool _isBusy;
 
@@ -210,13 +211,46 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Opens iCloud for Windows in the Microsoft Store so the user can download and
-    /// install it directly. Tries the ms-windows-store:// deep link first (opens the
-    /// Store app on the install page); if the Store app is unavailable, falls back to
-    /// the apps.microsoft.com web page.
+    /// Downloads the classic iCloud for Windows installer from Apple's CDN and runs
+    /// it directly (this is the version ipatool v3 needs). Shows real download
+    /// progress. If the download fails, falls back to opening the Microsoft Store /
+    /// web page so the user still has a way to get it.
     /// </summary>
-    [RelayCommand]
-    private void OpenICloudPage()
+    [RelayCommand(CanExecute = nameof(CanRunInstall))]
+    private async Task InstallICloudAsync()
+    {
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            var progress = new Progress<(double fraction, string stage)>(p =>
+            {
+                IsProgressIndeterminate = p.fraction < 0;
+                InstallProgress = Math.Max(0, p.fraction);
+                BusyStage = p.stage;
+            });
+
+            var ok = await _deps.InstallICloudAsync(progress);
+            ICloudState = _deps.Status.ICloud;
+
+            if (!ok)
+            {
+                // Download/run failed — give the user the Store as a manual fallback.
+                OpenICloudStore();
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyStage = null;
+        }
+    }
+
+    /// <summary>
+    /// Manual fallback: open iCloud in the Microsoft Store (deep link first, then the
+    /// apps.microsoft.com web page) when the direct installer download did not work.
+    /// </summary>
+    private static void OpenICloudStore()
     {
         try
         {
