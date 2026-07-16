@@ -17,12 +17,13 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
 {
     private const string ITunesUrl = "https://www.apple.com/itunes/download/win64";
 
-    // We intentionally point at the CLASSIC (legacy, non-Store) iCloud for
-    // Windows. ipatool v3's anisette reads Apple's ADI libraries from the
-    // classic install path; the Microsoft Store version sandboxes those DLLs
-    // under WindowsApps where anisette cannot reach them, so the Store build
-    // does NOT work for sign-in.
-    private const string ICloudWebUrl = "https://support.apple.com/en-us/106383";
+    // Official Apple "Set up and use iCloud for Windows" page. (The old value
+    // 106383 was wrong — it pointed at the Mac OS X Lion installer.) Apple
+    // discontinued the standalone iCloudSetup.exe in 2021 and those CDN links
+    // are now dead, so we link the canonical support page rather than a direct
+    // download. Note: for ipatool v3 anisette the Microsoft Store build often
+    // does not work; the simplest path for users remains switching to v2.
+    private const string ICloudWebUrl = "https://support.apple.com/en-us/104979";
 
     private readonly DependencyService _deps;
     private readonly SettingsService _settings;
