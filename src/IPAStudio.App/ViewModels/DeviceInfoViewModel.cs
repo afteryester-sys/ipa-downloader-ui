@@ -123,7 +123,9 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         BatteryLevel = _device.BatteryLevel;
 
         Rows.Clear();
-        AddRow("Емкость аккумулятора", FormatBatteryHealth(_device));
+        // Always show the battery-capacity row, even when the value can't be read,
+        // so the item is present in the list (with an honest fallback string).
+        Rows.Add(new DeviceInfoRow { Label = "Емкость аккумулятора", Value = FormatBatteryHealth(_device) });
         AddRow("Модель", _device.Model);
         AddRow("Идентификатор модели", _device.ProductType);
         AddRow("Версия iOS", _device.OsVersion);
@@ -147,14 +149,19 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
     /// Formats the remaining battery capacity (iOS "Maximum Capacity") plus cycle
     /// count when available, e.g. "89% · 320 циклов". Empty when nothing was read.
     /// </summary>
-    private static string FormatBatteryHealth(Device device)
+    private string FormatBatteryHealth(Device device)
     {
         var parts = new List<string>(2);
         if (device.BatteryHealthPercent >= 0)
             parts.Add($"{device.BatteryHealthPercent}%");
         if (device.BatteryCycleCount >= 0)
             parts.Add($"{device.BatteryCycleCount} циклов");
-        return string.Join(" · ", parts);
+
+        if (parts.Count > 0)
+            return string.Join(" · ", parts);
+
+        // No data yet: distinguish "still reading" from "device didn't report it".
+        return IsLoading ? "Определение…" : "Недоступно";
     }
 
     private static string FormatStorage(Device device)
