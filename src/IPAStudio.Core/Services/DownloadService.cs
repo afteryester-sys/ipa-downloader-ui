@@ -245,9 +245,10 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
-    /// Polls the growing download file and reports accurate byte/percent progress.
-    /// Works regardless of ipatool's output format. Reports as indeterminate-friendly
-    /// data (percent 0) when the total size is unknown.
+    /// Polls the growing download file every 100 ms and reports accurate byte/percent
+    /// progress. Works regardless of ipatool's output format. Reports downloaded bytes
+    /// immediately on the first tick so the UI transitions out of the indeterminate
+    /// (spinner) state as soon as writing starts.
     /// </summary>
     private static async Task PollFileProgressAsync(
         string outputPath, long totalBytes, IProgress<DownloadProgress>? progress, CancellationToken ct)
@@ -256,14 +257,17 @@ public sealed partial class DownloadService
 
         var dir = Path.GetDirectoryName(outputPath)!;
         var stem = Path.GetFileNameWithoutExtension(outputPath);
+
+        // Speed is computed over a 1-second sliding window.
         long lastBytes = 0;
-        var lastTime = DateTimeOffset.Now;
+        var lastTime = DateTimeOffset.UtcNow;
+        double lastSpeed = 0;
 
         try
         {
             while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(300, ct).ConfigureAwait(false);
+                await Task.Delay(100, ct).ConfigureAwait(false);
 
                 long size = 0;
                 try
@@ -275,9 +279,11 @@ public sealed partial class DownloadService
                     }
                     else if (Directory.Exists(dir))
                     {
-                        // ipatool may stream into a temp/partial file first.
-                        var partial = new DirectoryInfo(dir).GetFiles(stem + "*")
-                            .OrderByDescending(f => f.LastWriteTimeUtc)
+                        // ipatool may stream into a temp/partial file first (e.g. "name.ipa.part").
+                        var partial = new DirectoryInfo(dir)
+                            .GetFiles("*", SearchOption.TopDirectoryOnly)
+                            .Where(f => f.Name.StartsWith(stem, StringComparison.OrdinalIgnoreCase))
+                            .OrderByDescending(f => f.Length)
                             .FirstOrDefault();
                         if (partial is not null) size = partial.Length;
                     }
@@ -286,21 +292,24 @@ public sealed partial class DownloadService
 
                 if (size <= 0) continue;
 
-                var now = DateTimeOffset.Now;
+                var now = DateTimeOffset.UtcNow;
                 var elapsed = (now - lastTime).TotalSeconds;
-                double speed = 0;
-                if (elapsed >= 0.4 && size > lastBytes)
+
+                // Update speed ~every 0.5 s so it doesn't flicker on every 100ms tick.
+                if (elapsed >= 0.5)
                 {
-                    speed = (size - lastBytes) / elapsed;
+                    if (size > lastBytes)
+                        lastSpeed = (size - lastBytes) / elapsed;
                     lastBytes = size;
                     lastTime = now;
                 }
 
-                // Cap at 99% until the process confirms completion.
+                // Cap at 99% until the process confirms success/failure.
                 var percent = totalBytes > 0
                     ? Math.Clamp(size / (double)totalBytes * 100.0, 0, 99)
                     : 0;
-                progress.Report(new DownloadProgress(percent, size, totalBytes, speed));
+
+                progress.Report(new DownloadProgress(percent, size, totalBytes, lastSpeed));
             }
         }
         catch (OperationCanceledException) { /* expected on completion */ }
