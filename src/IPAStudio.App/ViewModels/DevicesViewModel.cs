@@ -126,13 +126,11 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     {
         if (device is null) return;
 
-        // App Store features require a signed-in Apple ID. When the user skipped
-        // sign-in, send them to the login screen (pre-filled for this device) and
-        // continue to the app picker automatically afterwards.
-        if (_auth.IsAuthenticated)
-            _navigator?.GoToAppPicker(device.Device);
-        else
-            _navigator?.GoToLoginForDevice(device.Device);
+        // Selecting a device always opens the app picker — no Apple ID required just
+        // to browse or to install an IPA from a file. Only the App Store actions
+        // (install from the catalog, by Bundle ID, or purchased apps) prompt for
+        // sign-in, and they do so on demand from inside the picker.
+        _navigator?.GoToAppPicker(device.Device);
     }
 
     [RelayCommand]

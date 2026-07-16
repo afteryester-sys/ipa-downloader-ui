@@ -49,6 +49,9 @@ public sealed class ToolLocator
     public string IdeviceIdPath => Path.Combine(ToolsRoot, "imobiledevice", "idevice_id.exe");
     public string IdeviceInfoPath => Path.Combine(ToolsRoot, "imobiledevice", "ideviceinfo.exe");
 
+    /// <summary>Reads live IORegistry entries (used for battery health / cycle count).</summary>
+    public string IdeviceDiagnosticsPath => Path.Combine(ToolsRoot, "imobiledevice", "idevicediagnostics.exe");
+
     /// <summary>Folder where downloaded IPA files are stored.</summary>
     public string AppsFolder { get; set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "IPAStudio", "Apps");

@@ -186,6 +186,54 @@ public sealed class DeviceService : IAsyncDisposable
 
         if (string.IsNullOrEmpty(device.AppleId))
             device.AppleId = await TryReadAppleIdAsync(device.Udid, ct).ConfigureAwait(false);
+
+        await ReadBatteryHealthAsync(device, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reads battery health (remaining capacity vs. design capacity) and cycle count
+    /// from the device's live IORegistry via idevicediagnostics. This mirrors the
+    /// "Maximum Capacity" figure shown in iOS Settings → Battery → Battery Health.
+    /// The device must be unlocked and trusted; failures are ignored.
+    /// </summary>
+    public async Task ReadBatteryHealthAsync(Device device, CancellationToken ct = default)
+    {
+        try
+        {
+            // AppleSmartBattery exposes DesignCapacity, AppleRawMaxCapacity,
+            // NominalChargeCapacity and CycleCount as a plist.
+            var result = await _runner.RunAsync(
+                _tools.IdeviceDiagnosticsPath,
+                new[] { "-u", device.Udid, "ioregentry", "AppleSmartBattery" },
+                ct: ct).ConfigureAwait(false);
+
+            var text = result.StdOut;
+
+            int design = ReadPlistInt(text, "DesignCapacity");
+            int rawMax = ReadPlistInt(text, "AppleRawMaxCapacity");
+            int nominal = ReadPlistInt(text, "NominalChargeCapacity");
+            int cycles = ReadPlistInt(text, "CycleCount");
+
+            // Prefer AppleRawMaxCapacity; fall back to NominalChargeCapacity.
+            var maxCap = rawMax > 0 ? rawMax : nominal;
+            if (design > 0 && maxCap > 0)
+                device.BatteryHealthPercent = Math.Clamp((int)Math.Round(100.0 * maxCap / design), 1, 100);
+            if (cycles >= 0)
+                device.BatteryCycleCount = cycles;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* diagnostics relay unavailable (locked / untrusted / tool missing) */ }
+    }
+
+    /// <summary>Extracts an integer value for a plist &lt;key&gt; from idevicediagnostics XML output.</summary>
+    private static int ReadPlistInt(string plist, string key)
+    {
+        // Matches: <key>KeyName</key>\s*<integer>1234</integer>
+        var match = System.Text.RegularExpressions.Regex.Match(
+            plist,
+            $@"<key>{System.Text.RegularExpressions.Regex.Escape(key)}</key>\s*<integer>(\d+)</integer>",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success && int.TryParse(match.Groups[1].Value, out var v) ? v : -1;
     }
 
     /// <summary>

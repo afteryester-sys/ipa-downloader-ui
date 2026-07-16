@@ -448,7 +448,10 @@ public sealed class DependencyService
 
             // libimobiledevice suite — zip that we extract selectively.
             var imobileDir = Path.Combine(root, "imobiledevice");
-            if (!File.Exists(Path.Combine(imobileDir, "ideviceinstaller.exe")))
+            // Re-extract when either the installer or the (newer) diagnostics tool is
+            // missing, so existing installs also pick up idevicediagnostics.exe.
+            if (!File.Exists(Path.Combine(imobileDir, "ideviceinstaller.exe"))
+                || !File.Exists(Path.Combine(imobileDir, "idevicediagnostics.exe")))
             {
                 var zipPath = Path.Combine(Path.GetTempPath(), "imobiledevice-net.zip");
                 await DownloadWithProgressAsync(ImobiledeviceZipUrl, zipPath,
@@ -461,6 +464,7 @@ public sealed class DependencyService
                     {
                         "ideviceinstaller.exe", "idevice_id.exe",
                         "ideviceinfo.exe", "idevicepair.exe",
+                        "idevicediagnostics.exe",
                     };
                     foreach (var entry in archive.Entries)
                     {

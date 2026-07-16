@@ -103,9 +103,16 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             : $"{_device.Model} · iOS {_device.OsVersion}";
 
         // Apple ID: prefer what the device exposes, then the signed-in account.
+        // Modern iOS (14+) hides the account Apple ID from lockdown queries for
+        // privacy, so when neither source has a value we say so plainly instead of
+        // leaving the field blank (which looked like a bug).
         AppleId = !string.IsNullOrWhiteSpace(_device.AppleId)
             ? _device.AppleId!
-            : _auth.CurrentAccount?.Email ?? "";
+            : !string.IsNullOrWhiteSpace(_auth.CurrentAccount?.Email)
+                ? _auth.CurrentAccount!.Email
+                : IsLoading
+                    ? "Определение…"
+                    : "Недоступно (iOS скрывает Apple ID)";
 
         StorageSummary = FormatStorage(_device);
         StorageUsedPercent = _device is { TotalDiskCapacity: > 0, FreeDiskSpace: >= 0 }
@@ -116,6 +123,7 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         BatteryLevel = _device.BatteryLevel;
 
         Rows.Clear();
+        AddRow("Емкость аккумулятора", FormatBatteryHealth(_device));
         AddRow("Модель", _device.Model);
         AddRow("Идентификатор модели", _device.ProductType);
         AddRow("Версия iOS", _device.OsVersion);
@@ -133,6 +141,20 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
     {
         if (!string.IsNullOrWhiteSpace(value))
             Rows.Add(new DeviceInfoRow { Label = label, Value = value });
+    }
+
+    /// <summary>
+    /// Formats the remaining battery capacity (iOS "Maximum Capacity") plus cycle
+    /// count when available, e.g. "89% · 320 циклов". Empty when nothing was read.
+    /// </summary>
+    private static string FormatBatteryHealth(Device device)
+    {
+        var parts = new List<string>(2);
+        if (device.BatteryHealthPercent >= 0)
+            parts.Add($"{device.BatteryHealthPercent}%");
+        if (device.BatteryCycleCount >= 0)
+            parts.Add($"{device.BatteryCycleCount} циклов");
+        return string.Join(" · ", parts);
     }
 
     private static string FormatStorage(Device device)
