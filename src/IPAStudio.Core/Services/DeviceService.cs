@@ -158,6 +158,9 @@ public sealed class DeviceService : IAsyncDisposable
                 case "ProductVersion": device.OsVersion = value; break;
                 case "DeviceClass": device.DeviceClass = value; break;
                 case "SerialNumber": device.SerialNumber = value; break;
+                case "InternationalMobileEquipmentIdentity": device.Imei = value; break;
+                case "InternationalMobileEquipmentIdentity2": device.Imei2 = value; break;
+                case "MobileEquipmentIdentifier": device.Meid = value; break;
                 case "PhoneNumber": device.PhoneNumber = value; break;
                 case "WiFiAddress": device.WifiAddress = value; break;
                 case "BluetoothAddress": device.BluetoothAddress = value; break;
@@ -195,6 +198,21 @@ public sealed class DeviceService : IAsyncDisposable
         {
             var s = await ReadKeyAsync(udid, null, "SerialNumber", ct).ConfigureAwait(false);
             if (s.Length > 0) device.SerialNumber = s;
+        }
+        if (string.IsNullOrEmpty(device.Imei))
+        {
+            var i = await ReadKeyAsync(udid, null, "InternationalMobileEquipmentIdentity", ct).ConfigureAwait(false);
+            if (i.Length > 0) device.Imei = i;
+        }
+        if (string.IsNullOrEmpty(device.Imei2))
+        {
+            var i2 = await ReadKeyAsync(udid, null, "InternationalMobileEquipmentIdentity2", ct).ConfigureAwait(false);
+            if (i2.Length > 0) device.Imei2 = i2;
+        }
+        if (string.IsNullOrEmpty(device.Meid))
+        {
+            var m = await ReadKeyAsync(udid, null, "MobileEquipmentIdentifier", ct).ConfigureAwait(false);
+            if (m.Length > 0) device.Meid = m;
         }
         if (string.IsNullOrEmpty(device.RegionInfo))
         {
@@ -278,6 +296,15 @@ public sealed class DeviceService : IAsyncDisposable
                 new[] { "-u", device.Udid, "-q", "com.apple.disk_usage" },
                 ct).ConfigureAwait(false);
 
+            // The disk_usage domain exposes several free-space keys that differ a lot:
+            //   TotalDataAvailable  – free on the data partition INCLUDING purgeable /
+            //                         reserved space; often far larger than reality, so
+            //                         a nearly-full phone wrongly looked half-empty.
+            //   AmountDataAvailable – the realistic free space, matching what iOS
+            //                         Settings → General → iPhone Storage shows.
+            // We therefore prefer AmountDataAvailable and only fall back to
+            // TotalDataAvailable when the accurate key isn't present.
+            long amountAvailable = -1, totalAvailable = -1;
             foreach (var line in (disk?.StdOut ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 var idx = line.IndexOf(':');
@@ -288,10 +315,15 @@ public sealed class DeviceService : IAsyncDisposable
                 {
                     case "TotalDiskCapacity" when long.TryParse(value, out var total):
                         device.TotalDiskCapacity = total; break;
-                    case "TotalDataAvailable" when long.TryParse(value, out var free):
-                        device.FreeDiskSpace = free; break;
+                    case "AmountDataAvailable" when long.TryParse(value, out var amt):
+                        amountAvailable = amt; break;
+                    case "TotalDataAvailable" when long.TryParse(value, out var tot):
+                        totalAvailable = tot; break;
                 }
             }
+
+            var free = amountAvailable >= 0 ? amountAvailable : totalAvailable;
+            if (free >= 0) device.FreeDiskSpace = free;
         }
         catch (OperationCanceledException) { throw; }
         catch { /* disk usage domain unavailable */ }
@@ -315,13 +347,23 @@ public sealed class DeviceService : IAsyncDisposable
             // AppleSmartBattery exposes DesignCapacity, AppleRawMaxCapacity,
             // NominalChargeCapacity and CycleCount as a plist. This diagnostics relay
             // can hang on locked/newer devices, so it runs under the timeout wrapper.
-            var result = await RunToolAsync(
-                _tools.IdeviceDiagnosticsPath,
-                new[] { "-u", device.Udid, "ioregentry", "AppleSmartBattery" },
-                ct).ConfigureAwait(false);
-            if (result is null) return; // timed out — leave health unknown
-
-            var text = result.StdOut;
+            // It is also flaky right after pairing/unlock, so retry a couple of times
+            // when the first attempt comes back empty.
+            string text = "";
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var result = await RunToolAsync(
+                    _tools.IdeviceDiagnosticsPath,
+                    new[] { "-u", device.Udid, "ioregentry", "AppleSmartBattery" },
+                    ct).ConfigureAwait(false);
+                if (result is not null && result.StdOut.Contains("DesignCapacity", StringComparison.Ordinal))
+                {
+                    text = result.StdOut;
+                    break;
+                }
+                await Task.Delay(700, ct).ConfigureAwait(false);
+            }
+            if (text.Length == 0) return; // relay unavailable — leave health unknown
 
             int design = ReadPlistInt(text, "DesignCapacity");
             int rawMax = ReadPlistInt(text, "AppleRawMaxCapacity");

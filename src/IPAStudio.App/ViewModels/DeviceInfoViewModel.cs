@@ -132,6 +132,9 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         AddRow("Сборка", _device.BuildVersion);
         AddRow("Тип устройства", _device.DeviceClass);
         AddRow("Серийный номер", _device.SerialNumber);
+        AddRow("IMEI", _device.Imei);
+        AddRow("IMEI 2", _device.Imei2);
+        AddRow("MEID", _device.Meid);
         AddRow("UDID", _device.Udid);
         AddRow("Номер телефона", _device.PhoneNumber);
         AddRow("Регион", _device.RegionInfo);
@@ -161,7 +164,10 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             return string.Join(" · ", parts);
 
         // No data yet: distinguish "still reading" from "device didn't report it".
-        return IsLoading ? "Определение…" : "Недоступно";
+        // Battery health comes from the diagnostics relay (AppleSmartBattery), which
+        // iOS only exposes on an unlocked, trusted device — and some iOS versions
+        // block it entirely over USB. Say that plainly instead of a bare "Недоступно".
+        return IsLoading ? "Определение…" : "Недоступно — разблокируйте устройство и разрешите доступ";
     }
 
     private static string FormatStorage(Device device)
