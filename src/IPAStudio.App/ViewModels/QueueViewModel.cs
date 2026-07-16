@@ -36,13 +36,14 @@ public sealed partial class QueueItemViewModel : ObservableObject
     /// <summary>
     /// Show a moving (indeterminate) bar for stages where no measurable progress exists.
     /// Checking and Licensing are always indeterminate.
-    /// Downloading is indeterminate only until the first byte arrives.
-    /// Installing always uses a determinate bar (always starts at >=3%).
+    /// Downloading switches to determinate the moment the first byte lands on disk so
+    /// the bar starts filling immediately and never gets stuck showing a spinner.
+    /// Installing always uses a determinate bar (starts at >=3%).
     /// </summary>
     public bool IsIndeterminate => Stage switch
     {
         QueueStage.Checking or QueueStage.Licensing => true,
-        QueueStage.Downloading => StageProgress <= 0.5 && Item.DownloadedBytes <= 0,
+        QueueStage.Downloading => Item.DownloadedBytes <= 0,
         _ => false,
     };
     public bool IsDone => Stage == QueueStage.Done;
@@ -63,7 +64,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
         ErrorMessage = Item.ErrorMessage;
 
         SpeedText = Item.Stage == QueueStage.Downloading && Item.DownloadSpeedBps > 0
-            ? FormatSpeed(Item.DownloadSpeedBps, Item.DownloadedBytes, Item.TotalBytes)
+            ? FormatSpeed(Item.DownloadSpeedBps)
             : "";
 
         OnPropertyChanged(nameof(IsActive));
@@ -73,7 +74,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
         OnPropertyChanged(nameof(IsPending));
     }
 
-    private static string FormatSpeed(double bps, long done, long total)
+    private static string FormatSpeed(double bps)
     {
         static string Fmt(double bytes) => bytes switch
         {
@@ -82,9 +83,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
             >= 1 << 10 => $"{bytes / (1 << 10):0.0} KB",
             _ => $"{bytes:0} B",
         };
-        var parts = $"{Fmt(bps)}/s";
-        if (total > 0) parts += $" · {Fmt(done)} / {Fmt(total)}";
-        return parts;
+        return $"{Fmt(bps)}/с";
     }
 }
 

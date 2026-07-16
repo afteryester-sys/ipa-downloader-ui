@@ -179,7 +179,7 @@ public sealed class QueueService
             }
 
             // ---- Stage 1: Checking (local cache + account license) ----
-            SetStage(item, QueueStage.Checking, "Checking local files and license");
+            SetStage(item, QueueStage.Checking, "Проверка лицензии…");
 
             _catalog.RefreshDownloadedFlags(new[] { item.App });
 
@@ -202,7 +202,7 @@ public sealed class QueueService
             // ---- Stage 2: Licensing (obtain license when the account doesn't own it) ----
             if (item.App.License == LicenseState.NotOwned)
             {
-                SetStage(item, QueueStage.Licensing, "Obtaining license for Apple ID");
+                SetStage(item, QueueStage.Licensing, "Получение лицензии…");
                 var (ok, error) = await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
                 if (!ok)
                 {
@@ -229,13 +229,24 @@ public sealed class QueueService
                     item.DownloadedBytes = p.DownloadedBytes;
                     item.TotalBytes = p.TotalBytes;
                     item.DownloadSpeedBps = p.SpeedBps;
-                    // When total size is known show "NN% (X / Y)"; otherwise fall back
-                    // to raw downloaded bytes so the user can still see activity.
-                    item.StatusDetail = p.TotalBytes > 0 && p.Percent > 0.1
-                        ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}"
-                        : p.DownloadedBytes > 0
-                            ? $"Загрузка {FormatBytes(p.DownloadedBytes)}…"
-                            : "Подготовка загрузки…";
+                    // Build a rich status line that always shows something meaningful.
+                    if (p.TotalBytes > 0 && p.Percent > 0.1)
+                    {
+                        var eta = p.SpeedBps > 0
+                            ? FormatEta((long)((p.TotalBytes - p.DownloadedBytes) / p.SpeedBps))
+                            : null;
+                        item.StatusDetail = eta is not null
+                            ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)} · {eta}"
+                            : $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}";
+                    }
+                    else if (p.DownloadedBytes > 0)
+                    {
+                        item.StatusDetail = $"Загрузка {FormatBytes(p.DownloadedBytes)}…";
+                    }
+                    else
+                    {
+                        item.StatusDetail = "Подготовка загрузки…";
+                    }
                     Notify(item);
                 });
 
@@ -257,7 +268,7 @@ public sealed class QueueService
             if (_settings.InstallMode == InstallMode.DownloadOnly)
             {
                 item.CompletedAt = DateTimeOffset.Now;
-                SetStage(item, QueueStage.Done, "Downloaded (install skipped)");
+                SetStage(item, QueueStage.Done, "Загружено (установка пропущена)");
                 item.StageProgress = 100;
                 Notify(item);
                 return;
@@ -316,7 +327,7 @@ public sealed class QueueService
 
         item.App.IsInstalledOnDevice = true;
         item.CompletedAt = DateTimeOffset.Now;
-        SetStage(item, QueueStage.Done, "Установлено");
+        SetStage(item, QueueStage.Done, "Готово");
         item.StageProgress = 100;
         Notify(item);
     }
@@ -390,6 +401,15 @@ public sealed class QueueService
         if (bytes >= 1_048_576)     return $"{bytes / 1_048_576.0:0.0} MB";
         if (bytes >= 1_024)         return $"{bytes / 1_024.0:0.0} KB";
         return $"{bytes} B";
+    }
+
+    /// <summary>Formats remaining seconds as human-readable ETA (e.g. "~2 мин 30 с" or "~45 с").</summary>
+    private static string FormatEta(long seconds)
+    {
+        if (seconds <= 0 || seconds > 3600 * 24) return "";
+        if (seconds >= 3600) return $"~{seconds / 3600} ч {(seconds % 3600) / 60} мин";
+        if (seconds >= 60)   return $"~{seconds / 60} мин {seconds % 60} с";
+        return $"~{seconds} с";
     }
 
     /// <summary>Weight of a single item toward overall progress (0..1).</summary>
