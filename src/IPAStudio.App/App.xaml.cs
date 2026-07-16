@@ -67,6 +67,12 @@ public partial class App : Application
         // Load settings and apply language before showing the window.
         var settings = Services.GetRequiredService<SettingsService>();
         settings.Load();
+
+        // Apply the saved color theme BEFORE any window is created. The palette
+        // (Palette.Dark/Light) must be merged ahead of the styles dictionary so the
+        // StaticResource brush references inside Theme.xaml resolve against it.
+        ApplyTheme(settings.Current.Theme);
+
         Services.GetRequiredService<LocalizationManager>().Apply(settings.Current.Language);
 
         // Closing the main window (the X button) shuts the whole app down.
@@ -80,6 +86,32 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<ShellViewModel>(),
         };
         window.Show();
+    }
+
+    /// <summary>
+    /// Inserts the palette for the requested theme ("dark" or "light") followed by
+    /// the shared styles dictionary at the front of the application resources, so
+    /// every StaticResource brush reference resolves against the chosen palette.
+    /// Called once at startup; changing the theme later requires an app restart.
+    /// </summary>
+    private void ApplyTheme(string? theme)
+    {
+        var isLight = string.Equals(theme, "light", StringComparison.OrdinalIgnoreCase);
+        var paletteName = isLight ? "Palette.Light.xaml" : "Palette.Dark.xaml";
+
+        var palette = new ResourceDictionary
+        {
+            Source = new Uri($"Resources/{paletteName}", UriKind.Relative),
+        };
+        var styles = new ResourceDictionary
+        {
+            Source = new Uri("Resources/Theme.xaml", UriKind.Relative),
+        };
+
+        // Palette first (index 0), styles second (index 1) — order matters for
+        // StaticResource resolution. Strings dictionary stays after them.
+        Resources.MergedDictionaries.Insert(0, palette);
+        Resources.MergedDictionaries.Insert(1, styles);
     }
 
     // ---------------------------------------------------- crash safety net --

@@ -130,6 +130,10 @@
     <!-- Settings -->
     <sys:String x:Key="L.Settings.Title">Settings</sys:String>
     <sys:String x:Key="L.Settings.Language">Interface Language</sys:String>
+    <sys:String x:Key="L.Settings.Theme">Appearance</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Dark">Dark</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Light">Light</sys:String>
+    <sys:String x:Key="L.Settings.Theme.RestartHint">The app will restart after changing the appearance.</sys:String>
     <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>

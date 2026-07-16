@@ -5,8 +5,9 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Resources/Theme.xaml" />
-                <!-- Language dictionary is swapped at runtime by LocalizationManager -->
+                <!-- Palette (Palette.Dark/Light) + Theme styles are inserted at startup
+                     in App.OnStartup so the correct color theme is applied first.
+                     Language dictionary is swapped at runtime by LocalizationManager. -->
                 <ResourceDictionary Source="Resources/Strings.ru.xaml" />
             </ResourceDictionary.MergedDictionaries>
 

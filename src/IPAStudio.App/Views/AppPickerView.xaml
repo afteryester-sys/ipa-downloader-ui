@@ -226,7 +226,9 @@
 
                     <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
                                Text="{DynamicResource L.Picker.BundleIdHint}"
-                               Style="{StaticResource Text.Caption}" Margin="0,0,0,8" />
+                               FontFamily="{StaticResource Font.Body}" FontSize="13"
+                               Foreground="{StaticResource Brush.Text}"
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
 
                     <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource Input.TextBox}"
                              Padding="12,10" Height="44"
