@@ -277,6 +277,24 @@
                         <Border Height="1" Background="{StaticResource Brush.Border}"
                                 Margin="0,12,0,12" />
 
+                        <!-- Appearance section -->
+                        <TextBlock Text="{DynamicResource L.Settings.Theme}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                            <RadioButton Content="{DynamicResource L.Settings.Theme.Dark}" GroupName="MenuTheme"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding ThemeIsDark}" Margin="0,0,20,0" />
+                            <RadioButton Content="{DynamicResource L.Settings.Theme.Light}" GroupName="MenuTheme"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding ThemeIsLight}" />
+                        </StackPanel>
+                        <TextBlock Text="{DynamicResource L.Settings.Theme.RestartHint}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
                         <!-- Maintenance section -->
                         <TextBlock Text="{DynamicResource L.Menu.Maintenance}" Style="{StaticResource Text.Caption}"
                                    FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
