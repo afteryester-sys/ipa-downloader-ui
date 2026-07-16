@@ -77,7 +77,7 @@
     <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
     <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
-    <!-- Фото (Фотоплёнка) -->
+    <!-- Фото (Фотоплён��а) -->
     <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>
     <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
@@ -130,6 +130,10 @@
     <!-- Настройки -->
     <sys:String x:Key="L.Settings.Title">Настройки</sys:String>
     <sys:String x:Key="L.Settings.Language">Язык интерфейса</sys:String>
+    <sys:String x:Key="L.Settings.Theme">Оформление</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Dark">Тёмное</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Light">Светлое</sys:String>
+    <sys:String x:Key="L.Settings.Theme.RestartHint">После смены оформления приложение перезапустится.</sys:String>
     <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>

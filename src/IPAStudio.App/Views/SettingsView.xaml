@@ -35,6 +35,24 @@
                 </StackPanel>
             </Border>
 
+            <!-- Color theme -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Theme}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="{DynamicResource L.Settings.Theme.Dark}" GroupName="Theme"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding ThemeIsDark}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Theme.Light}" GroupName="Theme"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding ThemeIsLight}" />
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Theme.RestartHint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
             <!-- ipatool version -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

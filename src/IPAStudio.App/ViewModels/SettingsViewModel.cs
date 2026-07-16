@@ -24,6 +24,23 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _language = "ru";
 
+    // Color theme: two RadioButtons bound via the bool helpers below.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ThemeIsDark))]
+    [NotifyPropertyChangedFor(nameof(ThemeIsLight))]
+    private string _theme = "dark";
+
+    public bool ThemeIsDark
+    {
+        get => Theme == "dark";
+        set { if (value) Theme = "dark"; }
+    }
+    public bool ThemeIsLight
+    {
+        get => Theme == "light";
+        set { if (value) Theme = "light"; }
+    }
+
     [ObservableProperty]
     private int _ipatoolVersion = 2;
 
@@ -104,6 +121,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     {
         _navigator = navigator;
         Language = _settings.Current.Language;
+        Theme = _settings.Current.Theme;
         IpatoolVersion = _settings.Current.IpatoolVersion;
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
@@ -199,7 +217,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void Save()
     {
+        // Detect a theme change before saving — switching the color theme needs a
+        // restart because the styles resolve their palette once at startup.
+        var themeChanged = !string.Equals(_settings.Current.Theme, Theme, StringComparison.OrdinalIgnoreCase);
+
         _settings.Current.Language = Language;
+        _settings.Current.Theme = Theme;
         _settings.Current.IpatoolVersion = IpatoolVersion;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 5);
@@ -209,7 +232,29 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _queue.MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
         _localization.Apply(Language);
 
+        if (themeChanged)
+        {
+            RestartApp();
+            return;
+        }
+
         _navigator?.GoTo(Page.Devices);
+    }
+
+    /// <summary>
+    /// Relaunches the application so the newly-selected color theme takes effect,
+    /// then shuts the current instance down.
+    /// </summary>
+    private static void RestartApp()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exePath))
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+        }
+        catch { /* if relaunch fails, still shut down; user can reopen manually */ }
+        Application.Current.Shutdown();
     }
 
     [RelayCommand]

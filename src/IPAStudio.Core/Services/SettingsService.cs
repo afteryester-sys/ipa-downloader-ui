@@ -23,6 +23,9 @@ public sealed class AppSettings
     /// <summary>UI language: "ru" or "en".</summary>
     public string Language { get; set; } = "ru";
 
+    /// <summary>Color theme: "dark" (default) or "light".</summary>
+    public string Theme { get; set; } = "dark";
+
     /// <summary>ipatool major version: 2 (default, no iCloud needed) or 3.</summary>
     public int IpatoolVersion { get; set; } = 2;
 
