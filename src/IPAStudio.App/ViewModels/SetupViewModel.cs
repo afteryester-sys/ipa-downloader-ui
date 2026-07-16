@@ -17,13 +17,13 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
 {
     private const string ITunesUrl = "https://www.apple.com/itunes/download/win64";
 
-    // Official Apple "Set up and use iCloud for Windows" page. (The old value
-    // 106383 was wrong — it pointed at the Mac OS X Lion installer.) Apple
-    // discontinued the standalone iCloudSetup.exe in 2021 and those CDN links
-    // are now dead, so we link the canonical support page rather than a direct
-    // download. Note: for ipatool v3 anisette the Microsoft Store build often
-    // does not work; the simplest path for users remains switching to v2.
-    private const string ICloudWebUrl = "https://support.apple.com/en-us/104979";
+    // Apple discontinued the standalone iCloudSetup.exe in 2021 (the old CDN
+    // links are dead) and the classic version is no longer offered on apple.com,
+    // so the only place a user can actually DOWNLOAD iCloud for Windows now is
+    // the Microsoft Store. We deep-link straight to the iCloud product so the
+    // Store app opens on its install page. Product id 9PKTQ5699M62 = "iCloud".
+    private const string ICloudStoreProtocolUrl = "ms-windows-store://pdp/?productid=9PKTQ5699M62";
+    private const string ICloudStoreWebUrl = "https://apps.microsoft.com/detail/9PKTQ5699M62";
 
     private readonly DependencyService _deps;
     private readonly SettingsService _settings;
@@ -210,14 +210,23 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Opens the Apple page for the classic (non-Store) iCloud for Windows,
-    /// which is the version that works with ipatool v3's anisette.
+    /// Opens iCloud for Windows in the Microsoft Store so the user can download and
+    /// install it directly. Tries the ms-windows-store:// deep link first (opens the
+    /// Store app on the install page); if the Store app is unavailable, falls back to
+    /// the apps.microsoft.com web page.
     /// </summary>
     [RelayCommand]
     private void OpenICloudPage()
     {
-        try { Process.Start(new ProcessStartInfo(ICloudWebUrl) { UseShellExecute = true }); }
-        catch { /* ignore */ }
+        try
+        {
+            Process.Start(new ProcessStartInfo(ICloudStoreProtocolUrl) { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo(ICloudStoreWebUrl) { UseShellExecute = true }); }
+            catch { /* ignore */ }
+        }
     }
 
     [RelayCommand]

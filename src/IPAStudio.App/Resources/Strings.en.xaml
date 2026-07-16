@@ -33,8 +33,8 @@
     <sys:String x:Key="L.Setup.InstallITunesLink">Download iTunes</sys:String>
     <sys:String x:Key="L.Setup.OrDownloadManual">Or download manually:</sys:String>
     <sys:String x:Key="L.Setup.ICloud">iCloud for Windows (required for ipatool v3)</sys:String>
-    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID. You need the classic version from apple.com — the Microsoft Store version does not work.</sys:String>
-    <sys:String x:Key="L.Setup.OpenICloudPage">Download iCloud for Windows</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID. The classic apple.com version is no longer available, so download iCloud from the Microsoft Store. If sign-in still fails, switch to ipatool v2 (no iCloud needed).</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Download iCloud from Microsoft Store</sys:String>
 
     <!-- Login -->
     <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
