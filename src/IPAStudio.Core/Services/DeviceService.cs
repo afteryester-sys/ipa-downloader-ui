@@ -122,8 +122,26 @@ public sealed class DeviceService : IAsyncDisposable
     {
         var device = new Device { Udid = udid };
 
-        var info = await _runner.RunAsync(_tools.IdeviceInfoPath, new[] { "-u", udid }, ct: ct).ConfigureAwait(false);
-        foreach (var line in info.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // Primary path: a single full-domain dump (fast when it works).
+        var info = await RunToolAsync(_tools.IdeviceInfoPath, new[] { "-u", udid }, ct).ConfigureAwait(false);
+        if (info is not null)
+            ApplyInfoLines(device, info.StdOut);
+
+        // Fallback: on some devices (notably iPhone 15+ / recent iOS) the bundled
+        // ideviceinfo returns an EMPTY or partial full-domain dump, while individual
+        // keyed reads (-k) still succeed — which is why battery (a keyed read) works
+        // but the model/iOS/serial rows come back blank. Fill any core field that is
+        // still missing with per-key queries so the info screen always populates.
+        await FillMissingCoreFieldsAsync(device, ct).ConfigureAwait(false);
+
+        device.BatteryLevel = await ReadBatteryAsync(udid, ct).ConfigureAwait(false);
+        return device;
+    }
+
+    /// <summary>Parses "Key: Value" lines from a full ideviceinfo dump into the device.</summary>
+    private static void ApplyInfoLines(Device device, string stdout)
+    {
+        foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var idx = line.IndexOf(':');
             if (idx <= 0) continue;
@@ -147,9 +165,103 @@ public sealed class DeviceService : IAsyncDisposable
                 case "BuildVersion": device.BuildVersion = value; break;
             }
         }
+    }
 
-        device.BatteryLevel = await ReadBatteryAsync(udid, ct).ConfigureAwait(false);
-        return device;
+    /// <summary>
+    /// Fills any core field left empty by the full dump using individual `-k` key
+    /// reads (these keep working on newer iOS where the whole-domain dump fails).
+    /// </summary>
+    private async Task FillMissingCoreFieldsAsync(Device device, CancellationToken ct)
+    {
+        var udid = device.Udid;
+        var dumpIncomplete = string.IsNullOrEmpty(device.ProductType) || string.IsNullOrEmpty(device.OsVersion);
+
+        if (string.IsNullOrEmpty(device.ProductType))
+        {
+            var pt = await ReadKeyAsync(udid, null, "ProductType", ct).ConfigureAwait(false);
+            if (pt.Length > 0) { device.ProductType = pt; device.Model = MapProductType(pt); }
+        }
+        if (string.IsNullOrEmpty(device.OsVersion))
+        {
+            var v = await ReadKeyAsync(udid, null, "ProductVersion", ct).ConfigureAwait(false);
+            if (v.Length > 0) device.OsVersion = v;
+        }
+        if (string.IsNullOrEmpty(device.BuildVersion))
+        {
+            var b = await ReadKeyAsync(udid, null, "BuildVersion", ct).ConfigureAwait(false);
+            if (b.Length > 0) device.BuildVersion = b;
+        }
+        if (string.IsNullOrEmpty(device.SerialNumber))
+        {
+            var s = await ReadKeyAsync(udid, null, "SerialNumber", ct).ConfigureAwait(false);
+            if (s.Length > 0) device.SerialNumber = s;
+        }
+        if (string.IsNullOrEmpty(device.RegionInfo))
+        {
+            var r = await ReadKeyAsync(udid, null, "RegionInfo", ct).ConfigureAwait(false);
+            if (r.Length > 0) device.RegionInfo = r;
+        }
+        if (string.IsNullOrEmpty(device.WifiAddress))
+        {
+            var w = await ReadKeyAsync(udid, null, "WiFiAddress", ct).ConfigureAwait(false);
+            if (w.Length > 0) device.WifiAddress = w;
+        }
+        if (string.IsNullOrEmpty(device.BluetoothAddress))
+        {
+            var bt = await ReadKeyAsync(udid, null, "BluetoothAddress", ct).ConfigureAwait(false);
+            if (bt.Length > 0) device.BluetoothAddress = bt;
+        }
+        if (string.IsNullOrEmpty(device.PhoneNumber))
+        {
+            var ph = await ReadKeyAsync(udid, null, "PhoneNumber", ct).ConfigureAwait(false);
+            if (ph.Length > 0) device.PhoneNumber = ph;
+        }
+
+        // Name and DeviceClass have non-empty defaults ("iPhone"), so only override
+        // them with a real keyed read when we know the dump was incomplete.
+        if (dumpIncomplete)
+        {
+            var name = await ReadKeyAsync(udid, null, "DeviceName", ct).ConfigureAwait(false);
+            if (name.Length > 0) device.Name = name;
+
+            var dc = await ReadKeyAsync(udid, null, "DeviceClass", ct).ConfigureAwait(false);
+            if (dc.Length > 0) device.DeviceClass = dc;
+        }
+    }
+
+    /// <summary>
+    /// Reads a single lockdown value via <c>ideviceinfo -u UDID [-q domain] -k key</c>.
+    /// Returns an empty string on any failure/timeout.
+    /// </summary>
+    private async Task<string> ReadKeyAsync(string udid, string? domain, string key, CancellationToken ct)
+    {
+        var args = domain is null
+            ? new[] { "-u", udid, "-k", key }
+            : new[] { "-u", udid, "-q", domain, "-k", key };
+
+        var result = await RunToolAsync(_tools.IdeviceInfoPath, args, ct).ConfigureAwait(false);
+        if (result is null || !result.Success) return "";
+        return result.StdOut.Trim();
+    }
+
+    /// <summary>
+    /// Runs a libimobiledevice tool with a hard timeout so a hung/unresponsive tool
+    /// (e.g. idevicediagnostics on a locked device) can never freeze the UI. Returns
+    /// null on timeout; rethrows only when the caller's own token is cancelled.
+    /// </summary>
+    private async Task<ProcessResult?> RunToolAsync(string exe, string[] args, CancellationToken ct, int timeoutSeconds = 12)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+        try
+        {
+            return await _runner.RunAsync(exe, args, ct: timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Our own timeout fired — the tool hung. Treat as "no data".
+            return null;
+        }
     }
 
     /// <summary>
@@ -161,12 +273,12 @@ public sealed class DeviceService : IAsyncDisposable
     {
         try
         {
-            var disk = await _runner.RunAsync(
+            var disk = await RunToolAsync(
                 _tools.IdeviceInfoPath,
                 new[] { "-u", device.Udid, "-q", "com.apple.disk_usage" },
-                ct: ct).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
 
-            foreach (var line in disk.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var line in (disk?.StdOut ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 var idx = line.IndexOf(':');
                 if (idx <= 0) continue;
@@ -201,11 +313,13 @@ public sealed class DeviceService : IAsyncDisposable
         try
         {
             // AppleSmartBattery exposes DesignCapacity, AppleRawMaxCapacity,
-            // NominalChargeCapacity and CycleCount as a plist.
-            var result = await _runner.RunAsync(
+            // NominalChargeCapacity and CycleCount as a plist. This diagnostics relay
+            // can hang on locked/newer devices, so it runs under the timeout wrapper.
+            var result = await RunToolAsync(
                 _tools.IdeviceDiagnosticsPath,
                 new[] { "-u", device.Udid, "ioregentry", "AppleSmartBattery" },
-                ct: ct).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
+            if (result is null) return; // timed out — leave health unknown
 
             var text = result.StdOut;
 
@@ -262,15 +376,10 @@ public sealed class DeviceService : IAsyncDisposable
 
         foreach (var args in probes)
         {
-            try
-            {
-                var result = await _runner.RunAsync(_tools.IdeviceInfoPath, args, ct: ct).ConfigureAwait(false);
-                var value = result.StdOut.Trim();
-                if (IsValidEmail(value))
-                    return value;
-            }
-            catch (OperationCanceledException) { throw; }
-            catch { /* try the next probe */ }
+            var result = await RunToolAsync(_tools.IdeviceInfoPath, args, ct).ConfigureAwait(false);
+            var value = result?.StdOut.Trim() ?? "";
+            if (IsValidEmail(value))
+                return value;
         }
 
         // Last resort: try to read the Apple Account plist via AFC (requires
@@ -279,12 +388,12 @@ public sealed class DeviceService : IAsyncDisposable
         // the text output for any line containing '@'.
         try
         {
-            var dump = await _runner.RunAsync(
+            var dump = await RunToolAsync(
                 _tools.IdeviceInfoPath,
                 new[] { "-u", udid, "-q", "com.apple.mobile.iTunes" },
-                ct: ct).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
 
-            foreach (var line in dump.StdOut.Split('\n'))
+            foreach (var line in (dump?.StdOut ?? "").Split('\n'))
             {
                 var trimmed = line.Trim().Trim('"');
                 if (IsValidEmail(trimmed))
@@ -313,19 +422,11 @@ public sealed class DeviceService : IAsyncDisposable
 
     private async Task<int> ReadBatteryAsync(string udid, CancellationToken ct)
     {
-        try
-        {
-            var result = await _runner.RunAsync(
-                _tools.IdeviceInfoPath,
-                new[] { "-u", udid, "-q", "com.apple.mobile.battery", "-k", "BatteryCurrentCapacity" },
-                ct: ct).ConfigureAwait(false);
-            return int.TryParse(result.StdOut.Trim(), out var level) ? level : -1;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch
-        {
-            return -1;
-        }
+        var result = await RunToolAsync(
+            _tools.IdeviceInfoPath,
+            new[] { "-u", udid, "-q", "com.apple.mobile.battery", "-k", "BatteryCurrentCapacity" },
+            ct).ConfigureAwait(false);
+        return result is not null && int.TryParse(result.StdOut.Trim(), out var level) ? level : -1;
     }
 
     /// <summary>Maps internal product types to marketing names (common models).</summary>
@@ -356,6 +457,11 @@ public sealed class DeviceService : IAsyncDisposable
         "iPhone17,2" => "iPhone 16 Pro Max",
         "iPhone17,3" => "iPhone 16",
         "iPhone17,4" => "iPhone 16 Plus",
+        "iPhone17,5" => "iPhone 16e",
+        "iPhone18,1" => "iPhone 17 Pro",
+        "iPhone18,2" => "iPhone 17 Pro Max",
+        "iPhone18,3" => "iPhone 17",
+        "iPhone18,4" => "iPhone Air",
         _ when productType.StartsWith("iPad", StringComparison.Ordinal) => "iPad",
         _ when productType.StartsWith("iPhone", StringComparison.Ordinal) => "iPhone",
         _ => productType,
