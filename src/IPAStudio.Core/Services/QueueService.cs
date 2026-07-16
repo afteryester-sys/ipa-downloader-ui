@@ -229,13 +229,13 @@ public sealed class QueueService
                     item.DownloadedBytes = p.DownloadedBytes;
                     item.TotalBytes = p.TotalBytes;
                     item.DownloadSpeedBps = p.SpeedBps;
-                    // When total size is unknown we never get a real percent, so show
-                    // downloaded bytes so the user can see activity.
+                    // When total size is known show "NN% (X / Y)"; otherwise fall back
+                    // to raw downloaded bytes so the user can still see activity.
                     item.StatusDetail = p.TotalBytes > 0 && p.Percent > 0.1
-                        ? $"Downloading {p.Percent:0.0}%"
+                        ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}"
                         : p.DownloadedBytes > 0
-                            ? $"Downloading {FormatBytes(p.DownloadedBytes)}…"
-                            : "Preparing download…";
+                            ? $"Загрузка {FormatBytes(p.DownloadedBytes)}…"
+                            : "Подготовка загрузки…";
                     Notify(item);
                 });
 

@@ -26,6 +26,7 @@ public sealed partial class DownloadService
 {
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
+    private readonly HttpClient _http;
 
     [GeneratedRegex(@"(\d{1,3}(?:[.,]\d+)?)\s*%")]
     private static partial Regex PercentRegex();
@@ -38,10 +39,11 @@ public sealed partial class DownloadService
     public const string SessionExpiredMessage =
         "SESSION_EXPIRED: account file is not protected. Please sign in again.";
 
-    public DownloadService(ToolLocator tools, ProcessRunner runner)
+    public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http)
     {
         _tools = tools;
         _runner = runner;
+        _http = http;
     }
 
     /// <summary>
@@ -145,7 +147,16 @@ public sealed partial class DownloadService
         };
         if (autoPurchase) args.Add("--purchase");
 
+        // We need the total size to show a real percentage. It usually comes from the
+        // catalog (iTunes lookup), but apps added via search/Bundle-ID may not carry
+        // it — in that case look it up now by App Store id so the progress bar can fill
+        // instead of just showing raw downloaded bytes.
         var totalBytes = app.FileSizeBytes ?? 0L;
+        if (totalBytes <= 0 && app.AppStoreId > 0)
+        {
+            totalBytes = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
+            if (totalBytes > 0) app.FileSizeBytes = totalBytes;
+        }
 
         // Under "--format json" ipatool prints NO textual progress bar (only a final
         // JSON line), so parsing stdout for a percentage never fires. Instead we watch
@@ -194,6 +205,43 @@ public sealed partial class DownloadService
             return DownloadResult.Fail(SessionExpiredMessage);
 
         return DownloadResult.Fail(ExtractError(result.CombinedOutput));
+    }
+
+    /// <summary>
+    /// Looks up an app's IPA size (bytes) from the public iTunes Lookup API by its
+    /// App Store id. Returns 0 on any failure so the caller falls back to an
+    /// indeterminate/bytes-only display. Bounded by a short timeout so it can never
+    /// delay the download start noticeably.
+    /// </summary>
+    private async Task<long> TryLookupFileSizeAsync(long appId, CancellationToken ct)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
+
+            var url = $"https://itunes.apple.com/lookup?id={appId}&entity=software";
+            using var response = await _http.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            await using var body = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+            using var doc = await JsonDocument.ParseAsync(body, cancellationToken: timeoutCts.Token).ConfigureAwait(false);
+
+            if (doc.RootElement.TryGetProperty("results", out var results))
+            {
+                foreach (var item in results.EnumerateArray())
+                {
+                    if (!item.TryGetProperty("fileSizeBytes", out var size)) continue;
+                    var bytes = size.ValueKind == JsonValueKind.String
+                        ? long.TryParse(size.GetString(), out var parsed) ? parsed : 0
+                        : size.GetInt64();
+                    if (bytes > 0) return bytes;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch { /* network/timeout — fall back to bytes-only display */ }
+        return 0;
     }
 
     /// <summary>
