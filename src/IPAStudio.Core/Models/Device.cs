@@ -42,6 +42,15 @@ public sealed class Device
     /// <summary>Hardware serial number.</summary>
     public string SerialNumber { get; set; } = "";
 
+    /// <summary>IMEI (primary). Empty on Wi-Fi-only iPads / when not exposed.</summary>
+    public string Imei { get; set; } = "";
+
+    /// <summary>Second IMEI (dual-SIM / eSIM devices). Empty when absent.</summary>
+    public string Imei2 { get; set; } = "";
+
+    /// <summary>MEID (older CDMA identifier). Empty when absent.</summary>
+    public string Meid { get; set; } = "";
+
     /// <summary>Phone number of the SIM, when present.</summary>
     public string PhoneNumber { get; set; } = "";
 
