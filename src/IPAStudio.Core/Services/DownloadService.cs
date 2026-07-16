@@ -143,6 +143,11 @@ public sealed partial class DownloadService
 
         var outputPath = Path.Combine(_tools.AppsFolder, $"{safeName}_{app.AppStoreId}_{version}.ipa");
 
+        // Remove any leftover file(s) from a previous attempt with the same
+        // deterministic name. Otherwise the progress poller would read a stale,
+        // already-complete .ipa and instantly report 100% with an absurd speed.
+        TryDeleteStaleFiles(outputPath);
+
         var args = new List<string>
         {
             "download",
@@ -153,15 +158,25 @@ public sealed partial class DownloadService
         };
         if (autoPurchase) args.Add("--purchase");
 
-        // We need the total size to show a real percentage. It usually comes from the
-        // catalog (iTunes lookup), but apps added via search/Bundle-ID may not carry
-        // it — in that case look it up now by App Store id so the progress bar can fill
-        // instead of just showing raw downloaded bytes.
-        var totalBytes = app.FileSizeBytes ?? 0L;
-        if (totalBytes <= 0 && app.AppStoreId > 0)
+        // The total size drives the percentage. It usually comes from the catalog
+        // (iTunes lookup), but apps added via search/Bundle-ID may not carry it.
+        // IMPORTANT: do NOT block the download start on this lookup — it can take up
+        // to several seconds and used to make "Подготовка загрузки…" hang. Instead we
+        // seed the known value and refresh it in the background; the poller reads the
+        // shared holder each tick and starts showing a real percentage as soon as the
+        // size arrives.
+        var totalHolder = new long[] { app.FileSizeBytes ?? 0L };
+        if (totalHolder[0] <= 0 && app.AppStoreId > 0)
         {
-            totalBytes = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
-            if (totalBytes > 0) app.FileSizeBytes = totalBytes;
+            _ = Task.Run(async () =>
+            {
+                var looked = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
+                if (looked > 0)
+                {
+                    System.Threading.Volatile.Write(ref totalHolder[0], looked);
+                    app.FileSizeBytes = looked;
+                }
+            }, ct);
         }
 
         // Under "--format json" ipatool prints NO textual progress bar (only a final
@@ -178,12 +193,13 @@ public sealed partial class DownloadService
                     System.Globalization.CultureInfo.InvariantCulture, out var percent))
                 return;
             percent = Math.Clamp(percent, 0, 100);
-            var downloaded = totalBytes > 0 ? (long)(totalBytes * percent / 100.0) : 0L;
-            progress?.Report(new DownloadProgress(percent, downloaded, totalBytes, 0));
+            var total = System.Threading.Volatile.Read(ref totalHolder[0]);
+            var downloaded = total > 0 ? (long)(total * percent / 100.0) : 0L;
+            progress?.Report(new DownloadProgress(percent, downloaded, total, 0));
         }
 
         using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var pollTask = PollFileProgressAsync(outputPath, totalBytes, progress, pollCts.Token);
+        var pollTask = PollFileProgressAsync(outputPath, totalHolder, progress, pollCts.Token);
 
         var result = await _runner.RunAsync(
             _tools.IpatoolPath, args,
@@ -197,7 +213,9 @@ public sealed partial class DownloadService
 
         if (result.Success && File.Exists(outputPath))
         {
-            progress?.Report(new DownloadProgress(100, totalBytes, totalBytes, 0));
+            var finalTotal = System.Threading.Volatile.Read(ref totalHolder[0]);
+            if (finalTotal <= 0) finalTotal = new FileInfo(outputPath).Length;
+            progress?.Report(new DownloadProgress(100, finalTotal, finalTotal, 0));
             return DownloadResult.Ok(outputPath);
         }
 
@@ -258,14 +276,17 @@ public sealed partial class DownloadService
     /// license injection) — so the UI can show activity instead of a frozen bar.
     /// </summary>
     private static async Task PollFileProgressAsync(
-        string outputPath, long totalBytes, IProgress<DownloadProgress>? progress, CancellationToken ct)
+        string outputPath, long[] totalHolder, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
         if (progress is null) return;
 
         var dir = Path.GetDirectoryName(outputPath)!;
-        var stem = Path.GetFileNameWithoutExtension(outputPath);
+        var fileName = Path.GetFileName(outputPath);
 
-        // Speed over a ~0.5 s sliding window (smooth, not per-tick noisy).
+        // Speed over a ~0.5 s sliding window, baselined on the FIRST observed size so
+        // we never divide a large initial size by a tiny elapsed and report an absurd
+        // speed on the first tick.
+        var haveBaseline = false;
         long windowBytes = 0;
         var windowTime = DateTimeOffset.UtcNow;
         double lastSpeed = 0;
@@ -290,10 +311,12 @@ public sealed partial class DownloadService
                     }
                     else if (Directory.Exists(dir))
                     {
-                        // ipatool may stream into a temp/partial file first (e.g. "name.ipa.part").
+                        // ipatool streams into a partial file first — but ONLY of the
+                        // exact target name (e.g. "name.ipa.part"/".tmp"/".download").
+                        // Matching the full file name (not just a stem prefix) avoids
+                        // grabbing an unrelated app's file from the same folder.
                         var partial = new DirectoryInfo(dir)
-                            .GetFiles("*", SearchOption.TopDirectoryOnly)
-                            .Where(f => f.Name.StartsWith(stem, StringComparison.OrdinalIgnoreCase))
+                            .GetFiles(fileName + ".*", SearchOption.TopDirectoryOnly)
                             .OrderByDescending(f => f.Length)
                             .FirstOrDefault();
                         if (partial is not null) size = partial.Length;
@@ -312,38 +335,68 @@ public sealed partial class DownloadService
                     lastGrowth = now;
                 }
 
-                // Speed: refresh roughly twice a second.
-                var windowElapsed = (now - windowTime).TotalSeconds;
-                if (windowElapsed >= 0.5)
+                // Baseline the speed window on the first real sample.
+                if (!haveBaseline)
                 {
-                    lastSpeed = size > windowBytes ? (size - windowBytes) / windowElapsed : 0;
+                    haveBaseline = true;
                     windowBytes = size;
                     windowTime = now;
                 }
+                else
+                {
+                    var windowElapsed = (now - windowTime).TotalSeconds;
+                    if (windowElapsed >= 0.5)
+                    {
+                        lastSpeed = size > windowBytes ? (size - windowBytes) / windowElapsed : 0;
+                        windowBytes = size;
+                        windowTime = now;
+                    }
+                }
 
-                // Use the larger of the estimate and the actual size so we never get
-                // stuck reporting 99% while bytes are clearly still arriving (the
-                // iTunes estimate can be a little smaller than the real download).
-                var effectiveTotal = Math.Max(totalBytes, size);
-                var percent = effectiveTotal > 0
-                    ? Math.Clamp(size / (double)effectiveTotal * 100.0, 0, 99)
+                var totalBytes = System.Threading.Volatile.Read(ref totalHolder[0]);
+
+                // Only report a percentage when we actually know the total. When the
+                // total is still unknown we report percent 0 (the UI then shows an
+                // indeterminate bar + downloaded bytes) instead of faking ~100%.
+                var percent = totalBytes > 0
+                    ? Math.Clamp(size / (double)totalBytes * 100.0, 0, 99)
                     : 0;
 
                 // Finalizing: bytes have essentially stopped near the end, but the
                 // ipatool process is still running (repackaging the archive). Require
-                // "near complete" (>=90% of the estimate — the real file can be a bit
-                // smaller than iTunes reports) AND "no growth for >2 s" so a brief
-                // mid-download network stall isn't mistaken for finalizing.
+                // a known total, "near complete" (>=90%), AND "no growth for >2 s" so a
+                // brief mid-download network stall isn't mistaken for finalizing.
                 var stalledFor = (now - lastGrowth).TotalSeconds;
                 var nearComplete = totalBytes > 0 && size >= totalBytes * 0.90;
                 var finalizing = nearComplete && stalledFor > 2.0;
 
                 progress.Report(new DownloadProgress(
-                    finalizing ? 99 : percent, size, effectiveTotal,
+                    finalizing ? 99 : percent, size, totalBytes,
                     finalizing ? 0 : lastSpeed, finalizing));
             }
         }
         catch (OperationCanceledException) { /* expected on completion */ }
+    }
+
+    /// <summary>Deletes a stale target file and any leftover partial variants
+    /// (name.ipa, name.ipa.part, name.ipa.tmp, …) so a prior attempt can't be
+    /// mistaken for live progress.</summary>
+    private static void TryDeleteStaleFiles(string outputPath)
+    {
+        try
+        {
+            if (File.Exists(outputPath)) File.Delete(outputPath);
+            var dir = Path.GetDirectoryName(outputPath);
+            var fileName = Path.GetFileName(outputPath);
+            if (dir is not null && Directory.Exists(dir))
+            {
+                foreach (var f in Directory.GetFiles(dir, fileName + ".*"))
+                {
+                    try { File.Delete(f); } catch { /* best effort */ }
+                }
+            }
+        }
+        catch { /* best effort — a locked file just means we fall back to size-based logic */ }
     }
 
     /// <summary>Searches the App Store (ipatool search).</summary>
