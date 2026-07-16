@@ -221,16 +221,23 @@ public sealed class QueueService
 
             if (!skipDownload)
             {
-                SetStage(item, QueueStage.Downloading, "Preparing download…");
+                SetStage(item, QueueStage.Downloading, "Подготовка загрузки…");
 
                 var progress = new Progress<DownloadProgress>(p =>
                 {
                     item.StageProgress = p.Percent;
                     item.DownloadedBytes = p.DownloadedBytes;
                     item.TotalBytes = p.TotalBytes;
-                    item.DownloadSpeedBps = p.SpeedBps;
+                    item.DownloadSpeedBps = p.Finalizing ? 0 : p.SpeedBps;
+                    item.IsFinalizing = p.Finalizing;
+
                     // Build a rich status line that always shows something meaningful.
-                    if (p.TotalBytes > 0 && p.Percent > 0.1)
+                    if (p.Finalizing)
+                    {
+                        // Bytes are in; ipatool is repackaging/injecting the license.
+                        item.StatusDetail = $"Упаковка и подпись… ({FormatBytes(p.DownloadedBytes)})";
+                    }
+                    else if (p.TotalBytes > 0 && p.Percent > 0.1)
                     {
                         var eta = p.SpeedBps > 0
                             ? FormatEta((long)((p.TotalBytes - p.DownloadedBytes) / p.SpeedBps))
@@ -377,6 +384,7 @@ public sealed class QueueService
     {
         item.Stage = stage;
         item.StageProgress = 0;
+        item.IsFinalizing = false;
         item.StatusDetail = detail;
         Notify(item);
     }

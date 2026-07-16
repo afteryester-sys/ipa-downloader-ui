@@ -37,13 +37,15 @@ public sealed partial class QueueItemViewModel : ObservableObject
     /// Show a moving (indeterminate) bar for stages where no measurable progress exists.
     /// Checking and Licensing are always indeterminate.
     /// Downloading switches to determinate the moment the first byte lands on disk so
-    /// the bar starts filling immediately and never gets stuck showing a spinner.
+    /// the bar starts filling immediately and never gets stuck showing a spinner; it
+    /// goes back to indeterminate during the finalizing (repackaging) phase so the user
+    /// sees activity instead of a bar frozen at ~99%.
     /// Installing always uses a determinate bar (starts at >=3%).
     /// </summary>
     public bool IsIndeterminate => Stage switch
     {
         QueueStage.Checking or QueueStage.Licensing => true,
-        QueueStage.Downloading => Item.DownloadedBytes <= 0,
+        QueueStage.Downloading => Item.DownloadedBytes <= 0 || Item.IsFinalizing,
         _ => false,
     };
     public bool IsDone => Stage == QueueStage.Done;

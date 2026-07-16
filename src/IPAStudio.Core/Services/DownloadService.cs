@@ -6,7 +6,13 @@ using IPAStudio.Core.Tools;
 namespace IPAStudio.Core.Services;
 
 /// <summary>Progress snapshot reported while downloading an IPA.</summary>
-public readonly record struct DownloadProgress(double Percent, long DownloadedBytes, long TotalBytes, double SpeedBps);
+/// <param name="Finalizing">
+/// True once the raw byte transfer is done and ipatool is repackaging the archive
+/// (license/sinf injection) — a phase that can take several seconds with no byte
+/// movement. Lets the UI show "packaging" instead of a frozen bar.
+/// </param>
+public readonly record struct DownloadProgress(
+    double Percent, long DownloadedBytes, long TotalBytes, double SpeedBps, bool Finalizing = false);
 
 /// <summary>Result of a completed download.</summary>
 public sealed class DownloadResult
@@ -246,9 +252,10 @@ public sealed partial class DownloadService
 
     /// <summary>
     /// Polls the growing download file every 100 ms and reports accurate byte/percent
-    /// progress. Works regardless of ipatool's output format. Reports downloaded bytes
-    /// immediately on the first tick so the UI transitions out of the indeterminate
-    /// (spinner) state as soon as writing starts.
+    /// progress derived from the real on-disk file size (independent of ipatool's
+    /// output format). Also detects the post-transfer "finalizing" phase — when the
+    /// bytes stop growing near completion but ipatool is still running (repackaging /
+    /// license injection) — so the UI can show activity instead of a frozen bar.
     /// </summary>
     private static async Task PollFileProgressAsync(
         string outputPath, long totalBytes, IProgress<DownloadProgress>? progress, CancellationToken ct)
@@ -258,10 +265,14 @@ public sealed partial class DownloadService
         var dir = Path.GetDirectoryName(outputPath)!;
         var stem = Path.GetFileNameWithoutExtension(outputPath);
 
-        // Speed is computed over a 1-second sliding window.
-        long lastBytes = 0;
-        var lastTime = DateTimeOffset.UtcNow;
+        // Speed over a ~0.5 s sliding window (smooth, not per-tick noisy).
+        long windowBytes = 0;
+        var windowTime = DateTimeOffset.UtcNow;
         double lastSpeed = 0;
+
+        // Stall detection for the finalizing phase.
+        long lastSize = 0;
+        var lastGrowth = DateTimeOffset.UtcNow;
 
         try
         {
@@ -293,23 +304,43 @@ public sealed partial class DownloadService
                 if (size <= 0) continue;
 
                 var now = DateTimeOffset.UtcNow;
-                var elapsed = (now - lastTime).TotalSeconds;
 
-                // Update speed ~every 0.5 s so it doesn't flicker on every 100ms tick.
-                if (elapsed >= 0.5)
+                // Track growth for stall/finalize detection.
+                if (size > lastSize)
                 {
-                    if (size > lastBytes)
-                        lastSpeed = (size - lastBytes) / elapsed;
-                    lastBytes = size;
-                    lastTime = now;
+                    lastSize = size;
+                    lastGrowth = now;
                 }
 
-                // Cap at 99% until the process confirms success/failure.
-                var percent = totalBytes > 0
-                    ? Math.Clamp(size / (double)totalBytes * 100.0, 0, 99)
+                // Speed: refresh roughly twice a second.
+                var windowElapsed = (now - windowTime).TotalSeconds;
+                if (windowElapsed >= 0.5)
+                {
+                    lastSpeed = size > windowBytes ? (size - windowBytes) / windowElapsed : 0;
+                    windowBytes = size;
+                    windowTime = now;
+                }
+
+                // Use the larger of the estimate and the actual size so we never get
+                // stuck reporting 99% while bytes are clearly still arriving (the
+                // iTunes estimate can be a little smaller than the real download).
+                var effectiveTotal = Math.Max(totalBytes, size);
+                var percent = effectiveTotal > 0
+                    ? Math.Clamp(size / (double)effectiveTotal * 100.0, 0, 99)
                     : 0;
 
-                progress.Report(new DownloadProgress(percent, size, totalBytes, lastSpeed));
+                // Finalizing: bytes have essentially stopped near the end, but the
+                // ipatool process is still running (repackaging the archive). Require
+                // "near complete" (>=90% of the estimate — the real file can be a bit
+                // smaller than iTunes reports) AND "no growth for >2 s" so a brief
+                // mid-download network stall isn't mistaken for finalizing.
+                var stalledFor = (now - lastGrowth).TotalSeconds;
+                var nearComplete = totalBytes > 0 && size >= totalBytes * 0.90;
+                var finalizing = nearComplete && stalledFor > 2.0;
+
+                progress.Report(new DownloadProgress(
+                    finalizing ? 99 : percent, size, effectiveTotal,
+                    finalizing ? 0 : lastSpeed, finalizing));
             }
         }
         catch (OperationCanceledException) { /* expected on completion */ }

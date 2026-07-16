@@ -23,6 +23,13 @@ public sealed class QueueItem
     /// <summary>Bytes downloaded so far.</summary>
     public long DownloadedBytes { get; set; }
 
+    /// <summary>
+    /// True during the post-download "finalizing" phase (ipatool repackaging /
+    /// injecting the license), so the UI can show a moving bar and "packaging"
+    /// text instead of a bar frozen at ~99%.
+    /// </summary>
+    public bool IsFinalizing { get; set; }
+
     /// <summary>Human-readable status detail, e.g. "Installing (42%)".</summary>
     public string StatusDetail { get; set; } = "";
 
