@@ -290,9 +290,28 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     {
         if (TargetDevice is null) return;
 
+        // Installing from the catalog needs a licensed Apple ID. If the user skipped
+        // sign-in, send them to the login screen now (returns to this device afterwards).
+        if (!RequireSignIn()) return;
+
         var selected = Apps.Where(a => a.IsSelected).Select(a => a.App).ToList();
         _queue.Build(selected, TargetDevice);
         _navigator?.GoTo(Page.Queue);
+    }
+
+    /// <summary>
+    /// Ensures an Apple ID is signed in before an App Store action. Returns true when
+    /// already authenticated; otherwise redirects to the login screen (pre-filled for
+    /// the current device) and returns false. Direct IPA installs never call this.
+    /// </summary>
+    private bool RequireSignIn()
+    {
+        if (_auth.IsAuthenticated) return true;
+        if (TargetDevice is not null)
+            _navigator?.GoToLoginForDevice(TargetDevice);
+        else
+            _navigator?.GoTo(Page.Login);
+        return false;
     }
 
     /// <summary>
@@ -342,6 +361,9 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private async Task InstallByBundleIdAsync()
     {
         if (TargetDevice is null) return;
+
+        // App Store download by Bundle ID requires a licensed Apple ID.
+        if (!RequireSignIn()) return;
 
         var bundleId = BundleIdInput.Trim();
         if (string.IsNullOrEmpty(bundleId))

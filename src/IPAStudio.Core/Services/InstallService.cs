@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
@@ -47,6 +48,28 @@ public sealed partial class InstallService
     {
         if (!File.Exists(ipaPath))
             return InstallResult.Fail($"IPA file not found: {ipaPath}");
+
+        // The bundled ideviceinstaller uses libzip, whose zip_open() opens files with
+        // the narrow (ANSI) CRT and therefore FAILS ("zip_open: ...: 18" = ZIP_ER_OPEN)
+        // when the path contains characters outside the current code page — e.g. a
+        // Cyrillic folder name like "C:\...\iPa Файлы\MAX.ipa". To be safe we stage any
+        // non-ASCII path into a guaranteed-ASCII folder and install from there.
+        string installPath = ipaPath;
+        string? stagedCopy = null;
+        if (!IsAsciiPath(ipaPath))
+        {
+            try
+            {
+                stagedCopy = CreateAsciiStagingCopy(ipaPath);
+                installPath = stagedCopy;
+                AppLog.Info($"IPA path has non-ASCII chars; staged to ASCII path: {installPath}");
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"Failed to stage IPA to ASCII path, using original: {ex.Message}");
+                installPath = ipaPath;
+            }
+        }
 
         await _deviceLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -97,7 +120,7 @@ public sealed partial class InstallService
             // subcommand caused "ERROR: No mode/command was supplied."
             var result = await _runner.RunAsync(
                 _tools.IdeviceInstallerPath,
-                new[] { "-u", udid, "-i", ipaPath },
+                new[] { "-u", udid, "-i", installPath },
                 onOutputLine: ParseLine,
                 onErrorLine: ParseLine,
                 closeStdin: true,
@@ -111,7 +134,39 @@ public sealed partial class InstallService
         finally
         {
             _deviceLock.Release();
+
+            // Remove the temporary ASCII copy (if we made one).
+            if (stagedCopy is not null)
+            {
+                try { File.Delete(stagedCopy); } catch { /* best effort */ }
+            }
         }
+    }
+
+    /// <summary>True when every character in the path is plain 7-bit ASCII.</summary>
+    private static bool IsAsciiPath(string path)
+    {
+        foreach (var c in path)
+            if (c > 127) return false;
+        return true;
+    }
+
+    /// <summary>
+    /// Copies an IPA whose path contains non-ASCII characters into a folder whose
+    /// full path is guaranteed to be ASCII (<c>%PUBLIC%\Documents\IPAStudio\stage</c>,
+    /// the "Public" account name is never localised on disk) using an ASCII file name.
+    /// Returns the new path. The caller must delete it after installing.
+    /// </summary>
+    private static string CreateAsciiStagingCopy(string sourceIpa)
+    {
+        var stageRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments),
+            "IPAStudio", "stage");
+        Directory.CreateDirectory(stageRoot);
+
+        var dest = Path.Combine(stageRoot, $"{Guid.NewGuid():N}.ipa");
+        File.Copy(sourceIpa, dest, overwrite: true);
+        return dest;
     }
 
     /// <summary>

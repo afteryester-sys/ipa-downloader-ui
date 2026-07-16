@@ -23,6 +23,16 @@ public sealed class Device
     /// <summary>Battery level 0-100, or -1 when unknown.</summary>
     public int BatteryLevel { get; set; } = -1;
 
+    /// <summary>
+    /// Remaining battery capacity as a percentage of design capacity (the
+    /// "Maximum Capacity" shown in iOS Settings → Battery → Battery Health),
+    /// or -1 when it can't be read.
+    /// </summary>
+    public int BatteryHealthPercent { get; set; } = -1;
+
+    /// <summary>Battery charge cycle count, or -1 when unknown.</summary>
+    public int BatteryCycleCount { get; set; } = -1;
+
     /// <summary>Device class: iPhone / iPad / iPod.</summary>
     public string DeviceClass { get; set; } = "iPhone";
 
