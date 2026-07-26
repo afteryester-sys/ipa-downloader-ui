@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -305,10 +306,19 @@ public sealed partial class DownloadService
         var startedUtc = DateTimeOffset.UtcNow;
         state.Touch();
 
+        // Diagnostics: the plain-text progress format is an ipatool implementation
+        // detail that varies by version, so record a bounded sample of raw segments.
+        // Without this, a format the regexes do not cover is invisible — the bar just
+        // silently never moves. Capped so a chatty tool cannot flood the log.
+        var loggedSegments = 0;
+
         // ---- Parse each progress-bar frame / log line -------------------------------
         void OnSegment(string segment)
         {
             if (string.IsNullOrWhiteSpace(segment)) return;
+
+            // Any output at all means the process is alive.
+            state.TouchOutput();
 
             var sawNumbers = false;
 
@@ -348,7 +358,18 @@ public sealed partial class DownloadService
                 sawNumbers = true;
             }
 
-            if (sawNumbers) state.Touch();
+            if (sawNumbers)
+            {
+                state.Touch();
+            }
+            else if (loggedSegments < 40 && segment.Trim().Length > 1)
+            {
+                // A segment carrying no numbers we recognise. Logging these is what
+                // makes an unsupported progress format diagnosable from a user's log
+                // instead of guesswork.
+                loggedSegments++;
+                AppLog.Info($"ipatool| {segment.Trim()}");
+            }
         }
 
         // ---- Single reporter loop: file polling + parsed values ----------------------
@@ -386,6 +407,13 @@ public sealed partial class DownloadService
                             sawBytes = true;
                             prevBytes = downloaded;
                             prevTime = now;
+
+                            // Which source actually produced the first bytes, and how
+                            // long it took to leave the Connecting phase.
+                            AppLog.Info(
+                                $"progress: first bytes after {(now - startedUtc).TotalSeconds:F1}s " +
+                                $"(disk={onDisk / 1048576.0:F1}MB parsed={parsed / 1048576.0:F1}MB " +
+                                $"total={total / 1048576.0:F1}MB)");
                         }
                         if (downloaded > prevBytes) state.Touch();
                     }
@@ -451,7 +479,15 @@ public sealed partial class DownloadService
                         DownloadPhase.Finalizing => TimeSpan.FromMinutes(10),
                         _ => StallTimeout,
                     };
-                    if (idleFor > limit)
+
+                    // While connecting, any output counts as proof of life: the
+                    // handshake produces no byte counts, so judging it by bytes alone
+                    // would kill a download that is simply slow to start.
+                    var silentFor = phase == DownloadPhase.Connecting
+                        ? now - state.LastOutput
+                        : idleFor;
+
+                    if (silentFor > limit)
                     {
                         watchdogFired = true;
                         try { attemptCts.Cancel(); } catch { }
@@ -542,6 +578,7 @@ public sealed partial class DownloadService
     {
         private long _downloaded;
         private long _lastActivityTicks = DateTime.UtcNow.Ticks;
+        private long _lastOutputTicks = DateTime.UtcNow.Ticks;
         private long _speedBps;
         private int _percentX100;
 
@@ -564,6 +601,17 @@ public sealed partial class DownloadService
 
         public DateTimeOffset LastActivity =>
             new(Volatile.Read(ref _lastActivityTicks), TimeSpan.Zero);
+
+        /// <summary>
+        /// Last moment the tool emitted anything at all, numeric or not. Used as
+        /// proof-of-life while connecting: a handshake can be slow and completely
+        /// silent on numbers, and killing it then is wrong.
+        /// </summary>
+        public DateTimeOffset LastOutput =>
+            new(Volatile.Read(ref _lastOutputTicks), TimeSpan.Zero);
+
+        public void TouchOutput() =>
+            Volatile.Write(ref _lastOutputTicks, DateTime.UtcNow.Ticks);
 
         public void SetDownloaded(long value)
         {
@@ -598,46 +646,95 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
-    /// Largest plausible in-flight size for this download: the target file, same-named
-    /// partials next to it, and anything fresh in our staging folder.
+    /// Live size of a file that another process is currently writing.
+    ///
+    /// This must NOT use <see cref="FileInfo.Length"/>. On NTFS the size held in the
+    /// directory entry is only refreshed when the writer flushes or closes the handle,
+    /// so <c>FileInfo.Length</c> — and the <c>FileInfo</c> objects returned by
+    /// <c>EnumerateFiles</c>, which are populated from that same cached directory
+    /// data — reports a stale value. In practice that means 0 for the entire duration
+    /// of the download, then the full size the instant ipatool closes the file.
+    ///
+    /// That stale read is precisely why the bar sat on "Соединение с App Store" and
+    /// then jumped straight to finished. Opening a handle and querying the file object
+    /// itself returns the true current length.
+    ///
+    /// <see cref="FileShare.ReadWrite"/> is required or the open fails while ipatool
+    /// holds the file; <see cref="FileShare.Delete"/> is required so we never block
+    /// the writer from renaming or removing it on completion.
+    /// </summary>
+    private static long LiveLength(string path)
+    {
+        try
+        {
+            using var fs = new FileStream(
+                path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            return fs.Length;
+        }
+        catch
+        {
+            // Missing, renamed on completion, or briefly unopenable — try next tick.
+            return 0;
+        }
+    }
+
+    /// <summary>Extensions and names a partially downloaded IPA may carry.</summary>
+    private static bool LooksLikePayload(string name) =>
+        name.EndsWith(".ipa", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
+        || name.EndsWith(".download", StringComparison.OrdinalIgnoreCase)
+        || name.Contains(".ipa.", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("ipatool", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Largest plausible in-flight size for this download.
+    ///
+    /// The temp filename and its location are an ipatool implementation detail that
+    /// differs between v2 and v3, so this deliberately assumes neither: it checks the
+    /// requested target, any freshly created candidate beside it, and everything in
+    /// our staging folder. Staging is wiped before each attempt, so whatever is there
+    /// necessarily belongs to the current download.
     /// </summary>
     private static long ProbeSize(string outputPath, string stagingDir, DateTime startedUtc)
     {
-        long best = 0;
+        var best = LiveLength(outputPath);
 
-        try
-        {
-            var fi = new FileInfo(outputPath);
-            if (fi.Exists) best = fi.Length;
-        }
-        catch { /* locked mid-write; next tick */ }
-
-        // Partials next to the target: name.ipa.part / .tmp / .download.
-        // Restricted to the exact target name so another app's file in the same
-        // folder can never be mistaken for this download.
+        // Fresh candidates in the destination folder. ipatool does not always honour
+        // the requested -o name (ResolveOutputPath exists for exactly that reason), so
+        // match on "created since this attempt began" instead of an exact filename.
         var dir = Path.GetDirectoryName(outputPath);
-        var fileName = Path.GetFileName(outputPath);
         if (dir is not null && Directory.Exists(dir))
         {
             try
             {
-                foreach (var f in new DirectoryInfo(dir).EnumerateFiles(fileName + ".*", SearchOption.TopDirectoryOnly))
-                    if (f.Length > best) best = f.Length;
+                var cutoff = startedUtc.AddSeconds(-10);
+                foreach (var f in new DirectoryInfo(dir).EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+                {
+                    if (!LooksLikePayload(f.Name)) continue;
+
+                    // CreationTimeUtc is dependable here. LastWriteTimeUtc is not, for
+                    // the same stale-metadata reason documented on LiveLength.
+                    if (f.CreationTimeUtc < cutoff) continue;
+
+                    var len = LiveLength(f.FullName);
+                    if (len > best) best = len;
+                }
             }
-            catch { }
+            catch { /* enumeration raced with a rename; next tick */ }
         }
 
-        // Staging folder: ipatool buffers here (we point TMP/TEMP/TMPDIR at it), and it
-        // only ever contains files from the current attempt.
+        // Staging folder: cleared before every attempt, so no date filter is applied —
+        // timestamps here would be unreliable for the reason above anyway.
         if (Directory.Exists(stagingDir))
         {
             try
             {
-                var cutoff = startedUtc.AddSeconds(-5);
-                foreach (var f in new DirectoryInfo(stagingDir).EnumerateFiles("*", SearchOption.AllDirectories))
+                foreach (var f in Directory.EnumerateFiles(stagingDir, "*", SearchOption.AllDirectories))
                 {
-                    if (f.LastWriteTimeUtc < cutoff) continue;
-                    if (f.Length > best) best = f.Length;
+                    var len = LiveLength(f);
+                    if (len > best) best = len;
                 }
             }
             catch { }
