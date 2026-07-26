@@ -300,7 +300,7 @@ public sealed class QueueService
         var progress = BuildDownloadProgress(item);
 
         var result = await _download
-            .DownloadAsync(item.App, autoPurchase: true, progress, ct)
+            .DownloadAsync(item.App, autoPurchase: true, progress, ct: ct)
             .ConfigureAwait(false);
 
         // The Apple ID does not own the app: ipatool's implicit --purchase was not
@@ -326,7 +326,7 @@ public sealed class QueueService
             Notify(item);
 
             result = await _download
-                .DownloadAsync(item.App, autoPurchase: true, BuildDownloadProgress(item), ct)
+                .DownloadAsync(item.App, autoPurchase: true, BuildDownloadProgress(item), ct: ct)
                 .ConfigureAwait(false);
         }
 

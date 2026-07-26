@@ -37,6 +37,9 @@
         <DataTemplate DataType="{x:Type vm:PhotosViewModel}">
             <views:PhotosView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DirectDownloadViewModel}">
+            <views:DirectDownloadView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -262,6 +265,17 @@
                         <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
                                 HorizontalAlignment="Stretch" Command="{Binding InstallCommand}"
                                 Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
+                        <!-- Tools section. Lives here rather than on DevicesView because
+                             downloading an IPA by Bundle ID needs no connected device. -->
+                        <TextBlock Text="{DynamicResource L.Menu.Tools}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+                        <Button Content="{DynamicResource L.Direct.Title}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Click="OpenDirectDownload_Click" />
 
                         <!-- Divider -->
                         <Border Height="1" Background="{StaticResource Brush.Border}"

@@ -47,6 +47,12 @@ public sealed class ProcessRunner
     /// wait for a reply on stdin. The writer stays open until the process exits.
     /// </param>
     /// <param name="environment">Extra environment variables.</param>
+    /// <param name="quiet">
+    /// Marks this run as routine background polling. The RUN/EXIT lines drop to Debug
+    /// level (hidden unless verbose logging is on) so a poll loop firing every few
+    /// seconds cannot bury real events. Failures and stderr are still reported at their
+    /// normal level regardless — quiet suppresses noise, never problems.
+    /// </param>
     /// <param name="ct">Cancellation token; kills the process tree when cancelled.</param>
     public async Task<ProcessResult> RunAsync(
         string fileName,
@@ -58,6 +64,7 @@ public sealed class ProcessRunner
         IReadOnlyDictionary<string, string>? environment = null,
         bool closeStdin = false,
         string? workingDirectory = null,
+        bool quiet = false,
         CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
@@ -82,7 +89,10 @@ public sealed class ProcessRunner
             foreach (var (key, value) in environment)
                 psi.Environment[key] = value;
 
-        AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+        if (quiet)
+            AppLog.Debug(() => $"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+        else
+            AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -144,10 +154,25 @@ public sealed class ProcessRunner
             StdErr = stderr.ToString(),
         };
 
-        AppLog.Info($"EXIT {ExeName(fileName)} code={result.ExitCode}");
+        // A failure is never routine: if the process exited non-zero, log the EXIT at
+        // Info even for a quiet run, otherwise the accompanying warnings below would
+        // appear with no indication of which command produced them.
+        if (quiet && result.Success)
+            AppLog.Debug(() => $"EXIT {ExeName(fileName)} code={result.ExitCode}");
+        else
+            AppLog.Info($"EXIT {ExeName(fileName)} code={result.ExitCode}");
+
         var err = result.StdErr.Trim();
         if (err.Length > 0)
-            AppLog.Warn($"  stderr: {Truncate(err, 1500)}");
+        {
+            // Successful polls routinely write harmless notices to stderr; only treat
+            // stderr as a warning when the command actually failed.
+            if (quiet && result.Success)
+                AppLog.Debug(() => $"  stderr: {Truncate(err, 1500)}");
+            else
+                AppLog.Warn($"  stderr: {Truncate(err, 1500)}");
+        }
+
         if (!result.Success && result.StdOut.Trim().Length > 0)
             AppLog.Warn($"  stdout: {Truncate(result.StdOut.Trim(), 1500)}");
 

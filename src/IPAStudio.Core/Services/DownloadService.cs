@@ -197,21 +197,41 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
-    /// Downloads the IPA into the Apps folder, reporting live progress.
+    /// Downloads the IPA, reporting live progress.
     /// Output file: Name_AppID_Version.ipa
     ///
     /// Transient network failures and dead sockets are retried up to
     /// <see cref="MaxAttempts"/> times; auth/license errors fail immediately.
     /// </summary>
+    /// <param name="destinationFolder">
+    /// Folder to save into. When null the managed Apps folder is used (queue downloads).
+    /// The "Скачать IPA" screen passes a user-chosen folder here.
+    /// </param>
     public async Task<DownloadResult> DownloadAsync(
         AppEntry app,
         bool autoPurchase = true,
         IProgress<DownloadProgress>? progress = null,
+        string? destinationFolder = null,
         CancellationToken ct = default)
     {
         _tools.EnsureFolders();
 
-        var outputPath = BuildOutputPath(app);
+        var targetFolder = string.IsNullOrWhiteSpace(destinationFolder)
+            ? _tools.AppsFolder
+            : destinationFolder!;
+
+        // Creating the destination up front turns "folder was deleted / not writable"
+        // into an error before the Apple handshake, instead of after a full transfer.
+        try
+        {
+            Directory.CreateDirectory(targetFolder);
+        }
+        catch (Exception ex)
+        {
+            return DownloadResult.Fail($"Не удалось использовать папку «{targetFolder}»: {ex.Message}");
+        }
+
+        var outputPath = BuildOutputPath(app, targetFolder);
 
         // Stage temp files on the SAME volume as the destination. Two wins:
         //   1. The poller knows where to look, so progress works regardless of where
@@ -219,7 +239,11 @@ public sealed partial class DownloadService
         //   2. ipatool's final move becomes a rename instead of a full-size cross-volume
         //      copy (which on a 2 GB IPA with %TEMP% on C: and Apps on D: adds a long,
         //      completely silent tail after the download "finishes").
-        var stagingDir = Path.Combine(_tools.AppsFolder, ".staging");
+        //
+        // This derives from the *destination*, not from AppsFolder: with a user-chosen
+        // folder on another drive, staging under AppsFolder would put the temp file on
+        // the wrong volume and bring that silent cross-volume copy straight back.
+        var stagingDir = Path.Combine(targetFolder, ".staging");
         try { Directory.CreateDirectory(stagingDir); } catch { /* fall back to system temp */ }
 
         // Kick off the catalog size lookup once, shared across attempts. The progress
@@ -631,7 +655,7 @@ public sealed partial class DownloadService
     /// "invalid UTF-8 byte" (type_error.316) and libzip zip_open fails with ENOENT
     /// on the mangled name.
     /// </summary>
-    private string BuildOutputPath(AppEntry app)
+    private string BuildOutputPath(AppEntry app, string? targetFolder = null)
     {
         var safeName = MakeAsciiSafeName(app.Name);
         if (string.IsNullOrEmpty(safeName))
@@ -642,7 +666,9 @@ public sealed partial class DownloadService
         var version = MakeAsciiSafeName(app.LatestVersion ?? "latest");
         if (string.IsNullOrEmpty(version)) version = "latest";
 
-        return Path.Combine(_tools.AppsFolder, $"{safeName}_{app.AppStoreId}_{version}.ipa");
+        return Path.Combine(
+            string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
+            $"{safeName}_{app.AppStoreId}_{version}.ipa");
     }
 
     /// <summary>

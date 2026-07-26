@@ -63,6 +63,13 @@ public sealed class AppSettings
     public InstallMode InstallMode { get; set; } = InstallMode.DownloadAndInstall;
 
     /// <summary>
+    /// Folder last chosen on the "Скачать IPA" screen, so grabbing several apps in a
+    /// row only requires picking a destination once. Independent of
+    /// <see cref="AppsFolder"/>, which stays the managed location for queue downloads.
+    /// </summary>
+    public string? LastDirectDownloadFolder { get; set; }
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.
@@ -75,6 +82,20 @@ public sealed class AppSettings
     /// for another.
     /// </summary>
     public string? OwnedAppIdsAccount { get; set; }
+
+    /// <summary>
+    /// When true, routine background detail (device-poll tool invocations, thumbnail
+    /// pipeline timings) is written to the log. Off by default: those lines repeat every
+    /// few seconds and make the log unreadable when looking for a real problem.
+    /// Turn on only when diagnosing an issue.
+    /// </summary>
+    public bool VerboseLogging { get; set; }
+
+    /// <summary>
+    /// Last folder chosen on the "Скачать IPA" screen, so the next direct download
+    /// starts from the same place instead of re-picking it every time.
+    /// </summary>
+    public string? LastDirectDownloadFolder { get; set; }
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>

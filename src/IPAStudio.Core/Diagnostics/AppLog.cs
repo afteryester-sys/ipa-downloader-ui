@@ -22,6 +22,20 @@ public static class AppLog
     /// <summary>Absolute path of the current day's log file.</summary>
     public static string FilePath { get; }
 
+    /// <summary>
+    /// When false (the default), <see cref="Debug"/> lines are discarded entirely:
+    /// never buffered, never written to disk, and the message is never even formatted.
+    ///
+    /// This exists because routine background chatter drowned out real events. Device
+    /// discovery polls every few seconds and shells out to idevice_id/ideviceinfo on
+    /// each pass, so the RUN/EXIT pair for those calls produced a wall of identical
+    /// lines every few seconds. Those calls now log at Debug level, leaving the default
+    /// log to actual state changes, warnings and errors.
+    ///
+    /// Set from the user's "Подробные логи" setting at startup.
+    /// </summary>
+    public static volatile bool Verbose;
+
     static AppLog()
     {
         string dir;
@@ -50,6 +64,26 @@ public static class AppLog
 
     public static void Info(string message) => Write("INFO ", message);
     public static void Warn(string message) => Write("WARN ", message);
+
+    /// <summary>
+    /// Routine, high-frequency detail. Dropped unless <see cref="Verbose"/> is on.
+    /// </summary>
+    public static void Debug(string message)
+    {
+        if (Verbose) Write("DEBUG", message);
+    }
+
+    /// <summary>
+    /// Deferred variant: the factory only runs when verbose logging is enabled, so
+    /// callers on hot paths pay nothing (no string interpolation, no allocation) while
+    /// logging is off. Prefer this when building the message costs anything.
+    /// </summary>
+    public static void Debug(Func<string> message)
+    {
+        if (!Verbose) return;
+        try { Write("DEBUG", message()); }
+        catch { /* logging must never throw */ }
+    }
 
     public static void Error(string message, Exception? ex = null) =>
         Write("ERROR", ex is null ? message : $"{message}{Environment.NewLine}{ex}");

@@ -1,3 +1,4 @@
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -60,7 +61,9 @@ public sealed class DeviceService : IAsyncDisposable
         {
             try
             {
-                await PollOnceAsync(ct).ConfigureAwait(false);
+                // quiet: this fires every few seconds forever; only state changes
+                // and failures should reach the default log.
+                await PollOnceAsync(ct, quiet: true).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
             catch
@@ -72,10 +75,20 @@ public sealed class DeviceService : IAsyncDisposable
         }
     }
 
-    /// <summary>Runs a single discovery pass. Public for manual "refresh" actions.</summary>
-    public async Task PollOnceAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Runs a single discovery pass. Public for manual "refresh" actions.
+    /// </summary>
+    /// <param name="quiet">
+    /// True for the automatic poll loop, which runs every few seconds: the underlying
+    /// tool invocations log at Debug level so they don't flood the log. State changes
+    /// (connect/disconnect) are always logged at Info regardless, since those are the
+    /// events worth seeing. Manual refreshes pass false and stay fully logged.
+    /// </param>
+    public async Task PollOnceAsync(CancellationToken ct = default, bool quiet = false)
     {
-        var result = await _runner.RunAsync(_tools.IdeviceIdPath, new[] { "-l" }, ct: ct).ConfigureAwait(false);
+        var result = await _runner
+            .RunAsync(_tools.IdeviceIdPath, new[] { "-l" }, quiet: quiet, ct: ct)
+            .ConfigureAwait(false);
 
         var currentUdids = result.StdOut
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -93,12 +106,19 @@ public sealed class DeviceService : IAsyncDisposable
         }
 
         foreach (var device in disconnected)
+        {
+            // Always worth a line: this is a real state change, not routine polling.
+            AppLog.Info($"Device disconnected: {device.Name} ({device.Udid})");
             DeviceDisconnected?.Invoke(this, device);
+        }
 
         foreach (var udid in newUdids)
         {
+            // A newly attached device is read in full at Info level even during a quiet
+            // poll — this happens once per connection, so it is signal, not noise.
             var device = await ReadDeviceInfoAsync(udid, ct).ConfigureAwait(false);
             lock (_devices) _devices[udid] = device;
+            AppLog.Info($"Device connected: {device.Name} — {device.Model}, iOS {device.OsVersion} ({udid})");
             DeviceConnected?.Invoke(this, device);
         }
 
@@ -109,7 +129,7 @@ public sealed class DeviceService : IAsyncDisposable
 
         foreach (var device in existing)
         {
-            var battery = await ReadBatteryAsync(device.Udid, ct).ConfigureAwait(false);
+            var battery = await ReadBatteryAsync(device.Udid, ct, quiet).ConfigureAwait(false);
             if (battery != device.BatteryLevel && battery >= 0)
             {
                 device.BatteryLevel = battery;
@@ -267,13 +287,14 @@ public sealed class DeviceService : IAsyncDisposable
     /// (e.g. idevicediagnostics on a locked device) can never freeze the UI. Returns
     /// null on timeout; rethrows only when the caller's own token is cancelled.
     /// </summary>
-    private async Task<ProcessResult?> RunToolAsync(string exe, string[] args, CancellationToken ct, int timeoutSeconds = 12)
+    private async Task<ProcessResult?> RunToolAsync(
+        string exe, string[] args, CancellationToken ct, int timeoutSeconds = 12, bool quiet = false)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         try
         {
-            return await _runner.RunAsync(exe, args, ct: timeoutCts.Token).ConfigureAwait(false);
+            return await _runner.RunAsync(exe, args, quiet: quiet, ct: timeoutCts.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -462,12 +483,12 @@ public sealed class DeviceService : IAsyncDisposable
         !s.Contains(' ') &&
         !s.StartsWith('-'); // guard against ideviceinfo error strings
 
-    private async Task<int> ReadBatteryAsync(string udid, CancellationToken ct)
+    private async Task<int> ReadBatteryAsync(string udid, CancellationToken ct, bool quiet = false)
     {
         var result = await RunToolAsync(
             _tools.IdeviceInfoPath,
             new[] { "-u", udid, "-q", "com.apple.mobile.battery", "-k", "BatteryCurrentCapacity" },
-            ct).ConfigureAwait(false);
+            ct, quiet: quiet).ConfigureAwait(false);
         return result is not null && int.TryParse(result.StdOut.Trim(), out var level) ? level : -1;
     }
 

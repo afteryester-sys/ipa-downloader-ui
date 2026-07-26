@@ -48,6 +48,20 @@ public partial class MainWindow : Window
         PageTranslate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slide);
     }
 
+    /// <summary>
+    /// Opens the "Скачать IPA" page from the corner flyout.
+    ///
+    /// This is a Click handler rather than a Command binding because the flyout's
+    /// DataContext is the Updater viewmodel, so a binding would look for the command
+    /// on the wrong object and silently do nothing. The navigator lives on the shell.
+    /// </summary>
+    private void OpenDirectDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.GoTo(Page.DirectDownload);
+    }
+
     // ---- Developer credit popup ----
 
     private void CreditButton_Click(object sender, RoutedEventArgs e)

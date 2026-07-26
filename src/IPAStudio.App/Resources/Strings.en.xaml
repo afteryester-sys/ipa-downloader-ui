@@ -176,8 +176,30 @@
     <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
 
+    <!-- Download IPA by Bundle ID -->
+    <sys:String x:Key="L.Direct.Title">Download IPA</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Enter an app's Bundle ID and choose a folder — the .ipa file is saved there. No device needs to be connected.</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdLabel">App Bundle ID</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdHint">For example: com.burbn.instagram or com.spotify.client</sys:String>
+    <sys:String x:Key="L.Direct.Find">Find</sys:String>
+    <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
+    <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>
+    <sys:String x:Key="L.Direct.Download">Download IPA</sys:String>
+    <sys:String x:Key="L.Direct.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Direct.OpenFolder">Open folder</sys:String>
+    <sys:String x:Key="L.Direct.Searching">Looking up app…</sys:String>
+    <sys:String x:Key="L.Direct.Downloading">Preparing download…</sys:String>
+    <sys:String x:Key="L.Direct.Done">Saved:</sys:String>
+    <sys:String x:Key="L.Direct.NotFound">No app found with that Bundle ID. Check the spelling.</sys:String>
+    <sys:String x:Key="L.Direct.NeedBundleId">Enter the app's Bundle ID.</sys:String>
+    <sys:String x:Key="L.Direct.NeedFolder">Choose a destination folder.</sys:String>
+    <sys:String x:Key="L.Direct.NeedLogin">Apple ID sign-in required</sys:String>
+    <sys:String x:Key="L.Direct.NeedLoginHint">The IPA is downloaded and signed with your Apple ID, so signing in is required.</sys:String>
+
     <!-- Menu (gear) -->
     <sys:String x:Key="L.Menu.Title">Menu</sys:String>
+    <sys:String x:Key="L.Menu.Tools">Tools</sys:String>
     <sys:String x:Key="L.Menu.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Menu.Logs">Show log</sys:String>
     <sys:String x:Key="L.Menu.Maintenance">Maintenance</sys:String>
@@ -196,5 +218,10 @@
     <sys:String x:Key="L.Logs.OpenFile">Open file</sys:String>
     <sys:String x:Key="L.Logs.Clear">Clear</sys:String>
     <sys:String x:Key="L.Logs.File">Log file:</sys:String>
+
+    <!-- Diagnostics (logging settings) -->
+    <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging">Verbose logging</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Logs every internal call, including the device poll that runs every few seconds. Normally unnecessary: those lines repeat constantly and bury real errors. Turn it on when diagnosing a problem.</sys:String>
 
 </ResourceDictionary>

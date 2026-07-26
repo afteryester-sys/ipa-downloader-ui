@@ -88,6 +88,7 @@ public partial class App : Application
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<DeviceInfoViewModel>();
         services.AddSingleton<PhotosViewModel>();
+        services.AddSingleton<DirectDownloadViewModel>();
 
         Services = services.BuildServiceProvider();
 

@@ -3,6 +3,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Services;
 using IPAStudio.Core.Tools;
 using static IPAStudio.Core.Services.InstallMode;
@@ -50,6 +51,26 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private int _maxParallelDownloads = 3;
+
+    /// <summary>
+    /// Writes routine background detail (device-poll tool calls, media pipeline timings)
+    /// to the log. Applied the moment it is toggled rather than on Save, because the
+    /// point of the switch is to change what the user is watching in the log right now.
+    /// </summary>
+    [ObservableProperty]
+    private bool _verboseLogging;
+
+    partial void OnVerboseLoggingChanged(bool value)
+    {
+        // Nothing changed in practice (this fires when the page loads and copies the
+        // saved value in), so don't announce anything.
+        if (AppLog.Verbose == value) return;
+
+        AppLog.Verbose = value;
+        AppLog.Info(value
+            ? "Подробные логи включены."
+            : "Подробные логи выключены — рутинные вызовы больше не пишутся.");
+    }
 
     // Install mode: three RadioButtons bound via bool helpers below.
     [ObservableProperty]
@@ -142,6 +163,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
         ToolsFolder = _tools.ToolsRoot;
         InstallMode = _settings.Current.InstallMode;
+        VerboseLogging = _settings.Current.VerboseLogging;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -331,6 +353,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.InstallMode = InstallMode;
+        _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();
 
         _queue.MaxParallelDownloads = _settings.Current.MaxParallelDownloads;

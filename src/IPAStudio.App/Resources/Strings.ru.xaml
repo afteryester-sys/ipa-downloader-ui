@@ -84,7 +84,7 @@
     <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
     <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
-    <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Отменит��</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
     <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
     <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
@@ -176,8 +176,30 @@
     <sys:String x:Key="L.Update.ServerError">Сервер обновлений вернул ошибку: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Не удалось разобрать ответ сервера обновлений.</sys:String>
 
+    <!-- Скачивание IPA по Bundle ID -->
+    <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения и выберите папку — файл .ipa будет сохранён туда. Устройство подключать не нужно.</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID приложения</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram или com.spotify.client</sys:String>
+    <sys:String x:Key="L.Direct.Find">Найти</sys:String>
+    <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
+    <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
+    <sys:String x:Key="L.Direct.Download">Скачать IPA</sys:String>
+    <sys:String x:Key="L.Direct.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Direct.OpenFolder">Открыть папку</sys:String>
+    <sys:String x:Key="L.Direct.Searching">Поиск приложения…</sys:String>
+    <sys:String x:Key="L.Direct.Downloading">Подготовка загрузки…</sys:String>
+    <sys:String x:Key="L.Direct.Done">Сохранено:</sys:String>
+    <sys:String x:Key="L.Direct.NotFound">Приложение с таким Bundle ID не найдено. Проверьте написание.</sys:String>
+    <sys:String x:Key="L.Direct.NeedBundleId">Введите Bundle ID приложения.</sys:String>
+    <sys:String x:Key="L.Direct.NeedFolder">Выберите папку для сохранения.</sys:String>
+    <sys:String x:Key="L.Direct.NeedLogin">Нужен вход в Apple ID</sys:String>
+    <sys:String x:Key="L.Direct.NeedLoginHint">IPA скачивается и подписывается вашим Apple ID, поэтому без входа загрузка невозможна.</sys:String>
+
     <!-- Меню (шестерёнка) -->
     <sys:String x:Key="L.Menu.Title">Меню</sys:String>
+    <sys:String x:Key="L.Menu.Tools">Инструменты</sys:String>
     <sys:String x:Key="L.Menu.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Menu.Logs">Показать журнал (логи)</sys:String>
     <sys:String x:Key="L.Menu.Maintenance">Обслуживание</sys:String>
@@ -196,5 +218,10 @@
     <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
     <sys:String x:Key="L.Logs.Clear">Очистить</sys:String>
     <sys:String x:Key="L.Logs.File">Файл журнала:</sys:String>
+
+    <!-- Диагностика (настройки логирования) -->
+    <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
 
 </ResourceDictionary>

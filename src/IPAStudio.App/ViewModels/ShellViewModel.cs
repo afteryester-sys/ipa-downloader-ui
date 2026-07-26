@@ -14,6 +14,12 @@ public enum Page
     Settings,
     DeviceInfo,
     Photos,
+
+    /// <summary>
+    /// "Скачать IPA": download by Bundle ID into a folder of the user's choice.
+    /// Needs an Apple ID but no connected device.
+    /// </summary>
+    DirectDownload,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -30,6 +36,13 @@ public interface INavigator
 
     /// <summary>Opens the photo transfer screen for a device.</summary>
     void GoToPhotos(Device device);
+
+    /// <summary>
+    /// Returns to the previously shown page. Needed by pages reachable from anywhere
+    /// (e.g. "Скачать IPA" via the corner menu), where a hardcoded back target would
+    /// dump the user somewhere they never came from.
+    /// </summary>
+    void GoBack();
 }
 
 /// <summary>
@@ -71,6 +84,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.Settings => Resolve<SettingsViewModel>(),
             Page.DeviceInfo => Resolve<DeviceInfoViewModel>(),
             Page.Photos => Resolve<PhotosViewModel>(),
+            Page.DirectDownload => Resolve<DirectDownloadViewModel>(),
             _ => CurrentViewModel,
         };
 
