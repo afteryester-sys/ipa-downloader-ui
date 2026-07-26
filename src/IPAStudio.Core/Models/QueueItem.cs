@@ -24,6 +24,15 @@ public sealed class QueueItem
     public long DownloadedBytes { get; set; }
 
     /// <summary>
+    /// True while ipatool is authenticating with Apple and no bytes have moved yet.
+    /// There is no meaningful percentage during this phase, so the UI should show an
+    /// indeterminate bar (bind <c>ProgressBar.IsIndeterminate</c> to this) together
+    /// with the live elapsed counter in <see cref="StatusDetail"/>. Without it the bar
+    /// sits at 0 and the download looks stuck.
+    /// </summary>
+    public bool IsConnecting { get; set; }
+
+    /// <summary>
     /// True during the post-download "finalizing" phase (ipatool repackaging /
     /// injecting the license), so the UI can show a moving bar and "packaging"
     /// text instead of a bar frozen at ~99%.
@@ -59,10 +68,14 @@ public enum QueueStage
     /// <summary>Waiting in the queue.</summary>
     Pending,
 
-    /// <summary>Checking local IPA cache and account license.</summary>
+    /// <summary>Checking the local IPA cache. Does not touch the network.</summary>
     Checking,
 
-    /// <summary>Obtaining a license (ipatool purchase) because the account does not own the app.</summary>
+    /// <summary>
+    /// Obtaining a license (ipatool purchase). Only entered when a download reported
+    /// that the Apple ID does not own the app — the normal path acquires the license
+    /// as part of <c>download --purchase</c>.
+    /// </summary>
     Licensing,
 
     /// <summary>Downloading the IPA (ipatool download).</summary>

@@ -139,6 +139,15 @@
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple ограничивает скорость каждого соединения отдельно, поэтому один поток обычно не занимает весь канал. Несколько загрузок одновременно повышают суммарную скорость очереди. На скорость одного приложения это не влияет.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput">Скорость загрузки</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Scanning">Проверка…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Clean">Локальных ограничений не найдено.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Rescan">Проверить снова</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fix">Исправить</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fixing">Применение…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Dismiss">Скрыть</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Не удалось применить. Нужны права администратора, либо настройка заблокирована политикой.</sys:String>
     <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
@@ -160,7 +169,7 @@
     <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
     <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
     <sys:String x:Key="L.Update.OpenedBrowser">Страница релизов открыта в браузере — скачайте установщик вручную.</sys:String>
-    <sys:String x:Key="L.Update.Failed">Не удалось проверить обновления.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Не удало��ь проверить обновления.</sys:String>
     <sys:String x:Key="L.Update.NoReleases">Обновлений нет: на сервере ещё не опубликован ни один релиз.</sys:String>
     <sys:String x:Key="L.Update.NoConnection">Не удалось подключиться к серверу обновлений. Проверьте подключение к интернету.</sys:String>
     <sys:String x:Key="L.Update.Timeout">Превышено время ожидания сервера обновлений. Повторите попытку.</sys:String>

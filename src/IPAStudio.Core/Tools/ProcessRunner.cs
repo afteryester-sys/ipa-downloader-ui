@@ -132,18 +132,7 @@ public sealed class ProcessRunner
             process.StandardInput.Close();
         }
 
-        await using var registration = ct.Register(() =>
-        {
-            try
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-            }
-            catch
-            {
-                // Process may have exited between the check and the kill.
-            }
-        });
+        await using var registration = ct.Register(() => KillTree(process));
 
         await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
@@ -163,6 +152,169 @@ public sealed class ProcessRunner
             AppLog.Warn($"  stdout: {Truncate(result.StdOut.Trim(), 1500)}");
 
         return result;
+    }
+
+    /// <summary>
+    /// Runs a process while streaming stdout/stderr <b>character by character</b> and
+    /// flushing a segment on <c>\r</c> as well as <c>\n</c>.
+    ///
+    /// This is required for tools that render an in-place progress bar (ipatool uses
+    /// a carriage-return bar for <c>download</c>). The line-oriented
+    /// <see cref="RunAsync"/> uses <see cref="Process.BeginOutputReadLine"/>, which
+    /// only yields data on a newline — so a CR-updated bar produces NO callbacks at
+    /// all until the process exits, and live progress parsing silently never fires.
+    /// </summary>
+    /// <param name="onSegment">
+    /// Invoked for every flushed segment (a completed line, or one progress-bar frame).
+    /// Receives stdout and stderr segments interleaved as they arrive.
+    /// </param>
+    public async Task<ProcessResult> RunStreamingAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        Action<string>? onSegment = null,
+        IReadOnlyDictionary<string, string>? environment = null,
+        string? workingDirectory = null,
+        bool closeStdin = true,
+        CancellationToken ct = default)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = fileName,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            WorkingDirectory = workingDirectory ?? Path.GetDirectoryName(fileName) ?? "",
+        };
+
+        foreach (var arg in arguments)
+            psi.ArgumentList.Add(arg);
+
+        if (environment is not null)
+            foreach (var (key, value) in environment)
+                psi.Environment[key] = value;
+
+        AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+        var sync = new object();
+
+        using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+
+        if (!process.Start())
+        {
+            AppLog.Error($"Failed to start process: {fileName}");
+            throw new InvalidOperationException($"Failed to start process: {fileName}");
+        }
+
+        _job?.Track(process);
+
+        if (closeStdin)
+        {
+            // EOF on stdin so a stray interactive prompt cannot deadlock the run.
+            try { process.StandardInput.Close(); } catch { /* already closed */ }
+        }
+
+        async Task PumpAsync(StreamReader reader, StringBuilder sink)
+        {
+            var buffer = new char[1024];
+            var segment = new StringBuilder(256);
+
+            void Flush()
+            {
+                if (segment.Length == 0) return;
+                var text = segment.ToString();
+                segment.Clear();
+                try { onSegment?.Invoke(text); } catch { /* parser must never kill the pump */ }
+            }
+
+            while (true)
+            {
+                int n;
+                try
+                {
+                    // Deliberately NOT passing ct: cancellation kills the process, which
+                    // closes the pipe and ends the read naturally. Passing ct here would
+                    // abandon the reader mid-buffer and lose the tail of the output.
+                    n = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+                }
+                catch
+                {
+                    break;
+                }
+                if (n <= 0) break;
+
+                lock (sync) sink.Append(buffer, 0, n);
+
+                for (var i = 0; i < n; i++)
+                {
+                    var ch = buffer[i];
+                    if (ch is '\r' or '\n')
+                    {
+                        Flush();
+                    }
+                    else
+                    {
+                        segment.Append(ch);
+                        // Guard against a tool that never emits CR/LF at all.
+                        if (segment.Length >= 4096) Flush();
+                    }
+                }
+            }
+
+            Flush();
+        }
+
+        var pumpOut = PumpAsync(process.StandardOutput, stdout);
+        var pumpErr = PumpAsync(process.StandardError, stderr);
+
+        await using var registration = ct.Register(() => KillTree(process));
+
+        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+        try { await Task.WhenAll(pumpOut, pumpErr).ConfigureAwait(false); } catch { /* pipes closed */ }
+        ct.ThrowIfCancellationRequested();
+
+        var result = new ProcessResult
+        {
+            ExitCode = process.ExitCode,
+            StdOut = stdout.ToString(),
+            StdErr = stderr.ToString(),
+        };
+
+        AppLog.Info($"EXIT {ExeName(fileName)} code={result.ExitCode}");
+        if (!result.Success)
+        {
+            var tail = result.CombinedOutput.Trim();
+            if (tail.Length > 0) AppLog.Warn($"  output: {Truncate(tail, 1500)}");
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Kills the whole process tree and <b>waits for it to actually exit</b>.
+    ///
+    /// Without the wait, <see cref="Process.Kill(bool)"/> returns while the child is
+    /// still terminating and still holding its output file open. The next attempt then
+    /// fails to delete the stale partial .ipa, and the progress poller reads that
+    /// leftover file and reports an instant bogus 100%.
+    /// </summary>
+    private static void KillTree(Process process)
+    {
+        try
+        {
+            if (process.HasExited) return;
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit(3000);
+        }
+        catch
+        {
+            // Process may have exited between the check and the kill.
+        }
     }
 
     private static string ExeName(string path)
@@ -259,15 +411,7 @@ public sealed class ProcessRunner
         var pumpOut = PumpAsync(process.StandardOutput, stdout);
         var pumpErr = PumpAsync(process.StandardError, stderr);
 
-        await using var registration = ct.Register(() =>
-        {
-            try
-            {
-                if (!process.HasExited)
-                    process.Kill(entireProcessTree: true);
-            }
-            catch { /* already exited */ }
-        });
+        await using var registration = ct.Register(() => KillTree(process));
 
         await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
         try { await Task.WhenAll(pumpOut, pumpErr).ConfigureAwait(false); } catch { }

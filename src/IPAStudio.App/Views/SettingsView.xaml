@@ -87,8 +87,10 @@
                                    FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}"
                                    HorizontalAlignment="Right" />
                     </Grid>
-                    <Slider Minimum="1" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True"
+                    <Slider Minimum="1" Maximum="6" TickFrequency="1" IsSnapToTickEnabled="True"
                             Value="{Binding MaxParallelDownloads}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.ParallelDownloads.Hint}" />
                 </StackPanel>
             </Border>
 
@@ -157,6 +159,60 @@
                                 Command="{Binding InstallUpdateCommand}"
                                 Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Download speed diagnostics -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Throughput}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                    <TextBlock Text="{Binding ThroughputStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ThroughputStatus, Converter={StaticResource NullToCollapsed}}" />
+
+                    <ItemsControl ItemsSource="{Binding ThroughputFindings}"
+                                  Visibility="{Binding HasThroughputFindings, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6"
+                                        Padding="12" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Caption}"
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                                        <TextBlock Text="{DynamicResource L.Settings.Throughput.FixFailed}"
+                                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.Danger}" Margin="0,6,0,0"
+                                                   Visibility="{Binding FixFailed, Converter={StaticResource BoolToVis}}" />
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Content="{DynamicResource L.Settings.Throughput.Fix}"
+                                                    Style="{StaticResource Button.Primary}" Margin="0,0,8,0"
+                                                    Visibility="{Binding CanAutoFix, Converter={StaticResource BoolToVis}}"
+                                                    IsEnabled="{Binding IsFixing, Converter={StaticResource InverseBool}}"
+                                                    Command="{Binding DataContext.FixThroughputCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="{DynamicResource L.Settings.Throughput.Dismiss}"
+                                                    Style="{StaticResource Button.Secondary}"
+                                                    Command="{Binding DataContext.DismissThroughputCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="{DynamicResource L.Settings.Throughput.Rescan}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Command="{Binding ScanThroughputCommand}"
+                            IsEnabled="{Binding IsScanningThroughput, Converter={StaticResource InverseBool}}" />
                 </StackPanel>
             </Border>
 

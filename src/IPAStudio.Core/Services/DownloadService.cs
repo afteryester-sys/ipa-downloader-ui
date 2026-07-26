@@ -1,18 +1,49 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
 
+/// <summary>Which part of the download is currently happening.</summary>
+public enum DownloadPhase
+{
+    /// <summary>
+    /// ipatool has started but no bytes have moved yet: keychain unlock, Apple
+    /// authentication handshake (and anisette provisioning on v3). On a slow link
+    /// this can legitimately take 5-20 s, so the UI must show it as live activity
+    /// rather than a frozen "preparing" label.
+    /// </summary>
+    Connecting,
+
+    /// <summary>Bytes are actively moving.</summary>
+    Transferring,
+
+    /// <summary>
+    /// Transfer finished; ipatool is repackaging the archive (sinf / iTunesMetadata
+    /// injection). No byte movement, but the tool is busy.
+    /// </summary>
+    Finalizing,
+}
+
 /// <summary>Progress snapshot reported while downloading an IPA.</summary>
-/// <param name="Finalizing">
-/// True once the raw byte transfer is done and ipatool is repackaging the archive
-/// (license/sinf injection) — a phase that can take several seconds with no byte
-/// movement. Lets the UI show "packaging" instead of a frozen bar.
-/// </param>
 public readonly record struct DownloadProgress(
-    double Percent, long DownloadedBytes, long TotalBytes, double SpeedBps, bool Finalizing = false);
+    double Percent,
+    long DownloadedBytes,
+    long TotalBytes,
+    double SpeedBps,
+    DownloadPhase Phase = DownloadPhase.Transferring,
+    TimeSpan Elapsed = default,
+    int Attempt = 1)
+{
+    /// <summary>True while ipatool is repackaging after the transfer.</summary>
+    public bool Finalizing => Phase == DownloadPhase.Finalizing;
+
+    /// <summary>True while authenticating / before the first byte arrives.</summary>
+    public bool Connecting => Phase == DownloadPhase.Connecting;
+}
 
 /// <summary>Result of a completed download.</summary>
 public sealed class DownloadResult
@@ -34,16 +65,57 @@ public sealed partial class DownloadService
     private readonly ProcessRunner _runner;
     private readonly HttpClient _http;
 
+    // ---- Progress-bar parsing (ipatool v2 and v3 both render a CR progress bar) ----
+
     [GeneratedRegex(@"(\d{1,3}(?:[.,]\d+)?)\s*%")]
     private static partial Regex PercentRegex();
 
+    /// <summary>Matches "12.3/45.6 MB" and "12.3 MB/45.6 MB" inside the progress bar.</summary>
+    [GeneratedRegex(@"([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)?\s*/\s*([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)")]
+    private static partial Regex BytesPairRegex();
+
+    /// <summary>Matches "1.23 MB/s".</summary>
+    [GeneratedRegex(@"([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)\s*/\s*s\b")]
+    private static partial Regex SpeedRegex();
+
     [GeneratedRegex(@"license.*required|not.*purchased|purchase.*required|9610", RegexOptions.IgnoreCase)]
     private static partial Regex LicenseRequiredRegex();
+
+    /// <summary>
+    /// Network-level failures that are worth retrying. Deliberately excludes auth and
+    /// license errors — retrying those just burns another Apple handshake.
+    /// </summary>
+    [GeneratedRegex(@"timeout|timed out|deadline exceeded|connection reset|connection refused|reset by peer|broken pipe|unexpected EOF|\bEOF\b|i/o timeout|no such host|temporary failure|network is unreachable|TLS handshake|\b50[234]\b",
+        RegexOptions.IgnoreCase)]
+    private static partial Regex TransientRegex();
+
+    /// <summary>Windows absolute path ending in .ipa, used to recover the real output path.</summary>
+    [GeneratedRegex(@"([A-Za-z]:\\[^\r\n""']+\.ipa)")]
+    private static partial Regex IpaPathRegex();
 
     /// <summary>Canonical error string used when the ipatool session has expired.
     /// QueueService and the UI key on this to redirect the user to the login screen.</summary>
     public const string SessionExpiredMessage =
         "SESSION_EXPIRED: account file is not protected. Please sign in again.";
+
+    /// <summary>
+    /// Total attempts for a single download. Retries only happen for transient network
+    /// failures and stalls, never for auth/license errors.
+    /// </summary>
+    public int MaxAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// Kill-and-retry threshold once bytes have started moving. On a bad connection
+    /// ipatool can sit on a dead socket indefinitely; restarting is far faster than
+    /// waiting for the OS TCP timeout.
+    /// </summary>
+    public TimeSpan StallTimeout { get; set; } = TimeSpan.FromSeconds(75);
+
+    /// <summary>Kill-and-retry threshold while still authenticating (no bytes yet).</summary>
+    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(120);
+
+    /// <summary>How often the UI receives a progress snapshot.</summary>
+    private static readonly TimeSpan ReportInterval = TimeSpan.FromMilliseconds(250);
 
     public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http)
     {
@@ -52,12 +124,20 @@ public sealed partial class DownloadService
         _http = http;
     }
 
+    /// <summary>True when the output indicates the Apple ID has no license for the app.</summary>
+    public static bool IsLicenseError(string? output) =>
+        !string.IsNullOrEmpty(output) && LicenseRequiredRegex().IsMatch(output);
+
     /// <summary>
-    /// Checks whether the signed-in Apple ID owns a license for the app.
-    /// Implemented by asking ipatool to download without --purchase into a probe
-    /// run that is cancelled early; a cheaper heuristic is the license error string.
-    /// In practice we simply run "purchase" which is idempotent: it succeeds fast
-    /// when the license already exists.
+    /// Asks ipatool to obtain a license for the app.
+    ///
+    /// WARNING: this is NOT a read-only probe. ipatool has no "is it owned" query, so
+    /// this runs <c>purchase</c>, which performs a full Apple authentication handshake
+    /// and acquires the license as a side effect.
+    ///
+    /// Do NOT call this on the download hot path: <c>download --purchase</c> already
+    /// does the same thing, so calling both pays the (multi-second) handshake twice.
+    /// Use this only for explicit, user-initiated license checks in the app picker.
     /// </summary>
     public async Task<LicenseState> CheckLicenseAsync(long appId, CancellationToken ct = default)
     {
@@ -68,6 +148,7 @@ public sealed partial class DownloadService
                 new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
+                workingDirectory: _tools.IpatoolWorkingDirectory,
                 ct: ct).ConfigureAwait(false);
 
             if (result.Success) return LicenseState.Owned;
@@ -102,6 +183,7 @@ public sealed partial class DownloadService
             new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
+            workingDirectory: _tools.IpatoolWorkingDirectory,
             ct: ct).ConfigureAwait(false);
 
         if (result.Success || result.CombinedOutput.Contains("already", StringComparison.OrdinalIgnoreCase))
@@ -114,8 +196,11 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
-    /// Downloads the IPA into the Apps folder, reporting live progress parsed
-    /// from ipatool output. Output file: Name_AppID_Version.ipa
+    /// Downloads the IPA into the Apps folder, reporting live progress.
+    /// Output file: Name_AppID_Version.ipa
+    ///
+    /// Transient network failures and dead sockets are retried up to
+    /// <see cref="MaxAttempts"/> times; auth/license errors fail immediately.
     /// </summary>
     public async Task<DownloadResult> DownloadAsync(
         AppEntry app,
@@ -125,28 +210,78 @@ public sealed partial class DownloadService
     {
         _tools.EnsureFolders();
 
-        // IMPORTANT: the output path is handed to native tools (ipatool v3 is Go +
-        // C++ nlohmann/json + libzip). Non-ASCII bytes in the path break them:
-        //   - nlohmann json.dump() throws "invalid UTF-8 byte" (type_error.316)
-        //   - libzip zip_open fails with ENOENT (18) on the mangled name
-        // So we build a strictly ASCII-safe filename (transliterating Cyrillic
-        // for readability) and fall back to the bundle id / app id if nothing
-        // usable remains.
-        var safeName = MakeAsciiSafeName(app.Name);
-        if (string.IsNullOrEmpty(safeName))
-            safeName = MakeAsciiSafeName(app.BundleId ?? "") ;
-        if (string.IsNullOrEmpty(safeName))
-            safeName = "app";
+        var outputPath = BuildOutputPath(app);
 
-        var version = MakeAsciiSafeName(app.LatestVersion ?? "latest");
-        if (string.IsNullOrEmpty(version)) version = "latest";
+        // Stage temp files on the SAME volume as the destination. Two wins:
+        //   1. The poller knows where to look, so progress works regardless of where
+        //      ipatool chooses to buffer.
+        //   2. ipatool's final move becomes a rename instead of a full-size cross-volume
+        //      copy (which on a 2 GB IPA with %TEMP% on C: and Apps on D: adds a long,
+        //      completely silent tail after the download "finishes").
+        var stagingDir = Path.Combine(_tools.AppsFolder, ".staging");
+        try { Directory.CreateDirectory(stagingDir); } catch { /* fall back to system temp */ }
 
-        var outputPath = Path.Combine(_tools.AppsFolder, $"{safeName}_{app.AppStoreId}_{version}.ipa");
+        // Kick off the catalog size lookup once, shared across attempts. The progress
+        // bar itself reports the authoritative total, so this is only a seed used
+        // during the first seconds (and never blocks the start).
+        var sizeHint = new long[] { app.FileSizeBytes ?? 0L };
+        if (sizeHint[0] <= 0 && app.AppStoreId > 0)
+        {
+            _ = Task.Run(async () =>
+            {
+                var looked = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
+                if (looked > 0)
+                {
+                    Volatile.Write(ref sizeHint[0], looked);
+                    app.FileSizeBytes = looked;
+                }
+            }, ct);
+        }
 
-        // Remove any leftover file(s) from a previous attempt with the same
-        // deterministic name. Otherwise the progress poller would read a stale,
-        // already-complete .ipa and instantly report 100% with an absurd speed.
+        string? lastError = null;
+        var attempts = Math.Max(1, MaxAttempts);
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var (result, transient) = await DownloadOnceAsync(
+                app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct).ConfigureAwait(false);
+
+            if (result.Success) return result;
+
+            lastError = result.Error;
+
+            // Auth, license, disk and "app not available" errors will not fix themselves.
+            if (!transient || attempt == attempts) return result;
+
+            // Back off briefly, then start over. Show the user that we are retrying
+            // instead of leaving the bar frozen at wherever it died.
+            progress?.Report(new DownloadProgress(
+                0, 0, Volatile.Read(ref sizeHint[0]), 0, DownloadPhase.Connecting, TimeSpan.Zero, attempt + 1));
+
+            await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct).ConfigureAwait(false);
+        }
+
+        return DownloadResult.Fail(lastError ?? "Download failed");
+    }
+
+    /// <summary>One ipatool download invocation. Returns the result plus whether the
+    /// failure looks retryable.</summary>
+    private async Task<(DownloadResult Result, bool Transient)> DownloadOnceAsync(
+        AppEntry app,
+        string outputPath,
+        string stagingDir,
+        bool autoPurchase,
+        long[] sizeHint,
+        IProgress<DownloadProgress>? progress,
+        int attempt,
+        CancellationToken ct)
+    {
+        // A leftover file from a previous attempt would be read by the poller as
+        // instant 100% at an absurd speed, so clear it (and any partials) first.
         TryDeleteStaleFiles(outputPath);
+        TryCleanStaging(stagingDir);
 
         var args = new List<string>
         {
@@ -154,88 +289,367 @@ public sealed partial class DownloadService
             "-i", app.AppStoreId.ToString(),
             "-o", outputPath,
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
-            "--format", "json",
         };
         if (autoPurchase) args.Add("--purchase");
 
-        // The total size drives the percentage. It usually comes from the catalog
-        // (iTunes lookup), but apps added via search/Bundle-ID may not carry it.
-        // IMPORTANT: do NOT block the download start on this lookup — it can take up
-        // to several seconds and used to make "Подготовка загрузки…" hang. Instead we
-        // seed the known value and refresh it in the background; the poller reads the
-        // shared holder each tick and starts showing a real percentage as soon as the
-        // size arrives.
-        var totalHolder = new long[] { app.FileSizeBytes ?? 0L };
-        if (totalHolder[0] <= 0 && app.AppStoreId > 0)
+        // NOTE: "--format json" is deliberately NOT passed here.
+        // In JSON mode ipatool suppresses the progress bar entirely and prints a single
+        // summary line at the end, so there is nothing to parse while the download runs.
+        // Text mode gives us percent, transferred/total bytes and speed in real time.
+
+        // Redirect the child's temp directory onto the destination volume so its
+        // final move is a rename, not a full-size cross-volume copy.
+        var env = TransferTuning.BuildChildEnvironment(stagingDir);
+
+        var state = new TransferState();
+        var startedUtc = DateTimeOffset.UtcNow;
+        state.Touch();
+
+        // ---- Parse each progress-bar frame / log line -------------------------------
+        void OnSegment(string segment)
         {
-            _ = Task.Run(async () =>
+            if (string.IsNullOrWhiteSpace(segment)) return;
+
+            var sawNumbers = false;
+
+            var pair = BytesPairRegex().Match(segment);
+            if (pair.Success &&
+                TryParseNumber(pair.Groups[1].Value, out var doneVal) &&
+                TryParseNumber(pair.Groups[3].Value, out var totalVal))
             {
-                var looked = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
-                if (looked > 0)
+                var totalUnit = pair.Groups[4].Value;
+                var doneUnit = pair.Groups[2].Success && pair.Groups[2].Value.Length > 0
+                    ? pair.Groups[2].Value
+                    : totalUnit;
+
+                var done = ToBytes(doneVal, doneUnit);
+                var total = ToBytes(totalVal, totalUnit);
+
+                // The progress bar is the authoritative source for the total size —
+                // the iTunes lookup value is for a generic device and can be off by
+                // tens of percent after app thinning, which is what made the bar
+                // stall at ~80% or slam into the 99% clamp.
+                if (total > 0) Volatile.Write(ref sizeHint[0], total);
+                if (done >= 0) state.SetDownloaded(done);
+                sawNumbers = true;
+            }
+
+            var speed = SpeedRegex().Match(segment);
+            if (speed.Success && TryParseNumber(speed.Groups[1].Value, out var speedVal))
+            {
+                state.ReportedSpeed = ToBytes(speedVal, speed.Groups[2].Value);
+                sawNumbers = true;
+            }
+
+            var pct = PercentRegex().Match(segment);
+            if (pct.Success && TryParseNumber(pct.Groups[1].Value, out var pctVal))
+            {
+                state.ReportedPercent = Math.Clamp(pctVal, 0, 100);
+                sawNumbers = true;
+            }
+
+            if (sawNumbers) state.Touch();
+        }
+
+        // ---- Single reporter loop: file polling + parsed values ----------------------
+        using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var watchdogFired = false;
+
+        var reporter = Task.Run(async () =>
+        {
+            double emaSpeed = 0;
+            long prevBytes = 0;
+            var prevTime = DateTimeOffset.UtcNow;
+            var sawBytes = false;
+
+            try
+            {
+                while (!attemptCts.IsCancellationRequested)
                 {
-                    System.Threading.Volatile.Write(ref totalHolder[0], looked);
-                    app.FileSizeBytes = looked;
+                    await Task.Delay(ReportInterval, attemptCts.Token).ConfigureAwait(false);
+
+                    var now = DateTimeOffset.UtcNow;
+
+                    // On-disk size is the fallback when the tool prints no numbers.
+                    var onDisk = ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime);
+                    var parsed = state.Downloaded;
+                    var downloaded = Math.Max(onDisk, parsed);
+                    var total = Volatile.Read(ref sizeHint[0]);
+
+                    if (downloaded > 0)
+                    {
+                        if (!sawBytes)
+                        {
+                            // First real byte reading: baseline the speed window here so
+                            // we never divide a large initial size by a tiny elapsed and
+                            // report a nonsense speed on the first tick.
+                            sawBytes = true;
+                            prevBytes = downloaded;
+                            prevTime = now;
+                        }
+                        if (downloaded > prevBytes) state.Touch();
+                    }
+
+                    // Speed: prefer the tool's own figure, else a smoothed local estimate.
+                    // EMA (not a hard window reset) so a single locked read doesn't make
+                    // the number jump to zero and back.
+                    var elapsedSince = (now - prevTime).TotalSeconds;
+                    if (elapsedSince >= 0.4)
+                    {
+                        var instant = downloaded > prevBytes ? (downloaded - prevBytes) / elapsedSince : 0;
+                        emaSpeed = emaSpeed <= 0 ? instant : emaSpeed * 0.7 + instant * 0.3;
+                        prevBytes = downloaded;
+                        prevTime = now;
+                    }
+                    var speed = state.ReportedSpeed > 0 ? state.ReportedSpeed : emaSpeed;
+
+                    // Percent: byte ratio when the total is known, else the tool's own
+                    // percent, else 0 (UI shows an indeterminate bar — never a fake value).
+                    double percent;
+                    if (total > 0 && downloaded > 0)
+                        percent = Math.Clamp(downloaded / (double)total * 100.0, 0, 99.5);
+                    else if (state.ReportedPercent > 0)
+                        percent = Math.Min(state.ReportedPercent, 99.5);
+                    else
+                        percent = 0;
+
+                    var idleFor = now - state.LastActivity;
+
+                    DownloadPhase phase;
+                    if (downloaded <= 0)
+                    {
+                        phase = DownloadPhase.Connecting;
+                    }
+                    else if (total > 0 && downloaded >= total * 0.98 && idleFor.TotalSeconds > 1.5)
+                    {
+                        phase = DownloadPhase.Finalizing;
+                    }
+                    else if (total <= 0 && idleFor.TotalSeconds > 4.0)
+                    {
+                        // Unknown total and the bytes stopped: most likely repackaging.
+                        phase = DownloadPhase.Finalizing;
+                    }
+                    else
+                    {
+                        phase = DownloadPhase.Transferring;
+                    }
+
+                    progress?.Report(new DownloadProgress(
+                        phase == DownloadPhase.Finalizing ? Math.Max(percent, 99) : percent,
+                        downloaded,
+                        total,
+                        phase == DownloadPhase.Finalizing ? 0 : speed,
+                        phase,
+                        now - startedUtc,
+                        attempt));
+
+                    // ---- Watchdog: a dead socket must not hang the queue forever ----
+                    var limit = phase switch
+                    {
+                        DownloadPhase.Connecting => ConnectTimeout,
+                        // Repackaging a large IPA is legitimately slow and silent.
+                        DownloadPhase.Finalizing => TimeSpan.FromMinutes(10),
+                        _ => StallTimeout,
+                    };
+                    if (idleFor > limit)
+                    {
+                        watchdogFired = true;
+                        try { attemptCts.Cancel(); } catch { }
+                        return;
+                    }
                 }
-            }, ct);
-        }
+            }
+            catch (OperationCanceledException) { /* normal shutdown */ }
+        });
 
-        // Under "--format json" ipatool prints NO textual progress bar (only a final
-        // JSON line), so parsing stdout for a percentage never fires. Instead we watch
-        // the output file grow on disk and derive an accurate percentage from its size
-        // versus the known total (from the iTunes lookup). Falls back to text parsing
-        // if the tool ever does emit "NN%".
-        void ParseLine(string line)
+        ProcessResult result;
+        try
         {
-            var match = PercentRegex().Match(line);
-            if (!match.Success) return;
-            if (!double.TryParse(match.Groups[1].Value.Replace(',', '.'),
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var percent))
-                return;
-            percent = Math.Clamp(percent, 0, 100);
-            var total = System.Threading.Volatile.Read(ref totalHolder[0]);
-            var downloaded = total > 0 ? (long)(total * percent / 100.0) : 0L;
-            progress?.Report(new DownloadProgress(percent, downloaded, total, 0));
+            result = await _runner.RunStreamingAsync(
+                _tools.IpatoolPath,
+                args,
+                onSegment: OnSegment,
+                environment: env.Count > 0 ? env : null,
+                workingDirectory: _tools.IpatoolWorkingDirectory,
+                closeStdin: true,
+                ct: attemptCts.Token).ConfigureAwait(false);
         }
-
-        using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var pollTask = PollFileProgressAsync(outputPath, totalHolder, progress, pollCts.Token);
-
-        var result = await _runner.RunAsync(
-            _tools.IpatoolPath, args,
-            onOutputLine: ParseLine,
-            onErrorLine: ParseLine,
-            closeStdin: true,
-            ct: ct).ConfigureAwait(false);
-
-        pollCts.Cancel();
-        try { await pollTask.ConfigureAwait(false); } catch { /* ignore poller shutdown */ }
-
-        if (result.Success && File.Exists(outputPath))
+        catch (OperationCanceledException)
         {
-            var finalTotal = System.Threading.Volatile.Read(ref totalHolder[0]);
-            if (finalTotal <= 0) finalTotal = new FileInfo(outputPath).Length;
-            progress?.Report(new DownloadProgress(100, finalTotal, finalTotal, 0));
-            return DownloadResult.Ok(outputPath);
+            // Distinguish "user pressed cancel" (rethrow) from "the watchdog killed a
+            // dead socket" (retryable).
+            ct.ThrowIfCancellationRequested();
+
+            TryDeleteStaleFiles(outputPath);
+            return (DownloadResult.Fail("Соединение зависло, повторная попытка…"), true);
+        }
+        finally
+        {
+            attemptCts.Cancel();
+            try { await reporter.ConfigureAwait(false); } catch { /* reporter shutdown */ }
         }
 
-        // ipatool may write to a different resolved path; try to parse it from JSON output.
-        var resolvedPath = ExtractOutputPath(result.CombinedOutput);
-        if (result.Success && resolvedPath is not null && File.Exists(resolvedPath))
-            return DownloadResult.Ok(resolvedPath);
+        if (watchdogFired)
+        {
+            TryDeleteStaleFiles(outputPath);
+            return (DownloadResult.Fail("Соединение зависло, повторная попытка…"), true);
+        }
 
-        // Session expired / keychain unprotected -> return a recognisable error string.
-        if (AuthService.IsSessionExpiredError(result.CombinedOutput))
-            return DownloadResult.Fail(SessionExpiredMessage);
+        var output = result.CombinedOutput;
 
-        return DownloadResult.Fail(ExtractError(result.CombinedOutput));
+        // ---- Success ---------------------------------------------------------------
+        var finalPath = File.Exists(outputPath) ? outputPath : ResolveOutputPath(output, outputPath);
+        if (result.Success && finalPath is not null && File.Exists(finalPath))
+        {
+            var finalTotal = new FileInfo(finalPath).Length;
+            if (finalTotal > 0)
+            {
+                Volatile.Write(ref sizeHint[0], finalTotal);
+                app.FileSizeBytes = finalTotal;
+            }
+            progress?.Report(new DownloadProgress(
+                100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
+            TryCleanStaging(stagingDir);
+            return (DownloadResult.Ok(finalPath), false);
+        }
+
+        // ---- Failure classification -------------------------------------------------
+        if (AuthService.IsSessionExpiredError(output))
+            return (DownloadResult.Fail(SessionExpiredMessage), false);
+
+        var error = ExtractError(output);
+
+        // Never retry a license problem: the caller resolves it with an explicit
+        // purchase, and a blind retry would just pay another handshake for nothing.
+        if (LicenseRequiredRegex().IsMatch(output))
+            return (DownloadResult.Fail(error), false);
+
+        var isTransient = TransientRegex().IsMatch(output);
+        if (isTransient) TryDeleteStaleFiles(outputPath);
+
+        return (DownloadResult.Fail(error), isTransient);
+    }
+
+    /// <summary>
+    /// Mutable per-attempt transfer state shared by the output parser (tool thread)
+    /// and the reporter loop.
+    ///
+    /// Note: C# does not permit <c>volatile double</c>, so the speed and percent are
+    /// stored as integers (speed in bytes/sec, percent scaled by 100) and exposed as
+    /// doubles.
+    /// </summary>
+    private sealed class TransferState
+    {
+        private long _downloaded;
+        private long _lastActivityTicks = DateTime.UtcNow.Ticks;
+        private long _speedBps;
+        private int _percentX100;
+
+        /// <summary>Bytes reported by the tool's own progress bar.</summary>
+        public long Downloaded => Volatile.Read(ref _downloaded);
+
+        /// <summary>Speed reported by the tool, bytes/sec. 0 when unknown.</summary>
+        public double ReportedSpeed
+        {
+            get => Volatile.Read(ref _speedBps);
+            set => Volatile.Write(ref _speedBps, (long)Math.Max(0, value));
+        }
+
+        /// <summary>Percent reported by the tool, 0-100. 0 when unknown.</summary>
+        public double ReportedPercent
+        {
+            get => Volatile.Read(ref _percentX100) / 100.0;
+            set => Volatile.Write(ref _percentX100, (int)Math.Clamp(value * 100, 0, 10000));
+        }
+
+        public DateTimeOffset LastActivity =>
+            new(Volatile.Read(ref _lastActivityTicks), TimeSpan.Zero);
+
+        public void SetDownloaded(long value)
+        {
+            // Monotonic: a re-rendered bar frame must never walk the number backwards.
+            if (value > Volatile.Read(ref _downloaded))
+                Volatile.Write(ref _downloaded, value);
+        }
+
+        public void Touch() => Volatile.Write(ref _lastActivityTicks, DateTime.UtcNow.Ticks);
+    }
+
+    /// <summary>
+    /// Builds the strictly ASCII output path.
+    ///
+    /// The path is handed to native tools (ipatool v3 is Go + C++ nlohmann/json +
+    /// libzip). Non-ASCII bytes break them: nlohmann json.dump() throws
+    /// "invalid UTF-8 byte" (type_error.316) and libzip zip_open fails with ENOENT
+    /// on the mangled name.
+    /// </summary>
+    private string BuildOutputPath(AppEntry app)
+    {
+        var safeName = MakeAsciiSafeName(app.Name);
+        if (string.IsNullOrEmpty(safeName))
+            safeName = MakeAsciiSafeName(app.BundleId ?? "");
+        if (string.IsNullOrEmpty(safeName))
+            safeName = "app";
+
+        var version = MakeAsciiSafeName(app.LatestVersion ?? "latest");
+        if (string.IsNullOrEmpty(version)) version = "latest";
+
+        return Path.Combine(_tools.AppsFolder, $"{safeName}_{app.AppStoreId}_{version}.ipa");
+    }
+
+    /// <summary>
+    /// Largest plausible in-flight size for this download: the target file, same-named
+    /// partials next to it, and anything fresh in our staging folder.
+    /// </summary>
+    private static long ProbeSize(string outputPath, string stagingDir, DateTime startedUtc)
+    {
+        long best = 0;
+
+        try
+        {
+            var fi = new FileInfo(outputPath);
+            if (fi.Exists) best = fi.Length;
+        }
+        catch { /* locked mid-write; next tick */ }
+
+        // Partials next to the target: name.ipa.part / .tmp / .download.
+        // Restricted to the exact target name so another app's file in the same
+        // folder can never be mistaken for this download.
+        var dir = Path.GetDirectoryName(outputPath);
+        var fileName = Path.GetFileName(outputPath);
+        if (dir is not null && Directory.Exists(dir))
+        {
+            try
+            {
+                foreach (var f in new DirectoryInfo(dir).EnumerateFiles(fileName + ".*", SearchOption.TopDirectoryOnly))
+                    if (f.Length > best) best = f.Length;
+            }
+            catch { }
+        }
+
+        // Staging folder: ipatool buffers here (we point TMP/TEMP/TMPDIR at it), and it
+        // only ever contains files from the current attempt.
+        if (Directory.Exists(stagingDir))
+        {
+            try
+            {
+                var cutoff = startedUtc.AddSeconds(-5);
+                foreach (var f in new DirectoryInfo(stagingDir).EnumerateFiles("*", SearchOption.AllDirectories))
+                {
+                    if (f.LastWriteTimeUtc < cutoff) continue;
+                    if (f.Length > best) best = f.Length;
+                }
+            }
+            catch { }
+        }
+
+        return best;
     }
 
     /// <summary>
     /// Looks up an app's IPA size (bytes) from the public iTunes Lookup API by its
-    /// App Store id. Returns 0 on any failure so the caller falls back to an
-    /// indeterminate/bytes-only display. Bounded by a short timeout so it can never
-    /// delay the download start noticeably.
+    /// App Store id. Returns 0 on any failure. Only used as an early seed — the
+    /// progress bar's own total supersedes it as soon as the transfer starts.
     /// </summary>
     private async Task<long> TryLookupFileSizeAsync(long appId, CancellationToken ct)
     {
@@ -268,135 +682,52 @@ public sealed partial class DownloadService
         return 0;
     }
 
-    /// <summary>
-    /// Polls the growing download file every 100 ms and reports accurate byte/percent
-    /// progress derived from the real on-disk file size (independent of ipatool's
-    /// output format). Also detects the post-transfer "finalizing" phase — when the
-    /// bytes stop growing near completion but ipatool is still running (repackaging /
-    /// license injection) — so the UI can show activity instead of a frozen bar.
-    /// </summary>
-    private static async Task PollFileProgressAsync(
-        string outputPath, long[] totalHolder, IProgress<DownloadProgress>? progress, CancellationToken ct)
-    {
-        if (progress is null) return;
-
-        var dir = Path.GetDirectoryName(outputPath)!;
-        var fileName = Path.GetFileName(outputPath);
-
-        // Speed over a ~0.5 s sliding window, baselined on the FIRST observed size so
-        // we never divide a large initial size by a tiny elapsed and report an absurd
-        // speed on the first tick.
-        var haveBaseline = false;
-        long windowBytes = 0;
-        var windowTime = DateTimeOffset.UtcNow;
-        double lastSpeed = 0;
-
-        // Stall detection for the finalizing phase.
-        long lastSize = 0;
-        var lastGrowth = DateTimeOffset.UtcNow;
-
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                await Task.Delay(100, ct).ConfigureAwait(false);
-
-                long size = 0;
-                try
-                {
-                    var fi = new FileInfo(outputPath);
-                    if (fi.Exists)
-                    {
-                        size = fi.Length;
-                    }
-                    else if (Directory.Exists(dir))
-                    {
-                        // ipatool streams into a partial file first — but ONLY of the
-                        // exact target name (e.g. "name.ipa.part"/".tmp"/".download").
-                        // Matching the full file name (not just a stem prefix) avoids
-                        // grabbing an unrelated app's file from the same folder.
-                        var partial = new DirectoryInfo(dir)
-                            .GetFiles(fileName + ".*", SearchOption.TopDirectoryOnly)
-                            .OrderByDescending(f => f.Length)
-                            .FirstOrDefault();
-                        if (partial is not null) size = partial.Length;
-                    }
-                }
-                catch { /* file locked mid-write; try again next tick */ }
-
-                if (size <= 0) continue;
-
-                var now = DateTimeOffset.UtcNow;
-
-                // Track growth for stall/finalize detection.
-                if (size > lastSize)
-                {
-                    lastSize = size;
-                    lastGrowth = now;
-                }
-
-                // Baseline the speed window on the first real sample.
-                if (!haveBaseline)
-                {
-                    haveBaseline = true;
-                    windowBytes = size;
-                    windowTime = now;
-                }
-                else
-                {
-                    var windowElapsed = (now - windowTime).TotalSeconds;
-                    if (windowElapsed >= 0.5)
-                    {
-                        lastSpeed = size > windowBytes ? (size - windowBytes) / windowElapsed : 0;
-                        windowBytes = size;
-                        windowTime = now;
-                    }
-                }
-
-                var totalBytes = System.Threading.Volatile.Read(ref totalHolder[0]);
-
-                // Only report a percentage when we actually know the total. When the
-                // total is still unknown we report percent 0 (the UI then shows an
-                // indeterminate bar + downloaded bytes) instead of faking ~100%.
-                var percent = totalBytes > 0
-                    ? Math.Clamp(size / (double)totalBytes * 100.0, 0, 99)
-                    : 0;
-
-                // Finalizing: bytes have essentially stopped near the end, but the
-                // ipatool process is still running (repackaging the archive). Require
-                // a known total, "near complete" (>=90%), AND "no growth for >2 s" so a
-                // brief mid-download network stall isn't mistaken for finalizing.
-                var stalledFor = (now - lastGrowth).TotalSeconds;
-                var nearComplete = totalBytes > 0 && size >= totalBytes * 0.90;
-                var finalizing = nearComplete && stalledFor > 2.0;
-
-                progress.Report(new DownloadProgress(
-                    finalizing ? 99 : percent, size, totalBytes,
-                    finalizing ? 0 : lastSpeed, finalizing));
-            }
-        }
-        catch (OperationCanceledException) { /* expected on completion */ }
-    }
-
     /// <summary>Deletes a stale target file and any leftover partial variants
     /// (name.ipa, name.ipa.part, name.ipa.tmp, …) so a prior attempt can't be
-    /// mistaken for live progress.</summary>
+    /// mistaken for live progress. Retries briefly: a just-killed ipatool may
+    /// still hold the handle for a moment.</summary>
     private static void TryDeleteStaleFiles(string outputPath)
     {
+        DeleteWithRetry(outputPath);
+
+        var dir = Path.GetDirectoryName(outputPath);
+        var fileName = Path.GetFileName(outputPath);
+        if (dir is null || !Directory.Exists(dir)) return;
+
         try
         {
-            if (File.Exists(outputPath)) File.Delete(outputPath);
-            var dir = Path.GetDirectoryName(outputPath);
-            var fileName = Path.GetFileName(outputPath);
-            if (dir is not null && Directory.Exists(dir))
+            foreach (var f in Directory.GetFiles(dir, fileName + ".*"))
+                DeleteWithRetry(f);
+        }
+        catch { /* best effort */ }
+    }
+
+    private static void TryCleanStaging(string stagingDir)
+    {
+        if (!Directory.Exists(stagingDir)) return;
+        try
+        {
+            foreach (var f in Directory.GetFiles(stagingDir, "*", SearchOption.AllDirectories))
+                DeleteWithRetry(f);
+        }
+        catch { /* best effort */ }
+    }
+
+    private static void DeleteWithRetry(string path)
+    {
+        for (var i = 0; i < 4; i++)
+        {
+            try
             {
-                foreach (var f in Directory.GetFiles(dir, fileName + ".*"))
-                {
-                    try { File.Delete(f); } catch { /* best effort */ }
-                }
+                if (!File.Exists(path)) return;
+                File.Delete(path);
+                return;
+            }
+            catch
+            {
+                Thread.Sleep(120);
             }
         }
-        catch { /* best effort — a locked file just means we fall back to size-based logic */ }
     }
 
     /// <summary>Searches the App Store (ipatool search).</summary>
@@ -407,6 +738,7 @@ public sealed partial class DownloadService
             new[] { "search", term, "-l", limit.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
+            workingDirectory: _tools.IpatoolWorkingDirectory,
             ct: ct).ConfigureAwait(false);
 
         var apps = new List<AppEntry>();
@@ -448,6 +780,7 @@ public sealed partial class DownloadService
             new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
+            workingDirectory: _tools.IpatoolWorkingDirectory,
             ct: ct).ConfigureAwait(false);
 
         var versions = new List<string>();
@@ -465,6 +798,24 @@ public sealed partial class DownloadService
             catch (JsonException) { }
         }
         return versions;
+    }
+
+    // ---- Parsing helpers --------------------------------------------------------
+
+    private static bool TryParseNumber(string raw, out double value) =>
+        double.TryParse(raw.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+
+    private static long ToBytes(double value, string? unit)
+    {
+        if (string.IsNullOrEmpty(unit)) return (long)value;
+        return unit.ToLowerInvariant() switch
+        {
+            "b" => (long)value,
+            "kb" or "kib" => (long)(value * 1024d),
+            "mb" or "mib" => (long)(value * 1024d * 1024d),
+            "gb" or "gib" => (long)(value * 1024d * 1024d * 1024d),
+            _ => (long)value,
+        };
     }
 
     // Russian Cyrillic -> Latin transliteration table (covers the common case
@@ -510,12 +861,17 @@ public sealed partial class DownloadService
         }
 
         // Collapse repeated / leading / trailing underscores.
-        var collapsed = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "_+", "_");
+        var collapsed = Regex.Replace(sb.ToString(), "_+", "_");
         return collapsed.Trim('_', '.');
     }
 
-    private static string? ExtractOutputPath(string output)
+    /// <summary>
+    /// Recovers the actual .ipa path when it differs from the requested one.
+    /// Handles both JSON output (older code path) and plain text.
+    /// </summary>
+    private static string? ResolveOutputPath(string output, string requestedPath)
     {
+        // JSON form: {"output":"..."}
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!line.StartsWith('{')) continue;
@@ -523,26 +879,68 @@ public sealed partial class DownloadService
             {
                 using var doc = JsonDocument.Parse(line);
                 if (doc.RootElement.TryGetProperty("output", out var path))
-                    return path.GetString();
+                {
+                    var value = path.GetString();
+                    if (!string.IsNullOrEmpty(value) && File.Exists(value)) return value;
+                }
             }
             catch (JsonException) { }
         }
-        return null;
+
+        // Text form: any absolute .ipa path mentioned in the output.
+        foreach (Match m in IpaPathRegex().Matches(output))
+        {
+            var candidate = m.Groups[1].Value.Trim();
+            if (File.Exists(candidate)) return candidate;
+        }
+
+        return File.Exists(requestedPath) ? requestedPath : null;
     }
 
+    /// <summary>
+    /// Extracts a compact error message. Works for JSON output and for plain text
+    /// (text mode is now used for downloads, where the whole log would otherwise be
+    /// dumped into the UI).
+    /// </summary>
     private static string ExtractError(string output)
     {
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        var lines = output
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(l => l.Length > 0)
+            .ToList();
+
+        // JSON form: {"error":"..."}
+        foreach (var line in lines)
         {
             if (!line.StartsWith('{')) continue;
             try
             {
                 using var doc = JsonDocument.Parse(line);
                 if (doc.RootElement.TryGetProperty("error", out var err))
-                    return err.GetString() ?? line;
+                    return Trim(err.GetString() ?? line);
             }
             catch (JsonException) { }
         }
-        return string.IsNullOrWhiteSpace(output) ? "Unknown error" : output.Trim();
+
+        // Text form: prefer lines that actually mention a failure.
+        var flagged = lines
+            .Where(l => l.Contains("error", StringComparison.OrdinalIgnoreCase)
+                     || l.Contains("failed", StringComparison.OrdinalIgnoreCase)
+                     || l.Contains("fatal", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (flagged.Count > 0)
+            return Trim(string.Join(" · ", flagged.TakeLast(2)));
+
+        if (lines.Count > 0)
+            return Trim(string.Join(" · ", lines.TakeLast(2)));
+
+        return "Unknown error";
+
+        static string Trim(string s)
+        {
+            s = s.Trim();
+            return s.Length <= 400 ? s : s[..400] + "…";
+        }
     }
 }
