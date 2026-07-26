@@ -139,6 +139,15 @@
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple throttles each connection separately, so a single stream rarely saturates your line. Running several downloads at once raises the total speed of a queue. It does not make one app download faster.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput">Download speed</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Scanning">Checking…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Clean">No local bottlenecks found.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Rescan">Check again</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fix">Fix</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fixing">Applying…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Dismiss">Hide</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Could not apply. Administrator rights are required, or the setting is locked by policy.</sys:String>
     <sys:String x:Key="L.Settings.Account">Account</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Install Mode</sys:String>

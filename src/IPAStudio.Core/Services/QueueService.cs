@@ -5,15 +5,50 @@ namespace IPAStudio.Core.Services;
 
 /// <summary>
 /// Orchestrates the multi-app install pipeline:
-///   Pending -> Checking (local IPA + license) -> [Licensing] -> [Downloading] -> Installing -> Done/Failed
+///   Pending -> Checking (local IPA) -> Downloading -> [Licensing on demand] -> Installing -> Done/Failed
 ///
-/// Downloads run in parallel (up to <see cref="MaxParallelDownloads"/>); installs onto
-/// the device are serialized by <see cref="InstallService"/>. Every state change raises
-/// <see cref="ItemChanged"/> so the UI can animate stage transitions and progress.
+/// IMPORTANT (performance): the pipeline no longer probes the Apple ID license before
+/// downloading. ipatool has no read-only "is it owned" query, so the old
+/// CheckLicenseAsync call actually ran <c>purchase</c> — a full Apple authentication
+/// handshake — and then <c>download --purchase</c> ran the very same handshake again.
+/// Every app paid 2-3 handshakes (5-20 s of pure latency) before a single byte moved.
+/// Now we go straight to <c>download --purchase</c>, which is idempotent and acquires
+/// the license itself, and only fall back to an explicit purchase if the download
+/// actually reports a licensing problem.
+///
+/// Downloads run in parallel (up to <see cref="MaxParallelDownloads"/>) with a small
+/// stagger between starts; installs onto the device are serialized by
+/// <see cref="InstallService"/>. Every state change raises <see cref="ItemChanged"/>
+/// so the UI can animate stage transitions and progress.
 /// </summary>
 public sealed class QueueService
 {
+    /// <summary>
+    /// Concurrent downloads.
+    ///
+    /// Raising this is the one lever that genuinely increases aggregate throughput.
+    /// Apple's CDN shapes each individual connection, so a single stream frequently
+    /// tops out well below the available line rate — a link that delivers 8 MB/s in
+    /// total may give only 3 MB/s on one connection. Running several transfers at
+    /// once recovers the difference.
+    ///
+    /// This is safe now only because the Apple authentication handshakes are
+    /// serialized inside <see cref="DownloadService"/>: concurrency multiplies the
+    /// byte streams without multiplying the auth load that Apple throttles on.
+    ///
+    /// Note this speeds up a *queue*, not a single app. One app still moves at
+    /// single-stream speed.
+    /// </summary>
     public int MaxParallelDownloads { get; set; } = 3;
+
+    /// <summary>
+    /// Delay inserted before each download start after the first, so the Apple
+    /// authentication handshakes do not collide.
+    /// </summary>
+    private static readonly TimeSpan StartStagger = TimeSpan.FromSeconds(2);
+
+    private readonly SemaphoreSlim _startGate = new(1, 1);
+    private int _launched;
 
     private readonly DownloadService _download;
     private readonly InstallService _install;
@@ -111,17 +146,18 @@ public sealed class QueueService
         IsRunning = true;
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
+        Interlocked.Exchange(ref _launched, 0);
 
         try
         {
             List<QueueItem> pending;
             lock (_items) pending = _items.Where(i => i.Stage == QueueStage.Pending).ToList();
 
-            // Downloads (+ checks + licensing) run in parallel; the install step inside
-            // ProcessItemAsync is serialized by InstallService's device lock.
+            // Downloads run in parallel; the install step inside ProcessItemAsync is
+            // serialized by InstallService's device lock.
             await Parallel.ForEachAsync(
                 pending,
-                new ParallelOptions { MaxDegreeOfParallelism = MaxParallelDownloads, CancellationToken = ct },
+                new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, MaxParallelDownloads), CancellationToken = ct },
                 async (item, token) => await ProcessItemAsync(item, token).ConfigureAwait(false)
             ).ConfigureAwait(false);
         }
@@ -161,6 +197,25 @@ public sealed class QueueService
         QueueCompleted?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Staggers download starts so concurrent items do not perform their Apple
+    /// authentication handshakes at the same instant (which gets throttled).
+    /// The first item is never delayed.
+    /// </summary>
+    private async Task StaggerStartAsync(CancellationToken ct)
+    {
+        await _startGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (Interlocked.Increment(ref _launched) > 1)
+                await Task.Delay(StartStagger, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            _startGate.Release();
+        }
+    }
+
     private async Task ProcessItemAsync(QueueItem item, CancellationToken ct)
     {
         item.StartedAt = DateTimeOffset.Now;
@@ -178,99 +233,31 @@ public sealed class QueueService
                 return;
             }
 
-            // ---- Stage 1: Checking (local cache + account license) ----
-            SetStage(item, QueueStage.Checking, "Проверка лицензии…");
+            // ---- Stage 1: Checking (local cache only — no network, no Apple calls) ----
+            SetStage(item, QueueStage.Checking, "Проверка локальных файлов…");
 
             _catalog.RefreshDownloadedFlags(new[] { item.App });
 
-            if (item.App.License == LicenseState.Unknown
-                || item.App.License == LicenseState.CheckFailed
-                || item.App.License == LicenseState.SessionExpired)
+            // Ownership learned from a previous successful download in an earlier
+            // session, so the app picker can show the right badge immediately.
+            if (item.App.License is LicenseState.Unknown or LicenseState.CheckFailed
+                && _settings.IsKnownOwned(item.App.AppStoreId))
             {
-                item.App.License = await _download.CheckLicenseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
-                Notify(item);
-            }
-
-            // Session expired -> inform the UI so it redirects to the login screen.
-            if (item.App.License == LicenseState.SessionExpired)
-            {
-                Fail(item, DownloadService.SessionExpiredMessage);
-                SessionExpired?.Invoke(this, EventArgs.Empty);
-                return;
-            }
-
-            // ---- Stage 2: Licensing (obtain license when the account doesn't own it) ----
-            if (item.App.License == LicenseState.NotOwned)
-            {
-                SetStage(item, QueueStage.Licensing, "Получение лицензии…");
-                var (ok, error) = await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
-                if (!ok)
-                {
-                    if (error == DownloadService.SessionExpiredMessage)
-                        SessionExpired?.Invoke(this, EventArgs.Empty);
-                    Fail(item, error ?? "Failed to obtain license");
-                    return;
-                }
                 item.App.License = LicenseState.Owned;
-                Notify(item);
             }
+            Notify(item);
 
-            // ---- Stage 3: Downloading (skipped when IPA is already local or mode = install-only) ----
+            // ---- Stage 2: Downloading (skipped when IPA is already local or mode = install-only) ----
             var skipDownload = _settings.InstallMode == InstallMode.InstallExistingOnly
                 || item.App.IsDownloaded && item.App.LocalIpaPath is not null;
 
             if (!skipDownload)
             {
-                SetStage(item, QueueStage.Downloading, "Подготовка загрузки…");
-
-                var progress = new Progress<DownloadProgress>(p =>
-                {
-                    item.StageProgress = p.Percent;
-                    item.DownloadedBytes = p.DownloadedBytes;
-                    item.TotalBytes = p.TotalBytes;
-                    item.DownloadSpeedBps = p.Finalizing ? 0 : p.SpeedBps;
-                    item.IsFinalizing = p.Finalizing;
-
-                    // Build a rich status line that always shows something meaningful.
-                    if (p.Finalizing)
-                    {
-                        // Bytes are in; ipatool is repackaging/injecting the license.
-                        item.StatusDetail = $"Упаковка и подпись… ({FormatBytes(p.DownloadedBytes)})";
-                    }
-                    else if (p.TotalBytes > 0 && p.Percent > 0.1)
-                    {
-                        var eta = p.SpeedBps > 0
-                            ? FormatEta((long)((p.TotalBytes - p.DownloadedBytes) / p.SpeedBps))
-                            : null;
-                        item.StatusDetail = eta is not null
-                            ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)} · {eta}"
-                            : $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}";
-                    }
-                    else if (p.DownloadedBytes > 0)
-                    {
-                        item.StatusDetail = $"Загрузка {FormatBytes(p.DownloadedBytes)}…";
-                    }
-                    else
-                    {
-                        item.StatusDetail = "Подготовка загрузки…";
-                    }
-                    Notify(item);
-                });
-
-                var result = await _download.DownloadAsync(item.App, autoPurchase: true, progress, ct).ConfigureAwait(false);
-                if (!result.Success || result.IpaPath is null)
-                {
-                    if (result.Error == DownloadService.SessionExpiredMessage)
-                        SessionExpired?.Invoke(this, EventArgs.Empty);
-                    Fail(item, result.Error ?? "Download failed");
+                if (!await RunDownloadStageAsync(item, ct).ConfigureAwait(false))
                     return;
-                }
-
-                item.App.IsDownloaded = true;
-                item.App.LocalIpaPath = result.IpaPath;
             }
 
-            // ---- Stage 4: Installing (serialized on the device) ----
+            // ---- Stage 3: Installing (serialized on the device) ----
             // Skip install when the user only wants to download the IPA.
             if (_settings.InstallMode == InstallMode.DownloadOnly)
             {
@@ -286,6 +273,8 @@ public sealed class QueueService
         catch (OperationCanceledException)
         {
             item.Stage = QueueStage.Cancelled;
+            item.IsConnecting = false;
+            item.IsFinalizing = false;
             item.StatusDetail = "Cancelled";
             Notify(item);
             throw;
@@ -295,6 +284,126 @@ public sealed class QueueService
             Fail(item, ex.Message);
         }
     }
+
+    /// <summary>
+    /// Runs the download stage. Returns false when the item has been failed and the
+    /// pipeline must stop.
+    /// </summary>
+    private async Task<bool> RunDownloadStageAsync(QueueItem item, CancellationToken ct)
+    {
+        SetStage(item, QueueStage.Downloading, "Соединение с App Store…");
+        item.IsConnecting = true;
+        Notify(item);
+
+        await StaggerStartAsync(ct).ConfigureAwait(false);
+
+        var progress = BuildDownloadProgress(item);
+
+        var result = await _download
+            .DownloadAsync(item.App, autoPurchase: true, progress, ct)
+            .ConfigureAwait(false);
+
+        // The Apple ID does not own the app: ipatool's implicit --purchase was not
+        // enough (paid app, or a store-side hiccup). Do the explicit purchase now —
+        // this is the ONLY path that pays a second handshake, and only when needed.
+        if (!result.Success && DownloadService.IsLicenseError(result.Error))
+        {
+            SetStage(item, QueueStage.Licensing, "Получение лицензии…");
+            var (ok, licenseError) = await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
+            if (!ok)
+            {
+                if (licenseError == DownloadService.SessionExpiredMessage)
+                    SessionExpired?.Invoke(this, EventArgs.Empty);
+                Fail(item, licenseError ?? "Failed to obtain license");
+                return false;
+            }
+
+            item.App.License = LicenseState.Owned;
+            _settings.MarkOwned(item.App.AppStoreId);
+
+            SetStage(item, QueueStage.Downloading, "Соединение с App Store…");
+            item.IsConnecting = true;
+            Notify(item);
+
+            result = await _download
+                .DownloadAsync(item.App, autoPurchase: true, BuildDownloadProgress(item), ct)
+                .ConfigureAwait(false);
+        }
+
+        item.IsConnecting = false;
+
+        if (!result.Success || result.IpaPath is null)
+        {
+            if (result.Error == DownloadService.SessionExpiredMessage)
+                SessionExpired?.Invoke(this, EventArgs.Empty);
+            Fail(item, result.Error ?? "Download failed");
+            return false;
+        }
+
+        item.App.IsDownloaded = true;
+        item.App.LocalIpaPath = result.IpaPath;
+
+        // A successful download proves the Apple ID owns the app. Persist it so the
+        // next session shows the correct badge without any network round-trip.
+        item.App.License = LicenseState.Owned;
+        _settings.MarkOwned(item.App.AppStoreId);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Builds the progress sink that turns <see cref="DownloadProgress"/> into the
+    /// UI-facing fields on <paramref name="item"/>.
+    ///
+    /// The status line always says something concrete and moving — during the Apple
+    /// handshake it shows a live elapsed counter instead of a static "preparing",
+    /// so it is obvious that the download is alive and not stuck.
+    /// </summary>
+    private IProgress<DownloadProgress> BuildDownloadProgress(QueueItem item) =>
+        new Progress<DownloadProgress>(p =>
+        {
+            item.StageProgress = p.Percent;
+            item.DownloadedBytes = p.DownloadedBytes;
+            item.TotalBytes = p.TotalBytes;
+            item.DownloadSpeedBps = p.Phase == DownloadPhase.Transferring ? p.SpeedBps : 0;
+            item.IsFinalizing = p.Finalizing;
+            item.IsConnecting = p.Connecting;
+
+            var retrySuffix = p.Attempt > 1 ? $" · попытка {p.Attempt}" : "";
+
+            if (p.Connecting)
+            {
+                // No bytes yet: authentication / keychain / anisette. Show elapsed time
+                // so a slow link reads as "working", not "frozen".
+                var seconds = (int)p.Elapsed.TotalSeconds;
+                item.StatusDetail = seconds >= 2
+                    ? $"Соединение с App Store… {seconds} с{retrySuffix}"
+                    : $"Соединение с App Store…{retrySuffix}";
+            }
+            else if (p.Finalizing)
+            {
+                // Bytes are in; ipatool is repackaging / injecting the license.
+                item.StatusDetail = $"Упаковка и подпись… ({FormatBytes(p.DownloadedBytes)})";
+            }
+            else if (p.TotalBytes > 0)
+            {
+                var eta = p.SpeedBps > 0
+                    ? FormatEta((long)((p.TotalBytes - p.DownloadedBytes) / p.SpeedBps))
+                    : null;
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
+                item.StatusDetail = string.IsNullOrEmpty(eta)
+                    ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed}{retrySuffix}"
+                    : $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed} · {eta}{retrySuffix}";
+            }
+            else
+            {
+                // Total unknown: report real bytes rather than a fabricated percentage.
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
+                item.StatusDetail = $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed}{retrySuffix}";
+            }
+
+            Notify(item);
+        });
 
     /// <summary>
     /// Runs the install stage for a given IPA path, updating <paramref name="item"/>
@@ -385,6 +494,7 @@ public sealed class QueueService
         item.Stage = stage;
         item.StageProgress = 0;
         item.IsFinalizing = false;
+        item.IsConnecting = false;
         item.StatusDetail = detail;
         Notify(item);
     }
@@ -394,6 +504,8 @@ public sealed class QueueService
         item.Stage = QueueStage.Failed;
         item.ErrorMessage = error;
         item.StatusDetail = "Error";
+        item.IsConnecting = false;
+        item.IsFinalizing = false;
         item.CompletedAt = DateTimeOffset.Now;
         Notify(item);
     }
@@ -424,9 +536,9 @@ public sealed class QueueService
     private static double ItemProgressShare(QueueItem item) => item.Stage switch
     {
         QueueStage.Pending => 0,
-        QueueStage.Checking => 0.05,
-        QueueStage.Licensing => 0.10,
-        QueueStage.Downloading => 0.10 + item.StageProgress / 100.0 * 0.60,
+        QueueStage.Checking => 0.02,
+        QueueStage.Licensing => 0.08,
+        QueueStage.Downloading => 0.05 + item.StageProgress / 100.0 * 0.65,
         QueueStage.Installing => 0.70 + item.StageProgress / 100.0 * 0.30,
         QueueStage.Done => 1,
         QueueStage.Failed => 1,

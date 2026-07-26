@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Threading;
@@ -34,7 +35,33 @@ public partial class App : Application
         services.AddSingleton<ProcessRunner>(sp => new ProcessRunner(sp.GetRequiredService<ProcessJobObject>()));
         services.AddSingleton<HttpClient>(_ =>
         {
-            var client = new HttpClient();
+            // This client serves catalog lookups, artwork and tool/update downloads —
+            // not the IPA transfer itself, which ipatool performs in its own process.
+            //
+            // The defaults hurt on two counts: a 2-connection-per-host cap serializes
+            // the artwork requests behind each other, and pooled connections are kept
+            // forever, so a stale one to an Apple edge node stalls a request until the
+            // full timeout elapses.
+            var handler = new SocketsHttpHandler
+            {
+                MaxConnectionsPerServer = 16,
+
+                // Recycle connections so a silently dropped one is replaced instead of
+                // being reused and timing out.
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
+
+                ConnectTimeout = TimeSpan.FromSeconds(15),
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                EnableMultipleHttp2Connections = true,
+            };
+
+            var client = new HttpClient(handler)
+            {
+                // Per-request ceiling. Large tool/update downloads pass their own
+                // CancellationToken, so this is a backstop, not the transfer budget.
+                Timeout = TimeSpan.FromMinutes(10),
+            };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("IPAStudio/1.0");
             return client;
         });

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -105,6 +106,19 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     public bool IsUpdateBusy => IsCheckingUpdate || IsDownloadingUpdate;
 
+    // ---- Download throughput diagnostics ----
+
+    /// <summary>Local conditions that are slowing downloads down.</summary>
+    public ObservableCollection<ThroughputFindingViewModel> ThroughputFindings { get; } = new();
+
+    [ObservableProperty]
+    private bool _isScanningThroughput;
+
+    [ObservableProperty]
+    private string _throughputStatus = "";
+
+    public bool HasThroughputFindings => ThroughputFindings.Count > 0;
+
     public SettingsViewModel(
         SettingsService settings, AuthService auth, QueueService queue,
         ToolLocator tools, LocalizationManager localization, UpdateService updates)
@@ -131,6 +145,96 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
+
+        if (_settings.Current.CheckThroughputIssues)
+            _ = ScanThroughputAsync();
+    }
+
+    /// <summary>
+    /// Looks for local conditions that throttle downloads. Advisory only — nothing is
+    /// changed here, and a failure is silent because this is a diagnostic.
+    /// </summary>
+    [RelayCommand]
+    private async Task ScanThroughputAsync()
+    {
+        if (IsScanningThroughput) return;
+
+        IsScanningThroughput = true;
+        ThroughputStatus = Str("L.Settings.Throughput.Scanning");
+
+        try
+        {
+            var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
+            var staging = System.IO.Path.Combine(apps, ".staging");
+
+            var findings = await TransferTuning.AnalyzeAsync(apps, staging);
+
+            ThroughputFindings.Clear();
+            foreach (var f in findings)
+            {
+                if (_settings.IsThroughputFindingDismissed(f.Kind)) continue;
+                ThroughputFindings.Add(new ThroughputFindingViewModel(f));
+            }
+
+            ThroughputStatus = ThroughputFindings.Count == 0
+                ? Str("L.Settings.Throughput.Clean")
+                : "";
+        }
+        catch
+        {
+            ThroughputStatus = "";
+        }
+        finally
+        {
+            IsScanningThroughput = false;
+            OnPropertyChanged(nameof(HasThroughputFindings));
+        }
+    }
+
+    /// <summary>
+    /// Applies a finding's fix. The Defender exclusion shows a UAC prompt; if the user
+    /// declines, the finding stays so it can be retried.
+    /// </summary>
+    [RelayCommand]
+    private async Task FixThroughputAsync(ThroughputFindingViewModel? finding)
+    {
+        if (finding is null || !finding.CanAutoFix || finding.IsFixing) return;
+
+        finding.IsFixing = true;
+        try
+        {
+            var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
+            var staging = System.IO.Path.Combine(apps, ".staging");
+
+            var ok = await TransferTuning.TryAutoFixAsync(finding.Kind, apps, staging);
+            if (ok)
+            {
+                ThroughputFindings.Remove(finding);
+                OnPropertyChanged(nameof(HasThroughputFindings));
+            }
+            else
+            {
+                finding.FixFailed = true;
+            }
+        }
+        catch
+        {
+            finding.FixFailed = true;
+        }
+        finally
+        {
+            finding.IsFixing = false;
+        }
+    }
+
+    /// <summary>Hides a finding permanently.</summary>
+    [RelayCommand]
+    private void DismissThroughput(ThroughputFindingViewModel? finding)
+    {
+        if (finding is null) return;
+        _settings.DismissThroughputFinding(finding.Kind);
+        ThroughputFindings.Remove(finding);
+        OnPropertyChanged(nameof(HasThroughputFindings));
     }
 
     [RelayCommand]
@@ -225,7 +329,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.Theme = Theme;
         _settings.Current.IpatoolVersion = IpatoolVersion;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
-        _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 5);
+        _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.InstallMode = InstallMode;
         _settings.Save();
 

@@ -45,7 +45,11 @@ public sealed partial class QueueItemViewModel : ObservableObject
     public bool IsIndeterminate => Stage switch
     {
         QueueStage.Checking or QueueStage.Licensing => true,
-        QueueStage.Downloading => Item.DownloadedBytes <= 0 || Item.IsFinalizing,
+        // Connecting = the Apple handshake, before any byte exists. Finalizing =
+        // repackaging, where the byte count no longer moves. Both are genuinely
+        // unmeasurable, so the bar animates. Everything in between is real,
+        // measured transfer and must show a filling bar.
+        QueueStage.Downloading => Item.IsConnecting || Item.IsFinalizing,
         _ => false,
     };
     public bool IsDone => Stage == QueueStage.Done;
@@ -65,7 +69,13 @@ public sealed partial class QueueItemViewModel : ObservableObject
         StatusDetail = Item.StatusDetail;
         ErrorMessage = Item.ErrorMessage;
 
-        SpeedText = Item.Stage == QueueStage.Downloading && Item.DownloadSpeedBps > 0
+        // Speed is only meaningful while bytes are actually moving. During the
+        // handshake and the repackaging tail it is deliberately blank rather than a
+        // stale figure left over from the last transferring frame.
+        SpeedText = Item.Stage == QueueStage.Downloading
+                    && !Item.IsConnecting
+                    && !Item.IsFinalizing
+                    && Item.DownloadSpeedBps > 0
             ? FormatSpeed(Item.DownloadSpeedBps)
             : "";
 
