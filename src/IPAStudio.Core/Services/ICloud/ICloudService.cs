@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -432,6 +433,68 @@ public sealed class ICloudService : IDisposable
             string.IsNullOrWhiteSpace(label) ? "OTHER" : label!.ToUpperInvariant();
     }
 
+    /// <summary>
+    /// Writes contacts as CSV in the column layout Google Contacts imports, which is also
+    /// what Excel and most Android address books expect.
+    ///
+    /// Columns are numbered per value (Phone 1, Phone 2 ...) and the count is taken from the
+    /// busiest contact, so nobody silently loses a second number. The file is UTF-8 *with* a
+    /// byte order mark on purpose: without it Excel reads Cyrillic names as mojibake.
+    /// </summary>
+    public static async Task ExportContactsCsvAsync(IEnumerable<ICloudContact> contacts, string path, CancellationToken ct = default)
+    {
+        var list = contacts.ToList();
+        var phoneColumns = list.Count == 0 ? 1 : Math.Max(1, list.Max(c => c.Phones.Count));
+        var emailColumns = list.Count == 0 ? 1 : Math.Max(1, list.Max(c => c.Emails.Count));
+
+        var header = new List<string> { "Name", "Given Name", "Family Name", "Organization 1 - Name" };
+        for (var i = 1; i <= phoneColumns; i++)
+        {
+            header.Add($"Phone {i} - Type");
+            header.Add($"Phone {i} - Value");
+        }
+        for (var i = 1; i <= emailColumns; i++)
+        {
+            header.Add($"E-mail {i} - Type");
+            header.Add($"E-mail {i} - Value");
+        }
+        header.Add("Notes");
+
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Join(',', header.Select(Csv)));
+
+        foreach (var c in list)
+        {
+            var row = new List<string> { c.DisplayName, c.FirstName ?? "", c.LastName ?? "", c.Company ?? "" };
+
+            for (var i = 0; i < phoneColumns; i++)
+            {
+                var phone = i < c.Phones.Count ? c.Phones[i] : null;
+                row.Add(phone?.Label ?? "");
+                row.Add(phone?.Value ?? "");
+            }
+            for (var i = 0; i < emailColumns; i++)
+            {
+                var email = i < c.Emails.Count ? c.Emails[i] : null;
+                row.Add(email?.Label ?? "");
+                row.Add(email?.Value ?? "");
+            }
+            row.Add(c.Notes ?? "");
+
+            sb.AppendLine(string.Join(',', row.Select(Csv)));
+        }
+
+        await File.WriteAllTextAsync(path, sb.ToString(), new UTF8Encoding(true), ct).ConfigureAwait(false);
+
+        // Every field is quoted: names carry commas, notes carry line breaks, and a stray one
+        // of either would shift the rest of the row into the wrong columns.
+        static string Csv(string? value)
+        {
+            var text = (value ?? "").Replace("\r\n", " ").Replace("\r", " ").Replace("\n", " ");
+            return $"\"{text.Replace("\"", "\"\"")}\"";
+        }
+    }
+
     private static List<ICloudLabelledValue> ReadLabelled(JsonNode? node)
     {
         var result = new List<ICloudLabelledValue>();
@@ -590,46 +653,53 @@ public sealed class ICloudService : IDisposable
         var root = ServiceUrl("ckdatabasews");
         if (root is null) return Array.Empty<ICloudNote>();
 
-        var url = $"{root}/database/1/com.apple.notes/production/private/records/query{CommonQuery()}&remapEnums=True";
-
-        var records = new List<JsonNode>();
-        string? marker = null;
-
-        // Paginate: CloudKit caps a response well below a large note collection, and a
-        // single page would silently hide the rest.
-        do
+        // Zone changes rather than a query: CloudKit only answers queries for record types
+        // marked queryable, and Note is not one of them, so records/query replies 400
+        // BAD_REQUEST - which is exactly what reached the user as "iCloud declined the
+        // request". It is the same restriction the folder lookup below already works around.
+        // Changes carry no such requirement and return every record in the zone, folders
+        // included, so folder names now arrive in the same pass.
+        List<JsonNode> records;
+        try
         {
-            var body = new JsonObject
-            {
-                ["query"] = new JsonObject { ["recordType"] = "Note" },
-                ["resultsLimit"] = 200,
-                ["zoneID"] = new JsonObject { ["zoneName"] = "Notes" },
-            };
-            if (marker is not null) body["continuationMarker"] = marker;
-
-            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
-            if (json?["records"] is not JsonArray page)
-            {
-                AppLog.Warn("iCloud notes: response carried no records array");
-                break;
-            }
-
-            foreach (var record in page)
-                if (record is not null) records.Add(record);
-
-            marker = json["continuationMarker"]?.GetValue<string>();
+            records = await FetchZoneChangesAsync(root, "Notes", ct).ConfigureAwait(false);
         }
-        while (marker is not null && records.Count < 2000);
+        catch (ICloudRequestException ex)
+        {
+            // Kept as a fallback: should Apple mark Note queryable, or reject changes for an
+            // account shape not seen here, the older path may still answer.
+            AppLog.Warn($"iCloud notes: changes unavailable ({ex.Message}); trying query");
+            records = await QueryZoneRecordsAsync(root, "Note", "Notes", ct).ConfigureAwait(false);
+        }
 
-        var folderNames = await GetNoteFolderNamesAsync(root, records, ct).ConfigureAwait(false);
+        // Folders share the zone, so most names are already in hand; only the ones the zone
+        // did not carry cost a lookup.
+        var folderNames = CollectFolderNames(records);
+        var unnamed = records
+            .Where(r => RecordTypeOf(r) is null or "Note")
+            .Select(FolderIdOf)
+            .Where(id => !string.IsNullOrEmpty(id) && id != TrashFolderId)
+            .Select(id => id!)
+            .Where(id => !folderNames.ContainsKey(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (unnamed.Count > 0)
+        {
+            foreach (var pair in await LookupFolderNamesAsync(root, unnamed, ct).ConfigureAwait(false))
+                folderNames[pair.Key] = pair.Value;
+        }
 
         var result = new List<ICloudNote>();
         foreach (var record in records)
         {
+            // The zone also holds folders and attachment bookkeeping; only notes belong in the
+            // list. A missing type means the query fallback, which asked for notes only.
+            if (RecordTypeOf(record) is string type && type != "Note") continue;
+
             var fields = record["fields"];
             if (fields is null) continue;
 
-            var folderId = fields["Folder"]?["value"]?["recordName"]?.GetValue<string>();
+            var folderId = FolderIdOf(record);
             if (folderId == TrashFolderId) continue;
 
             var title = DecodeCloudKitText(fields["TitleEncrypted"]?["value"])
@@ -658,6 +728,175 @@ public sealed class ICloudService : IDisposable
     private const string TrashFolderId = "TrashFolder-CloudKit";
     private const string DefaultFolderId = "DefaultFolder-CloudKit";
 
+    private static string? RecordTypeOf(JsonNode record)
+        => record["recordType"]?.GetValue<string>();
+
+    private static string? FolderIdOf(JsonNode record)
+        => record["fields"]?["Folder"]?["value"]?["recordName"]?.GetValue<string>();
+
+    /// <summary>
+    /// Reads every record of a zone through a changes endpoint, which — unlike a query —
+    /// does not require the record type to be queryable.
+    ///
+    /// CloudKit exposes two of these with different shapes, and which one an account answers
+    /// has proven to vary, so both are attempted before giving up. The sync token is used
+    /// purely to page through one listing and is deliberately not persisted: this is a full
+    /// read each time rather than an incremental sync.
+    /// </summary>
+    private async Task<List<JsonNode>> FetchZoneChangesAsync(string root, string zone, CancellationToken ct)
+    {
+        try
+        {
+            return await FetchRecordChangesAsync(root, zone, ct).ConfigureAwait(false);
+        }
+        catch (ICloudRequestException ex)
+        {
+            AppLog.Warn($"iCloud {zone}: records/changes refused ({ex.Message}); trying changes/zone");
+            return await FetchZoneEndpointChangesAsync(root, zone, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>records/changes: one zone per request, records at the top level.</summary>
+    private async Task<List<JsonNode>> FetchRecordChangesAsync(string root, string zone, CancellationToken ct)
+    {
+        var url = $"{root}/database/1/com.apple.notes/production/private/records/changes{CommonQuery()}";
+        var records = new List<JsonNode>();
+        string? syncToken = null;
+
+        // The cap mirrors the query path: a runaway account must not hold the UI forever.
+        while (records.Count < 5000)
+        {
+            var body = new JsonObject
+            {
+                ["zoneID"] = new JsonObject { ["zoneName"] = zone },
+                ["resultsLimit"] = 200,
+            };
+            if (syncToken is not null) body["syncToken"] = syncToken;
+
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            if (json?["records"] is not JsonArray page)
+            {
+                AppLog.Warn($"iCloud {zone}: records/changes carried no records array");
+                break;
+            }
+
+            AddLiveRecords(page, records);
+
+            syncToken = ReadSyncToken(json);
+            if (json["moreComing"]?.GetValue<bool>() != true || syncToken is null) break;
+        }
+
+        return records;
+    }
+
+    /// <summary>changes/zone: zones are batched, so records arrive nested per zone.</summary>
+    private async Task<List<JsonNode>> FetchZoneEndpointChangesAsync(string root, string zone, CancellationToken ct)
+    {
+        var url = $"{root}/database/1/com.apple.notes/production/private/changes/zone{CommonQuery()}";
+        var records = new List<JsonNode>();
+        string? syncToken = null;
+
+        while (records.Count < 5000)
+        {
+            var request = new JsonObject { ["zoneID"] = new JsonObject { ["zoneName"] = zone } };
+            if (syncToken is not null) request["syncToken"] = syncToken;
+
+            var body = new JsonObject { ["zones"] = new JsonArray { request } };
+
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            var result = (json?["zones"] as JsonArray)?.FirstOrDefault();
+            if (result?["records"] is not JsonArray page)
+            {
+                AppLog.Warn($"iCloud {zone}: changes/zone carried no records array");
+                break;
+            }
+
+            AddLiveRecords(page, records);
+
+            syncToken = ReadSyncToken(result);
+            if (result["moreComing"]?.GetValue<bool>() != true || syncToken is null) break;
+        }
+
+        return records;
+    }
+
+    /// <summary>
+    /// Copies records into the list, dropping tombstones. Records deleted elsewhere come back
+    /// in the same array, and counting them would resurrect deleted notes in the listing.
+    /// </summary>
+    private static void AddLiveRecords(JsonArray page, List<JsonNode> into)
+    {
+        foreach (var record in page)
+        {
+            if (record is null) continue;
+            if (record["deleted"]?.GetValue<bool>() == true) continue;
+            into.Add(record);
+        }
+    }
+
+    /// <summary>Both spellings of the continuation token are seen in the wild.</summary>
+    private static string? ReadSyncToken(JsonNode json)
+        => json["syncToken"]?.GetValue<string>() ?? json["newSyncToken"]?.GetValue<string>();
+
+    /// <summary>
+    /// The older listing path: a plain query for one record type. Only reachable as a
+    /// fallback, since CloudKit refuses it for the types this app reads.
+    /// </summary>
+    private async Task<List<JsonNode>> QueryZoneRecordsAsync(
+        string root, string recordType, string zone, CancellationToken ct)
+    {
+        var url = $"{root}/database/1/com.apple.notes/production/private/records/query{CommonQuery()}&remapEnums=True";
+        var records = new List<JsonNode>();
+        string? marker = null;
+
+        do
+        {
+            var body = new JsonObject
+            {
+                ["query"] = new JsonObject { ["recordType"] = recordType },
+                ["resultsLimit"] = 200,
+                ["zoneID"] = new JsonObject { ["zoneName"] = zone },
+            };
+            if (marker is not null) body["continuationMarker"] = marker;
+
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            if (json?["records"] is not JsonArray page)
+            {
+                AppLog.Warn($"iCloud {zone}: query response carried no records array");
+                break;
+            }
+
+            foreach (var record in page)
+                if (record is not null) records.Add(record);
+
+            marker = json["continuationMarker"]?.GetValue<string>();
+        }
+        while (marker is not null && records.Count < 2000);
+
+        return records;
+    }
+
+    /// <summary>Picks folder names out of records already fetched from the zone.</summary>
+    private static Dictionary<string, string> CollectFolderNames(IEnumerable<JsonNode> records)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var record in records)
+        {
+            if (RecordTypeOf(record) != "Folder") continue;
+
+            var id = record["recordName"]?.GetValue<string>();
+            if (id is null) continue;
+
+            var name = DecodeCloudKitText(record["fields"]?["TitleEncrypted"]?["value"])
+                       ?? record["fields"]?["title"]?["value"]?.GetValue<string>()
+                       ?? record["fields"]?["name"]?["value"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(name)) names[id] = name!.Trim();
+        }
+
+        return names;
+    }
+
     /// <summary>
     /// Resolves folder record names to their display names in one batch.
     ///
@@ -665,13 +904,12 @@ public sealed class ICloudService : IDisposable
     /// indexable" — so they have to be looked up by record name instead. A failure here
     /// only costs the folder column, so it never fails the whole listing.
     /// </summary>
-    private async Task<Dictionary<string, string>> GetNoteFolderNamesAsync(
-        string root, IEnumerable<JsonNode> records, CancellationToken ct)
+    private async Task<Dictionary<string, string>> LookupFolderNamesAsync(
+        string root, IEnumerable<string> folderIds, CancellationToken ct)
     {
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        var ids = records
-            .Select(r => r["fields"]?["Folder"]?["value"]?["recordName"]?.GetValue<string>())
+        var ids = folderIds
             .Where(id => !string.IsNullOrEmpty(id) && id != TrashFolderId)
             .Distinct(StringComparer.Ordinal)
             .ToList();
@@ -729,19 +967,36 @@ public sealed class ICloudService : IDisposable
         catch (InvalidOperationException) { return null; }
         if (string.IsNullOrEmpty(raw)) return null;
 
-        try
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(raw); }
+        catch (FormatException) { return raw; } // stored as plain text on some accounts
+
+        // Some accounts store these fields gzipped rather than as bare UTF-8.
+        if (bytes.Length > 2 && bytes[0] == 0x1F && bytes[1] == 0x8B)
         {
-            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(raw));
-            // Base64 of unrelated binary would decode to control characters; keep the raw
-            // text in that case rather than showing mojibake.
-            return decoded.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t'))
-                ? raw
-                : decoded;
+            try
+            {
+                using var input = new MemoryStream(bytes);
+                using var gzip = new GZipStream(input, CompressionMode.Decompress);
+                using var output = new MemoryStream();
+                gzip.CopyTo(output);
+                bytes = output.ToArray();
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException)
+            {
+                return null;
+            }
         }
-        catch (FormatException)
-        {
-            return raw;
-        }
+
+        var decoded = Encoding.UTF8.GetString(bytes);
+
+        // Control characters mean this is not text but a packed structure (notes protected by
+        // Advanced Data Protection, or Apple's internal note format). Returning the raw value
+        // then would put base64 gibberish in front of the user, so nothing is shown instead
+        // and the caller falls back to its plain-text field.
+        return decoded.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t'))
+            ? null
+            : decoded;
     }
 
     // ─────────────────────────── plumbing ───────────────────────────

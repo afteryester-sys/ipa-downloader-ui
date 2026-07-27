@@ -106,6 +106,47 @@ public sealed partial class PhotoItemViewModel : ObservableObject
 }
 
 /// <summary>
+/// One album tile: a cover picture, a title and how many items it holds.
+///
+/// An album is defined by a predicate rather than by a stored list, because most of these
+/// are derived from the media itself (videos, screenshots, RAW, Live Photos) exactly as
+/// 3uTools presents them. That keeps albums working on devices where the Photos library
+/// database cannot be read, which is the common case — without it the album screen would
+/// show a single "no album" tile and look broken.
+/// </summary>
+public sealed partial class PhotoAlbumViewModel : ObservableObject
+{
+    private readonly Func<PhotoItemViewModel, bool> _match;
+
+    /// <summary>Title shown under the cover.</summary>
+    public string Name { get; }
+
+    /// <summary>True for the all-items album, which is always shown even when empty.</summary>
+    public bool IsEverything { get; }
+
+    [ObservableProperty]
+    private int _count;
+
+    [ObservableProperty]
+    private BitmapImage? _cover;
+
+    /// <summary>Item the cover is taken from; used to fetch that one thumbnail.</summary>
+    public PhotoItemViewModel? CoverItem { get; set; }
+
+    /// <summary>True when the cover is a video, so the tile can mark it.</summary>
+    public bool CoverIsVideo => CoverItem?.IsVideo == true;
+
+    public PhotoAlbumViewModel(string name, Func<PhotoItemViewModel, bool> match, bool isEverything = false)
+    {
+        Name = name;
+        _match = match;
+        IsEverything = isEverything;
+    }
+
+    public bool Matches(PhotoItemViewModel item) => _match(item);
+}
+
+/// <summary>
 /// Camera Roll browser for a device: view, multi-select, export to PC and import
 /// from PC, grouped by DCIM album folder and filterable by media type.
 /// </summary>
@@ -115,8 +156,6 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private INavigator? _navigator;
     private Device? _device;
     private CancellationTokenSource? _cts;
-    /// <summary>Picker entry that disables album filtering.</summary>
-    private static string AllAlbums => Loc.Get("L.Photos.AllAlbums");
 
     /// <summary>
     /// Item lookup by AFC path, so a metadata batch arriving from the background can be
@@ -129,6 +168,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     /// <summary>Thumbnail decode width, in pixels. Tiles render at 130 wide.</summary>
     private const int ThumbnailWidth = 160;
+
+    /// <summary>Album cover decode width, in pixels. Album tiles render at 168 wide.</summary>
+    private const int AlbumCoverWidth = 200;
 
     /// <summary>
     /// Upper bound on decoded thumbnails kept in memory. At ~160 px each this caps the
@@ -159,8 +201,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     public BulkObservableCollection<PhotoItemViewModel> Photos { get; } = new();
     public ICollectionView PhotosView { get; }
 
-    /// <summary>Album folders discovered on the device, plus "" for all.</summary>
-    public ObservableCollection<string> Albums { get; } = new();
+    /// <summary>
+    /// Album tiles shown before the photos themselves, the way a phone gallery opens.
+    ///
+    /// This replaced a plain album drop-down. Real album titles are usually unreadable on
+    /// current iOS, so that list was often a single "no album" entry — technically correct
+    /// and useless. Deriving albums from the media itself (videos, screenshots, RAW, Live
+    /// Photos) gives the same grouping a phone shows, on every device.
+    /// </summary>
+    public ObservableCollection<PhotoAlbumViewModel> MediaAlbums { get; } = new();
 
     /// <summary>Media type filter options.</summary>
     public ObservableCollection<string> MediaTypes { get; } = new();
@@ -168,8 +217,13 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _deviceName = "";
 
+    /// <summary>Album whose contents are listed. Null before the first load.</summary>
     [ObservableProperty]
-    private string? _selectedAlbum;
+    private PhotoAlbumViewModel? _currentAlbum;
+
+    /// <summary>True while the album tiles are shown instead of the photos.</summary>
+    [ObservableProperty]
+    private bool _isAlbumMode = true;
 
     [ObservableProperty]
     private string _selectedMediaType = "";
@@ -224,7 +278,31 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     public bool IsGridView => !IsListView;
 
-    partial void OnIsListViewChanged(bool value) => OnPropertyChanged(nameof(IsGridView));
+    /// <summary>True while the photos are shown, i.e. an album is open.</summary>
+    public bool IsPhotoMode => !IsAlbumMode;
+
+    /// <summary>
+    /// Which of the two photo panes is on screen. Exposed as single booleans because the
+    /// panes depend on both the mode and the layout, and a binding cannot combine two.
+    /// </summary>
+    public bool ShowPhotoList => !IsAlbumMode && IsListView;
+    public bool ShowPhotoGrid => !IsAlbumMode && !IsListView;
+
+    partial void OnIsListViewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsGridView));
+        OnPropertyChanged(nameof(ShowPhotoList));
+        OnPropertyChanged(nameof(ShowPhotoGrid));
+    }
+
+    partial void OnIsAlbumModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPhotoMode));
+        OnPropertyChanged(nameof(ShowPhotoList));
+        OnPropertyChanged(nameof(ShowPhotoGrid));
+        // Leaving the tiles reveals a different set of rows, so the loader must re-check.
+        if (!value) _viewportChanged.Set();
+    }
 
     private CancellationTokenSource? _thumbCts;
 
@@ -269,7 +347,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         _ = LoadAsync();
     }
 
-    partial void OnSelectedAlbumChanged(string? value) => PhotosView.Refresh();
+    partial void OnCurrentAlbumChanged(PhotoAlbumViewModel? value)
+    {
+        PhotosView.Refresh();
+        // The visible rows are now different ones, so the loader has to look again.
+        _viewportChanged.Set();
+    }
     partial void OnSelectedMediaTypeChanged(string value) => PhotosView.Refresh();
 
     partial void OnSelectedPhotoChanged(PhotoItemViewModel? value) => _ = LoadPreviewAsync(value);
@@ -277,66 +360,196 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private bool Filter(object obj)
     {
         if (obj is not PhotoItemViewModel p) return false;
-        // The "all albums" entry (or empty) means show all.
-        if (!string.IsNullOrEmpty(SelectedAlbum) && SelectedAlbum != AllAlbums)
-        {
-            // Compare against the label each row actually shows. With real album names
-            // this is the album title; without them it is the folder-derived name. Going
-            // through the label keeps one code path for both, and matters because several
-            // DCIM folders can map to the same album, so resolving the label back to a
-            // single folder (as this used to) would have hidden the rest of the album.
-            if (!string.Equals(p.DisplayAlbumName, SelectedAlbum, StringComparison.Ordinal))
-                return false;
-        }
+
+        // The all-items album matches everything, so it needs no test.
+        if (CurrentAlbum is { IsEverything: false } album && !album.Matches(p)) return false;
         if (SelectedMediaType == Loc.Get("L.Photos.Media.Photos")) return !p.IsVideo;
         if (SelectedMediaType == Loc.Get("L.Photos.Media.Videos")) return p.IsVideo;
         return true;
     }
 
     /// <summary>
-    /// Rebuilds the album picker from the labels the rows currently show, preserving the
-    /// user's selection where possible. Called once after loading and again if real album
-    /// names arrive later.
+    /// Rebuilds the album tiles from the media currently loaded, keeping the open album
+    /// where possible. Called after loading and again if real album names arrive later.
     /// </summary>
     /// <param name="keepSelection">
-    /// True when relabelling an already-loaded list, so the user's chosen album survives.
+    /// True when relabelling an already-loaded list, so the album the user opened survives.
     /// False for a freshly loaded roll, where carrying a selection over from the previous
     /// device would silently filter the new list if a name happened to coincide.
     /// </param>
-    private void BuildAlbumList(bool keepSelection)
+    private void BuildMediaAlbums(bool keepSelection)
     {
-        var previous = keepSelection ? SelectedAlbum : null;
+        var previousName = keepSelection ? CurrentAlbum?.Name : null;
 
-        Albums.Clear();
-        Albums.Add(AllAlbums); // "All photos" always leads the list
+        // Computed once and captured, instead of re-derived inside the predicate: pairing
+        // is a property of the whole roll, not of one file.
+        var livePhotoKeys = FindLivePhotoKeys();
 
-        // Real albums alphabetically, then Hidden, then anything with no album at all.
-        // Those last two are catch-alls rather than albums the user created, so sorting
-        // them in among real titles would bury the names people actually look for.
-        var hidden = Loc.Get("L.Photos.Hidden");
+        var built = new List<PhotoAlbumViewModel>
+        {
+            new(Loc.Get("L.Photos.Albums.All"), static _ => true, isEverything: true),
+            new(Loc.Get("L.Photos.Albums.Videos"), static p => p.IsVideo),
+            new(Loc.Get("L.Photos.Albums.Screenshots"), static p => IsScreenshotName(p.FileName)),
+            new(Loc.Get("L.Photos.Albums.Raw"), static p => IsRawName(p.FileName)),
+            new(Loc.Get("L.Photos.Albums.Live"), p => livePhotoKeys.Contains(LivePhotoKey(p))),
+        };
+
+        // Real Photos-library albums when iOS allowed reading them. The catch-all "no
+        // album" group is left out: everything is already reachable through the all-items
+        // tile, so it would only duplicate it.
         var noAlbum = Loc.Get("L.Photos.NoAlbum");
+        var hidden = Loc.Get("L.Photos.Hidden");
         foreach (var name in Photos.Select(p => p.DisplayAlbumName)
                                    .Distinct(StringComparer.Ordinal)
-                                   .OrderBy(n => n == noAlbum ? 2 : n == hidden ? 1 : 0)
+                                   .Where(n => !string.Equals(n, noAlbum, StringComparison.Ordinal))
+                                   .OrderBy(n => n == hidden ? 1 : 0)
                                    .ThenBy(n => n, StringComparer.CurrentCulture))
         {
-            Albums.Add(name);
+            var albumName = name; // captured per iteration, not shared by every predicate
+            built.Add(new PhotoAlbumViewModel(
+                albumName,
+                p => string.Equals(p.DisplayAlbumName, albumName, StringComparison.Ordinal)));
         }
 
-        // Keep the current filter if that album still exists; otherwise fall back to all,
-        // so relabelling can't leave the grid filtered on a name that no longer appears.
-        var next = previous is not null && Albums.Contains(previous) ? previous : AllAlbums;
-        if (SelectedAlbum == next)
+        // One pass per album fills both the count and the cover, so the tiles can show how
+        // much is inside before anything is opened.
+        foreach (var album in built)
         {
-            // Assigning the same value raises no change notification, so the filter would
-            // keep matching on stale labels. Refresh explicitly: after relabelling the
-            // rows moved albums even though the selection text did not change.
+            var count = 0;
+            foreach (var photo in Photos)
+            {
+                if (!album.Matches(photo)) continue;
+                count++;
+                album.CoverItem ??= photo;
+            }
+            album.Count = count;
+        }
+
+        MediaAlbums.Clear();
+        // Empty derived albums are dropped: a phone with no RAW shots should not be shown
+        // an empty RAW album. The all-items tile stays even at zero, so the screen is never
+        // completely blank.
+        foreach (var album in built.Where(a => a.IsEverything || a.Count > 0)) MediaAlbums.Add(album);
+
+        var restored = previousName is null
+            ? null
+            : MediaAlbums.FirstOrDefault(a => string.Equals(a.Name, previousName, StringComparison.Ordinal));
+
+        var next = restored ?? MediaAlbums.FirstOrDefault();
+        if (ReferenceEquals(CurrentAlbum, next))
+        {
+            // Assigning the same instance raises no notification, so the filter would keep
+            // matching on stale labels after a relabel. Refresh explicitly.
             PhotosView.Refresh();
         }
         else
         {
-            SelectedAlbum = next; // OnSelectedAlbumChanged refreshes the view
+            CurrentAlbum = next; // OnCurrentAlbumChanged refreshes the view
         }
+
+        if (!keepSelection) IsAlbumMode = true;
+
+        _ = LoadAlbumCoversAsync(_thumbCts?.Token ?? CancellationToken.None);
+    }
+
+    /// <summary>Screenshots are the PNGs in the Camera Roll; the camera only writes HEIC/JPEG.</summary>
+    private static bool IsScreenshotName(string fileName)
+        => fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsRawName(string fileName)
+        => fileName.EndsWith(".dng", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Folder + name without extension, which is what pairs a Live Photo's two files.</summary>
+    private static string LivePhotoKey(PhotoItemViewModel item)
+        => $"{item.Album}/{Path.GetFileNameWithoutExtension(item.FileName)}";
+
+    /// <summary>
+    /// Finds the Live Photos: a still and a short movie saved side by side under one name
+    /// (IMG_0001.HEIC + IMG_0001.MOV). Nothing in the file list marks them otherwise, so
+    /// the pairing is the only signal available over AFC.
+    /// </summary>
+    private HashSet<string> FindLivePhotoKeys()
+    {
+        var stills = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var movies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var photo in Photos)
+        {
+            var key = LivePhotoKey(photo);
+            if (photo.IsVideo) movies.Add(key);
+            else stills.Add(key);
+        }
+
+        movies.IntersectWith(stills);
+        return movies;
+    }
+
+    /// <summary>
+    /// Fetches the cover thumbnails for the album tiles.
+    ///
+    /// Only the device-rendered thumbnails are used — a few KB each. Reading the originals
+    /// would mean pulling one multi-megabyte file per album before the screen can be drawn.
+    /// </summary>
+    private async Task LoadAlbumCoversAsync(CancellationToken ct)
+    {
+        if (_device is null) return;
+
+        // A cover already decoded for the photo grid is reused as-is.
+        foreach (var album in MediaAlbums)
+        {
+            if (album.Cover is null && album.CoverItem?.Thumbnail is not null)
+                album.Cover = album.CoverItem.Thumbnail;
+        }
+
+        var pending = MediaAlbums.Where(a => a.Cover is null && a.CoverItem is not null).ToList();
+        if (pending.Count == 0) return;
+
+        Dictionary<string, byte[]> thumbMap;
+        try
+        {
+            thumbMap = await _photos
+                .ReadIosThumbnailsAsync(_device.Udid, pending.Select(a => a.CoverItem!.Item).ToList(), ct)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+        catch { return; } // device went away; tiles keep their placeholder glyph
+
+        var decoded = await Task.Run(() =>
+        {
+            var result = new List<(PhotoAlbumViewModel album, BitmapImage cover)>();
+            foreach (var album in pending)
+            {
+                if (ct.IsCancellationRequested) break;
+                if (!thumbMap.TryGetValue(album.CoverItem!.Item.RemotePath, out var bytes)) continue;
+
+                var cover = TryDecodeThumbnail(bytes, AlbumCoverWidth);
+                if (cover is not null) result.Add((album, cover));
+            }
+            return result;
+        }, ct).ConfigureAwait(false);
+
+        if (ct.IsCancellationRequested) return;
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            foreach (var (album, cover) in decoded) album.Cover = cover;
+        }).Task.ConfigureAwait(false);
+    }
+
+    [RelayCommand]
+    private void OpenAlbum(PhotoAlbumViewModel? album)
+    {
+        if (album is null) return;
+        CurrentAlbum = album;
+        IsAlbumMode = false;
+    }
+
+    [RelayCommand]
+    private void ShowAlbums()
+    {
+        IsAlbumMode = true;
+        // Covers may have been missing when the tiles were built (nothing loaded yet).
+        _ = LoadAlbumCoversAsync(_thumbCts?.Token ?? CancellationToken.None);
     }
 
     /// <summary>
@@ -390,7 +603,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             }
 
             AlbumNamesUnavailable = false;
-            BuildAlbumList(keepSelection: true);
+            BuildMediaAlbums(keepSelection: true);
         }).Task.ConfigureAwait(false);
     }
 
@@ -441,8 +654,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             }
             Photos.ReplaceAll(rows);
 
-            // Also resets the selection to "all albums" for the newly loaded list.
-            BuildAlbumList(keepSelection: false);
+            // Also returns to the album tiles for the newly loaded list.
+            BuildMediaAlbums(keepSelection: false);
 
             TotalCount = Photos.Count;
             StatusText = Photos.Count == 0
@@ -736,7 +949,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
                 if (batch.Count == 0) break;
 
-                var isHeic = IsHeicName(batch[0].FileName);
+                var isHeic = batch.Any(p => !p.IsVideo && IsHeicName(p.FileName));
                 if (batch.Count > (isHeic ? HeicBatchSize : JpegBatchSize))
                     batch = batch.GetRange(0, isHeic ? HeicBatchSize : JpegBatchSize);
 
@@ -755,8 +968,13 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 catch (OperationCanceledException) { return; }
                 catch { thumbMap = new Dictionary<string, byte[]>(); }
 
-                // Only items with no device thumbnail need the source file read.
-                var needSource = batch.Where(p => !thumbMap.ContainsKey(p.Item.RemotePath)).ToList();
+                // Only items with no device thumbnail need the source file read, and videos are
+                // excluded: WPF cannot decode MOV/MP4, so pulling those bytes could never
+                // produce a picture. It only cost time and left the tile blank anyway; the
+                // tile now shows a film icon instead.
+                var needSource = batch
+                    .Where(p => !thumbMap.ContainsKey(p.Item.RemotePath) && !p.IsVideo)
+                    .ToList();
 
                 Dictionary<string, byte[]> rawMap;
                 try
@@ -793,6 +1011,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                                 continue;
                             }
                         }
+
+                        // A video with no device-rendered thumbnail has nothing left to try.
+                        if (item.IsVideo) continue;
 
                         if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null || bytes.Length == 0) continue;
 
@@ -832,8 +1053,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                         }
                         // Items whose bytes arrived but produced no image are recorded
                         // as attempted, so the loader doesn't retry them forever.
+                        // Videos count as attempted either way: there is no second thing
+                        // to try for them, and leaving them unmarked would make the loader
+                        // hand back the same batch forever and never idle.
                         foreach (var item in batch)
-                            if (rawMap.ContainsKey(item.Item.RemotePath)
+                            if (item.IsVideo
+                                || rawMap.ContainsKey(item.Item.RemotePath)
                                 || thumbMap.ContainsKey(item.Item.RemotePath))
                                 item.ThumbnailAttempted = true;
 
@@ -873,7 +1098,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             if (index < first) continue;
             if (index > last) break;
 
-            if (item.IsVideo || item.Thumbnail is not null || item.ThumbnailAttempted) continue;
+            if (item.Thumbnail is not null || item.ThumbnailAttempted) continue;
+
+            // Videos join any batch instead of being skipped. They used to be excluded
+            // altogether, which is why every video tile stayed empty: the device already
+            // holds a rendered JPEG thumbnail for them, and it was never asked for. They
+            // sit outside the HEIC/JPEG grouping below because that only decides how much
+            // of the original file to read, and a video original is never read.
+            if (item.IsVideo)
+            {
+                result.Add(item);
+                continue;
+            }
 
             var heic = IsHeicName(item.FileName);
             // HEIC is no longer skipped when the OS codec is missing: the device's own
