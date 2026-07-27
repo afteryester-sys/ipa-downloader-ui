@@ -126,15 +126,41 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200" />
                                         <ColumnDefinition Width="*" />
+                                        <!-- Fixed width so values stay aligned whether or
+                                             not a row has a copy button. -->
+                                        <ColumnDefinition Width="96" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource Text.Caption}" />
                                     <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource Text.Body}"
                                                TextWrapping="Wrap" />
+                                    <!-- Only identifiers are copyable. The command lives on the
+                                         view model, not on the row, so bind past the item's
+                                         DataContext via the parent ItemsControl. -->
+                                    <Button Grid.Column="2"
+                                            Content="Копировать"
+                                            Style="{StaticResource Button.Ghost}"
+                                            Padding="8,2"
+                                            FontSize="11"
+                                            VerticalAlignment="Top"
+                                            HorizontalAlignment="Right"
+                                            Cursor="Hand"
+                                            ToolTip="Скопировать в буфер обмена"
+                                            Visibility="{Binding Copyable, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding DataContext.CopyValueCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding Value}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </Border>
+
+                <!-- Copy confirmation. Collapsed when empty so it takes no space. -->
+                <TextBlock Text="{Binding CopyStatus}"
+                           Style="{StaticResource Text.Caption}"
+                           Margin="0,8,0,0"
+                           HorizontalAlignment="Right"
+                           Visibility="{Binding CopyStatus, Converter={StaticResource NullToCollapsed}}" />
 
             </StackPanel>
         </ScrollViewer>

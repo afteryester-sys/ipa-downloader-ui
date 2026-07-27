@@ -18,6 +18,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
     private readonly UpdateService _updates;
     private readonly ToolLocator _tools;
     private readonly SettingsService _settings;
+    private readonly QueueService _queue;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -54,11 +55,13 @@ public sealed partial class UpdaterViewModel : ObservableObject
 
     public bool IsBusy => IsChecking || IsDownloading;
 
-    public UpdaterViewModel(UpdateService updates, ToolLocator tools, SettingsService settings)
+    public UpdaterViewModel(UpdateService updates, ToolLocator tools, SettingsService settings,
+                            QueueService queue)
     {
         _updates = updates;
         _tools = tools;
         _settings = settings;
+        _queue = queue;
         var v = _updates.CurrentVersion;
         VersionText = $"{v.Major}.{v.Minor}.{v.Build}";
     }
@@ -215,23 +218,37 @@ public sealed partial class UpdaterViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Deletes cached data — downloaded IPA files, cached app icons and the
-    /// catalog cache — after confirmation. Leaves settings and the signed-in
-    /// session (ipatool keychain) untouched.
+    /// Deletes cached data — downloaded IPA files including half-finished ones, cached
+    /// app icons, the catalog cache and leftover temporary files — after confirmation.
+    /// Leaves settings and the signed-in session (ipatool keychain) untouched.
     /// </summary>
     [RelayCommand]
     private async Task ClearCacheAsync()
     {
         if (IsClearingCache) return;
 
+        // Refuse while transfers are in flight: the queue writes into AppsFolder, and
+        // deleting a file mid-download would fail the transfer with a confusing I/O
+        // error rather than anything that points back to this button.
+        if (_queue.IsRunning)
+        {
+            CacheStatusText = Str("L.Cache.BusyDownloading");
+            return;
+        }
+
         var targets = new (string path, bool isFile)[]
         {
             (_tools.AppsFolder,       false),
             (_tools.IconCacheFolder,  false),
             (_tools.CatalogCacheFile, true),
+            // Staged photo-library database copies (%TEMP%\IPAStudio). Each copy can be
+            // hundreds of MB on a large library; PhotoService deletes them after use, but
+            // an interrupted run leaves them behind and nothing else ever collects them.
+            (Path.Combine(Path.GetTempPath(), "IPAStudio"), false),
         };
 
-        // Show how much will be freed and ask for confirmation.
+        // Show how much will be freed and ask for confirmation. DirSize walks
+        // subdirectories, so the figure covers the staged temp copies too.
         long total = 0;
         foreach (var (path, isFile) in targets)
             total += isFile ? FileSize(path) : DirSize(path);

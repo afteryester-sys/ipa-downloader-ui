@@ -76,6 +76,14 @@ public sealed class ToolLocator
     /// </summary>
     public string LearnedSizesFile => Path.Combine(DataFolder, "learned-sizes.json");
 
+    /// <summary>
+    /// Scratch area under the system temp folder. Photo-library database copies are
+    /// staged here (a few hundred MB each on a large library). They are deleted after
+    /// use, but a crash — or SQLite still holding the file — leaves them behind, so
+    /// "clear cache" sweeps this directory as well.
+    /// </summary>
+    public string TempFolder => Path.Combine(Path.GetTempPath(), "IPAStudio");
+
     public void EnsureFolders()
     {
         Directory.CreateDirectory(AppsFolder);
@@ -92,6 +100,11 @@ public sealed class ToolLocator
             IdeviceInstallerPath,
             IdeviceIdPath,
             IdeviceInfoPath,
+            // Reads battery capacity and cycle count. Its absence used to go unnoticed
+            // here, which reported the tool set as complete — so the repair step that
+            // re-extracts it never ran, and the battery row stayed "недоступно" forever
+            // on installs that predate it being shipped.
+            IdeviceDiagnosticsPath,
         };
         // ipatool v3 spawns anisette.exe from the same directory; it is mandatory.
         if (IpatoolVersion == 3)

@@ -7,7 +7,8 @@
 # Sources:
 #   - ipatool v2/v3 + anisette.exe  -> kda2495/IPA_Downloader (original project)
 #   - libimobiledevice suite        -> imobiledevice-net GitHub releases
-#     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe + DLLs)
+#     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe,
+#      idevicediagnostics.exe + DLLs)
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File build/Fetch-Tools.ps1 [-OutDir <path>]
@@ -56,7 +57,18 @@ $imobileDir = Join-Path $OutDir "imobiledevice"
 if (-not (Test-Path $imobileDir)) { New-Item -ItemType Directory -Path $imobileDir -Force | Out-Null }
 
 # Copy the tools we need plus every DLL they depend on.
-$needed = @("ideviceinstaller.exe", "idevice_id.exe", "ideviceinfo.exe", "idevicepair.exe")
+#
+# idevicediagnostics.exe is what reads battery capacity and cycle count (via the
+# AppleSmartBattery IORegistry entry). It was missing from this list, so the file
+# never shipped and the battery row could only ever say "недоступно" — the code
+# that reads it was fine, the executable simply was not there.
+$needed = @(
+    "ideviceinstaller.exe",
+    "idevice_id.exe",
+    "ideviceinfo.exe",
+    "idevicepair.exe",
+    "idevicediagnostics.exe"
+)
 Get-ChildItem -Path $extractPath -Recurse -File | Where-Object {
     $needed -contains $_.Name -or $_.Extension -eq ".dll"
 } | ForEach-Object {
@@ -74,7 +86,10 @@ $required = @(
     (Join-Path $OutDir "windows_amd64_v3\anisette.exe"),
     (Join-Path $imobileDir "ideviceinstaller.exe"),
     (Join-Path $imobileDir "idevice_id.exe"),
-    (Join-Path $imobileDir "ideviceinfo.exe")
+    (Join-Path $imobileDir "ideviceinfo.exe"),
+    # Listed here too so that dropping it again fails the build loudly instead of
+    # silently shipping a version where battery capacity never works.
+    (Join-Path $imobileDir "idevicediagnostics.exe")
 )
 $missing = $required | Where-Object { -not (Test-Path $_) }
 if ($missing) {
