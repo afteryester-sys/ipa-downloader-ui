@@ -148,6 +148,10 @@ public sealed class QueueService
         var ct = _cts.Token;
         Interlocked.Exchange(ref _launched, 0);
 
+        // A previous run's "apply to all" answer for existing files must not silently
+        // govern this one.
+        _download.ResetFileConflictScope();
+
         try
         {
             List<QueueItem> pending;
@@ -398,8 +402,14 @@ public sealed class QueueService
             else
             {
                 // Total unknown: report real bytes rather than a fabricated percentage.
+                // This happens when the app has no App Store catalog entry in any
+                // storefront (a delisted app), so its size cannot be known until the
+                // transfer ends. Say so explicitly — otherwise a missing total plus an
+                // animated bar looks like the download is broken. The size is cached
+                // once the download completes, so a later run shows a real percentage.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
-                item.StatusDetail = $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed}{retrySuffix}";
+                item.StatusDetail =
+                    $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed} · размер неизвестен{retrySuffix}";
             }
 
             Notify(item);

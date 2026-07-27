@@ -36,10 +36,11 @@ public sealed partial class QueueItemViewModel : ObservableObject
     /// <summary>
     /// Show a moving (indeterminate) bar for stages where no measurable progress exists.
     /// Checking and Licensing are always indeterminate.
-    /// Downloading switches to determinate the moment the first byte lands on disk so
-    /// the bar starts filling immediately and never gets stuck showing a spinner; it
-    /// goes back to indeterminate during the finalizing (repackaging) phase so the user
-    /// sees activity instead of a bar frozen at ~99%.
+    /// Downloading switches to determinate as soon as a real percentage exists, so the
+    /// bar starts filling immediately; it stays/returns to indeterminate whenever the
+    /// percentage is unknowable — the handshake, the finalizing (repackaging) tail, and
+    /// transfers where the total size could never be determined — so the user always
+    /// sees motion instead of a bar frozen at 0% or ~99%.
     /// Installing always uses a determinate bar (starts at >=3%).
     /// </summary>
     public bool IsIndeterminate => Stage switch
@@ -47,9 +48,16 @@ public sealed partial class QueueItemViewModel : ObservableObject
         QueueStage.Checking or QueueStage.Licensing => true,
         // Connecting = the Apple handshake, before any byte exists. Finalizing =
         // repackaging, where the byte count no longer moves. Both are genuinely
-        // unmeasurable, so the bar animates. Everything in between is real,
-        // measured transfer and must show a filling bar.
-        QueueStage.Downloading => Item.IsConnecting || Item.IsFinalizing,
+        // unmeasurable, so the bar animates.
+        //
+        // StageProgress <= 0 is the third unmeasurable case: bytes ARE moving, but
+        // no percentage exists because neither the total size nor a reported percent
+        // could be obtained (an app delisted from the App Store has no iTunes
+        // catalog entry, and ipatool's own progress bar is not always parseable).
+        // Without this the bar sat frozen at 0% for the entire transfer, which reads
+        // as "stuck" even while the byte counter beside it kept climbing.
+        QueueStage.Downloading =>
+            Item.IsConnecting || Item.IsFinalizing || Item.StageProgress <= 0,
         _ => false,
     };
     public bool IsDone => Stage == QueueStage.Done;

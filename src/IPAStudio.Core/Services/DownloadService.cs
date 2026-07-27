@@ -56,6 +56,33 @@ public sealed class DownloadResult
     public static DownloadResult Fail(string error) => new() { Error = error };
 }
 
+/// <summary>What to do when the target .ipa already exists on disk.</summary>
+public enum FileConflictDecision
+{
+    /// <summary>Overwrite the existing file (only after the new one downloads).</summary>
+    Replace,
+
+    /// <summary>Keep the old file and save the new one under a numbered name.</summary>
+    KeepBoth,
+
+    /// <summary>Skip this download entirely and leave the old file untouched.</summary>
+    Cancel,
+}
+
+/// <summary>Details shown to the user when a download would overwrite an existing file.</summary>
+public sealed record FileConflictRequest(
+    string AppName,
+    string ExistingPath,
+    long ExistingSizeBytes,
+    DateTime ExistingModifiedLocal);
+
+/// <summary>
+/// The user's answer. <paramref name="ApplyToAll"/> reuses this decision for every
+/// later conflict in the same queue run, so a large batch is not interrupted once per
+/// item.
+/// </summary>
+public sealed record FileConflictResponse(FileConflictDecision Decision, bool ApplyToAll);
+
 /// <summary>
 /// App Store operations via ipatool:
 ///   search, purchase (obtain license), download (with progress), list-versions.
@@ -117,6 +144,26 @@ public sealed partial class DownloadService
 
     /// <summary>How often the UI receives a progress snapshot.</summary>
     private static readonly TimeSpan ReportInterval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Asks the user what to do when the target file already exists. Set once by the UI
+    /// layer at startup (Core must not reference WPF), mirroring how the 2FA prompt is
+    /// supplied to <see cref="AuthService"/>.
+    ///
+    /// When left null nothing prompts, and downloads fall back to
+    /// <see cref="FileConflictDecision.KeepBoth"/> — the choice that cannot destroy a
+    /// file the user already has.
+    /// </summary>
+    public Func<FileConflictRequest, CancellationToken, Task<FileConflictResponse>>? FileConflictResolver { get; set; }
+
+    /// <summary>"Apply to all" answer, valid until <see cref="ResetFileConflictScope"/>.</summary>
+    private FileConflictDecision? _stickyConflictDecision;
+
+    /// <summary>
+    /// Forgets a previous "apply to all" answer. Called when a queue run starts so the
+    /// choice never silently leaks into an unrelated batch later in the session.
+    /// </summary>
+    public void ResetFileConflictScope() => _stickyConflictDecision = null;
 
     public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http)
     {
@@ -233,6 +280,34 @@ public sealed partial class DownloadService
 
         var outputPath = BuildOutputPath(app, targetFolder);
 
+        // ---- Existing file? Ask before touching it. --------------------------------
+        // Historically the download simply deleted whatever sat at this path (see
+        // TryDeleteStaleFiles below), so re-downloading an app destroyed the copy the
+        // user already had — and if the new attempt then failed, both were gone.
+        //
+        // replaceTarget != null means "the user agreed to overwrite this path". Even
+        // then the transfer runs to a fresh, unique file first and only swaps at the
+        // very end, so a failed download can never take the old file with it.
+        string? replaceTarget = null;
+        if (File.Exists(outputPath))
+        {
+            var decision = await ResolveConflictAsync(app, outputPath, ct).ConfigureAwait(false);
+            switch (decision)
+            {
+                case FileConflictDecision.Cancel:
+                    return DownloadResult.Fail($"Пропущено: файл «{Path.GetFileName(outputPath)}» уже существует.");
+
+                case FileConflictDecision.Replace:
+                    replaceTarget = outputPath;
+                    outputPath = MakeUniquePath(outputPath);
+                    break;
+
+                default: // KeepBoth
+                    outputPath = MakeUniquePath(outputPath);
+                    break;
+            }
+        }
+
         // Stage temp files on the SAME volume as the destination. Two wins:
         //   1. The poller knows where to look, so progress works regardless of where
         //      ipatool chooses to buffer.
@@ -273,7 +348,8 @@ public sealed partial class DownloadService
             var (result, transient) = await DownloadOnceAsync(
                 app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct).ConfigureAwait(false);
 
-            if (result.Success) return result;
+            // The swap happens only now, with a complete file in hand.
+            if (result.Success) return FinishReplace(result, replaceTarget);
 
             lastError = result.Error;
 
@@ -663,12 +739,105 @@ public sealed partial class DownloadService
         if (string.IsNullOrEmpty(safeName))
             safeName = "app";
 
-        var version = MakeAsciiSafeName(app.LatestVersion ?? "latest");
-        if (string.IsNullOrEmpty(version)) version = "latest";
+        // No known version -> stamp the download date instead of a constant.
+        //
+        // The old fallback was the literal "latest", which is the same string forever.
+        // Apps with no App Store catalog entry (delisted ones, where the version can
+        // never be looked up) therefore always produced one identical filename, so
+        // every re-download collided with the previous one even when it was genuinely
+        // a different build. A date keeps those builds apart.
+        var version = MakeAsciiSafeName(app.LatestVersion ?? "");
+        if (string.IsNullOrEmpty(version))
+            version = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
         return Path.Combine(
             string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
             $"{safeName}_{app.AppStoreId}_{version}.ipa");
+    }
+
+    /// <summary>
+    /// Adds " (2)", " (3)", … before the extension until the path is free, so a new
+    /// download can land beside an existing file instead of on top of it.
+    /// </summary>
+    private static string MakeUniquePath(string path)
+    {
+        var dir = Path.GetDirectoryName(path) ?? "";
+        var name = Path.GetFileNameWithoutExtension(path);
+        var ext = Path.GetExtension(path);
+
+        // Bounded so a pathological directory can never spin forever; 999 collisions
+        // of one app is far past anything real.
+        for (var i = 2; i < 1000; i++)
+        {
+            var candidate = Path.Combine(dir, $"{name} ({i}){ext}");
+            if (!File.Exists(candidate)) return candidate;
+        }
+
+        // Last resort: a timestamp is effectively collision-free.
+        return Path.Combine(
+            dir,
+            $"{name} ({DateTime.Now:yyyyMMdd-HHmmss}){ext}");
+    }
+
+    /// <summary>
+    /// Asks the UI what to do about an existing file, honouring a previous
+    /// "apply to all" answer. Falls back to KeepBoth when no resolver is attached or
+    /// the prompt throws, because that is the only outcome that cannot lose data.
+    /// </summary>
+    private async Task<FileConflictDecision> ResolveConflictAsync(
+        AppEntry app, string existingPath, CancellationToken ct)
+    {
+        if (_stickyConflictDecision is { } sticky) return sticky;
+
+        var resolver = FileConflictResolver;
+        if (resolver is null) return FileConflictDecision.KeepBoth;
+
+        try
+        {
+            var info = new FileInfo(existingPath);
+            var request = new FileConflictRequest(
+                app.Name,
+                existingPath,
+                info.Exists ? info.Length : 0,
+                info.Exists ? info.LastWriteTime : DateTime.Now);
+
+            var response = await resolver(request, ct).ConfigureAwait(false);
+            if (response.ApplyToAll) _stickyConflictDecision = response.Decision;
+            return response.Decision;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Диалог конфликта файлов не сработал ({ex.Message}); сохраняем оба файла.");
+            return FileConflictDecision.KeepBoth;
+        }
+    }
+
+    /// <summary>
+    /// Completes a "replace" decision: the freshly downloaded file takes the place of
+    /// the old one. Runs only after a successful transfer.
+    ///
+    /// If the swap itself fails (file locked by another program, for instance) the new
+    /// download is kept under its temporary name and reported as the result — the user
+    /// still has a working file rather than an error.
+    /// </summary>
+    private static DownloadResult FinishReplace(DownloadResult result, string? replaceTarget)
+    {
+        if (replaceTarget is null || result.IpaPath is null) return result;
+
+        try
+        {
+            File.Delete(replaceTarget);
+            File.Move(result.IpaPath, replaceTarget);
+            return DownloadResult.Ok(replaceTarget);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn(
+                $"Не удалось заменить «{Path.GetFileName(replaceTarget)}» ({ex.Message}); " +
+                $"новый файл сохранён как «{Path.GetFileName(result.IpaPath)}».");
+            return result;
+        }
     }
 
     /// <summary>
@@ -773,35 +942,52 @@ public sealed partial class DownloadService
     /// Looks up an app's IPA size (bytes) from the public iTunes Lookup API by its
     /// App Store id. Returns 0 on any failure. Only used as an early seed — the
     /// progress bar's own total supersedes it as soon as the transfer starts.
+    ///
+    /// The lookup is tried against several storefronts because the API answers per
+    /// country: an app that is not sold in the queried storefront returns zero
+    /// results. A plain lookup hits the US storefront, so apps published only in
+    /// other regions used to yield no size at all — leaving the transfer with no
+    /// total, hence no percentage and a progress bar that never filled.
     /// </summary>
     private async Task<long> TryLookupFileSizeAsync(long appId, CancellationToken ct)
     {
-        try
+        foreach (var storefront in ItunesStorefront.Candidates)
         {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
-
-            var url = $"https://itunes.apple.com/lookup?id={appId}&entity=software";
-            using var response = await _http.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            await using var body = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
-            using var doc = await JsonDocument.ParseAsync(body, cancellationToken: timeoutCts.Token).ConfigureAwait(false);
-
-            if (doc.RootElement.TryGetProperty("results", out var results))
+            ct.ThrowIfCancellationRequested();
+            try
             {
-                foreach (var item in results.EnumerateArray())
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
+
+                var url = $"https://itunes.apple.com/lookup?id={appId}&entity=software"
+                          + ItunesStorefront.CountryParam(storefront);
+                using var response = await _http.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                await using var body = await response.Content.ReadAsStreamAsync(timeoutCts.Token).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(body, cancellationToken: timeoutCts.Token).ConfigureAwait(false);
+
+                if (doc.RootElement.TryGetProperty("results", out var results))
                 {
-                    if (!item.TryGetProperty("fileSizeBytes", out var size)) continue;
-                    var bytes = size.ValueKind == JsonValueKind.String
-                        ? long.TryParse(size.GetString(), out var parsed) ? parsed : 0
-                        : size.GetInt64();
-                    if (bytes > 0) return bytes;
+                    foreach (var item in results.EnumerateArray())
+                    {
+                        if (!item.TryGetProperty("fileSizeBytes", out var size)) continue;
+                        var bytes = size.ValueKind == JsonValueKind.String
+                            ? long.TryParse(size.GetString(), out var parsed) ? parsed : 0
+                            : size.GetInt64();
+                        if (bytes > 0) return bytes;
+                    }
                 }
+
+                // Reached only when this storefront simply doesn't carry the app;
+                // continue with the next one.
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch { /* network/timeout on this storefront — try the next */ }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { /* network/timeout — fall back to bytes-only display */ }
+
+        // Every storefront came back empty (a delisted app has no catalog entry
+        // anywhere). The caller falls back to a bytes-only, indeterminate display.
         return 0;
     }
 
