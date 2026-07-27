@@ -33,6 +33,13 @@ public sealed class Device
     /// <summary>Battery charge cycle count, or -1 when unknown.</summary>
     public int BatteryCycleCount { get; set; } = -1;
 
+    /// <summary>
+    /// Why battery health could not be read, in short user-facing wording; empty when it
+    /// was read or has not been attempted yet. Lets the info screen state the actual
+    /// cause instead of always blaming a locked device.
+    /// </summary>
+    public string BatteryHealthError { get; set; } = "";
+
     /// <summary>Device class: iPhone / iPad / iPod.</summary>
     public string DeviceClass { get; set; } = "iPhone";
 
