@@ -264,9 +264,10 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             }
             else
             {
-                // Say why there is no percentage, matching the queue screen's wording.
+                // Same wording as the queue screen: label the number as bytes-so-far, so
+                // it cannot be misread as the (unknown) total sitting next to it.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
-                StatusText = $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed} · размер неизвестен";
+                StatusText = $"Скачано {FormatBytes(p.DownloadedBytes)}{speed} · всего неизвестно";
             }
         });
 

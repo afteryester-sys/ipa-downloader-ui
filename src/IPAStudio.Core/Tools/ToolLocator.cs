@@ -64,6 +64,18 @@ public sealed class ToolLocator
     public string CatalogCacheFile => Path.Combine(DataFolder, "catalog-cache.json");
     public string SettingsFile => Path.Combine(DataFolder, "settings.json");
 
+    /// <summary>
+    /// Exact sizes measured from finished downloads, keyed by App Store id.
+    ///
+    /// Apple's public catalog has no entry at all for delisted apps (VK's, for example),
+    /// and for those downloads Apple also omits Content-Length, so ipatool prints no total
+    /// either — leaving the transfer with no size and a bar that cannot fill. Once such an
+    /// app has been fetched once its exact size is known, so every later download of it
+    /// shows a real total. Kept out of catalog-cache.json because a metadata refresh
+    /// rewrites that file wholesale.
+    /// </summary>
+    public string LearnedSizesFile => Path.Combine(DataFolder, "learned-sizes.json");
+
     public void EnsureFolders()
     {
         Directory.CreateDirectory(AppsFolder);
