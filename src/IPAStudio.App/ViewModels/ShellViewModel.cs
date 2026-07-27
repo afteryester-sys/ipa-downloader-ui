@@ -26,6 +26,12 @@ public enum Page
     /// iCloud itself. Needs no connected device.
     /// </summary>
     ICloud,
+
+    /// <summary>
+    /// "On the device" page: the apps actually installed on the connected device, with the
+    /// option to save one owned by the signed-in Apple ID as an IPA.
+    /// </summary>
+    OnDevice,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -42,6 +48,9 @@ public interface INavigator
 
     /// <summary>Opens the photo transfer screen for a device.</summary>
     void GoToPhotos(Device device);
+
+    /// <summary>Opens the list of apps installed on a device.</summary>
+    void GoToOnDevice(Device device);
 
     /// <summary>
     /// Returns to the previously shown page. Needed by pages reachable from anywhere
@@ -92,6 +101,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.Photos => Resolve<PhotosViewModel>(),
             Page.DirectDownload => Resolve<DirectDownloadViewModel>(),
             Page.ICloud => Resolve<ICloudViewModel>(),
+            Page.OnDevice => Resolve<OnDeviceViewModel>(),
             _ => CurrentViewModel,
         };
 
@@ -101,6 +111,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             case LoginViewModel login: login.SetPendingDevice(_pendingDevice); break;
             case DeviceInfoViewModel info when _pendingDevice is not null: info.SetDevice(_pendingDevice); break;
             case PhotosViewModel photos when _pendingDevice is not null: photos.SetDevice(_pendingDevice); break;
+            case OnDeviceViewModel onDevice when _pendingDevice is not null: onDevice.SetDevice(_pendingDevice); break;
         }
 
         if (CurrentViewModel is IPageAware aware)
@@ -132,6 +143,12 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     {
         _pendingDevice = device;
         GoTo(Page.Photos);
+    }
+
+    public void GoToOnDevice(Device device)
+    {
+        _pendingDevice = device;
+        GoTo(Page.OnDevice);
     }
 
     public void GoBack() => GoTo(_previousPage);

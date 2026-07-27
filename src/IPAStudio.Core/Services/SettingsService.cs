@@ -70,6 +70,13 @@ public sealed class AppSettings
     public string? LastDirectDownloadFolder { get; set; }
 
     /// <summary>
+    /// Folder last chosen on the "on the device" screen. Kept apart from
+    /// <see cref="LastDirectDownloadFolder"/> because saving copies of installed apps and
+    /// grabbing a fresh IPA are different errands that usually target different folders.
+    /// </summary>
+    public string? LastOnDeviceFolder { get; set; }
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.

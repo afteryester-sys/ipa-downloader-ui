@@ -148,6 +148,13 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private void OpenOnDevice(DeviceViewModel? device)
+    {
+        if (device is null) return;
+        _navigator?.GoToOnDevice(device.Device);
+    }
+
+    [RelayCommand]
     private void OpenSettings() => _navigator?.GoTo(Page.Settings);
 
     [RelayCommand]

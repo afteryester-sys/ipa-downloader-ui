@@ -93,6 +93,7 @@ public partial class App : Application
         services.AddSingleton<DeviceInfoViewModel>();
         services.AddSingleton<PhotosViewModel>();
         services.AddSingleton<DirectDownloadViewModel>();
+        services.AddSingleton<OnDeviceViewModel>();
         services.AddSingleton<ICloudViewModel>();
 
         Services = services.BuildServiceProvider();

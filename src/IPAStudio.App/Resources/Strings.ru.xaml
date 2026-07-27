@@ -269,7 +269,8 @@
     <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Загружено (установка пропущена)</sys:String>
 
     <!-- Прогресс установки -->
-    <sys:String x:Key="L.Install.Status.Copying">Копирование</sys:String>
+    <sys:String x:Key="L.Install.Status.Preparing">Подготовка файла</sys:String>
+    <sys:String x:Key="L.Install.Status.Copying">Копирование на устройство</sys:String>
     <sys:String x:Key="L.Install.Status.Installing">Установка</sys:String>
     <sys:String x:Key="L.Install.Status.Complete">Готово</sys:String>
 
@@ -470,5 +471,25 @@
     <sys:String x:Key="L.ICloud.Downloaded">Скачано фото: {0}.</sys:String>
     <sys:String x:Key="L.ICloud.DownloadedWithErrors">Скачано {0}, с ошибкой {1}.</sys:String>
     <sys:String x:Key="L.ICloud.DownloadFailed">Не удалось скачать.</sys:String>
+
+
+    <!-- ===== On the device (apps installed on the connected iPhone/iPad) ===== -->
+    <sys:String x:Key="L.OnDevice.Open">На устройстве</sys:String>
+    <sys:String x:Key="L.OnDevice.Title">Приложения на устройстве</sys:String>
+    <sys:String x:Key="L.OnDevice.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.OnDevice.Loading">Читаем список приложений с устройства…</sys:String>
+    <sys:String x:Key="L.OnDevice.LoadFailed">Не удалось получить список приложений с устройства. Проверьте подключение и разблокируйте устройство, затем нажмите «Обновить».</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устройстве не найдено.</sys:String>
+    <sys:String x:Key="L.OnDevice.FolderLabel">Папка для сохранения IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.ChooseFolder">Выбрать папку…</sys:String>
+    <sys:String x:Key="L.OnDevice.Download">Скачать IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.Reveal">Показать файл</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLogin">Войдите в Apple ID, чтобы скачивать IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLoginHint">Файл выдаёт App Store, а не устройство: копию можно получить только тем Apple ID, который владеет приложением.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotFromStore">Установлено не из App Store — скачать нельзя</sys:String>
+    <sys:String x:Key="L.OnDevice.OtherAccount">Куплено другим Apple ID ({0}) — скачать нельзя</sys:String>
+    <sys:String x:Key="L.OnDevice.AccountUnverified">Устройство не сообщает, каким Apple ID куплено приложение. Если оно куплено не текущим аккаунтом, App Store откажет в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
 
 </ResourceDictionary>

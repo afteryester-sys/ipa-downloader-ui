@@ -436,21 +436,43 @@ public sealed class QueueService
 
         var installProgress = new Progress<InstallProgress>(p =>
         {
-            // Map install stages to sub-ranges so the bar is never stuck at 0:
-            //   Copying      → 3-9 %
-            //   Installing N → 10-90 % (proportional to ideviceinstaller output)
-            //   Complete     → 100 %
-            var displayPct = p.Status switch
+            // The upload to the device produces no progress information whatsoever, so
+            // its share of the bar cannot be a percentage. Give that phase an
+            // indeterminate bar (StageProgress = 0) with elapsed time and the size being
+            // sent in the caption, and use real percentages only once the device starts
+            // reporting. Inventing a number here is what made a working install look
+            // stuck: the bar sat at the same fake value for minutes.
+            item.StageProgress = p.Status switch
             {
-                "Copying"  => Math.Max(3.0, p.Percent),
-                "Complete" => 100.0,
-                _          => Math.Max(10.0, p.Percent),
+                "Complete"  => 100.0,
+                "Preparing" => p.Percent,
+                "Copying"   => 0.0,
+                _           => Math.Max(10.0, p.Percent),
             };
-            item.StageProgress = displayPct;
+
             var statusText = DescribeInstallStatus(p.Status);
-            item.StatusDetail = p.Percent > 0
-                ? $"{statusText} {p.Percent:0}%"
-                : statusText;
+
+            if (p.Status == "Copying")
+            {
+                // Size plus elapsed time: enough for the user to tell a slow cable from
+                // a hang, which a bare "waiting for the device" never allowed.
+                var size = p.TotalBytes > 0 ? $" · {FormatBytes(p.TotalBytes)}" : "";
+                var seconds = (int)p.Elapsed.TotalSeconds;
+                item.StatusDetail = seconds >= 2
+                    ? $"{statusText}{size} · {FormatElapsed(seconds)}"
+                    : $"{statusText}{size}";
+            }
+            else if (p.Status == "Preparing")
+            {
+                item.StatusDetail = $"{statusText} {p.Percent:0}%";
+            }
+            else
+            {
+                item.StatusDetail = p.Percent > 0
+                    ? $"{statusText} {p.Percent:0}%"
+                    : statusText;
+            }
+
             Notify(item);
         });
 
@@ -475,6 +497,7 @@ public sealed class QueueService
     /// <summary>Localized label for the install phase word reported by ideviceinstaller.</summary>
     private static string DescribeInstallStatus(string status) => status switch
     {
+        "Preparing"  => Loc.Get("L.Install.Status.Preparing"),
         "Copying"    => Loc.Get("L.Install.Status.Copying"),
         "Installing" => Loc.Get("L.Install.Status.Installing"),
         "Complete"   => Loc.Get("L.Install.Status.Complete"),
@@ -564,6 +587,20 @@ public sealed class QueueService
     }
 
     /// <summary>Formats remaining seconds as a localized ETA (e.g. "~2 min 30 s" or "~45 s").</summary>
+    /// <summary>
+    /// Formats time already spent. Separate from <see cref="FormatEta"/> on purpose: that
+    /// one prefixes "~" because it is a guess, and using it for a measured elapsed time
+    /// would present a fact as an estimate.
+    /// </summary>
+    private static string FormatElapsed(int seconds)
+    {
+        var m = Loc.Get("L.Unit.Minutes");
+        var sec = Loc.Get("L.Unit.Seconds");
+        return seconds >= 60
+            ? $"{seconds / 60} {m} {seconds % 60} {sec}"
+            : $"{seconds} {sec}";
+    }
+
     private static string FormatEta(long seconds)
     {
         if (seconds <= 0 || seconds > 3600 * 24) return "";
