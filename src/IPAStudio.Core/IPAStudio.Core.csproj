@@ -22,6 +22,10 @@
          trigger "version-specific RID" warnings on .NET 8. We only ship win-x64, so
          these are false positives and are suppressed here. -->
     <PackageReference Include="imobiledevice-net" Version="1.3.17" NoWarn="NU1701;NU1702;NETSDK1138" />
+    <!-- Reads the device Photos library (Photos.sqlite) to recover real album names: the
+         DCIM folders iOS starts every 999 files are not albums, so the names can only
+         come from the library database. Ships its own native SQLite, no OS dependency. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
   </ItemGroup>
 
 </Project>

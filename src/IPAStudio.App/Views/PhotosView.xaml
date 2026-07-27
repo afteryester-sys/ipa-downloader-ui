@@ -33,8 +33,9 @@
                         Style="{StaticResource ThumbBorder}">
                     <!-- Grid allows Image + fallback TextBlock to overlap in same cell -->
                     <Grid>
-                        <!-- Real image preview -->
-                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                        <!-- Real image preview. Uniform for the same reason as the tile
+                             template: a 44x44 square crops a photo hardest of all. -->
+                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"
                                Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
                         <!-- Fallback glyph when no thumb yet -->
                         <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
@@ -59,7 +60,7 @@
                     <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Body}"
                                FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                        <TextBlock Text="{Binding FriendlyAlbumName}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding DisplayAlbumName}" Style="{StaticResource Text.Caption}" />
                         <TextBlock Text="{Binding DateText, StringFormat=' · {0}'}"
                                    Style="{StaticResource Text.Caption}" />
                     </StackPanel>
@@ -77,7 +78,11 @@
                     <Grid>
                         <Border Width="130" Height="110" Style="{StaticResource ThumbBorder}">
                             <Grid>
-                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                <!-- Uniform, not UniformToFill: filling a 130x110 tile from a
+                                     4:3 or 16:9 frame cut the edges off, and in a grid used to
+                                     spot one particular shot the cropped-away part is often the
+                                     subject. Letterboxing shows the whole frame instead. -->
+                                <Image Source="{Binding Thumbnail}" Stretch="Uniform"
                                        Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
                                 <!-- Fallback glyph -->
                                 <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
@@ -328,7 +333,7 @@
 
                         <TextBlock Text="{Binding SelectedPhoto.FileName}" Style="{StaticResource Text.Body}"
                                    FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,14,0,0" />
-                        <TextBlock Text="{Binding SelectedPhoto.FriendlyAlbumName}" Style="{StaticResource Text.Caption}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding SelectedPhoto.DisplayAlbumName}" Style="{StaticResource Text.Caption}" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding SelectedPhoto.SizeText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                         <TextBlock Text="{Binding SelectedPhoto.DateText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
                     </StackPanel>
