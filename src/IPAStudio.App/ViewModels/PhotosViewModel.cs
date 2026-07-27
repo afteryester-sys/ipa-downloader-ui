@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Infrastructure;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 using Microsoft.Win32;
@@ -22,6 +24,14 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     /// <summary>Small thumbnail (64 px wide) loaded asynchronously after the list is built.</summary>
     [ObservableProperty]
     private BitmapImage? _thumbnail;
+
+    /// <summary>
+    /// True once a thumbnail has been fetched and decoded for this item, whether or not
+    /// it produced an image. Stops the loader from re-reading files that yield nothing
+    /// (a truncated or unsupported file) every time they scroll back into view. Reset
+    /// when a thumbnail is evicted from the cache, so a retry is still possible.
+    /// </summary>
+    public bool ThumbnailAttempted { get; set; }
 
     public string FileName => Item.FileName;
 
@@ -55,10 +65,30 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     }
 
     public bool IsVideo => Item.IsVideo;
-    public string SizeText => FormatSize(Item.SizeBytes);
+
+    /// <summary>
+    /// File size, or an em dash until the device has been asked. Listing skips the
+    /// per-file stat so the grid can appear at once, so this shows a placeholder for a
+    /// moment instead of claiming a misleading "0 Б".
+    /// </summary>
+    public string SizeText => Item.HasMetadata ? FormatSize(Item.SizeBytes) : "—";
+
     public string DateText => Item.ModifiedUtc?.LocalDateTime.ToString("dd.MM.yyyy HH:mm") ?? "";
 
     public PhotoItemViewModel(PhotoItem item) => Item = item;
+
+    /// <summary>
+    /// Applies size/date fetched in the background. Must be called on the UI thread:
+    /// it writes to the shared item and raises change notifications.
+    /// </summary>
+    public void ApplyMetadata(long sizeBytes, DateTimeOffset? modifiedUtc)
+    {
+        Item.SizeBytes = sizeBytes;
+        Item.ModifiedUtc = modifiedUtc;
+        Item.HasMetadata = true;
+        OnPropertyChanged(nameof(SizeText));
+        OnPropertyChanged(nameof(DateText));
+    }
 
     private static string FormatSize(long bytes)
     {
@@ -82,6 +112,40 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private CancellationTokenSource? _cts;
     /// <summary>Maps friendly album label (shown in the picker) to raw DCIM folder name.</summary>
     private readonly Dictionary<string, string> _albumFriendlyToRaw = new();
+
+    /// <summary>
+    /// Item lookup by AFC path, so a metadata batch arriving from the background can be
+    /// matched to its row without scanning the whole collection per result.
+    /// </summary>
+    private readonly Dictionary<string, PhotoItemViewModel> _byRemotePath = new();
+
+    /// <summary>Cancels the background size/date pass when the list is rebuilt.</summary>
+    private CancellationTokenSource? _metaCts;
+
+    /// <summary>Thumbnail decode width, in pixels. Tiles render at 130 wide.</summary>
+    private const int ThumbnailWidth = 160;
+
+    /// <summary>
+    /// Upper bound on decoded thumbnails kept in memory. At ~160 px each this caps the
+    /// cache in the low tens of MB, so scrolling a 10 000 photo roll can't grow without
+    /// limit. Comfortably larger than any viewport, so normal scrolling never evicts
+    /// something about to be shown again.
+    /// </summary>
+    private const int MaxCachedThumbnails = 400;
+
+    /// <summary>Most-recently-seen thumbnails first; the tail is evicted.</summary>
+    private readonly LinkedList<PhotoItemViewModel> _cacheOrder = new();
+    private readonly Dictionary<PhotoItemViewModel, LinkedListNode<PhotoItemViewModel>> _cacheNodes = new();
+
+    /// <summary>Visible row range last reported by the view, in PhotosView order.</summary>
+    private int _visibleFirst;
+    private int _visibleLast = -1;
+
+    /// <summary>Wakes the thumbnail loader when the viewport changes.</summary>
+    private readonly AsyncAutoResetEvent _viewportChanged = new();
+
+    /// <summary>Consecutive HEIC batches that decoded to nothing.</summary>
+    private int _heicFailedBatches;
 
     public ObservableCollection<PhotoItemViewModel> Photos { get; } = new();
     public ICollectionView PhotosView { get; }
@@ -133,6 +197,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _isListView = true;
 
+    /// <summary>
+    /// True when HEIC files can't be decoded on this PC, i.e. the OS HEIF codec is
+    /// missing. Drives a one-line hint with an install link — without it HEIC tiles
+    /// would just stay blank with no explanation.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isHeicCodecMissing;
+
     public bool IsGridView => !IsListView;
 
     partial void OnIsListViewChanged(bool value) => OnPropertyChanged(nameof(IsGridView));
@@ -147,6 +219,20 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     }
 
     public void SetDevice(Device device) => _device = device;
+
+    /// <summary>
+    /// Keeps <see cref="SelectedCount"/> up to date by adjusting it in place.
+    ///
+    /// Previously this recounted the entire collection on every toggle, which made
+    /// "select all" quadratic — on a few thousand photos that meant millions of
+    /// comparisons and a visibly frozen window for a single click.
+    /// </summary>
+    private void OnPhotoItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(PhotoItemViewModel.IsSelected)) return;
+        if (sender is not PhotoItemViewModel item) return;
+        SelectedCount += item.IsSelected ? 1 : -1;
+    }
 
     public void OnNavigatedTo(INavigator navigator)
     {
@@ -188,21 +274,41 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         _thumbCts?.Dispose();
         _thumbCts = new CancellationTokenSource();
 
+        // Same for the size/date pass, otherwise a previous run would keep writing
+        // into rows that no longer exist.
+        _metaCts?.Cancel();
+        _metaCts?.Dispose();
+        _metaCts = new CancellationTokenSource();
+
         IsBusy = true;
         StatusText = "Чтение медиатеки…";
+
+        foreach (var old in Photos) old.PropertyChanged -= OnPhotoItemPropertyChanged;
         Photos.Clear();
+        _byRemotePath.Clear();
+        // The cache holds strong references to the old rows; without this a reload would
+        // pin every previous item (and its decoded bitmap) in memory.
+        _cacheOrder.Clear();
+        _cacheNodes.Clear();
+        _heicFailedBatches = 0;
+        // Selection is tracked incrementally now, so it has to be reset explicitly
+        // when the rows behind it disappear.
+        SelectedCount = 0;
         try
         {
             var items = await _photos.ListCameraRollAsync(_device.Udid);
-            foreach (var item in items)
+
+            // Suppress filter/sort churn while thousands of items are appended; the
+            // collection view would otherwise re-evaluate on every single Add.
+            using (PhotosView.DeferRefresh())
             {
-                var vm = new PhotoItemViewModel(item);
-                vm.PropertyChanged += (_, e) =>
+                foreach (var item in items)
                 {
-                    if (e.PropertyName == nameof(PhotoItemViewModel.IsSelected))
-                        SelectedCount = Photos.Count(p => p.IsSelected);
-                };
-                Photos.Add(vm);
+                    var vm = new PhotoItemViewModel(item);
+                    vm.PropertyChanged += OnPhotoItemPropertyChanged;
+                    Photos.Add(vm);
+                    _byRemotePath[item.RemotePath] = vm;
+                }
             }
 
             Albums.Clear();
@@ -230,8 +336,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 ? "Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ."
                 : $"Найдено медиафайлов: {Photos.Count}";
 
-            // Start thumbnail loading in background.
+            // Start the thumbnail loader. It waits for the view to report which rows are
+            // visible; nudge it once here so the first screenful loads even if no scroll
+            // or resize event follows (the common case on a fresh open).
             _ = LoadThumbnailsAsync(_thumbCts.Token);
+            _viewportChanged.Set();
+
+            // Sizes and dates come in afterwards, so the grid is usable immediately
+            // instead of waiting on one AFC round-trip per file.
+            _ = FillMetadataAsync(items, _metaCts.Token);
         }
         catch (Exception ex)
         {
@@ -243,6 +356,73 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Fills in sizes and dates after the grid is already on screen, then puts the list
+    /// into true newest-first order.
+    ///
+    /// The initial order is by file name, which tracks capture order within one DCIM
+    /// folder but interleaves wrongly when a device has several (100APPLE, 101APPLE, …).
+    /// So the view is re-sorted by real date once — a single reshuffle at the end rather
+    /// than items hopping around while results stream in.
+    /// </summary>
+    private async Task FillMetadataAsync(IReadOnlyList<PhotoItem> items, CancellationToken ct)
+    {
+        // Constructed on the UI thread, so Report() marshals back to it for us.
+        var progress = new Progress<IReadOnlyList<PhotoMetadata>>(batch =>
+        {
+            foreach (var meta in batch)
+            {
+                if (_byRemotePath.TryGetValue(meta.Item.RemotePath, out var vm))
+                    vm.ApplyMetadata(meta.SizeBytes, meta.ModifiedUtc);
+            }
+        });
+
+        try
+        {
+            await _photos.FillMetadataAsync(_device!.Udid, items, progress, ct);
+
+            ct.ThrowIfCancellationRequested();
+
+            // Assigning CustomSort refreshes the view itself. Sorting the view rather
+            // than the backing collection also leaves the thumbnail loader's snapshot
+            // of Photos untouched.
+            if (PhotosView is ListCollectionView list)
+            {
+                list.CustomSort = PhotoDateComparer.Instance;
+            }
+            else
+            {
+                PhotosView.Refresh();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // List was rebuilt or the page was left; nothing to report.
+        }
+        catch
+        {
+            // Sizes and dates are cosmetic — a mid-pass disconnect leaves the
+            // placeholders in place rather than tearing down a working grid.
+        }
+    }
+
+    /// <summary>Newest first, falling back to file name so the order stays stable.</summary>
+    private sealed class PhotoDateComparer : System.Collections.IComparer
+    {
+        public static readonly PhotoDateComparer Instance = new();
+
+        public int Compare(object? x, object? y)
+        {
+            if (x is not PhotoItemViewModel a || y is not PhotoItemViewModel b) return 0;
+            var da = a.Item.ModifiedUtc ?? DateTimeOffset.MinValue;
+            var db = b.Item.ModifiedUtc ?? DateTimeOffset.MinValue;
+            var byDate = db.CompareTo(da);
+            return byDate != 0
+                ? byDate
+                : string.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     private async Task LoadPreviewAsync(PhotoItemViewModel? item)
     {
         PreviewImage = null;
@@ -250,9 +430,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
         if (item is null || _device is null) return;
 
-        // Videos and HEIC can't be decoded by WPF's built-in codecs; show a placeholder.
-        var ext = Path.GetExtension(item.FileName).ToLowerInvariant();
-        if (item.IsVideo || ext is ".heic" or ".heif")
+        // Video has no still frame to show. HEIC is attempted: WIC decodes it when the
+        // OS HEIF codec is present, and simply fails into the placeholder when not.
+        if (item.IsVideo || (IsHeicName(item.FileName) && IsHeicCodecMissing))
         {
             PreviewUnavailable = true;
             return;
@@ -278,6 +458,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         catch
         {
             PreviewUnavailable = true;
+
+            // A HEIC that downloaded fine but won't decode means the OS HEIF codec is
+            // missing. Raise the hint here too: clicking a photo is often the first
+            // thing a user does, and without this they'd get a bare "no preview" with
+            // no way to find out why.
+            if (IsHeicName(item.FileName)) IsHeicCodecMissing = true;
         }
     }
 
@@ -383,82 +569,243 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private void SetGridView() => IsListView = false;
 
     /// <summary>
-    /// Loads small thumbnails for photos (not videos/HEIC) in the background.
+    /// Called by the view whenever the visible rows change (scroll, resize, view
+    /// switch). Indices refer to <see cref="PhotosView"/> order.
     ///
-    /// Strategy: batch files into groups of <c>SessionBatchSize</c>. Each batch opens
-    /// ONE AFC session and reads all files in it, avoiding the expensive per-file
-    /// USB/lockdown handshake. Thumbnail extraction runs in parallel on the thread
-    /// pool. UI updates are dispatched with low priority so the main thread stays
-    /// responsive (the dispatcher never blocks between batches).
+    /// Only records the range and wakes the loader — it must stay cheap because it
+    /// fires on every scroll event.
+    /// </summary>
+    public void SetVisibleRange(int firstIndex, int lastIndex)
+    {
+        _visibleFirst = firstIndex;
+        _visibleLast = lastIndex;
+        _viewportChanged.Set();
+    }
+
+    /// <summary>
+    /// Loads thumbnails for the rows that are actually on screen, and keeps loading as
+    /// the user scrolls.
+    ///
+    /// Only visible items are fetched. The previous version walked the entire roll up
+    /// front, which for HEIC would mean pulling every full-size file off the device —
+    /// gigabytes of reads for photos the user may never scroll to. HEIC cannot be
+    /// decoded from a partial read (its thumbnail is HEVC-coded and described by boxes
+    /// that may sit anywhere in the file), so those are read whole and therefore only
+    /// ever on demand; JPEG still needs just a 64 KB header.
     /// </summary>
     private async Task LoadThumbnailsAsync(CancellationToken ct)
     {
-        const int SessionBatchSize = 20;     // files per single AFC session
+        // Small batches keep the loader responsive to scrolling: after each batch it
+        // re-reads the viewport, so flinging the list doesn't first drain a long queue
+        // of thumbnails the user has already scrolled past.
+        const int JpegBatchSize = 12;
+        const int HeicBatchSize = 4; // whole multi-MB files; keep peak memory modest
         const long ExifHeaderBytes = 65_536; // 64 KB — covers the EXIF block on iPhone JPEGs
 
-        var jpegItems = Photos
-            .Where(p => !p.IsVideo
-                && Path.GetExtension(p.FileName).ToLowerInvariant() is not ".heic" and not ".heif")
-            .ToList();
-
-        if (_device is null) return;
-
-        for (var i = 0; i < jpegItems.Count; i += SessionBatchSize)
+        while (!ct.IsCancellationRequested)
         {
-            ct.ThrowIfCancellationRequested();
+            // Wait until the viewport is known/changed, then service it.
+            await _viewportChanged.WaitAsync(ct).ConfigureAwait(false);
+            if (_device is null) continue;
 
-            // Yield to the UI thread between every batch so it can process input
-            // and paint incremental thumbnail updates without freezing.
-            await Task.Delay(1, ct).ConfigureAwait(false);
-
-            var batch = jpegItems.Skip(i).Take(SessionBatchSize).ToList();
-            var paths = batch
-                .Where(p => p.Thumbnail is null)
-                .Select(p => p.Item.RemotePath)
-                .ToList();
-            if (paths.Count == 0) continue;
-
-            // Read all EXIF headers in ONE AFC session on a background thread.
-            Dictionary<string, byte[]> rawMap;
-            try
+            // Keep servicing the current viewport until nothing is left to load, then
+            // go back to waiting. Re-reading the range each pass is what makes
+            // scrolling feel immediate.
+            while (!ct.IsCancellationRequested)
             {
-                rawMap = await _photos.ReadFilesAsync(_device.Udid, paths, ExifHeaderBytes, ct)
-                    .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) { return; }
-            catch { continue; } // device disconnected; skip batch
+                var batch = await System.Windows.Application.Current.Dispatcher.InvokeAsync(
+                    NextThumbnailBatch).Task.ConfigureAwait(false);
 
-            // Decode thumbnails in parallel (CPU-bound, no AFC involved).
-            var decoded = await Task.Run(() =>
-            {
-                var result = new List<(PhotoItemViewModel item, BitmapImage thumb)>();
-                foreach (var item in batch)
+                if (batch.Count == 0) break;
+
+                var isHeic = IsHeicName(batch[0].FileName);
+                if (batch.Count > (isHeic ? HeicBatchSize : JpegBatchSize))
+                    batch = batch.GetRange(0, isHeic ? HeicBatchSize : JpegBatchSize);
+
+                var paths = batch.Select(p => p.Item.RemotePath).ToList();
+
+                Dictionary<string, byte[]> rawMap;
+                try
                 {
-                    if (ct.IsCancellationRequested) break;
-                    if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null || bytes.Length == 0) continue;
-
-                    // Prefer the EXIF embedded thumbnail (fast, tiny). Fall back to
-                    // down-scaled full-decode only when EXIF thumbnail is absent.
-                    BitmapImage? thumb = TryExtractExifThumbnailAsBitmapImage(bytes)
-                                      ?? TryDecodeFullJpeg(bytes, 96);
-                    if (thumb is not null) result.Add((item, thumb));
+                    // maxBytes 0 = whole file, required for HEIC.
+                    rawMap = await _photos
+                        .ReadFilesAsync(_device.Udid, paths, isHeic ? 0 : ExifHeaderBytes, ct)
+                        .ConfigureAwait(false);
                 }
-                return result;
-            }, ct).ConfigureAwait(false);
+                catch (OperationCanceledException) { return; }
+                catch { break; } // device disconnected; wait for the next viewport change
 
-            // Dispatch thumbnail assignments at Background priority so painting
-            // never blocks input events on the UI thread.
-            if (decoded.Count > 0)
-            {
+                var decoded = await Task.Run(() =>
+                {
+                    var result = new List<(PhotoItemViewModel item, BitmapImage thumb)>();
+                    foreach (var item in batch)
+                    {
+                        if (ct.IsCancellationRequested) break;
+                        if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null || bytes.Length == 0) continue;
+
+                        // For JPEG the EXIF thumbnail is tiny and near-instant; the
+                        // full decode is only a fallback. For HEIC the platform HEIF
+                        // codec does the work, so there is nothing cheaper to try.
+                        var thumb = isHeic
+                            ? TryDecodeThumbnail(bytes, ThumbnailWidth)
+                            : TryExtractExifThumbnailAsBitmapImage(bytes)
+                              ?? TryDecodeThumbnail(bytes, ThumbnailWidth);
+                        if (thumb is not null) result.Add((item, thumb));
+                    }
+                    return result;
+                }, ct).ConfigureAwait(false);
+
+                // HEIC decoding depends on an OS component that may be absent. If a
+                // whole batch of readable HEIC files decoded to nothing, the codec is
+                // the only plausible cause — surface the hint instead of leaving the
+                // user staring at permanently blank tiles.
+                if (isHeic && rawMap.Count > 0)
+                    NoteHeicDecodeOutcome(succeeded: decoded.Count > 0);
+
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(
                     () =>
                     {
                         foreach (var (item, thumb) in decoded)
+                        {
                             item.Thumbnail = thumb;
+                            TouchCache(item);
+                        }
+                        // Items whose bytes arrived but produced no image are recorded
+                        // as attempted, so the loader doesn't retry them forever.
+                        foreach (var item in batch)
+                            if (rawMap.ContainsKey(item.Item.RemotePath))
+                                item.ThumbnailAttempted = true;
+
+                        TrimCache();
                     },
-                    System.Windows.Threading.DispatcherPriority.Background);
+                    System.Windows.Threading.DispatcherPriority.Background).Task.ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Picks the next items to load: those in (or just around) the viewport that have
+    /// no thumbnail yet. Runs on the UI thread because it reads the collection view.
+    ///
+    /// Returns items of a single kind (all HEIC or all JPEG) so the caller can use one
+    /// read size per AFC session.
+    /// </summary>
+    private List<PhotoItemViewModel> NextThumbnailBatch()
+    {
+        var result = new List<PhotoItemViewModel>();
+        if (_visibleLast < _visibleFirst) return result;
+
+        // A small look-ahead margin means thumbnails are usually ready by the time a
+        // row scrolls into view, without fetching far-away files.
+        const int Margin = 8;
+
+        var first = Math.Max(0, _visibleFirst - Margin);
+        var last = _visibleLast + Margin;
+
+        // Walk only the window, stopping at its end: materialising the whole view here
+        // would be O(total photos) on every batch.
+        bool? wantHeic = null;
+        var index = -1;
+        foreach (PhotoItemViewModel item in PhotosView)
+        {
+            index++;
+            if (index < first) continue;
+            if (index > last) break;
+
+            if (item.IsVideo || item.Thumbnail is not null || item.ThumbnailAttempted) continue;
+
+            var heic = IsHeicName(item.FileName);
+            // Don't spend reads on HEIC once we know the OS can't decode it.
+            if (heic && IsHeicCodecMissing) continue;
+
+            wantHeic ??= heic;
+            if (heic != wantHeic) continue;
+
+            result.Add(item);
+        }
+
+        return result;
+    }
+
+    private static bool IsHeicName(string fileName)
+        => Path.GetExtension(fileName).ToLowerInvariant() is ".heic" or ".heif";
+
+    /// <summary>
+    /// Tracks whether HEIC decoding works, and flips the hint on only after several
+    /// consecutive all-failed batches. One failure can just be a corrupt file; a
+    /// missing codec fails everything.
+    /// </summary>
+    private void NoteHeicDecodeOutcome(bool succeeded)
+    {
+        if (succeeded)
+        {
+            _heicFailedBatches = 0;
+            return;
+        }
+
+        if (++_heicFailedBatches >= 2)
+            IsHeicCodecMissing = true;
+    }
+
+    /// <summary>
+    /// Marks an item as most-recently-used in the thumbnail cache.
+    /// Must run on the UI thread.
+    /// </summary>
+    private void TouchCache(PhotoItemViewModel item)
+    {
+        if (_cacheNodes.TryGetValue(item, out var node))
+            _cacheOrder.Remove(node);
+
+        _cacheNodes[item] = _cacheOrder.AddFirst(item);
+    }
+
+    /// <summary>
+    /// Drops the least-recently-seen thumbnails once the cache exceeds
+    /// <see cref="MaxCachedThumbnails"/>, so browsing a large roll cannot grow memory
+    /// without bound. Items still on screen are kept — evicting those would make them
+    /// reload immediately, and flicker. Must run on the UI thread.
+    /// </summary>
+    private void TrimCache()
+    {
+        if (_cacheOrder.Count <= MaxCachedThumbnails) return;
+
+        // Snapshot the visible items once. Resolving "is this on screen?" per candidate
+        // would rescan the collection view for every eviction.
+        var visible = VisibleItems();
+
+        var node = _cacheOrder.Last;
+        while (_cacheOrder.Count > MaxCachedThumbnails && node is not null)
+        {
+            var prev = node.Previous;
+            var item = node.Value;
+
+            if (!visible.Contains(item))
+            {
+                item.Thumbnail = null;
+                // Allow a reload if the user scrolls back to it.
+                item.ThumbnailAttempted = false;
+                _cacheOrder.Remove(node);
+                _cacheNodes.Remove(item);
+            }
+
+            node = prev;
+        }
+    }
+
+    /// <summary>Items currently inside the reported viewport. UI thread only.</summary>
+    private HashSet<PhotoItemViewModel> VisibleItems()
+    {
+        var set = new HashSet<PhotoItemViewModel>();
+        if (_visibleLast < _visibleFirst) return set;
+
+        var i = 0;
+        foreach (PhotoItemViewModel item in PhotosView)
+        {
+            if (i > _visibleLast) break;
+            if (i >= _visibleFirst) set.Add(item);
+            i++;
+        }
+        return set;
     }
 
     /// <summary>
@@ -503,8 +850,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         catch { return null; }
     }
 
-    /// <summary>Decodes a full JPEG byte array at a small target width.</summary>
-    private static BitmapImage? TryDecodeFullJpeg(byte[] bytes, int decodeWidth)
+    /// <summary>
+    /// Decodes an image at a small target width, using whatever WIC codec the OS has
+    /// for the format. This is also the HEIC path: decoding happens in the platform
+    /// HEIF codec, so it works when Windows can open the file and returns null when it
+    /// can't. <c>DecodePixelWidth</c> lets WIC scale during decode rather than after,
+    /// which keeps a full-size photo from being materialised at full resolution.
+    /// </summary>
+    private static BitmapImage? TryDecodeThumbnail(byte[] bytes, int decodeWidth)
     {
         try
         {
@@ -519,6 +872,28 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             return img;
         }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Opens the Microsoft Store page for the HEIF codec. Uses the ms-windows-store URI
+    /// so the Store app opens directly, falling back to the web listing on machines
+    /// where the Store isn't available.
+    /// </summary>
+    [RelayCommand]
+    private void OpenHeicHelp()
+    {
+        const string StoreUri = "ms-windows-store://pdp/?ProductId=9pmmsr1cgpwg";
+        const string WebUri = "https://apps.microsoft.com/detail/9pmmsr1cgpwg";
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(StoreUri) { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo(WebUri) { UseShellExecute = true }); }
+            catch { /* nothing further we can do from here */ }
+        }
     }
 
     [RelayCommand]

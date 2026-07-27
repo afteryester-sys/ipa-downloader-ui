@@ -87,7 +87,9 @@
     <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
     <sys:String x:Key="L.Photos.NoSelection">Select a file from the list to see details and a preview.</sys:String>
-    <sys:String x:Key="L.Photos.PreviewUnavailable">Preview is not available for this format (HEIC / video).</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">No preview is available for this file.</sys:String>
+    <sys:String x:Key="L.Photos.HeicMissing">HEIC photos aren't shown because Windows is missing the component that reads them. It's free — previews will appear once it's installed. You can still copy these files to your PC without it.</sys:String>
+    <sys:String x:Key="L.Photos.HeicInstall">Install component</sys:String>
 
     <!-- App picker -->
     <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>

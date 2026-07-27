@@ -19,6 +19,30 @@ namespace IPAStudio.Core.Services;
 public sealed class PhotoService
 {
     private static readonly string[] VideoExtensions = { ".mov", ".mp4", ".m4v", ".avi" };
+
+    /// <summary>
+    /// Extensions we treat as Camera Roll media. Recognising media by extension lets the
+    /// listing skip a per-file AFC stat: it decides what to show from the directory entry
+    /// alone. It also filters out the non-media files iOS leaves in DCIM (.AAE edit
+    /// sidecars, Thumbs.db, .MISC) which the old size-based pass happily listed as 0-byte
+    /// entries.
+    /// </summary>
+    private static readonly HashSet<string> MediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Stills
+        ".heic", ".heif", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
+        ".tif", ".tiff", ".dng", ".cr2", ".nef", ".arw",
+        // Video
+        ".mov", ".mp4", ".m4v", ".avi",
+    };
+
+    /// <summary>
+    /// How many files to stat before reporting progress. Batching keeps a 5 000 photo
+    /// roll from marshalling 5 000 separate UI updates, which cost far more than the
+    /// stats themselves.
+    /// </summary>
+    private const int MetadataBatchSize = 64;
+
     private const uint ChunkSize = 1024 * 256; // 256 KiB per AFC read/write.
 
     private static bool _nativeLoaded;
@@ -56,7 +80,19 @@ public sealed class PhotoService
         }
     }
 
-    /// <summary>Lists every photo and video in the Camera Roll.</summary>
+    /// <summary>
+    /// Lists every photo and video in the Camera Roll.
+    ///
+    /// Deliberately does NOT read per-file size or date: that needs one AFC round-trip
+    /// per file, and on a large roll those thousands of sequential round-trips were the
+    /// entire reason the screen sat empty for many seconds. Here the cost is one
+    /// directory read per album, so the grid can be populated almost immediately.
+    /// Call <see cref="FillMetadataAsync"/> afterwards to fill in sizes and dates.
+    ///
+    /// Because no stat is performed, items are ordered by file name descending. iOS
+    /// assigns DCIM names sequentially (IMG_0001, IMG_0002, …), so this closely matches
+    /// newest-first and avoids the list visibly reshuffling once real dates arrive.
+    /// </summary>
     public Task<IReadOnlyList<PhotoItem>> ListCameraRollAsync(string udid, CancellationToken ct = default)
         => Task.Run<IReadOnlyList<PhotoItem>>(() =>
         {
@@ -84,27 +120,66 @@ public sealed class PhotoService
                     ct.ThrowIfCancellationRequested();
                     if (name is "." or "..") continue;
 
-                    var remotePath = $"{albumPath}/{name}";
-                    var info = ReadFileInfo(afc, client, remotePath);
-                    if (info.IsDirectory) continue;
+                    // Extension check replaces the old stat-based directory test: a
+                    // nested folder never carries a media extension, so it drops out
+                    // here without costing a round-trip.
+                    var ext = Path.GetExtension(name);
+                    if (string.IsNullOrEmpty(ext) || !MediaExtensions.Contains(ext)) continue;
 
-                    var ext = Path.GetExtension(name).ToLowerInvariant();
                     items.Add(new PhotoItem
                     {
-                        RemotePath = remotePath,
+                        RemotePath = $"{albumPath}/{name}",
                         FileName = name,
                         Album = album,
-                        SizeBytes = info.Size,
-                        IsVideo = VideoExtensions.Contains(ext),
-                        ModifiedUtc = info.Modified,
+                        IsVideo = VideoExtensions.Contains(ext.ToLowerInvariant()),
                     });
                 }
             }
 
-            return items
-                .OrderByDescending(i => i.ModifiedUtc ?? DateTimeOffset.MinValue)
-                .ThenBy(i => i.FileName)
-                .ToList();
+            items.Sort(static (a, b) => string.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase));
+            return items;
+        }, ct);
+
+    /// <summary>
+    /// Fetches size and last-modified date for the given items and reports them in
+    /// batches, so the caller can fill the UI in progressively while this runs.
+    ///
+    /// Each batch contains only newly-stated items. Values are handed back through the
+    /// progress callback rather than written into the items here: <see cref="PhotoItem"/>
+    /// is read by the UI thread, and <c>DateTimeOffset?</c> is too wide to assign
+    /// atomically, so a background write could be observed half-updated. Letting the
+    /// caller apply them on its own thread keeps that safe.
+    /// </summary>
+    public Task FillMetadataAsync(
+        string udid,
+        IReadOnlyList<PhotoItem> items,
+        IProgress<IReadOnlyList<PhotoMetadata>> progress,
+        CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            if (items.Count == 0) return;
+
+            using var session = OpenSession(udid);
+            var afc = session.Afc;
+            var client = session.Client;
+
+            var batch = new List<PhotoMetadata>(MetadataBatchSize);
+
+            foreach (var item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var info = ReadFileInfo(afc, client, item.RemotePath);
+                batch.Add(new PhotoMetadata(item, info.Size, info.Modified));
+
+                if (batch.Count >= MetadataBatchSize)
+                {
+                    progress.Report(batch);
+                    batch = new List<PhotoMetadata>(MetadataBatchSize);
+                }
+            }
+
+            if (batch.Count > 0) progress.Report(batch);
         }, ct);
 
     /// <summary>Copies the selected items from the device to a local folder.</summary>
@@ -303,14 +378,17 @@ public sealed class PhotoService
             }
         }, ct);
 
-    private static (bool IsDirectory, long Size, DateTimeOffset? Modified) ReadFileInfo(
+    /// <summary>
+    /// Reads size and modification date for one path. Costs a round-trip to the device,
+    /// so callers should avoid it on the path that first populates the grid.
+    /// </summary>
+    private static (long Size, DateTimeOffset? Modified) ReadFileInfo(
         IAfcApi afc, AfcClientHandle client, string path)
     {
         if (afc.afc_get_file_info(client, path, out ReadOnlyCollection<string> info) != AfcError.Success || info is null)
-            return (false, 0, null);
+            return (0, null);
 
         long size = 0;
-        var isDir = false;
         DateTimeOffset? modified = null;
 
         for (var i = 0; i + 1 < info.Count; i += 2)
@@ -320,7 +398,6 @@ public sealed class PhotoService
             switch (key)
             {
                 case "st_size" when long.TryParse(value, out var s): size = s; break;
-                case "st_ifmt": isDir = value == "S_IFDIR"; break;
                 case "st_mtime" when long.TryParse(value, out var ns):
                     // libimobiledevice reports nanoseconds since the Unix epoch.
                     modified = DateTimeOffset.FromUnixTimeMilliseconds(ns / 1_000_000);
@@ -328,7 +405,7 @@ public sealed class PhotoService
             }
         }
 
-        return (isDir, size, modified);
+        return (size, modified);
     }
 
     private static string MakeUniquePath(string path)
@@ -370,3 +447,9 @@ public sealed class PhotoService
 
 /// <summary>Progress for a photo export/import operation.</summary>
 public readonly record struct PhotoTransferProgress(int Completed, int Total, string CurrentFile);
+
+/// <summary>
+/// Size and date fetched for one Camera Roll item, delivered separately from the item
+/// itself so the owner of the UI thread decides when to apply it.
+/// </summary>
+public readonly record struct PhotoMetadata(PhotoItem Item, long SizeBytes, DateTimeOffset? ModifiedUtc);
