@@ -102,6 +102,15 @@ public sealed partial class DownloadService
     [GeneratedRegex(@"([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)?\s*/\s*([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)")]
     private static partial Regex BytesPairRegex();
 
+    /// <summary>
+    /// Matches a lone size such as "149.5 MB" — the form the bar falls back to when the
+    /// total is unknown and it renders as a spinner instead of a percentage. The negative
+    /// lookahead for "/" keeps it off both the left half of a "149.5/172 MB" pair and the
+    /// "18.3 MB/s" speed, either of which would otherwise be read as bytes transferred.
+    /// </summary>
+    [GeneratedRegex(@"([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B)\b(?!\s*/)")]
+    private static partial Regex SingleBytesRegex();
+
     /// <summary>Matches "1.23 MB/s".</summary>
     [GeneratedRegex(@"([\d]+(?:[.,]\d+)?)\s*([KkMmGg]i?B|B)\s*/\s*s\b")]
     private static partial Regex SpeedRegex();
@@ -411,6 +420,7 @@ public sealed partial class DownloadService
         // Without this, a format the regexes do not cover is invisible — the bar just
         // silently never moves. Capped so a chatty tool cannot flood the log.
         var loggedSegments = 0;
+        var loggedNoTotal = 0;
 
         // ---- Parse each progress-bar frame / log line -------------------------------
         void OnSegment(string segment)
@@ -443,6 +453,23 @@ public sealed partial class DownloadService
                 if (done >= 0) state.SetDownloaded(done);
                 sawNumbers = true;
             }
+            else
+            {
+                // No pair, so the bar is running without a known total. It still prints
+                // the bytes transferred, and taking them is better than relying only on
+                // the on-disk probe: ipatool downloads into its own .tmp and repackages
+                // afterwards, so the file we poll can lag well behind the real transfer.
+                var single = SingleBytesRegex().Match(segment);
+                if (single.Success && TryParseNumber(single.Groups[1].Value, out var oneVal))
+                {
+                    var done = ToBytes(oneVal, single.Groups[2].Value);
+                    if (done > 0)
+                    {
+                        state.SetDownloaded(done);
+                        sawNumbers = true;
+                    }
+                }
+            }
 
             var speed = SpeedRegex().Match(segment);
             if (speed.Success && TryParseNumber(speed.Groups[1].Value, out var speedVal))
@@ -461,6 +488,18 @@ public sealed partial class DownloadService
             if (sawNumbers)
             {
                 state.Touch();
+
+                // A segment we partly understood but which yielded no total is exactly
+                // the case that leaves the user with "всего неизвестно" — and it used to
+                // be invisible here, because matching the speed alone marked the segment
+                // as recognised and skipped the logging below. Sample a few of these so
+                // the real bar format can be read off the log instead of guessed at.
+                if (Volatile.Read(ref sizeHint[0]) <= 0 &&
+                    loggedNoTotal < 5 && segment.Trim().Length > 1)
+                {
+                    loggedNoTotal++;
+                    AppLog.Info($"ipatool|no-total| {segment.Trim()}");
+                }
             }
             else if (loggedSegments < 40 && segment.Trim().Length > 1)
             {
