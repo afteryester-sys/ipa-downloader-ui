@@ -224,9 +224,11 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 
         try
         {
-            // Clipboard.SetText can throw when another process holds the clipboard open;
-            // WPF's retry variant handles the common contention case for us.
-            Clipboard.SetDataObject(value, true, 3, 100);
+            // Can throw when another process holds the clipboard open. WPF's Clipboard
+            // already retries internally, so no retry count is passed here — the four
+            // argument overload with retryTimes/retryDelay belongs to WinForms, not WPF.
+            // copy: true keeps the value on the clipboard after this app exits.
+            Clipboard.SetDataObject(value, true);
             _ = FlashCopiedAsync("Скопировано");
         }
         catch
