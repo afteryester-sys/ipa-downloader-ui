@@ -178,11 +178,16 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         if (parts.Count > 0)
             return string.Join(" · ", parts);
 
-        // No data yet: distinguish "still reading" from "device didn't report it".
-        // Battery health comes from the diagnostics relay (AppleSmartBattery), which
-        // iOS only exposes on an unlocked, trusted device — and some iOS versions
-        // block it entirely over USB. Say that plainly instead of a bare "Недоступно".
-        return IsLoading ? "Определение…" : "Недоступно — разблокируйте устройство и разрешите доступ";
+        if (IsLoading) return "Определение…";
+
+        // Battery health comes from the diagnostics relay (AppleSmartBattery), which iOS
+        // only exposes on an unlocked, trusted device — and some iOS builds close it over
+        // USB entirely. The old text always said "разблокируйте устройство", which was
+        // misleading whenever that was not the cause, so show what actually happened when
+        // we know it.
+        return string.IsNullOrEmpty(device.BatteryHealthError)
+            ? "Недоступно — разблокируйте устройство и разрешите доступ"
+            : $"Недоступно — {device.BatteryHealthError}";
     }
 
     private static string FormatStorage(Device device)

@@ -1,3 +1,4 @@
+using System.IO;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
@@ -366,25 +367,62 @@ public sealed class DeviceService : IAsyncDisposable
         try
         {
             // AppleSmartBattery exposes DesignCapacity, AppleRawMaxCapacity,
-            // NominalChargeCapacity and CycleCount as a plist. This diagnostics relay
-            // can hang on locked/newer devices, so it runs under the timeout wrapper.
-            // It is also flaky right after pairing/unlock, so retry a couple of times
-            // when the first attempt comes back empty.
-            string text = "";
-            for (var attempt = 0; attempt < 3; attempt++)
+            // NominalChargeCapacity and CycleCount as a plist. The diagnostics relay can
+            // hang on locked/newer devices, so it runs under the timeout wrapper, and it
+            // is flaky right after pairing, so empty answers are retried.
+            //
+            // The tool must actually be present. Older installs shipped without it, and a
+            // missing file looks exactly like a locked device from the outside — so check
+            // explicitly and say so, instead of blaming the device.
+            if (!File.Exists(_tools.IdeviceDiagnosticsPath))
             {
-                var result = await RunToolAsync(
-                    _tools.IdeviceDiagnosticsPath,
-                    new[] { "-u", device.Udid, "ioregentry", "AppleSmartBattery" },
-                    ct).ConfigureAwait(false);
-                if (result is not null && result.StdOut.Contains("DesignCapacity", StringComparison.Ordinal))
-                {
-                    text = result.StdOut;
-                    break;
-                }
-                await Task.Delay(700, ct).ConfigureAwait(false);
+                device.BatteryHealthError = "инструмент диагностики не установлен";
+                AppLog.Warn($"Battery health: {_tools.IdeviceDiagnosticsPath} not found");
+                return;
             }
-            if (text.Length == 0) return; // relay unavailable — leave health unknown
+
+            // Newer iOS builds answer under different IORegistry classes: AppleSmartBattery
+            // is standard on iPhone 8+, but some report only via the charger node. Try both
+            // rather than concluding the data is unavailable after one miss.
+            string text = "";
+            string lastErr = "";
+            var entries = new[] { "AppleSmartBattery", "AppleARMPMUCharger" };
+
+            for (var attempt = 0; attempt < 3 && text.Length == 0; attempt++)
+            {
+                foreach (var entry in entries)
+                {
+                    var result = await RunToolAsync(
+                        _tools.IdeviceDiagnosticsPath,
+                        new[] { "-u", device.Udid, "ioregentry", entry },
+                        ct).ConfigureAwait(false);
+
+                    if (result is null) { lastErr = "таймаут"; continue; }
+
+                    if (result.StdOut.Contains("DesignCapacity", StringComparison.Ordinal))
+                    {
+                        text = result.StdOut;
+                        break;
+                    }
+
+                    // Keep whatever the tool complained about; it is the only real clue as
+                    // to why this failed, and it is what ends up in front of the user.
+                    var err = (result.StdErr ?? "").Trim();
+                    if (err.Length > 0) lastErr = err.Length > 120 ? err[..120] : err;
+                    else if (result.StdOut.Trim().Length > 0) lastErr = "устройство не сообщает ёмкость";
+                }
+
+                if (text.Length == 0) await Task.Delay(700, ct).ConfigureAwait(false);
+            }
+
+            if (text.Length == 0)
+            {
+                // Record why. Previously this returned silently, so the screen showed
+                // "разблокируйте устройство" even when that was not the actual cause.
+                device.BatteryHealthError = lastErr.Length > 0 ? lastErr : "нет ответа от устройства";
+                AppLog.Warn($"Battery health unavailable: {device.BatteryHealthError}");
+                return;
+            }
 
             int design = ReadPlistInt(text, "DesignCapacity");
             int rawMax = ReadPlistInt(text, "AppleRawMaxCapacity");
@@ -399,7 +437,12 @@ public sealed class DeviceService : IAsyncDisposable
                 device.BatteryCycleCount = cycles;
         }
         catch (OperationCanceledException) { throw; }
-        catch { /* diagnostics relay unavailable (locked / untrusted / tool missing) */ }
+        catch (Exception ex)
+        {
+            // Swallowed before, which is why this failure was invisible in the log.
+            device.BatteryHealthError = "ошибка чтения";
+            AppLog.Warn($"Battery health failed: {ex.Message}");
+        }
     }
 
     /// <summary>Extracts an integer value for a plist &lt;key&gt; from idevicediagnostics XML output.</summary>
