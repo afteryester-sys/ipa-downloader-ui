@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -225,17 +226,29 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _isAlbumMode = true;
 
+    /// <summary>
+    /// Free-text filter over the file name and album label of the open album.
+    ///
+    /// Names are all AFC exposes, so this cannot search by content; it is meant for finding
+    /// a known shot (a file name seen elsewhere, a date-like prefix) inside a large roll.
+    /// </summary>
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+
     [ObservableProperty]
     private string _selectedMediaType = "";
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteSelectedCommand))]
     private int _selectedCount;
 
     [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteSelectedCommand))]
     private bool _isTransferring;
 
     [ObservableProperty]
@@ -363,9 +376,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
         // The all-items album matches everything, so it needs no test.
         if (CurrentAlbum is { IsEverything: false } album && !album.Matches(p)) return false;
-        if (SelectedMediaType == Loc.Get("L.Photos.Media.Photos")) return !p.IsVideo;
-        if (SelectedMediaType == Loc.Get("L.Photos.Media.Videos")) return p.IsVideo;
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Photos") && p.IsVideo) return false;
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Videos") && !p.IsVideo) return false;
+
+        if (SearchText.Length > 0
+            && !p.FileName.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
+            && !p.DisplayAlbumName.Contains(SearchText, StringComparison.OrdinalIgnoreCase))
+            return false;
+
         return true;
+    }
+
+    partial void OnSearchTextChanged(string value)
+    {
+        PhotosView.Refresh();
+        // Different rows are visible now, so thumbnails for them have to be fetched.
+        _viewportChanged.Set();
     }
 
     /// <summary>
@@ -833,6 +859,55 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         {
             var count = await _photos.ExportAsync(_device.Udid, selected, dialog.FolderName, progress, ct);
             StatusText = Loc.Format("L.Photos.Exported", count, selected.Count);
+        });
+    }
+
+    private bool CanDelete() => SelectedCount > 0 && !IsTransferring;
+
+    /// <summary>
+    /// Removes the selected items from the device after an explicit confirmation.
+    ///
+    /// The count is spelled out in the prompt and the dialog defaults to "No", because AFC
+    /// deletion skips "Recently Deleted": there is nothing to restore from afterwards.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanDelete))]
+    private async Task DeleteSelected()
+    {
+        if (_device is null) return;
+
+        var selected = Photos.Where(p => p.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        var confirm = MessageBox.Show(
+            Loc.Format("L.Photos.ConfirmDeleteBody", selected.Count),
+            Loc.Get("L.Photos.ConfirmDeleteTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        var items = selected.Select(p => p.Item).ToList();
+        await RunTransferAsync(async (progress, ct) =>
+        {
+            var count = await _photos.DeleteAsync(_device.Udid, items, progress, ct);
+
+            // Dropping the rows locally instead of reloading the whole roll: a reload would
+            // discard every thumbnail already decoded, and the device list is the same minus
+            // exactly what went away. Only the confirmed deletions are removed.
+            var goneNames = new HashSet<string>(
+                items.Take(count).Select(i => i.RemotePath), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var row in selected.Where(p => goneNames.Contains(p.Item.RemotePath)))
+            {
+                row.PropertyChanged -= OnPhotoItemPropertyChanged;
+                if (row.IsSelected) SelectedCount--;
+                Photos.Remove(row);
+            }
+
+            // Counts and covers on the tiles refer to rows that no longer exist.
+            BuildMediaAlbums(keepSelection: true);
+
+            StatusText = Loc.Format("L.Photos.Deleted", count, items.Count);
         });
     }
 
