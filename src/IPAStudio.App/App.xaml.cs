@@ -114,6 +114,16 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<ShellViewModel>(),
         };
         window.Show();
+
+        // Downloads run on background threads, so the prompt has to be marshalled onto
+        // the UI thread. Core owns no WPF types; it just calls this callback.
+        Services.GetRequiredService<DownloadService>().FileConflictResolver =
+            (request, _) => window.Dispatcher.InvokeAsync(() =>
+            {
+                var dialog = new Views.FileConflictDialog(request) { Owner = window };
+                dialog.ShowDialog();
+                return new FileConflictResponse(dialog.Decision, dialog.ApplyToAll);
+            }).Task;
     }
 
     /// <summary>

@@ -107,42 +107,60 @@ public sealed class CatalogService
             var batch = ids.Skip(offset).Take(LookupBatchSize).ToList();
             var updated = new List<AppEntry>();
 
-            try
+            // The Lookup API answers per storefront: ids not sold in the queried
+            // country are simply absent from the response. Querying only the default
+            // (US) storefront therefore left apps published elsewhere with no
+            // metadata and no size at all. Ids still unresolved after a storefront
+            // are retried against the next one.
+            var pending = new HashSet<long>(batch);
+
+            foreach (var storefront in ItunesStorefront.Candidates)
             {
-                var url = $"https://itunes.apple.com/lookup?id={string.Join(',', batch)}&entity=software";
-                using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+                if (pending.Count == 0) break;
+                ct.ThrowIfCancellationRequested();
 
-                await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-                using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct).ConfigureAwait(false);
-
-                if (doc.RootElement.TryGetProperty("results", out var results))
+                try
                 {
-                    foreach (var item in results.EnumerateArray())
+                    var url = $"https://itunes.apple.com/lookup?id={string.Join(',', pending)}&entity=software"
+                              + ItunesStorefront.CountryParam(storefront);
+                    using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+
+                    await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                    using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct).ConfigureAwait(false);
+
+                    if (doc.RootElement.TryGetProperty("results", out var results))
                     {
-                        if (!item.TryGetProperty("trackId", out var trackId)) continue;
-                        if (!byId.TryGetValue(trackId.GetInt64(), out var entry)) continue;
+                        foreach (var item in results.EnumerateArray())
+                        {
+                            if (!item.TryGetProperty("trackId", out var trackId)) continue;
+                            var id = trackId.GetInt64();
+                            if (!byId.TryGetValue(id, out var entry)) continue;
+                            // Already filled from an earlier storefront.
+                            if (!pending.Remove(id)) continue;
 
-                        entry.BundleId = GetString(item, "bundleId");
-                        entry.IconUrl = GetString(item, "artworkUrl100");
-                        entry.IconUrlLarge = GetString(item, "artworkUrl512");
-                        entry.Category = GetString(item, "primaryGenreName");
-                        entry.LatestVersion = GetString(item, "version");
-                        entry.Developer = GetString(item, "sellerName");
-                        entry.MinimumOsVersion = GetString(item, "minimumOsVersion");
-                        if (item.TryGetProperty("fileSizeBytes", out var size))
-                            entry.FileSizeBytes = size.ValueKind == JsonValueKind.String
-                                ? long.TryParse(size.GetString(), out var parsed) ? parsed : null
-                                : size.GetInt64();
+                            entry.BundleId = GetString(item, "bundleId");
+                            entry.IconUrl = GetString(item, "artworkUrl100");
+                            entry.IconUrlLarge = GetString(item, "artworkUrl512");
+                            entry.Category = GetString(item, "primaryGenreName");
+                            entry.LatestVersion = GetString(item, "version");
+                            entry.Developer = GetString(item, "sellerName");
+                            entry.MinimumOsVersion = GetString(item, "minimumOsVersion");
+                            if (item.TryGetProperty("fileSizeBytes", out var size))
+                                entry.FileSizeBytes = size.ValueKind == JsonValueKind.String
+                                    ? long.TryParse(size.GetString(), out var parsed) ? parsed : null
+                                    : size.GetInt64();
 
-                        updated.Add(entry);
+                            updated.Add(entry);
+                        }
                     }
                 }
-            }
-            catch (OperationCanceledException) { throw; }
-            catch
-            {
-                // Network hiccup for this batch; continue with remaining batches.
+                catch (OperationCanceledException) { throw; }
+                catch
+                {
+                    // Network hiccup on this storefront; fall through to the next and,
+                    // failing that, on to the remaining batches.
+                }
             }
 
             // Download missing icons for this batch (small parallelism).
@@ -183,42 +201,54 @@ public sealed class CatalogService
         CancellationToken ct = default)
     {
         var results = new List<AppEntry>();
-        try
+
+        // Per-storefront API: an app absent from the queried country yields no rows,
+        // so stopping at the default (US) storefront made region-limited apps look
+        // like they simply don't exist. First storefront with a hit wins.
+        foreach (var storefront in ItunesStorefront.Candidates)
         {
-            var url = $"https://itunes.apple.com/lookup?bundleId={Uri.EscapeDataString(bundleId)}&entity=software";
-            using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct).ConfigureAwait(false);
-
-            if (doc.RootElement.TryGetProperty("results", out var arr))
+            ct.ThrowIfCancellationRequested();
+            try
             {
-                foreach (var item in arr.EnumerateArray())
+                var url = $"https://itunes.apple.com/lookup?bundleId={Uri.EscapeDataString(bundleId)}&entity=software"
+                          + ItunesStorefront.CountryParam(storefront);
+                using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                await using var body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct).ConfigureAwait(false);
+
+                if (doc.RootElement.TryGetProperty("results", out var arr))
                 {
-                    if (!item.TryGetProperty("trackId", out var trackId)) continue;
-                    var name = GetString(item, "trackName") ?? GetString(item, "trackCensoredName") ?? bundleId;
-                    var entry = new AppEntry
+                    foreach (var item in arr.EnumerateArray())
                     {
-                        Name = name,
-                        AppStoreId = trackId.GetInt64(),
-                        BundleId = GetString(item, "bundleId"),
-                        Category = GetString(item, "primaryGenreName"),
-                        LatestVersion = GetString(item, "version"),
-                        Developer = GetString(item, "sellerName"),
-                        IconUrl = GetString(item, "artworkUrl100"),
-                        MinimumOsVersion = GetString(item, "minimumOsVersion"),
-                    };
-                    if (item.TryGetProperty("fileSizeBytes", out var size))
-                        entry.FileSizeBytes = size.ValueKind == JsonValueKind.String
-                            ? long.TryParse(size.GetString(), out var parsed) ? parsed : null
-                            : size.GetInt64();
-                    results.Add(entry);
+                        if (!item.TryGetProperty("trackId", out var trackId)) continue;
+                        var name = GetString(item, "trackName") ?? GetString(item, "trackCensoredName") ?? bundleId;
+                        var entry = new AppEntry
+                        {
+                            Name = name,
+                            AppStoreId = trackId.GetInt64(),
+                            BundleId = GetString(item, "bundleId"),
+                            Category = GetString(item, "primaryGenreName"),
+                            LatestVersion = GetString(item, "version"),
+                            Developer = GetString(item, "sellerName"),
+                            IconUrl = GetString(item, "artworkUrl100"),
+                            MinimumOsVersion = GetString(item, "minimumOsVersion"),
+                        };
+                        if (item.TryGetProperty("fileSizeBytes", out var size))
+                            entry.FileSizeBytes = size.ValueKind == JsonValueKind.String
+                                ? long.TryParse(size.GetString(), out var parsed) ? parsed : null
+                                : size.GetInt64();
+                        results.Add(entry);
+                    }
                 }
+
+                if (results.Count > 0) return results;
             }
+            catch (OperationCanceledException) { throw; }
+            catch { /* network failure on this storefront — try the next */ }
         }
-        catch (OperationCanceledException) { throw; }
-        catch { /* network failure — return empty */ }
+
         return results;
     }
 
@@ -233,12 +263,29 @@ public sealed class CatalogService
 
         foreach (var entry in entries)
         {
-            var match = files.FirstOrDefault(f =>
-                Path.GetFileNameWithoutExtension(f)
-                    .Contains($"_{entry.AppStoreId}", StringComparison.Ordinal));
+            // Keeping both copies of a re-download means one app can now own several
+            // files ("App_123_1.0.ipa", "App_123_1.0 (2).ipa", …). Enumeration order is
+            // not defined, so picking the first match could hand the installer an older
+            // build; always take the most recently written one.
+            var match = files
+                .Where(f => Path.GetFileNameWithoutExtension(f)
+                    .Contains($"_{entry.AppStoreId}", StringComparison.Ordinal))
+                .OrderByDescending(SafeLastWriteUtc)
+                .FirstOrDefault();
             entry.IsDownloaded = match is not null;
             entry.LocalIpaPath = match;
         }
+    }
+
+    /// <summary>
+    /// Last write time, or <see cref="DateTime.MinValue"/> if the file vanished between
+    /// the directory listing and this call (a download finishing concurrently, say).
+    /// Sorting must never throw.
+    /// </summary>
+    private static DateTime SafeLastWriteUtc(string path)
+    {
+        try { return File.GetLastWriteTimeUtc(path); }
+        catch { return DateTime.MinValue; }
     }
 
     private async Task SaveCacheAsync(IReadOnlyList<AppEntry> entries, CancellationToken ct)
