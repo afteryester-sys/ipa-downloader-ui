@@ -34,11 +34,42 @@ jobs:
       - name: Fetch v0 branch
         run: git fetch origin ${{ github.ref_name }}
 
+      # A conflict must never be committed: `|| true` once pushed conflict markers
+      # into main, which broke the csproj for every later build. The version line is
+      # resolved in main's favour automatically (main owns it, see the bump below);
+      # anything else stops the job with the conflicting paths printed.
       - name: Merge v0 branch
         run: |
-          git merge --no-ff "origin/${{ github.ref_name }}" \
-            -m "chore: merge ${{ github.ref_name }} -> main [auto]" \
-            || true   # conflicts are rare; if they occur the job fails clearly
+          set -euo pipefail
+          VERSION_FILE="src/IPAStudio.App/IPAStudio.App.csproj"
+
+          if git merge --no-ff "origin/${{ github.ref_name }}" \
+               -m "chore: merge ${{ github.ref_name }} -> main [auto]"; then
+            echo "Merged cleanly."
+          else
+            CONFLICTS=$(git diff --name-only --diff-filter=U)
+            echo "Conflicting paths:"; echo "$CONFLICTS"
+
+            if [ "$CONFLICTS" = "$VERSION_FILE" ]; then
+              echo "Only the version file conflicts - keeping main's version."
+              git checkout --ours "$VERSION_FILE"
+              git add "$VERSION_FILE"
+              git commit --no-edit
+            else
+              echo "::error::Merge conflicts need a human. Aborting without touching main."
+              git merge --abort
+              exit 1
+            fi
+          fi
+
+      # Belt and braces: a marker reaching main breaks every later build, so refuse
+      # to go on if one is present for any reason.
+      - name: Refuse to push conflict markers
+        run: |
+          if git grep -nE '^(<<<<<<< |=======$|>>>>>>> )' -- . ; then
+            echo "::error::Conflict markers found in the tree. Not pushing."
+            exit 1
+          fi
 
       # ---- Bump patch version in csproj on main ---------------------------
       - name: Bump patch version
