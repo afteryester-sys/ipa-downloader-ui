@@ -174,7 +174,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private async Task LoadAsync()
     {
         // 1. Load bare catalog (name + id only) — instant.
-        var catalog = _catalog.LoadBundledCatalog().ToList();
+        var catalog = _catalog.LoadCatalog().ToList();
 
         // 2. Apply on-disk metadata cache so icons/categories appear immediately.
         await _catalog.ApplyCachedMetadataAsync(catalog).ConfigureAwait(false);

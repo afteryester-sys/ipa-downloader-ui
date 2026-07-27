@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using Microsoft.Data.Sqlite;
 using iMobileDevice;
@@ -483,6 +484,33 @@ public sealed class PhotoService
             """;
 
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Hidden assets first, so a photo that is both hidden and in an album is filed
+        // under Hidden — that matches how iOS presents it. ZHIDDEN is not present on
+        // every schema version, so its absence must not fail the whole read.
+        if (ColumnExists(conn, "ZASSET", "ZHIDDEN"))
+        {
+            try
+            {
+                using var hiddenCmd = conn.CreateCommand();
+                hiddenCmd.CommandText = "SELECT ZFILENAME FROM ZASSET WHERE ZHIDDEN = 1";
+                using var hiddenReader = hiddenCmd.ExecuteReader();
+                var hiddenLabel = Loc.Get("L.Photos.Hidden");
+                while (hiddenReader.Read())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (hiddenReader.IsDBNull(0)) continue;
+                    var hiddenName = hiddenReader.GetString(0);
+                    if (!string.IsNullOrWhiteSpace(hiddenName)) map[hiddenName] = hiddenLabel;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (SqliteException)
+            {
+                // Hidden is a bonus; carry on with the regular albums.
+            }
+        }
+
         try
         {
             using var cmd = conn.CreateCommand();
@@ -510,6 +538,22 @@ public sealed class PhotoService
         }
 
         return map.Count > 0 ? map : null;
+    }
+
+    /// <summary>True when the table has the given column on this schema version.</summary>
+    private static bool ColumnExists(SqliteConnection conn, string table, string column)
+    {
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT 1 FROM pragma_table_info('{table}') WHERE name = $c LIMIT 1";
+            cmd.Parameters.AddWithValue("$c", column);
+            return cmd.ExecuteScalar() is not null;
+        }
+        catch (SqliteException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Runs a query returning a single string, or null if it yields nothing.</summary>

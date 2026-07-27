@@ -57,11 +57,124 @@ public sealed class CatalogService
     }
 
     /// <summary>
+    /// The catalog as the user sees it: the bundled list plus anything they added by
+    /// hand from the download screen.
+    ///
+    /// User entries win on a duplicate id so a hand-added app keeps the name the user
+    /// saw when adding it.
+    /// </summary>
+    public IReadOnlyList<AppEntry> LoadCatalog()
+    {
+        var entries = LoadBundledCatalog().ToList();
+        var user = LoadUserCatalog();
+        if (user.Count == 0) return entries;
+
+        var byId = new Dictionary<long, AppEntry>();
+        foreach (var entry in entries) byId[entry.AppStoreId] = entry;
+        foreach (var entry in user) byId[entry.AppStoreId] = entry;
+
+        return byId.Values
+            .OrderBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Reads the hand-added apps. Returns empty when absent or unreadable.</summary>
+    public IReadOnlyList<AppEntry> LoadUserCatalog()
+    {
+        if (!File.Exists(_tools.UserCatalogFile)) return Array.Empty<AppEntry>();
+        try
+        {
+            using var stream = File.OpenRead(_tools.UserCatalogFile);
+            var stored = JsonSerializer.Deserialize<List<UserApp>>(stream, JsonOptions);
+            if (stored is null) return Array.Empty<AppEntry>();
+
+            return stored
+                .Where(a => a.AppStoreId > 0 && !string.IsNullOrWhiteSpace(a.Name))
+                .Select(a => new AppEntry
+                {
+                    Name = a.Name!,
+                    AppStoreId = a.AppStoreId,
+                    BundleId = a.BundleId,
+                    IconUrl = a.IconUrl,
+                    IconUrlLarge = a.IconUrlLarge,
+                    Category = a.Category,
+                    LatestVersion = a.LatestVersion,
+                    Developer = a.Developer,
+                    FileSizeBytes = a.FileSizeBytes,
+                    MinimumOsVersion = a.MinimumOsVersion,
+                })
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<AppEntry>(); // Corrupt file: behave as if empty.
+        }
+    }
+
+    /// <summary>True when the id is already in the catalog (bundled or hand-added).</summary>
+    public bool IsInCatalog(long appStoreId)
+        => LoadBundledCatalog().Any(e => e.AppStoreId == appStoreId)
+           || LoadUserCatalog().Any(e => e.AppStoreId == appStoreId);
+
+    /// <summary>
+    /// Adds an app to the user catalog and pins its icon so it renders immediately.
+    /// Returns false when it was already present.
+    /// </summary>
+    public async Task<bool> AddToUserCatalogAsync(AppEntry entry, CancellationToken ct = default)
+    {
+        if (IsInCatalog(entry.AppStoreId)) return false;
+
+        _tools.EnsureFolders();
+
+        var stored = LoadUserCatalog().Select(UserApp.From).ToList();
+        stored.Add(UserApp.From(entry));
+
+        await using (var stream = File.Create(_tools.UserCatalogFile))
+        {
+            await JsonSerializer.SerializeAsync(stream, stored, JsonOptions, ct).ConfigureAwait(false);
+        }
+
+        // Pin the icon now, while we still hold the artwork URL from the lookup that
+        // found this app. Without this the entry would sit icon-less until the next
+        // full metadata refresh.
+        await TryPinIconAsync(entry, ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Downloads and pins one entry's icon. Failure is not an error.</summary>
+    private async Task TryPinIconAsync(AppEntry entry, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(entry.IconUrl)) return;
+
+        var path = Path.Combine(_tools.IconCacheFolder, $"{entry.AppStoreId}.png");
+        try
+        {
+            if (!File.Exists(path))
+            {
+                var bytes = await _http.GetByteArrayAsync(entry.IconUrl, ct).ConfigureAwait(false);
+                var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+                await File.WriteAllBytesAsync(temp, bytes, ct).ConfigureAwait(false);
+                File.Move(temp, path, overwrite: true);
+            }
+            entry.CachedIconPath = path;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* icon is cosmetic; the entry is already saved */ }
+    }
+
+    /// <summary>
     /// Applies the on-disk metadata cache to <paramref name="entries"/>.
     /// Returns true when a cache existed.
     /// </summary>
     public async Task<bool> ApplyCachedMetadataAsync(IReadOnlyList<AppEntry> entries, CancellationToken ct = default)
     {
+        // Icons are pinned on disk under their own file name, so they survive a missing
+        // or corrupt metadata cache. Attaching them first is what makes the catalog show
+        // artwork on every launch: previously this ran inside the cache loop below, so a
+        // missing catalog-cache.json returned early and the whole catalog rendered
+        // icon-less even though every icon was already downloaded.
+        AttachCachedIcons(entries);
+
         if (!File.Exists(_tools.CatalogCacheFile)) return false;
 
         try
@@ -76,8 +189,6 @@ public sealed class CatalogService
             {
                 if (!cache.TryGetValue(entry.AppStoreId, out var meta)) continue;
                 meta.ApplyTo(entry);
-                var iconPath = Path.Combine(_tools.IconCacheFolder, $"{entry.AppStoreId}.png");
-                if (File.Exists(iconPath)) entry.CachedIconPath = iconPath;
             }
             return true;
         }
@@ -175,7 +286,15 @@ public sealed class CatalogService
                         try
                         {
                             var bytes = await _http.GetByteArrayAsync(entry.IconUrl!, token).ConfigureAwait(false);
-                            await File.WriteAllBytesAsync(path, bytes, token).ConfigureAwait(false);
+
+                            // Write to a private temp name and move into place. The catalog
+                            // is loaded by more than one screen, so two refreshes can target
+                            // the same icon at once; writing in place let them collide and
+                            // one of them would give up, leaving that app icon-less. A move
+                            // is atomic, so the loser simply overwrites with identical bytes.
+                            var temp = $"{path}.{Guid.NewGuid():N}.tmp";
+                            await File.WriteAllBytesAsync(temp, bytes, token).ConfigureAwait(false);
+                            File.Move(temp, path, overwrite: true);
                         }
                         catch (OperationCanceledException) { throw; }
                         catch { return; }
@@ -320,6 +439,32 @@ public sealed class CatalogService
         catch { return DateTime.MinValue; }
     }
 
+    /// <summary>
+    /// Points every entry at its pinned icon file, when one has already been downloaded.
+    ///
+    /// Reads the icon directory once instead of probing per entry, and is safe to call
+    /// before any network work: icons are cached by App Store id, so a name or metadata
+    /// change never invalidates them.
+    /// </summary>
+    public void AttachCachedIcons(IReadOnlyList<AppEntry> entries)
+    {
+        if (!Directory.Exists(_tools.IconCacheFolder)) return;
+
+        var onDisk = new Dictionary<long, string>();
+        foreach (var file in Directory.EnumerateFiles(_tools.IconCacheFolder, "*.png"))
+        {
+            if (long.TryParse(Path.GetFileNameWithoutExtension(file), out var id))
+                onDisk[id] = file;
+        }
+        if (onDisk.Count == 0) return;
+
+        foreach (var entry in entries)
+        {
+            if (entry.CachedIconPath is null && onDisk.TryGetValue(entry.AppStoreId, out var path))
+                entry.CachedIconPath = path;
+        }
+    }
+
     private async Task SaveCacheAsync(IReadOnlyList<AppEntry> entries, CancellationToken ct)
     {
         var cache = entries
@@ -334,6 +479,35 @@ public sealed class CatalogService
         => element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>On-disk shape of a hand-added app.</summary>
+    private sealed class UserApp
+    {
+        public string? Name { get; set; }
+        public long AppStoreId { get; set; }
+        public string? BundleId { get; set; }
+        public string? IconUrl { get; set; }
+        public string? IconUrlLarge { get; set; }
+        public string? Category { get; set; }
+        public string? LatestVersion { get; set; }
+        public string? Developer { get; set; }
+        public long? FileSizeBytes { get; set; }
+        public string? MinimumOsVersion { get; set; }
+
+        public static UserApp From(AppEntry e) => new()
+        {
+            Name = e.Name,
+            AppStoreId = e.AppStoreId,
+            BundleId = e.BundleId,
+            IconUrl = e.IconUrl,
+            IconUrlLarge = e.IconUrlLarge,
+            Category = e.Category,
+            LatestVersion = e.LatestVersion,
+            Developer = e.Developer,
+            FileSizeBytes = e.FileSizeBytes,
+            MinimumOsVersion = e.MinimumOsVersion,
+        };
+    }
 
     private sealed class CachedMeta
     {

@@ -430,8 +430,14 @@ public sealed class DeviceService : IAsyncDisposable
             int nominal = ReadPlistInt(text, "NominalChargeCapacity");
             int cycles = ReadPlistInt(text, "CycleCount");
 
-            // Prefer AppleRawMaxCapacity; fall back to NominalChargeCapacity.
-            var maxCap = rawMax > 0 ? rawMax : nominal;
+            // Match the figure iOS shows in Settings -> Battery -> Battery Health.
+            //
+            // NominalChargeCapacity is the value iOS itself divides by DesignCapacity,
+            // so it is the one that agrees with Settings. AppleRawMaxCapacity is the
+            // raw fuel-gauge reading and runs a couple of points higher, which is why
+            // this screen used to claim 82% for a battery Settings called 80%.
+            // Raw is kept only as a fallback for devices that omit the nominal key.
+            var maxCap = nominal > 0 ? nominal : rawMax;
             if (design > 0 && maxCap > 0)
                 device.BatteryHealthPercent = Math.Clamp((int)Math.Round(100.0 * maxCap / design), 1, 100);
             if (cycles >= 0)

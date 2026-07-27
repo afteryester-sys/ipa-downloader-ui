@@ -37,6 +37,9 @@
         <DataTemplate DataType="{x:Type vm:PhotosViewModel}">
             <views:PhotosView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ICloudViewModel}">
+            <views:ICloudView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:DirectDownloadViewModel}">
             <views:DirectDownloadView />
         </DataTemplate>
@@ -275,7 +278,10 @@
                         <TextBlock Text="{DynamicResource L.Menu.Tools}" Style="{StaticResource Text.Caption}"
                                    FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
                         <Button Content="{DynamicResource L.Direct.Title}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenDirectDownload_Click" />
+                                HorizontalAlignment="Stretch" Click="OpenDirectDownload_Click"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.ICloud.Title}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Click="OpenICloud_Click" />
 
                         <!-- Divider -->
                         <Border Height="1" Background="{StaticResource Brush.Border}"

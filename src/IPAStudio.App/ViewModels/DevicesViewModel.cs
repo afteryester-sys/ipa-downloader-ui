@@ -100,7 +100,7 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
         IsCatalogLoading = true;
         try
         {
-            Catalog = _catalog.LoadBundledCatalog().ToList();
+            Catalog = _catalog.LoadCatalog().ToList();
             CatalogCount = Catalog.Count;
 
             var hadCache = await _catalog.ApplyCachedMetadataAsync(Catalog);

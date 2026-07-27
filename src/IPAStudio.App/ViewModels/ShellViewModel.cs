@@ -20,6 +20,12 @@ public enum Page
     /// Needs an Apple ID but no connected device.
     /// </summary>
     DirectDownload,
+
+    /// <summary>
+    /// iCloud page: signs in to an Apple ID and browses contacts, photos and notes from
+    /// iCloud itself. Needs no connected device.
+    /// </summary>
+    ICloud,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -85,6 +91,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.DeviceInfo => Resolve<DeviceInfoViewModel>(),
             Page.Photos => Resolve<PhotosViewModel>(),
             Page.DirectDownload => Resolve<DirectDownloadViewModel>(),
+            Page.ICloud => Resolve<ICloudViewModel>(),
             _ => CurrentViewModel,
         };
 

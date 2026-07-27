@@ -62,6 +62,13 @@ public partial class MainWindow : Window
         shell.GoTo(Page.DirectDownload);
     }
 
+    private void OpenICloud_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.GoTo(Page.ICloud);
+    }
+
     // ---- Developer credit popup ----
 
     private void CreditButton_Click(object sender, RoutedEventArgs e)

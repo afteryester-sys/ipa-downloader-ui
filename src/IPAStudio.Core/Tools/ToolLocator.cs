@@ -62,6 +62,14 @@ public sealed class ToolLocator
 
     public string IconCacheFolder => Path.Combine(DataFolder, "icons");
     public string CatalogCacheFile => Path.Combine(DataFolder, "catalog-cache.json");
+
+    /// <summary>
+    /// Apps the user added by hand from the download screen. Kept separate from the
+    /// bundled list, which is an embedded resource and therefore not writable, and from
+    /// the metadata cache, which is disposable — this file is user data and must survive
+    /// a cache rebuild.
+    /// </summary>
+    public string UserCatalogFile => Path.Combine(DataFolder, "user-apps.json");
     public string SettingsFile => Path.Combine(DataFolder, "settings.json");
 
     /// <summary>
