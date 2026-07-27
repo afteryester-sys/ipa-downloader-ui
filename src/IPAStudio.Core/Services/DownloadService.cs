@@ -642,6 +642,13 @@ public sealed partial class DownloadService
             {
                 Volatile.Write(ref sizeHint[0], finalTotal);
                 app.FileSizeBytes = finalTotal;
+
+                // Remember the measured size on disk. For delisted apps this is the only
+                // way to ever learn it: they are absent from Apple's catalog, and Apple
+                // sends no Content-Length for them either, so the first download can only
+                // show bytes-so-far. Recording it now means the next one has a real total
+                // and a bar that fills.
+                RememberSize(app.AppStoreId, finalTotal);
             }
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
@@ -938,6 +945,81 @@ public sealed partial class DownloadService
         return best;
     }
 
+    // ---- Learned sizes ---------------------------------------------------------------
+    //
+    // Apple's catalog answers nothing for delisted apps, and their downloads carry no
+    // Content-Length, so neither the lookup below nor ipatool's progress bar can supply a
+    // total. The size measured after a successful download is stored here and reused,
+    // which is what lets the bar fill on the second and later runs.
+
+    private static readonly object LearnedSizesLock = new();
+    private static Dictionary<long, long>? _learnedSizes;
+
+    /// <summary>Loads the learned-size table, or an empty one if absent/unreadable.</summary>
+    private Dictionary<long, long> LoadLearnedSizes()
+    {
+        lock (LearnedSizesLock)
+        {
+            if (_learnedSizes is not null) return _learnedSizes;
+
+            try
+            {
+                if (File.Exists(_tools.LearnedSizesFile))
+                {
+                    var json = File.ReadAllText(_tools.LearnedSizesFile);
+                    _learnedSizes = JsonSerializer.Deserialize<Dictionary<long, long>>(json)
+                                    ?? new Dictionary<long, long>();
+                }
+                else
+                {
+                    _learnedSizes = new Dictionary<long, long>();
+                }
+            }
+            catch
+            {
+                // A corrupt file must not break downloading; start over with an empty table.
+                _learnedSizes = new Dictionary<long, long>();
+            }
+
+            return _learnedSizes;
+        }
+    }
+
+    /// <summary>Records the exact size of a completed download for future runs.</summary>
+    private void RememberSize(long appId, long bytes)
+    {
+        if (appId <= 0 || bytes <= 0) return;
+
+        try
+        {
+            lock (LearnedSizesLock)
+            {
+                var table = LoadLearnedSizes();
+                if (table.TryGetValue(appId, out var existing) && existing == bytes) return;
+
+                table[appId] = bytes;
+
+                Directory.CreateDirectory(_tools.DataFolder);
+                File.WriteAllText(_tools.LearnedSizesFile, JsonSerializer.Serialize(table));
+            }
+        }
+        catch
+        {
+            // Purely an optimisation: failing to persist costs an unknown total next time,
+            // nothing more, so it must never surface as a download error.
+        }
+    }
+
+    /// <summary>Previously measured size for this app, or 0 if not known yet.</summary>
+    private long GetLearnedSize(long appId)
+    {
+        if (appId <= 0) return 0;
+        lock (LearnedSizesLock)
+        {
+            return LoadLearnedSizes().TryGetValue(appId, out var bytes) ? bytes : 0;
+        }
+    }
+
     /// <summary>
     /// Looks up an app's IPA size (bytes) from the public iTunes Lookup API by its
     /// App Store id. Returns 0 on any failure. Only used as an early seed — the
@@ -951,6 +1033,12 @@ public sealed partial class DownloadService
     /// </summary>
     private async Task<long> TryLookupFileSizeAsync(long appId, CancellationToken ct)
     {
+        // A size measured from an earlier download of this exact app beats the catalog:
+        // it is the real file, not the generic-device figure, and it is the only source
+        // for delisted apps that the catalog does not list at all.
+        var learned = GetLearnedSize(appId);
+        if (learned > 0) return learned;
+
         foreach (var storefront in ItunesStorefront.Candidates)
         {
             ct.ThrowIfCancellationRequested();

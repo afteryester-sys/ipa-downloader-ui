@@ -407,9 +407,13 @@ public sealed class QueueService
                 // transfer ends. Say so explicitly — otherwise a missing total plus an
                 // animated bar looks like the download is broken. The size is cached
                 // once the download completes, so a later run shows a real percentage.
+                // Wording matters here: the number shown is bytes downloaded so far, and
+                // "размер неизвестен" next to it read as if that number were meaningless.
+                // Label it explicitly instead, so the running total and the unknown total
+                // can't be confused for each other.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
                 item.StatusDetail =
-                    $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed} · размер неизвестен{retrySuffix}";
+                    $"Скачано {FormatBytes(p.DownloadedBytes)}{speed} · всего неизвестно{retrySuffix}";
             }
 
             Notify(item);
