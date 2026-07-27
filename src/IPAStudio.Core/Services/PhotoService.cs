@@ -184,6 +184,57 @@ public sealed class PhotoService
             if (batch.Count > 0) progress.Report(batch);
         }, ct);
 
+    /// <summary>
+    /// Deletes the given items from the device, returning how many were actually removed.
+    /// </summary>
+    /// <remarks>
+    /// The file is removed over AFC, which is all this app can reach. Photos keeps its own
+    /// database, so a deleted shot can linger as an empty entry in the Camera Roll until iOS
+    /// notices, and the removal does not pass through "Recently Deleted" - it is immediate
+    /// and cannot be undone from the phone. Callers must confirm with the user first.
+    /// </remarks>
+    public Task<int> DeleteAsync(
+        string udid,
+        IReadOnlyList<PhotoItem> items,
+        IProgress<PhotoTransferProgress>? progress = null,
+        CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            using var session = OpenSession(udid);
+            var afc = session.Afc;
+            var client = session.Client;
+
+            var done = 0;
+            var lastError = AfcError.Success;
+            string? lastFailed = null;
+
+            foreach (var item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+                progress?.Report(new PhotoTransferProgress(done, items.Count, item.FileName));
+
+                var error = afc.afc_remove_path(client, item.RemotePath);
+                if (error == AfcError.Success)
+                {
+                    done++;
+                }
+                else
+                {
+                    lastError = error;
+                    lastFailed = item.FileName;
+                }
+            }
+
+            progress?.Report(new PhotoTransferProgress(done, items.Count, ""));
+
+            // Reported rather than swallowed: AFC refuses to touch DCIM while the device is
+            // locked, and a silent no-op would look like the app ignored the request.
+            if (done == 0 && lastError != AfcError.Success)
+                throw new IOException($"AFC refused to delete '{lastFailed}' ({lastError}). Unlock the device and confirm \"Trust this computer\".");
+
+            return done;
+        }, ct);
+
     /// <summary>Copies the selected items from the device to a local folder.</summary>
     public Task<int> ExportAsync(
         string udid,

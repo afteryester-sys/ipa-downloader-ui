@@ -378,6 +378,11 @@
     <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
     <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.Delete">Удалить</sys:String>
+    <sys:String x:Key="L.Photos.Deleted">Удалено {0} из {1}.</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Удалить с устройства?</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteBody">Выбрано объектов: {0}. Они будут удалены с устройства сразу, минуя «Недавно удалённые», и восстановить их с телефона не получится. Продолжить?</sys:String>
+    <sys:String x:Key="L.Photos.SearchHint">Поиск по имени файла</sys:String>
     <sys:String x:Key="L.Photos.PickImportFiles">Выберите фото или видео для переноса</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>

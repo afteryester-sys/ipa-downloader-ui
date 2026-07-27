@@ -378,6 +378,11 @@
     <sys:String x:Key="L.Photos.ReadFailed">Couldn't read the media library: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Choose a folder to save into</sys:String>
     <sys:String x:Key="L.Photos.Exported">Copied to the computer: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.Delete">Delete</sys:String>
+    <sys:String x:Key="L.Photos.Deleted">Deleted {0} of {1}.</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Delete from device?</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteBody">{0} item(s) selected. They will be removed from the device immediately, bypassing "Recently Deleted", and cannot be restored from the phone. Continue?</sys:String>
+    <sys:String x:Key="L.Photos.SearchHint">Search by file name</sys:String>
     <sys:String x:Key="L.Photos.PickImportFiles">Choose photos or videos to transfer</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
