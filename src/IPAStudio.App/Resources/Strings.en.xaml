@@ -362,7 +362,13 @@
     <sys:String x:Key="L.Photos.Hidden">Hidden</sys:String>
     <sys:String x:Key="L.Photos.NoAlbum">Not in an album</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
-    <sys:String x:Key="L.Photos.AllAlbums">All albums</sys:String>
+    <sys:String x:Key="L.Photos.Albums.All">All photos</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Videos">Videos</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Screenshots">Screenshots</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.Photos.AlbumItems">items</sys:String>
+    <sys:String x:Key="L.Photos.BackToAlbums">Albums</sys:String>
     <sys:String x:Key="L.Photos.Media.All">All</sys:String>
     <sys:String x:Key="L.Photos.Media.Photos">Photos</sys:String>
     <sys:String x:Key="L.Photos.Media.Videos">Videos</sys:String>
@@ -461,7 +467,7 @@
     <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">No notes in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>
-    <sys:String x:Key="L.ICloud.VCardFilter">vCard file (*.vcf)|*.vcf</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone and Android (*.vcf)|*.vcf|CSV — Google Contacts, Excel (*.csv)|*.csv</sys:String>
     <sys:String x:Key="L.ICloud.ContactsExported">Saved {0} contacts.</sys:String>
     <sys:String x:Key="L.ICloud.ExportFailed">Could not save the file.</sys:String>
     <sys:String x:Key="L.ICloud.SelectAll">Select all</sys:String>

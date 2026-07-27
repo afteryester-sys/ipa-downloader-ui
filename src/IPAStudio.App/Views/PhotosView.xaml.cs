@@ -53,11 +53,28 @@ public partial class PhotosView : UserControl
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(PhotosViewModel.IsListView)) return;
+        // Leaving the album tiles also swaps which control is visible, for the same reason.
+        if (e.PropertyName is not (nameof(PhotosViewModel.IsListView)
+                                   or nameof(PhotosViewModel.IsAlbumMode))) return;
 
         // Wait for the layout pass that applies the new visibility, otherwise the
         // measurements below still describe the control that is about to be hidden.
         Dispatcher.BeginInvoke(ScheduleReport, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Opens an album on a single click.
+    ///
+    /// Handled here rather than through the list box selection because selection alone does
+    /// not fire again when the same tile is clicked twice, which would leave a returning
+    /// user unable to reopen the album they just left.
+    /// </summary>
+    private void OnAlbumTileClicked(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is not PhotosViewModel vm) return;
+        if (sender is not ListBoxItem { DataContext: PhotoAlbumViewModel album }) return;
+
+        vm.OpenAlbumCommand.Execute(album);
     }
 
     /// <summary>Hooked from XAML on both list boxes; fires as either one scrolls.</summary>

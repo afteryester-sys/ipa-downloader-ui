@@ -317,17 +317,30 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     [RelayCommand(CanExecute = nameof(CanExportContacts))]
     private async Task ExportContacts()
     {
+        // Both formats are offered because they cover both phones: a .vcf imports directly on
+        // an iPhone and on Android, while .csv is what Google Contacts and Excel expect.
         var dialog = new SaveFileDialog
         {
             Title = Loc.Get("L.ICloud.ExportContacts"),
-            FileName = "icloud-contacts.vcf",
-            Filter = Loc.Get("L.ICloud.VCardFilter"),
+            FileName = "icloud-contacts",
+            Filter = Loc.Get("L.ICloud.ContactsFilter"),
+            DefaultExt = "vcf",
+            AddExtension = true,
         };
         if (dialog.ShowDialog() != true) return;
 
         try
         {
-            await ICloudService.ExportContactsVCardAsync(Contacts, dialog.FileName).ConfigureAwait(true);
+            // The chosen filter decides the format, but a name typed with the other extension
+            // wins: saving "contacts.csv" must not quietly write a vCard.
+            var isCsv = dialog.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)
+                        || (dialog.FilterIndex == 2 && !dialog.FileName.EndsWith(".vcf", StringComparison.OrdinalIgnoreCase));
+
+            if (isCsv)
+                await ICloudService.ExportContactsCsvAsync(Contacts, dialog.FileName).ConfigureAwait(true);
+            else
+                await ICloudService.ExportContactsVCardAsync(Contacts, dialog.FileName).ConfigureAwait(true);
+
             HasError = false;
             StatusText = Loc.Format("L.ICloud.ContactsExported", Contacts.Count);
         }

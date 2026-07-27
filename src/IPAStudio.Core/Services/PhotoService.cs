@@ -250,11 +250,12 @@ public sealed class PhotoService
             var afc = session.Afc;
             var client = session.Client;
 
-            // Import into a dedicated DCIM sub-folder so files land in the Camera Roll area.
-            const string targetDir = "/DCIM/900IPAST";
-            afc.afc_make_directory(client, targetDir); // ignore error if it already exists
+            var targetDir = ResolveImportFolder(afc, client);
 
             var done = 0;
+            AfcError lastError = AfcError.Success;
+            string? lastFailedFile = null;
+
             foreach (var local in localFiles)
             {
                 ct.ThrowIfCancellationRequested();
@@ -263,11 +264,21 @@ public sealed class PhotoService
                 var name = Path.GetFileName(local);
                 progress?.Report(new PhotoTransferProgress(done, localFiles.Count, name));
 
-                var remotePath = $"{targetDir}/{name}";
-                ulong handle = 0;
-                if (afc.afc_file_open(client, remotePath, AfcFileMode.FopenWronly, ref handle) != AfcError.Success)
-                    continue;
+                // iOS only ingests names that match its own camera pattern; anything else is
+                // left sitting in DCIM and never appears in Photos, which is what made import
+                // look like it silently did nothing.
+                var remotePath = NextImportPath(afc, client, targetDir, name);
 
+                ulong handle = 0;
+                var openResult = afc.afc_file_open(client, remotePath, AfcFileMode.FopenWronly, ref handle);
+                if (openResult != AfcError.Success)
+                {
+                    lastError = openResult;
+                    lastFailedFile = name;
+                    continue;
+                }
+
+                var wroteWholeFile = true;
                 try
                 {
                     using var input = File.OpenRead(local);
@@ -278,8 +289,16 @@ public sealed class PhotoService
                         ct.ThrowIfCancellationRequested();
                         uint written = 0;
                         var chunk = read == buffer.Length ? buffer : buffer[..read];
-                        if (afc.afc_file_write(client, handle, chunk, (uint)read, ref written) != AfcError.Success)
+                        var writeResult = afc.afc_file_write(client, handle, chunk, (uint)read, ref written);
+                        // A short write is as much a failure as an error code: the file would
+                        // land truncated and Photos would reject it.
+                        if (writeResult != AfcError.Success || written != (uint)read)
+                        {
+                            lastError = writeResult == AfcError.Success ? AfcError.UnknownError : writeResult;
+                            lastFailedFile = name;
+                            wroteWholeFile = false;
                             break;
+                        }
                     }
                 }
                 finally
@@ -287,12 +306,78 @@ public sealed class PhotoService
                     afc.afc_file_close(client, handle);
                 }
 
-                done++;
+                // Only a complete file counts. The previous version incremented regardless,
+                // so a failed transfer was still reported to the user as imported.
+                if (wroteWholeFile) done++;
+                else afc.afc_remove_path(client, remotePath); // do not leave a truncated file behind
             }
 
             progress?.Report(new PhotoTransferProgress(done, localFiles.Count, ""));
+
+            // Failing silently is what hid this bug, so a total failure is raised. AFC denies
+            // writes to DCIM when the device is locked, which is the usual cause.
+            if (done == 0 && lastError != AfcError.Success)
+                throw new IOException($"AFC refused the transfer of '{lastFailedFile}' ({lastError}). Unlock the device and confirm \"Trust this computer\".");
+
             return done;
         }, ct);
+
+    /// <summary>
+    /// Picks the DCIM folder to import into: the highest existing NNNAPPLE folder, or a new
+    /// 100APPLE when the device has none.
+    ///
+    /// The name matters. Files used to go to a made-up "900IPAST" folder, and iOS ignores
+    /// folders outside its own naming scheme, so imported photos never showed up in Photos.
+    /// </summary>
+    private static string ResolveImportFolder(IAfcApi afc, AfcClientHandle client)
+    {
+        var best = string.Empty;
+
+        if (afc.afc_read_directory(client, "/DCIM", out var albums) == AfcError.Success && albums is not null)
+        {
+            foreach (var album in albums)
+            {
+                if (album is "." or "..") continue;
+                // NNNAPPLE: three digits followed by APPLE.
+                if (album.Length != 8 || !album.EndsWith("APPLE", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!album[..3].All(char.IsAsciiDigit)) continue;
+                if (string.Compare(album, best, StringComparison.OrdinalIgnoreCase) > 0) best = album;
+            }
+        }
+
+        if (best.Length > 0) return $"/DCIM/{best}";
+
+        const string fallback = "/DCIM/100APPLE";
+        afc.afc_make_directory(client, fallback); // ignored if it already exists
+        return fallback;
+    }
+
+    /// <summary>
+    /// Builds a free "IMG_NNNN" path in the target folder, keeping the original extension.
+    ///
+    /// The camera naming pattern is used because iOS skips files that do not follow it, and
+    /// a fresh number avoids overwriting a photo already on the device.
+    /// </summary>
+    private static string NextImportPath(IAfcApi afc, AfcClientHandle client, string targetDir, string localName)
+    {
+        var ext = Path.GetExtension(localName);
+        if (string.IsNullOrEmpty(ext)) ext = ".JPG";
+
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (afc.afc_read_directory(client, targetDir, out var existing) == AfcError.Success && existing is not null)
+        {
+            foreach (var name in existing) taken.Add(name);
+        }
+
+        // Start high enough not to collide with the camera's own numbering straight away.
+        for (var n = 9000; n < 9999; n++)
+        {
+            var candidate = $"IMG_{n}{ext.ToUpperInvariant()}";
+            if (taken.Add(candidate)) return $"{targetDir}/{candidate}";
+        }
+
+        return $"{targetDir}/IMG_{DateTime.Now:HHmmss}{ext.ToUpperInvariant()}";
+    }
 
     /// <summary>
     /// Reads multiple files in a single AFC session, returning their raw bytes up to
@@ -604,7 +689,7 @@ public sealed class PhotoService
             {
                 ct.ThrowIfCancellationRequested();
 
-                foreach (var candidate in ThumbnailCandidates(item))
+                foreach (var candidate in ThumbnailCandidates(afc, client, item))
                 {
                     ulong handle = 0;
                     if (afc.afc_file_open(client, candidate, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
@@ -651,16 +736,41 @@ public sealed class PhotoService
     /// /DCIM/100APPLE/IMG_0001.HEIC iOS has been observed to store
     /// /PhotoData/Thumbnails/V2/DCIM/100APPLE/IMG_0001.HEIC/5005.JPG (and similar).
     /// </summary>
-    private static IEnumerable<string> ThumbnailCandidates(PhotoItem item)
+    private static IEnumerable<string> ThumbnailCandidates(IAfcApi afc, AfcClientHandle client, PhotoItem item)
     {
         // "/DCIM/100APPLE/IMG_0001.HEIC" -> "DCIM/100APPLE/IMG_0001.HEIC"
         var relative = item.RemotePath.TrimStart('/');
+        var folder = $"/PhotoData/Thumbnails/V2/{relative}";
 
         // V2 layout: a folder per original file holding one JPEG per size class.
         // 5005 is the grid-sized variant on current iOS; the others are older names.
-        yield return $"/PhotoData/Thumbnails/V2/{relative}/5005.JPG";
-        yield return $"/PhotoData/Thumbnails/V2/{relative}/5003.JPG";
-        yield return $"/PhotoData/Thumbnails/V2/{relative}/5000.JPG";
+        yield return $"{folder}/5005.JPG";
+        yield return $"{folder}/5003.JPG";
+        yield return $"{folder}/5000.JPG";
+
+        // The size-class numbers above are undocumented and change between iOS releases, so
+        // when none of them hit, the folder is listed and whatever JPEG it holds is used.
+        // Guessing alone left videos blank: a video has no thumbnail we can render ourselves,
+        // unlike a photo, where decoding the original is a workable fallback.
+        if (afc.afc_read_directory(client, folder, out var entries) != AfcError.Success || entries is null)
+            yield break;
+
+        foreach (var name in entries)
+        {
+            if (name is "." or "..") continue;
+            if (!name.EndsWith(".JPG", StringComparison.OrdinalIgnoreCase)
+                && !name.EndsWith(".JPEG", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var candidate = $"{folder}/{name}";
+            // Skip the three already tried above rather than paying for them twice.
+            if (candidate is not null
+                && !name.Equals("5005.JPG", StringComparison.OrdinalIgnoreCase)
+                && !name.Equals("5003.JPG", StringComparison.OrdinalIgnoreCase)
+                && !name.Equals("5000.JPG", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return candidate;
+            }
+        }
     }
 
     /// <summary>Reads one media file fully into memory (used for thumbnails/preview).</summary>

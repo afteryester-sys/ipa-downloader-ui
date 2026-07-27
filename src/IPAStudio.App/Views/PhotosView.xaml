@@ -121,6 +121,45 @@
             </Grid>
         </DataTemplate>
 
+        <!-- ── ALBUM tile template ── -->
+        <DataTemplate x:Key="AlbumTileTemplate">
+            <Grid Width="168" Margin="8">
+                <StackPanel>
+                    <Border Width="168" Height="126" Style="{StaticResource ThumbBorder}">
+                        <Grid>
+                            <!-- UniformToFill here, unlike the photo tiles: a cover is a hint
+                                 at the contents, so an edge-to-edge crop reads better than a
+                                 letterboxed miniature. -->
+                            <Image Source="{Binding Cover}" Stretch="UniformToFill"
+                                   Visibility="{Binding Cover, Converter={StaticResource NullToCollapsed}}" />
+                            <TextBlock Visibility="{Binding Cover, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                       FontFamily="Segoe MDL2 Assets" FontSize="34"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xE91B;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CoverIsVideo}" Value="True">
+                                                <Setter Property="Text" Value="&#xE714;" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,8,2,0" />
+                    <StackPanel Orientation="Horizontal" Margin="2,2,2,0">
+                        <TextBlock Text="{Binding Count}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{DynamicResource L.Photos.AlbumItems}" Style="{StaticResource Text.Caption}"
+                                   Margin="4,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
         <!-- ListBox item container (used in both views) -->
         <Style x:Key="PhotoListItem" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -192,16 +231,23 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <ComboBox Grid.Column="0" Width="180" Height="46" VerticalAlignment="Center"
-                      Style="{StaticResource Input.ComboBox}"
-                      ItemsSource="{Binding Albums}" SelectedItem="{Binding SelectedAlbum}"
-                      ToolTip="{DynamicResource L.Photos.AlbumNamesUnavailable}"
-                      ToolTipService.IsEnabled="{Binding AlbumNamesUnavailable}" />
+            <!-- Leaving an album, plus the name of the one that is open: with tiles instead
+                 of a drop-down this is the only place the current album is stated. -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <Button Content="{DynamicResource L.Photos.BackToAlbums}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding ShowAlbumsCommand}" />
+                <TextBlock Text="{Binding CurrentAlbum.Name}" Style="{StaticResource Text.Body}"
+                           FontWeight="SemiBold" VerticalAlignment="Center" Margin="14,0,0,0"
+                           TextTrimming="CharacterEllipsis" MaxWidth="220" />
+            </StackPanel>
             <ComboBox Grid.Column="1" Width="140" Height="46" Margin="12,0,0,0" VerticalAlignment="Center"
                       Style="{StaticResource Input.ComboBox}"
-                      ItemsSource="{Binding MediaTypes}" SelectedItem="{Binding SelectedMediaType}" />
+                      ItemsSource="{Binding MediaTypes}" SelectedItem="{Binding SelectedMediaType}"
+                      Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}" />
 
-            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
                 <Button Content="{DynamicResource L.Photos.SelectAll}" Style="{StaticResource Button.Ghost}"
                         Command="{Binding SelectAllVisibleCommand}" />
                 <Button Content="{DynamicResource L.Photos.ClearAll}" Style="{StaticResource Button.Ghost}"
@@ -211,7 +257,8 @@
                     Command="{Binding ImportCommand}" Margin="12,0,0,0" />
 
             <!-- List / Grid toggle -->
-            <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
                 <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewList}"
                         Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
                 <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewGrid}"
@@ -230,9 +277,13 @@
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
 
+            <!-- Hints stack: two of them can apply at once, so they sit in a panel rather
+                 than on top of each other in the same cell. -->
+            <StackPanel Grid.Row="0" Grid.ColumnSpan="2">
+
             <!-- HEIC codec hint: shown only when Windows can't decode HEIC on this PC,
                  otherwise those tiles would stay blank with no explanation. -->
-            <Border Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12"
+            <Border Margin="0,0,0,12"
                     Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
                     Visibility="{Binding IsHeicCodecMissing, Converter={StaticResource BoolToVis}}">
                 <StackPanel Orientation="Horizontal">
@@ -249,9 +300,59 @@
                 </StackPanel>
             </Border>
 
+            <!-- Why the album list is mostly derived albums: iOS often refuses to hand over
+                 the Photos library, and without a word about it the short list looks broken. -->
+            <Border Margin="0,0,0,12"
+                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
+                    Visibility="{Binding AlbumNamesUnavailable, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                               Foreground="{StaticResource Brush.Accent}"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               VerticalAlignment="Center" MaxWidth="720"
+                               Text="{DynamicResource L.Photos.AlbumNamesUnavailable}" />
+                </StackPanel>
+            </Border>
+
+            </StackPanel>
+
+            <!-- Album tiles: the first thing shown, like a phone gallery. Spans the preview
+                 column too, since nothing is selected yet for it to preview. -->
+            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Padding="8"
+                    Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <ListBox ItemsSource="{Binding MediaAlbums}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ItemTemplate="{StaticResource AlbumTileTemplate}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctrl:VirtualizingWrapPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource PhotoListItem}">
+                                <!-- A single click opens the album: a gallery is browsed, not
+                                     multi-selected, so requiring a double click would only be
+                                     a step the user has to discover. -->
+                                <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnAlbumTileClicked" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
             <!-- File list (List mode) -->
             <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}" Padding="4"
-                    Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
+                    Visibility="{Binding ShowPhotoList, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <ListBox x:Name="PhotosList"
                              ItemsSource="{Binding PhotosView}"
@@ -276,7 +377,7 @@
 
             <!-- File grid (Grid / tile mode) -->
             <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}" Padding="8"
-                    Visibility="{Binding IsGridView, Converter={StaticResource BoolToVis}}">
+                    Visibility="{Binding ShowPhotoGrid, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <ListBox x:Name="PhotosGrid"
                              ItemsSource="{Binding PhotosView}"
@@ -308,7 +409,8 @@
             </Border>
 
             <!-- Preview panel -->
-            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}" Margin="16,0,0,0">
+            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}" Margin="16,0,0,0"
+                    Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
                 <Grid>
                     <TextBlock Text="{DynamicResource L.Photos.NoSelection}" Style="{StaticResource Text.Caption}"
                                TextWrapping="Wrap" TextAlignment="Center"
@@ -360,7 +462,8 @@
                            Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="{DynamicResource L.Photos.SelectedCount}" Style="{StaticResource Text.Body}" />
                     <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
