@@ -78,6 +78,7 @@ public partial class App : Application
         services.AddSingleton<DependencyService>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<ICloudService>();
+        services.AddSingleton<CleanupService>();
 
         // App
         services.AddSingleton<LocalizationManager>();

@@ -1,10 +1,9 @@
-using System.IO;
+using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Services;
-using IPAStudio.Core.Tools;
 
 namespace IPAStudio.App.ViewModels;
 
@@ -16,9 +15,15 @@ namespace IPAStudio.App.ViewModels;
 public sealed partial class UpdaterViewModel : ObservableObject
 {
     private readonly UpdateService _updates;
-    private readonly ToolLocator _tools;
     private readonly SettingsService _settings;
     private readonly QueueService _queue;
+    private readonly CleanupService _cleanup;
+
+    /// <summary>
+    /// Last measurement. Reused by "Clear cache" so the amount shown in the
+    /// confirmation is exactly what gets deleted, and dropped afterwards.
+    /// </summary>
+    private CleanupReport? _lastScan;
 
     [ObservableProperty]
     private bool _isOpen;
@@ -28,7 +33,26 @@ public sealed partial class UpdaterViewModel : ObservableObject
     private string _cacheStatusText = "";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCacheBusy))]
     private bool _isClearingCache;
+
+    /// <summary>True while measuring. Drives an indeterminate bar: a scan has no total.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCacheBusy))]
+    private bool _isScanningCache;
+
+    /// <summary>Delete progress, 0..1. Meaningless while scanning.</summary>
+    [ObservableProperty]
+    private double _cacheProgress;
+
+    /// <summary>Per-group breakdown from the last check; empty until one has run.</summary>
+    public ObservableCollection<CacheGroupRow> CacheGroups { get; } = new();
+
+    /// <summary>Total from the last check, e.g. "2.7 GB in 143 files".</summary>
+    [ObservableProperty]
+    private string _cacheTotalText = "";
+
+    public bool IsCacheBusy => IsClearingCache || IsScanningCache;
 
     [ObservableProperty]
     private string _versionText = "";
@@ -55,13 +79,13 @@ public sealed partial class UpdaterViewModel : ObservableObject
 
     public bool IsBusy => IsChecking || IsDownloading;
 
-    public UpdaterViewModel(UpdateService updates, ToolLocator tools, SettingsService settings,
-                            QueueService queue)
+    public UpdaterViewModel(UpdateService updates, SettingsService settings,
+                            QueueService queue, CleanupService cleanup)
     {
         _updates = updates;
-        _tools = tools;
         _settings = settings;
         _queue = queue;
+        _cleanup = cleanup;
         var v = _updates.CurrentVersion;
         VersionText = $"{v.Major}.{v.Minor}.{v.Build}";
     }
@@ -218,14 +242,52 @@ public sealed partial class UpdaterViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Deletes cached data — downloaded IPA files including half-finished ones, cached
-    /// app icons, the catalog cache and leftover temporary files — after confirmation.
-    /// Leaves settings and the signed-in session (ipatool keychain) untouched.
+    /// Measures what can be freed — downloaded IPA files including half-finished ones,
+    /// cached icons, the catalog cache, leftover temporary files and logs from previous
+    /// days — and lists it per group. Nothing is deleted here, so this is safe to press
+    /// out of curiosity; the numbers are what "Clear cache" would remove.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckCacheAsync()
+    {
+        if (IsCacheBusy) return;
+
+        IsScanningCache = true;
+        CacheProgress = 0;
+        CacheGroups.Clear();
+        CacheTotalText = "";
+        CacheStatusText = Str("L.Cache.Scanning");
+        try
+        {
+            // Name the group being walked: on a large Apps folder this is the only
+            // sign that the scan is moving rather than stuck.
+            var onGroup = new Progress<string>(key =>
+                CacheStatusText = string.Format(Str("L.Cache.ScanningGroup"), Str(key)));
+
+            _lastScan = await _cleanup.ScanAsync(onGroup);
+            ShowScan(_lastScan);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Cache scan failed.", ex);
+            _lastScan = null;
+            CacheStatusText = Str("L.Cache.ScanFailed");
+        }
+        finally
+        {
+            IsScanningCache = false;
+        }
+    }
+
+    /// <summary>
+    /// Deletes the cached data after confirmation, reporting real progress: clearing tens
+    /// of gigabytes of IPA files takes long enough that a frozen window looks like a hang.
+    /// Leaves settings, the signed-in session and the user's own catalog entries untouched.
     /// </summary>
     [RelayCommand]
     private async Task ClearCacheAsync()
     {
-        if (IsClearingCache) return;
+        if (IsCacheBusy) return;
 
         // Refuse while transfers are in flight: the queue writes into AppsFolder, and
         // deleting a file mid-download would fail the transfer with a confusing I/O
@@ -236,67 +298,57 @@ public sealed partial class UpdaterViewModel : ObservableObject
             return;
         }
 
-        var targets = new (string path, bool isFile)[]
+        // Measure first if the user went straight for the button, so the figure in the
+        // confirmation is a real one rather than a guess.
+        var report = _lastScan;
+        if (report is null)
         {
-            (_tools.AppsFolder,       false),
-            (_tools.IconCacheFolder,  false),
-            (_tools.CatalogCacheFile, true),
-            // Staged photo-library database copies (%TEMP%\IPAStudio). Each copy can be
-            // hundreds of MB on a large library; PhotoService deletes them after use, but
-            // an interrupted run leaves them behind and nothing else ever collects them.
-            (Path.Combine(Path.GetTempPath(), "IPAStudio"), false),
-        };
+            await CheckCacheAsync();
+            report = _lastScan;
+            if (report is null) return;
+        }
 
-        // Show how much will be freed and ask for confirmation. DirSize walks
-        // subdirectories, so the figure covers the staged temp copies too.
-        long total = 0;
-        foreach (var (path, isFile) in targets)
-            total += isFile ? FileSize(path) : DirSize(path);
+        if (report.IsEmpty)
+        {
+            CacheStatusText = Str("L.Cache.AlreadyEmpty");
+            return;
+        }
 
         var confirm = MessageBox.Show(
-            string.Format(Str("L.Cache.ConfirmBody"), FormatSize(total)),
+            string.Format(Str("L.Cache.ConfirmBody"), FormatSize(report.TotalBytes)),
             Str("L.Cache.ConfirmTitle"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (confirm != MessageBoxResult.Yes) return;
 
         IsClearingCache = true;
+        CacheProgress = 0;
         CacheStatusText = Str("L.Cache.Clearing");
         try
         {
-            long freed = 0;
-            await Task.Run(() =>
+            var progress = new Progress<CleanupProgress>(p =>
             {
-                foreach (var (path, isFile) in targets)
-                {
-                    try
-                    {
-                        if (isFile)
-                        {
-                            if (File.Exists(path)) { freed += FileSize(path); File.Delete(path); }
-                        }
-                        else if (Directory.Exists(path))
-                        {
-                            freed += DirSize(path);
-                            Directory.Delete(path, recursive: true);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        AppLog.Warn($"Clear cache: could not remove '{path}': {ex.Message}");
-                    }
-                }
+                CacheProgress = p.Fraction;
+                CacheStatusText = string.Format(Str("L.Cache.ClearingProgress"),
+                                                FormatSize(p.BytesDone),
+                                                FormatSize(p.BytesTotal));
             });
 
-            // Recreate the empty folders so the app keeps working.
-            _tools.EnsureFolders();
+            var result = await _cleanup.CleanAsync(report, progress);
 
-            AppLog.Info($"Cache cleared, freed {FormatSize(freed)}.");
-            CacheStatusText = string.Format(Str("L.Cache.Done"), FormatSize(freed));
+            CacheProgress = 1;
+            CacheGroups.Clear();
+            CacheTotalText = "";
+            _lastScan = null;
+
+            CacheStatusText = result.SkippedFiles > 0
+                ? string.Format(Str("L.Cache.DonePartial"), FormatSize(result.FreedBytes), result.SkippedFiles)
+                : string.Format(Str("L.Cache.Done"), FormatSize(result.FreedBytes));
         }
         catch (Exception ex)
         {
             AppLog.Error("Clear cache failed.", ex);
+            _lastScan = null;
             CacheStatusText = Str("L.Cache.Failed");
         }
         finally
@@ -305,21 +357,22 @@ public sealed partial class UpdaterViewModel : ObservableObject
         }
     }
 
-    private static long DirSize(string dir)
+    private void ShowScan(CleanupReport report)
     {
-        try
-        {
-            if (!Directory.Exists(dir)) return 0;
-            return Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
-                .Sum(f => { try { return new FileInfo(f).Length; } catch { return 0L; } });
-        }
-        catch { return 0; }
-    }
+        CacheGroups.Clear();
+        foreach (var group in report.NonEmptyGroups)
+            CacheGroups.Add(new CacheGroupRow(Str(group.Key), FormatSize(group.Bytes), group.Path));
 
-    private static long FileSize(string file)
-    {
-        try { return File.Exists(file) ? new FileInfo(file).Length : 0; }
-        catch { return 0; }
+        if (report.IsEmpty)
+        {
+            CacheTotalText = "";
+            CacheStatusText = Str("L.Cache.AlreadyEmpty");
+            return;
+        }
+
+        CacheTotalText = string.Format(Str("L.Cache.ScanTotal"),
+                                       FormatSize(report.TotalBytes), report.TotalFiles);
+        CacheStatusText = Str("L.Cache.ScanDone");
     }
 
     private static string FormatSize(long bytes)
@@ -357,3 +410,6 @@ public sealed partial class UpdaterViewModel : ObservableObject
     private static string Str(string key) =>
         Application.Current.TryFindResource(key) as string ?? key;
 }
+
+/// <summary>One line of the cache breakdown: what it is, how big, and where it lives.</summary>
+public sealed record CacheGroupRow(string Label, string SizeText, string Path);
