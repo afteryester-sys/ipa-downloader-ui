@@ -161,7 +161,8 @@
                 <StackPanel Margin="0,0,0,12"
                             Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}">
                     <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="100"
-                                 Value="{Binding Progress, Mode=OneWay}" />
+                                 Value="{Binding Progress, Mode=OneWay}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate}" />
                 </StackPanel>
 
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
