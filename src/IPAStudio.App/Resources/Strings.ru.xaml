@@ -77,17 +77,19 @@
     <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
     <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
-    <!-- Фото (Фотоплён��а) -->
+    <!-- Фото (Фотоплёнка) -->
     <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>
     <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
     <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
-    <sys:String x:Key="L.Photos.Cancel">Отменит��</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
     <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
-    <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр недоступен для этого формата (HEIC / видео).</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр для этого файла недоступен.</sys:String>
+    <sys:String x:Key="L.Photos.HeicMissing">Фотографии в формате HEIC не показываются: в Windows не установлен компонент для их чтения. Он бесплатный — после установки превью появятся. Копировать такие файлы на компьютер можно и без него.</sys:String>
+    <sys:String x:Key="L.Photos.HeicInstall">Установить компонент</sys:String>
 
     <!-- Выбор приложений -->
     <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
@@ -169,7 +171,7 @@
     <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
     <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
     <sys:String x:Key="L.Update.OpenedBrowser">Страница релизов открыта в браузере — скачайте установщик вручную.</sys:String>
-    <sys:String x:Key="L.Update.Failed">Не удало��ь проверить обновления.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Не удалось проверить обновления.</sys:String>
     <sys:String x:Key="L.Update.NoReleases">Обновлений нет: на сервере ещё не опубликован ни один релиз.</sys:String>
     <sys:String x:Key="L.Update.NoConnection">Не удалось подключиться к серверу обновлений. Проверьте подключение к интернету.</sys:String>
     <sys:String x:Key="L.Update.Timeout">Превышено время ожидания сервера обновлений. Повторите попытку.</sys:String>
