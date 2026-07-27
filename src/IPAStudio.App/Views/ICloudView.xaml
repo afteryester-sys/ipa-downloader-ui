@@ -1,0 +1,275 @@
+<UserControl x:Class="IPAStudio.App.Views.ICloudView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:IntEqualsConverter x:Key="IntEquals" />
+        <conv:IntEqualsToVisibilityConverter x:Key="TabVis" />
+
+        <!-- Tab indices. IntEqualsConverter compares ints, so the parameters must be
+             typed rather than the string "0". -->
+        <sys:Int32 x:Key="TabContacts">0</sys:Int32>
+        <sys:Int32 x:Key="TabPhotos">1</sys:Int32>
+        <sys:Int32 x:Key="TabNotes">2</sys:Int32>
+    </UserControl.Resources>
+
+    <Grid Margin="32,24,32,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== Header (200px right margin clears the MainWindow gear button) ===== -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel Margin="0,0,200,0">
+                <TextBlock Text="{DynamicResource L.ICloud.Title}" Style="{StaticResource Text.Title}" />
+                <TextBlock Text="{DynamicResource L.ICloud.Subtitle}"
+                           Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Button Content="{DynamicResource L.Back}" HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Style="{StaticResource Button.Ghost}"
+                    Command="{Binding BackCommand}" />
+        </Grid>
+
+        <!-- ===== Signed out: credentials, then the 2FA code ===== -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+            <StackPanel MaxWidth="460" HorizontalAlignment="Left">
+
+                <!-- Step 1: Apple ID and password -->
+                <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
+                        Visibility="{Binding NeedsTwoFactorCode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.ICloud.SignInHeader}"
+                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource L.ICloud.SignInHint}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                   Margin="0,2,0,14" />
+
+                        <TextBlock Text="{DynamicResource L.ICloud.AppleId}"
+                                   Style="{StaticResource Text.Caption}" Margin="0,0,0,4" />
+                        <TextBox Style="{StaticResource Input.TextBox}"
+                                 Text="{Binding AppleId, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                        <TextBlock Text="{DynamicResource L.ICloud.Password}"
+                                   Style="{StaticResource Text.Caption}" Margin="0,12,0,4" />
+                        <PasswordBox x:Name="PasswordInput" Style="{StaticResource Input.PasswordBox}"
+                                     PasswordChanged="OnPasswordChanged" KeyDown="OnPasswordKeyDown"
+                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                        <!-- Say plainly where the password goes; people are right to be wary. -->
+                        <TextBlock Text="{DynamicResource L.ICloud.PrivacyNote}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                   Opacity="0.8" Margin="0,10,0,0" />
+
+                        <Button Content="{DynamicResource L.ICloud.SignIn}"
+                                Style="{StaticResource Button.Primary}"
+                                Command="{Binding SignInCommand}"
+                                HorizontalAlignment="Stretch" Margin="0,16,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Step 2: the six-digit code from a trusted device -->
+                <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
+                        Visibility="{Binding NeedsTwoFactorCode, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource L.ICloud.TwoFactorHeader}"
+                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource L.ICloud.TwoFactorHint}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                   Margin="0,2,0,14" />
+
+                        <TextBox x:Name="CodeInput" Style="{StaticResource Input.TextBox}" MaxLength="8"
+                                 FontSize="20"
+                                 Text="{Binding TwoFactorCode, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding SubmitCodeCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+
+                        <Button Content="{DynamicResource L.ICloud.SubmitCode}"
+                                Style="{StaticResource Button.Primary}"
+                                Command="{Binding SubmitCodeCommand}"
+                                HorizontalAlignment="Stretch" Margin="0,16,0,0" />
+                        <Button Content="{DynamicResource L.ICloud.StartOver}"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding SignOutCommand}"
+                                HorizontalAlignment="Stretch" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Signed in: contacts / photos / notes ===== -->
+        <Grid Grid.Row="1" Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Account bar and tab switcher -->
+            <Grid Grid.Row="0" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton Content="{DynamicResource L.ICloud.TabContacts}" GroupName="ICloudTab"
+                                 Margin="0,0,16,0"
+                                 IsChecked="{Binding SelectedTab, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource TabContacts}}" />
+                    <RadioButton Content="{DynamicResource L.ICloud.TabPhotos}" GroupName="ICloudTab"
+                                 Margin="0,0,16,0"
+                                 IsChecked="{Binding SelectedTab, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource TabPhotos}}" />
+                    <RadioButton Content="{DynamicResource L.ICloud.TabNotes}" GroupName="ICloudTab"
+                                 IsChecked="{Binding SelectedTab, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource TabNotes}}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AccountName}" Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <Button Content="{DynamicResource L.ICloud.Refresh}" Style="{StaticResource Button.Ghost}"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                            Margin="0,0,8,0" />
+                    <Button Content="{DynamicResource L.ICloud.SignOut}" Style="{StaticResource Button.Ghost}"
+                            Command="{Binding SignOutCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Contacts -->
+            <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4"
+                    Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabContacts}}">
+                <ListBox ItemsSource="{Binding Contacts}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="8,6">
+                                <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Summary}" Style="{StaticResource Text.Caption}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Photos -->
+            <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4"
+                    Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabPhotos}}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Photos}" Margin="6">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="132" Margin="6" Padding="6"
+                                        Background="{StaticResource Brush.Surface}"
+                                        CornerRadius="{StaticResource Radius.Control}">
+                                    <StackPanel>
+                                        <!-- Thumbnails stream from iCloud over https; DecodePixelWidth
+                                             keeps a large library from eating memory. -->
+                                        <Border Height="104" Background="{StaticResource Brush.SurfaceHover}"
+                                                CornerRadius="{StaticResource Radius.Control}">
+                                            <Image Stretch="UniformToFill"
+                                                   Source="{Binding Item.ThumbnailUrl}" />
+                                        </Border>
+
+                                        <CheckBox IsChecked="{Binding IsSelected}"
+                                                  Checked="OnPhotoCheckChanged" Unchecked="OnPhotoCheckChanged"
+                                                  Margin="0,6,0,0" FontSize="11"
+                                                  ToolTip="{Binding Item.FileName}">
+                                            <TextBlock Text="{Binding Item.FileName}" MaxWidth="88"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </CheckBox>
+                                        <TextBlock Text="{Binding Item.SizeText}"
+                                                   Style="{StaticResource Text.Caption}" FontSize="10"
+                                                   Margin="22,0,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Notes -->
+            <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4"
+                    Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabNotes}}">
+                <ListBox ItemsSource="{Binding Notes}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="8,6">
+                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Snippet}" Style="{StaticResource Text.Caption}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </Grid>
+
+        <!-- ===== Footer: status plus the action for the current tab ===== -->
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <!-- One status line; it turns red when HasError is set. -->
+                <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True"
+                             Margin="0,6,0,0" MaxWidth="240" HorizontalAlignment="Left"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
+                <!-- Contacts: export to a .vcf anything can import -->
+                <Button Content="{DynamicResource L.ICloud.ExportContacts}"
+                        Style="{StaticResource Button.Primary}"
+                        Command="{Binding ExportContactsCommand}"
+                        Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabContacts}}" />
+
+                <!-- Photos: select all, then download the ticked ones -->
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabPhotos}}">
+                    <Button Content="{DynamicResource L.ICloud.SelectAll}"
+                            Style="{StaticResource Button.Secondary}"
+                            Command="{Binding ToggleSelectAllPhotosCommand}" Margin="0,0,8,0" />
+                    <Button Content="{DynamicResource L.ICloud.Download}"
+                            Style="{StaticResource Button.Primary}"
+                            Command="{Binding DownloadPhotosCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -7,6 +7,7 @@ using IPAStudio.App.ViewModels;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Services;
+using IPAStudio.Core.Services.ICloud;
 using IPAStudio.Core.Tools;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -76,6 +77,7 @@ public partial class App : Application
         services.AddSingleton<QueueService>();
         services.AddSingleton<DependencyService>();
         services.AddSingleton<UpdateService>();
+        services.AddSingleton<ICloudService>();
 
         // App
         services.AddSingleton<LocalizationManager>();
@@ -90,6 +92,7 @@ public partial class App : Application
         services.AddSingleton<DeviceInfoViewModel>();
         services.AddSingleton<PhotosViewModel>();
         services.AddSingleton<DirectDownloadViewModel>();
+        services.AddSingleton<ICloudViewModel>();
 
         Services = services.BuildServiceProvider();
 

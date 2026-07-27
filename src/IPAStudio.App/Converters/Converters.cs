@@ -174,6 +174,27 @@ public sealed class IntEqualsConverter : IValueConverter
         => value is true && parameter is int p ? p : Binding.DoNothing;
 }
 
+/// <summary>
+/// int equals parameter -> Visibility, for showing one panel per selected tab.
+/// <see cref="IntEqualsConverter"/> yields a bool, which cannot drive Visibility directly.
+/// </summary>
+public sealed class IntEqualsToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var expected = parameter switch
+        {
+            int i => i,
+            string s when int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var p) => p,
+            _ => -1,
+        };
+        return value is int actual && actual == expected ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Battery percent (int) -> brush: green > 20, yellow > 10, red otherwise.</summary>
 public sealed class BatteryToBrushConverter : IValueConverter
 {

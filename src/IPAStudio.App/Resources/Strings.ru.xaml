@@ -344,8 +344,9 @@
     <sys:String x:Key="L.Battery.Error.ReadFailed">ошибка чтения</sys:String>
 
     <!-- Фото -->
-    <sys:String x:Key="L.Photos.Camera">Камера</sys:String>
-    <sys:String x:Key="L.Photos.CameraNumbered">Камера ({0})</sys:String>
+    <sys:String x:Key="L.Photos.Hidden">Скрытые</sys:String>
+    <sys:String x:Key="L.Photos.NoAlbum">Без альбома</sys:String>
+    <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>
     <sys:String x:Key="L.Photos.AllAlbums">Все альбомы</sys:String>
     <sys:String x:Key="L.Photos.Media.All">Все</sys:String>
     <sys:String x:Key="L.Photos.Media.Photos">Фото</sys:String>
@@ -399,5 +400,60 @@
     <sys:String x:Key="L.Common.Close">Закрыть</sys:String>
     <sys:String x:Key="L.Common.Copy">Копировать</sys:String>
     <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>
+
+
+    <!-- Добавление в каталог (экран загрузки) -->
+    <sys:String x:Key="L.Direct.AddToCatalog">Добавить в каталог</sys:String>
+    <sys:String x:Key="L.Direct.AddToCatalogHint">Сохранить приложение в каталог, чтобы позже установить его без повторного поиска</sys:String>
+    <sys:String x:Key="L.Direct.InCatalog">Уже в каталоге</sys:String>
+    <sys:String x:Key="L.Direct.AddedToCatalog">«{0}» добавлено в каталог</sys:String>
+    <sys:String x:Key="L.Direct.AlreadyInCatalog">Это приложение уже есть в каталоге</sys:String>
+    <sys:String x:Key="L.Direct.AddFailed">Не удалось сохранить приложение в каталог</sys:String>
+
+    <!-- ===== iCloud page ===== -->
+    <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.Subtitle">Войдите в Apple ID, чтобы посмотреть контакты, фото и заметки из iCloud.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHeader">Вход в iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHint">Укажите Apple ID, данные которого нужно открыть.</sys:String>
+    <sys:String x:Key="L.ICloud.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.Password">Пароль</sys:String>
+    <sys:String x:Key="L.ICloud.PrivacyNote">Пароль используется один раз на этом компьютере, чтобы подтвердить вашу личность перед Apple, — он никуда не отправляется и не сохраняется. Хранятся только сессионные токены Apple, зашифрованные для вашей учётной записи Windows.</sys:String>
+    <sys:String x:Key="L.ICloud.SignIn">Войти</sys:String>
+    <sys:String x:Key="L.ICloud.SigningIn">Выполняется вход…</sys:String>
+    <sys:String x:Key="L.ICloud.Resuming">Восстанавливаем прошлую сессию…</sys:String>
+    <sys:String x:Key="L.ICloud.SessionExpired">Сохранённая сессия истекла. Войдите снова.</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHeader">Код подтверждения</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHint">Введите шестизначный код с вашего iPhone, iPad или Mac.</sys:String>
+    <sys:String x:Key="L.ICloud.EnterCode">Ожидаем шестизначный код.</sys:String>
+    <sys:String x:Key="L.ICloud.SubmitCode">Подтвердить</sys:String>
+    <sys:String x:Key="L.ICloud.StartOver">Другой Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.VerifyingCode">Проверяем код…</sys:String>
+    <sys:String x:Key="L.ICloud.BadCode">Код не принят. Попробуйте самый новый.</sys:String>
+    <sys:String x:Key="L.ICloud.BadCredentials">Неверный Apple ID или пароль.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInFailed">Apple отклонила вход. Попробуйте позже или проверьте аккаунт на icloud.com.</sys:String>
+    <sys:String x:Key="L.ICloud.SignOut">Выйти</sys:String>
+    <sys:String x:Key="L.ICloud.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.ICloud.TabContacts">Контакты</sys:String>
+    <sys:String x:Key="L.ICloud.TabPhotos">Фото</sys:String>
+    <sys:String x:Key="L.ICloud.TabNotes">Заметки</sys:String>
+    <sys:String x:Key="L.ICloud.Loading">Загружаем из iCloud…</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailed">iCloud не вернула эти данные. Возможно, Apple ограничивает доступ — попробуйте позже.</sys:String>
+    <sys:String x:Key="L.ICloud.ContactCount">Контактов: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.PhotoCount">Фото: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.NoteCount">Заметок: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.NoContacts">В этом аккаунте iCloud нет контактов.</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">Заметки для этого аккаунта недоступны: новые заметки Apple шифрует, и прочитать их здесь нельзя.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
+    <sys:String x:Key="L.ICloud.VCardFilter">Файл vCard (*.vcf)|*.vcf</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsExported">Сохранено контактов: {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportFailed">Не удалось сохранить файл.</sys:String>
+    <sys:String x:Key="L.ICloud.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.ICloud.Download">Скачать выбранные</sys:String>
+    <sys:String x:Key="L.ICloud.PickDownloadFolder">Куда сохранить фото</sys:String>
+    <sys:String x:Key="L.ICloud.Downloading">Скачиваем {0} из {1}…</sys:String>
+    <sys:String x:Key="L.ICloud.Downloaded">Скачано фото: {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadedWithErrors">Скачано {0}, с ошибкой {1}.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadFailed">Не удалось скачать.</sys:String>
 
 </ResourceDictionary>

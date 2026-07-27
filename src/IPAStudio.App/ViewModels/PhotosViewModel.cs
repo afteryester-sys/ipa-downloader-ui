@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Infrastructure;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
@@ -40,32 +41,6 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     public string Album => Item.Album;
 
     /// <summary>
-    /// Human-readable album label shown in the UI.
-    /// iOS stores Camera Roll photos in numbered DCIM sub-folders (100APPLE,
-    /// 101APPLE, …). We can't read real album names over AFC, so we display
-    /// a localized "Camera" label (with the folder number for additional rolls).
-    /// </summary>
-    public string FriendlyAlbumName => MakeFriendlyAlbumNameStatic(Item.Album);
-
-    public static string MakeFriendlyAlbumNameStatic(string folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return Loc.Get("L.Photos.Camera");
-        // DCIM sub-folder convention: "100APPLE", "101APPLE", … or "100CLOUD", etc.
-        // iOS uses 100APPLE for the primary Camera Roll; higher numbers are additional
-        // rolls (burst, imports, screen recordings that overflowed, etc.). We don't
-        // have access to the real album names via AFC, so we show the folder number
-        // in a human-friendly way: "Camera" for 100, "Camera (101)" for the rest.
-        if (folder.Length >= 3 && int.TryParse(folder[..3], out var num))
-        {
-            if (num == 100) return Loc.Get("L.Photos.Camera");
-            // Show the numeric index so users can distinguish multiple rolls
-            // without inventing fake sequential names (39, 40, …).
-            return Loc.Format("L.Photos.CameraNumbered", num);
-        }
-        return folder;
-    }
-
-    /// <summary>
     /// Real album title from the Photos library, when it could be read. Null means the
     /// database was unavailable (Apple restricts it on current iOS), and the UI falls
     /// back to the folder-derived name.
@@ -73,10 +48,14 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     private string? _realAlbumName;
 
     /// <summary>
-    /// The album label shown in the UI and used for filtering: the real album title if
-    /// known, otherwise the DCIM folder name made readable.
+    /// The album label shown in the UI and used for filtering.
+    ///
+    /// When the real title is unknown the item is filed under one "no album" group rather
+    /// than its DCIM folder. Those folder numbers (100APPLE, 101APPLE, …) are an internal
+    /// storage detail, not albums, so surfacing them produced the meaningless
+    /// "Camera (137)" … "Camera (900)" list instead of the user's real albums.
     /// </summary>
-    public string DisplayAlbumName => _realAlbumName ?? FriendlyAlbumName;
+    public string DisplayAlbumName => _realAlbumName ?? Loc.Get("L.Photos.NoAlbum");
 
     /// <summary>Applies a real album title. Call on the UI thread; raises notifications.</summary>
     public void SetRealAlbumName(string? title)
@@ -235,6 +214,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _isHeicCodecMissing;
 
+    /// <summary>
+    /// True when the Photos library database could not be read, so real album titles are
+    /// unavailable and everything lands in one group. Surfaced as a short hint, because
+    /// otherwise an album list with a single entry just looks broken.
+    /// </summary>
+    [ObservableProperty]
+    private bool _albumNamesUnavailable;
+
     public bool IsGridView => !IsListView;
 
     partial void OnIsListViewChanged(bool value) => OnPropertyChanged(nameof(IsGridView));
@@ -321,10 +308,17 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         var previous = keepSelection ? SelectedAlbum : null;
 
         Albums.Clear();
-        Albums.Add(AllAlbums);
+        Albums.Add(AllAlbums); // "All photos" always leads the list
+
+        // Real albums alphabetically, then Hidden, then anything with no album at all.
+        // Those last two are catch-alls rather than albums the user created, so sorting
+        // them in among real titles would bury the names people actually look for.
+        var hidden = Loc.Get("L.Photos.Hidden");
+        var noAlbum = Loc.Get("L.Photos.NoAlbum");
         foreach (var name in Photos.Select(p => p.DisplayAlbumName)
                                    .Distinct(StringComparer.Ordinal)
-                                   .OrderBy(n => n, StringComparer.CurrentCulture))
+                                   .OrderBy(n => n == noAlbum ? 2 : n == hidden ? 1 : 0)
+                                   .ThenBy(n => n, StringComparer.CurrentCulture))
         {
             Albums.Add(name);
         }
@@ -362,7 +356,17 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         catch (OperationCanceledException) { return; }
         catch { return; }
 
-        if (map is null || map.Count == 0 || ct.IsCancellationRequested) return;
+        if (ct.IsCancellationRequested) return;
+
+        if (map is null || map.Count == 0)
+        {
+            // iOS does not always allow reading Photos.sqlite over AFC. Say so instead of
+            // silently showing one unnamed group.
+            AppLog.Warn("Album titles unavailable: Photos library database could not be read");
+            await System.Windows.Application.Current.Dispatcher
+                .InvokeAsync(() => AlbumNamesUnavailable = true).Task.ConfigureAwait(false);
+            return;
+        }
 
         await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
         {
@@ -378,10 +382,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 }
             }
 
-            // Nothing lined up: the database was readable but describes other assets, so
-            // leave the folder names rather than half-relabelling the picker.
-            if (matched == 0) return;
+            // The database was readable but describes other assets: nothing to relabel.
+            if (matched == 0)
+            {
+                AlbumNamesUnavailable = true;
+                return;
+            }
 
+            AlbumNamesUnavailable = false;
             BuildAlbumList(keepSelection: true);
         }).Task.ConfigureAwait(false);
     }

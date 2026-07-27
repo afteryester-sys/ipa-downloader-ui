@@ -344,8 +344,9 @@
     <sys:String x:Key="L.Battery.Error.ReadFailed">read error</sys:String>
 
     <!-- Photos -->
-    <sys:String x:Key="L.Photos.Camera">Camera</sys:String>
-    <sys:String x:Key="L.Photos.CameraNumbered">Camera ({0})</sys:String>
+    <sys:String x:Key="L.Photos.Hidden">Hidden</sys:String>
+    <sys:String x:Key="L.Photos.NoAlbum">Not in an album</sys:String>
+    <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
     <sys:String x:Key="L.Photos.AllAlbums">All albums</sys:String>
     <sys:String x:Key="L.Photos.Media.All">All</sys:String>
     <sys:String x:Key="L.Photos.Media.Photos">Photos</sys:String>
@@ -399,5 +400,60 @@
     <sys:String x:Key="L.Common.Close">Close</sys:String>
     <sys:String x:Key="L.Common.Copy">Copy</sys:String>
     <sys:String x:Key="L.Common.CopyToClipboard">Copy to the clipboard</sys:String>
+
+
+    <!-- Add to catalog (download screen) -->
+    <sys:String x:Key="L.Direct.AddToCatalog">Add to catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddToCatalogHint">Save this app to the catalog so you can install it later without searching again</sys:String>
+    <sys:String x:Key="L.Direct.InCatalog">Already in the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddedToCatalog">"{0}" has been added to the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AlreadyInCatalog">This app is already in the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddFailed">Couldn't save the app to the catalog</sys:String>
+
+    <!-- ===== iCloud page ===== -->
+    <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.Subtitle">Sign in to your Apple ID to browse contacts, photos and notes stored in iCloud.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHeader">Sign in to iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHint">Use the Apple ID whose iCloud data you want to open.</sys:String>
+    <sys:String x:Key="L.ICloud.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.Password">Password</sys:String>
+    <sys:String x:Key="L.ICloud.PrivacyNote">Your password is used once, on this computer, to prove your identity to Apple — it is never sent anywhere else and never saved. Only Apple's session tokens are stored, encrypted for your Windows account.</sys:String>
+    <sys:String x:Key="L.ICloud.SignIn">Sign in</sys:String>
+    <sys:String x:Key="L.ICloud.SigningIn">Signing in…</sys:String>
+    <sys:String x:Key="L.ICloud.Resuming">Restoring your previous session…</sys:String>
+    <sys:String x:Key="L.ICloud.SessionExpired">Your saved session expired. Please sign in again.</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHeader">Two-factor code</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHint">Enter the six-digit code shown on your iPhone, iPad or Mac.</sys:String>
+    <sys:String x:Key="L.ICloud.EnterCode">Waiting for the six-digit code.</sys:String>
+    <sys:String x:Key="L.ICloud.SubmitCode">Confirm</sys:String>
+    <sys:String x:Key="L.ICloud.StartOver">Use a different Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.VerifyingCode">Checking the code…</sys:String>
+    <sys:String x:Key="L.ICloud.BadCode">That code was not accepted. Try the newest one.</sys:String>
+    <sys:String x:Key="L.ICloud.BadCredentials">Apple ID or password is incorrect.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInFailed">Apple refused the sign-in. Try again later, or check the account at icloud.com.</sys:String>
+    <sys:String x:Key="L.ICloud.SignOut">Sign out</sys:String>
+    <sys:String x:Key="L.ICloud.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.ICloud.TabContacts">Contacts</sys:String>
+    <sys:String x:Key="L.ICloud.TabPhotos">Photos</sys:String>
+    <sys:String x:Key="L.ICloud.TabNotes">Notes</sys:String>
+    <sys:String x:Key="L.ICloud.Loading">Loading from iCloud…</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailed">iCloud did not return this data. Apple may be limiting access; try again later.</sys:String>
+    <sys:String x:Key="L.ICloud.ContactCount">{0} contacts</sys:String>
+    <sys:String x:Key="L.ICloud.PhotoCount">{0} photos</sys:String>
+    <sys:String x:Key="L.ICloud.NoteCount">{0} notes</sys:String>
+    <sys:String x:Key="L.ICloud.NoContacts">No contacts in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">Notes are not available for this account. Apple encrypts newer notes so they cannot be read here.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>
+    <sys:String x:Key="L.ICloud.VCardFilter">vCard file (*.vcf)|*.vcf</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsExported">Saved {0} contacts.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportFailed">Could not save the file.</sys:String>
+    <sys:String x:Key="L.ICloud.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.ICloud.Download">Download selected</sys:String>
+    <sys:String x:Key="L.ICloud.PickDownloadFolder">Choose where to save the photos</sys:String>
+    <sys:String x:Key="L.ICloud.Downloading">Downloading {0} of {1}…</sys:String>
+    <sys:String x:Key="L.ICloud.Downloaded">Downloaded {0} photos.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadedWithErrors">Downloaded {0} photos, {1} failed.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadFailed">The download failed.</sys:String>
 
 </ResourceDictionary>

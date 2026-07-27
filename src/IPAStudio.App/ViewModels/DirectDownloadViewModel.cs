@@ -61,6 +61,19 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string? _foundIconUrl;
 
+    /// <summary>
+    /// True when the found app is already in the catalog, so the button reads
+    /// "already added" instead of offering a duplicate.
+    /// </summary>
+    [NotifyPropertyChangedFor(nameof(CanAddToCatalog))]
+    [ObservableProperty]
+    private bool _isInCatalog;
+
+    /// <summary>An app was found and is not in the catalog yet.</summary>
+    public bool CanAddToCatalog => FoundApp is not null && !IsInCatalog;
+
+    partial void OnFoundAppChanged(AppEntry? value) => OnPropertyChanged(nameof(CanAddToCatalog));
+
     // ---- State ----
 
     [ObservableProperty]
@@ -181,6 +194,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         StatusText = Str("L.Direct.Searching");
         FoundApp = null;
         FoundIconUrl = null;
+        IsInCatalog = false;
         SavedPath = null;
 
         try
@@ -197,6 +211,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
             FoundApp = app;
             FoundIconUrl = app.IconUrl;
+            IsInCatalog = _catalog.IsInCatalog(app.AppStoreId);
             StatusText = null;
             AppLog.Info($"Direct download: found '{app.Name}' ({app.BundleId}) id={app.AppStoreId}");
         }
@@ -209,6 +224,38 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         finally
         {
             IsLookingUp = false;
+        }
+    }
+
+    /// <summary>
+    /// Saves the found app into the catalog so it can be installed later from the app
+    /// list without looking it up again. The bundled list is an embedded resource, so
+    /// the entry goes to the user catalog file alongside it.
+    /// </summary>
+    [RelayCommand]
+    private async Task AddToCatalogAsync()
+    {
+        var app = FoundApp;
+        if (app is null) return;
+
+        ErrorText = null;
+        try
+        {
+            var added = await _catalog.AddToUserCatalogAsync(app).ConfigureAwait(true);
+
+            // Either way the app is now in the catalog, which is what the flag means.
+            IsInCatalog = true;
+            StatusText = added
+                ? Loc.Format("L.Direct.AddedToCatalog", app.Name)
+                : Loc.Get("L.Direct.AlreadyInCatalog");
+
+            if (added) AppLog.Info($"Added to catalog: '{app.Name}' id={app.AppStoreId}");
+        }
+        catch (Exception ex)
+        {
+            StatusText = null;
+            ErrorText = Loc.Get("L.Direct.AddFailed");
+            AppLog.Warn($"Add to catalog failed: {ex.Message}");
         }
     }
 
