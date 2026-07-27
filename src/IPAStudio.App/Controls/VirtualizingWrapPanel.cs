@@ -161,12 +161,16 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             {
                 if (generator.GenerateNext(out var isNew) is not UIElement child) break;
 
-                if (isNew)
+                // A recycled container comes back with isNew == false and is no longer in
+                // InternalChildren, so it has to be re-inserted by hand. Skipping this is
+                // why recycled tiles would silently disappear while scrolling.
+                if (isNew || !InternalChildren.Contains(child))
                 {
                     if (childIndex >= InternalChildren.Count) AddInternalChild(child);
                     else InsertInternalChild(childIndex, child);
-                    generator.PrepareItemContainer(child);
                 }
+
+                generator.PrepareItemContainer(child);
 
                 child.Measure(itemSize);
             }
@@ -181,7 +185,11 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     /// </summary>
     private void VirtualizeRangeOutside(IItemContainerGenerator generator, int first, int last)
     {
-        var recycle = GetVirtualizationMode(this) == VirtualizationMode.Recycling;
+        // Recycle lives on IRecyclingItemContainerGenerator, not on the base generator
+        // interface. If the generator doesn't support recycling, fall back to Remove.
+        var recycler = GetVirtualizationMode(this) == VirtualizationMode.Recycling
+            ? generator as IRecyclingItemContainerGenerator
+            : null;
 
         // Walk backwards: removing a child shifts the indices after it.
         for (var i = InternalChildren.Count - 1; i >= 0; i--)
@@ -190,7 +198,7 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             var itemIndex = generator.IndexFromGeneratorPosition(position);
             if (itemIndex >= first && itemIndex <= last) continue;
 
-            if (recycle) generator.Recycle(position, 1);
+            if (recycler is not null) recycler.Recycle(position, 1);
             else generator.Remove(position, 1);
 
             RemoveInternalChildRange(i, 1);
