@@ -65,11 +65,22 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private bool _isLookingUp;
 
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     [ObservableProperty]
     private bool _isDownloading;
 
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     [ObservableProperty]
     private double _progress;
+
+    /// <summary>
+    /// True while a transfer is running with no percentage to show. Apps missing from
+    /// the App Store catalog have no known size, so ipatool reports bytes only and
+    /// <see cref="Progress"/> stays at 0 for the whole download — a bar that just sat
+    /// empty and looked broken. An animated bar states honestly that work is happening
+    /// but its extent is unknown.
+    /// </summary>
+    public bool IsProgressIndeterminate => IsDownloading && Progress <= 0;
 
     [ObservableProperty]
     private string? _statusText;
@@ -253,8 +264,9 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             }
             else
             {
+                // Say why there is no percentage, matching the queue screen's wording.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
-                StatusText = $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed}";
+                StatusText = $"Загрузка {FormatBytes(p.DownloadedBytes)}{speed} · размер неизвестен";
             }
         });
 

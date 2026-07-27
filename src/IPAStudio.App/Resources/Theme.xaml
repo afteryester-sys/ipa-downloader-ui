@@ -282,12 +282,76 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
-                    <Grid>
+                    <Grid ClipToBounds="True">
                         <Border Background="{TemplateBinding Background}" CornerRadius="3" />
                         <Border x:Name="PART_Track" />
                         <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}"
                                 CornerRadius="3" HorizontalAlignment="Left" />
+
+                        <!--
+                            Indeterminate bar. A custom ControlTemplate replaces the stock one
+                            wholesale, and the stock one is where WPF keeps the indeterminate
+                            animation — so IsIndeterminate="True" used to produce no motion at
+                            all. That is why a download of unknown size showed a dead bar.
+
+                            Scaling a full-width border (instead of sliding a fixed-width pill)
+                            keeps the effect independent of the bar's actual width: this one
+                            style is used at 120 px and at full window width alike.
+                        -->
+                        <Border x:Name="IndeterminateBar" Background="{TemplateBinding Foreground}"
+                                CornerRadius="3" Visibility="Collapsed"
+                                RenderTransformOrigin="0,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="IndeterminateScale" ScaleX="0" />
+                            </Border.RenderTransform>
+                        </Border>
                     </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsIndeterminate" Value="True">
+                            <!-- The value indicator has no meaningful width in this state. -->
+                            <Setter TargetName="PART_Indicator" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="IndeterminateBar" Property="Visibility" Value="Visible" />
+
+                            <Trigger.EnterActions>
+                                <BeginStoryboard x:Name="IndeterminateStoryboard">
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <!-- Grow from the left edge, then drain off the right. -->
+                                        <DoubleAnimationUsingKeyFrames
+                                            Storyboard.TargetName="IndeterminateScale"
+                                            Storyboard.TargetProperty="ScaleX">
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0.9" Value="1">
+                                                <EasingDoubleKeyFrame.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </EasingDoubleKeyFrame.EasingFunction>
+                                            </EasingDoubleKeyFrame>
+                                            <EasingDoubleKeyFrame KeyTime="0:0:1.8" Value="0">
+                                                <EasingDoubleKeyFrame.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </EasingDoubleKeyFrame.EasingFunction>
+                                            </EasingDoubleKeyFrame>
+                                        </DoubleAnimationUsingKeyFrames>
+
+                                        <!-- Flip the anchor at the halfway point so the drain runs
+                                             toward the right edge instead of back to the left. -->
+                                        <PointAnimationUsingKeyFrames
+                                            Storyboard.TargetName="IndeterminateBar"
+                                            Storyboard.TargetProperty="RenderTransformOrigin">
+                                            <DiscretePointKeyFrame KeyTime="0:0:0" Value="0,0.5" />
+                                            <DiscretePointKeyFrame KeyTime="0:0:0.9" Value="1,0.5" />
+                                        </PointAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+
+                            <Trigger.ExitActions>
+                                <!-- Stop the loop once a real percentage is known, otherwise it
+                                     keeps animating a hidden element for the whole session. -->
+                                <RemoveStoryboard BeginStoryboardName="IndeterminateStoryboard" />
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
