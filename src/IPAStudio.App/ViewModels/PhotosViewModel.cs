@@ -147,7 +147,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// <summary>Consecutive HEIC batches that decoded to nothing.</summary>
     private int _heicFailedBatches;
 
-    public ObservableCollection<PhotoItemViewModel> Photos { get; } = new();
+    /// <summary>
+    /// Refilled in one shot via <see cref="BulkObservableCollection{T}.ReplaceAll"/> so a
+    /// large roll costs one refresh of <see cref="PhotosView"/> rather than thousands.
+    /// </summary>
+    public BulkObservableCollection<PhotoItemViewModel> Photos { get; } = new();
     public ICollectionView PhotosView { get; }
 
     /// <summary>Album folders discovered on the device, plus "" for all.</summary>
@@ -298,18 +302,19 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         {
             var items = await _photos.ListCameraRollAsync(_device.Udid);
 
-            // Suppress filter/sort churn while thousands of items are appended; the
-            // collection view would otherwise re-evaluate on every single Add.
-            using (PhotosView.DeferRefresh())
+            // Build the rows off to the side, then publish them in a single Reset. Doing
+            // this inside PhotosView.DeferRefresh() instead would throw: each Add makes
+            // the view re-check its Current position, which is forbidden while a refresh
+            // is deferred. One Reset avoids both the exception and the per-item churn.
+            var rows = new List<PhotoItemViewModel>(items.Count);
+            foreach (var item in items)
             {
-                foreach (var item in items)
-                {
-                    var vm = new PhotoItemViewModel(item);
-                    vm.PropertyChanged += OnPhotoItemPropertyChanged;
-                    Photos.Add(vm);
-                    _byRemotePath[item.RemotePath] = vm;
-                }
+                var vm = new PhotoItemViewModel(item);
+                vm.PropertyChanged += OnPhotoItemPropertyChanged;
+                rows.Add(vm);
+                _byRemotePath[item.RemotePath] = vm;
             }
+            Photos.ReplaceAll(rows);
 
             Albums.Clear();
             Albums.Add("Все альбомы");
