@@ -340,15 +340,50 @@ public sealed class ICloudService : IDisposable
 
     // ─────────────────────────── contacts ───────────────────────────
 
-    /// <summary>Fetches the address book. Returns an empty list when iCloud declines.</summary>
+    /// <summary>
+    /// Fetches the address book.
+    ///
+    /// This takes two requests, and the first alone is not enough: /co/startup only opens
+    /// the session and hands back sync tokens — its own "contacts" array is a partial first
+    /// page at best and empty on most accounts — while the full address book comes from
+    /// /co/contacts with those tokens and limit=0. Asking startup alone is why this used to
+    /// report an empty address book on accounts that clearly had contacts.
+    ///
+    /// clientVersion and locale are not optional either: without them iCloud answers with a
+    /// body that carries no contacts at all.
+    /// </summary>
     public async Task<IReadOnlyList<ICloudContact>> GetContactsAsync(CancellationToken ct = default)
     {
         var root = ServiceUrl("contacts");
         if (root is null) return Array.Empty<ICloudContact>();
 
-        var url = $"{root}/co/startup{CommonQuery()}&order=last%2Cfirst";
-        var json = await GetJsonAsync(url, ct).ConfigureAwait(false);
-        if (json?["contacts"] is not JsonArray array) return Array.Empty<ICloudContact>();
+        var common = $"{CommonQuery()}&clientVersion=2.1&locale=en_US&order=last%2Cfirst";
+
+        var startup = await GetJsonAsync($"{root}/co/startup{common}", ct).ConfigureAwait(false);
+        var prefToken = startup?["prefToken"]?.GetValue<string>();
+        var syncToken = startup?["syncToken"]?.GetValue<string>();
+
+        JsonNode? json;
+        if (prefToken is null || syncToken is null)
+        {
+            // No tokens: fall back to whatever startup returned rather than showing nothing,
+            // so a changed response shape degrades to a partial list instead of "no contacts".
+            AppLog.Warn("iCloud contacts: startup returned no sync tokens; using its own page");
+            json = startup;
+        }
+        else
+        {
+            json = await GetJsonAsync(
+                $"{root}/co/contacts{common}&prefToken={Uri.EscapeDataString(prefToken)}" +
+                $"&syncToken={Uri.EscapeDataString(syncToken)}&limit=0&offset=0",
+                ct).ConfigureAwait(false);
+        }
+
+        if (json?["contacts"] is not JsonArray array)
+        {
+            AppLog.Warn("iCloud contacts: response carried no contacts array");
+            return Array.Empty<ICloudContact>();
+        }
 
         var result = new List<ICloudContact>();
         foreach (var node in array)
@@ -538,11 +573,17 @@ public sealed class ICloudService : IDisposable
     // ─────────────────────────── notes ───────────────────────────
 
     /// <summary>
-    /// Lists notes with their titles and previews.
+    /// Lists notes with their titles, previews and folders.
     ///
-    /// Note bodies live in CloudKit and newer notes are end-to-end encrypted, so full text
-    /// is not always retrievable; this returns what iCloud exposes and an empty list when
-    /// it exposes nothing.
+    /// Notes live in the CloudKit "Notes" zone as records of type Note. Their text fields
+    /// are named TitleEncrypted / SnippetEncrypted, but despite the name nothing is
+    /// encrypted for this account type: the values are plain base64-encoded UTF-8, so
+    /// decoding them is the whole job. Reading them as raw strings — which is what this did
+    /// before — yields base64 gibberish, and looking for "title"/"snippet" fields that no
+    /// longer exist made every account look like it had no notes.
+    ///
+    /// Notes in "Recently Deleted" are skipped. The Deleted field is not a reliable marker
+    /// (Mac housekeeping sets it on live notes too), so the trash folder reference is used.
     /// </summary>
     public async Task<IReadOnlyList<ICloudNote>> GetNotesAsync(CancellationToken ct = default)
     {
@@ -551,43 +592,156 @@ public sealed class ICloudService : IDisposable
 
         var url = $"{root}/database/1/com.apple.notes/production/private/records/query{CommonQuery()}&remapEnums=True";
 
-        var body = new JsonObject
-        {
-            ["query"] = new JsonObject { ["recordType"] = "Note" },
-            ["resultsLimit"] = 200,
-            ["zoneID"] = new JsonObject { ["zoneName"] = "Notes" },
-        };
+        var records = new List<JsonNode>();
+        string? marker = null;
 
-        var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
-        if (json?["records"] is not JsonArray records)
+        // Paginate: CloudKit caps a response well below a large note collection, and a
+        // single page would silently hide the rest.
+        do
         {
-            AppLog.Info("iCloud: notes not available for this account");
-            return Array.Empty<ICloudNote>();
+            var body = new JsonObject
+            {
+                ["query"] = new JsonObject { ["recordType"] = "Note" },
+                ["resultsLimit"] = 200,
+                ["zoneID"] = new JsonObject { ["zoneName"] = "Notes" },
+            };
+            if (marker is not null) body["continuationMarker"] = marker;
+
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            if (json?["records"] is not JsonArray page)
+            {
+                AppLog.Warn("iCloud notes: response carried no records array");
+                break;
+            }
+
+            foreach (var record in page)
+                if (record is not null) records.Add(record);
+
+            marker = json["continuationMarker"]?.GetValue<string>();
         }
+        while (marker is not null && records.Count < 2000);
+
+        var folderNames = await GetNoteFolderNamesAsync(root, records, ct).ConfigureAwait(false);
 
         var result = new List<ICloudNote>();
         foreach (var record in records)
         {
-            var fields = record?["fields"];
+            var fields = record["fields"];
             if (fields is null) continue;
 
-            var title = fields["title"]?["value"]?.GetValue<string>()
-                        ?? fields["TitleEncrypted"]?["value"]?.GetValue<string>();
-            var snippet = fields["snippet"]?["value"]?.GetValue<string>()
-                          ?? fields["SnippetEncrypted"]?["value"]?.GetValue<string>();
+            var folderId = fields["Folder"]?["value"]?["recordName"]?.GetValue<string>();
+            if (folderId == TrashFolderId) continue;
+
+            var title = DecodeCloudKitText(fields["TitleEncrypted"]?["value"])
+                        ?? fields["title"]?["value"]?.GetValue<string>();
+            var snippet = DecodeCloudKitText(fields["SnippetEncrypted"]?["value"])
+                          ?? fields["snippet"]?["value"]?.GetValue<string>();
 
             result.Add(new ICloudNote
             {
-                RecordName = record?["recordName"]?.GetValue<string>() ?? "",
-                Title = string.IsNullOrWhiteSpace(title) ? "—" : title!,
-                Snippet = snippet,
-                Folder = fields["folderName"]?["value"]?.GetValue<string>(),
-                Modified = ReadTimestamp(fields["ModifiedDate"]?["value"] ?? fields["modifiedDate"]?["value"]),
+                RecordName = record["recordName"]?.GetValue<string>() ?? "",
+                Title = string.IsNullOrWhiteSpace(title) ? "—" : title!.Trim(),
+                Snippet = string.IsNullOrWhiteSpace(snippet) ? null : snippet!.Trim(),
+                Folder = folderId is null ? null
+                       : folderNames.TryGetValue(folderId, out var name) ? name : null,
+                Modified = ReadTimestamp(fields["ModificationDate"]?["value"]
+                                         ?? fields["ModifiedDate"]?["value"]),
             });
         }
 
         AppLog.Info($"iCloud: {result.Count} notes");
-        return result;
+        return result
+            .OrderByDescending(n => n.Modified ?? DateTimeOffset.MinValue)
+            .ToList();
+    }
+
+    private const string TrashFolderId = "TrashFolder-CloudKit";
+    private const string DefaultFolderId = "DefaultFolder-CloudKit";
+
+    /// <summary>
+    /// Resolves folder record names to their display names in one batch.
+    ///
+    /// Folders cannot be queried — CloudKit rejects recordType=Folder as "not marked
+    /// indexable" — so they have to be looked up by record name instead. A failure here
+    /// only costs the folder column, so it never fails the whole listing.
+    /// </summary>
+    private async Task<Dictionary<string, string>> GetNoteFolderNamesAsync(
+        string root, IEnumerable<JsonNode> records, CancellationToken ct)
+    {
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var ids = records
+            .Select(r => r["fields"]?["Folder"]?["value"]?["recordName"]?.GetValue<string>())
+            .Where(id => !string.IsNullOrEmpty(id) && id != TrashFolderId)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (ids.Count == 0) return names;
+
+        var lookup = new JsonArray();
+        foreach (var id in ids)
+            lookup.Add(new JsonObject { ["recordName"] = id });
+
+        var body = new JsonObject
+        {
+            ["records"] = lookup,
+            ["zoneID"] = new JsonObject { ["zoneName"] = "Notes" },
+        };
+
+        try
+        {
+            var url = $"{root}/database/1/com.apple.notes/production/private/records/lookup{CommonQuery()}";
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+
+            if (json?["records"] is JsonArray found)
+            {
+                foreach (var record in found)
+                {
+                    var id = record?["recordName"]?.GetValue<string>();
+                    if (id is null) continue;
+
+                    var name = DecodeCloudKitText(record?["fields"]?["TitleEncrypted"]?["value"])
+                               ?? record?["fields"]?["title"]?["value"]?.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(name)) names[id] = name!.Trim();
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            AppLog.Warn($"iCloud notes: folder names unavailable ({ex.Message})");
+        }
+
+        // The built-in folder has no stored title of its own.
+        if (!names.ContainsKey(DefaultFolderId) && ids.Contains(DefaultFolderId))
+            names[DefaultFolderId] = "Notes";
+
+        return names;
+    }
+
+    /// <summary>
+    /// Reads a CloudKit "…Encrypted" text field. The value is base64-encoded UTF-8 rather
+    /// than ciphertext; anything that is not valid base64 is passed through as-is, since
+    /// some accounts still store these fields as plain text.
+    /// </summary>
+    private static string? DecodeCloudKitText(JsonNode? node)
+    {
+        string? raw;
+        try { raw = node?.GetValue<string>(); }
+        catch (InvalidOperationException) { return null; }
+        if (string.IsNullOrEmpty(raw)) return null;
+
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(raw));
+            // Base64 of unrelated binary would decode to control characters; keep the raw
+            // text in that case rather than showing mojibake.
+            return decoded.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t'))
+                ? raw
+                : decoded;
+        }
+        catch (FormatException)
+        {
+            return raw;
+        }
     }
 
     // ─────────────────────────── plumbing ───────────────────────────
@@ -649,11 +803,7 @@ public sealed class ICloudService : IDisposable
         request.Headers.TryAddWithoutValidation("Referer", "https://www.icloud.com/");
 
         using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            AppLog.Warn($"iCloud GET {new Uri(url).AbsolutePath} → {(int)response.StatusCode}");
-            return null;
-        }
+        await ThrowIfFailedAsync(response, url, ct).ConfigureAwait(false);
         return await ReadJsonAsync(response, ct).ConfigureAwait(false);
     }
 
@@ -667,12 +817,50 @@ public sealed class ICloudService : IDisposable
         request.Headers.TryAddWithoutValidation("Referer", "https://www.icloud.com/");
 
         using var response = await _http.SendAsync(request, ct).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
-        {
-            AppLog.Warn($"iCloud POST {new Uri(url).AbsolutePath} → {(int)response.StatusCode}");
-            return null;
-        }
+        await ThrowIfFailedAsync(response, url, ct).ConfigureAwait(false);
         return await ReadJsonAsync(response, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Turns a failed response into an exception carrying the status and Apple's own reason.
+    /// The caller must not treat a failure as "no data": that is how an expired session or a
+    /// service Apple has moved ends up displayed as an empty address book.
+    /// </summary>
+    private static async Task ThrowIfFailedAsync(HttpResponseMessage response, string url, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode) return;
+
+        var path = new Uri(url).AbsolutePath;
+        string? detail = null;
+        try
+        {
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                // Log the body — truncated, since CloudKit errors can be long — because the
+                // reason ("AUTHENTICATION_FAILED", "zone not found") is the whole diagnosis.
+                AppLog.Warn($"iCloud {path} → {(int)response.StatusCode}: " +
+                            text[..Math.Min(text.Length, 500)]);
+
+                try
+                {
+                    var json = JsonNode.Parse(text);
+                    detail = json?["serverErrorCode"]?.GetValue<string>()
+                             ?? json?["reason"]?.GetValue<string>()
+                             ?? json?["error"]?.GetValue<string>();
+                }
+                catch (JsonException) { /* not JSON; the raw body is already logged */ }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Body unreadable; the status alone still has to travel.
+        }
+
+        if (detail is null)
+            AppLog.Warn($"iCloud {path} → {(int)response.StatusCode}");
+
+        throw new ICloudRequestException((int)response.StatusCode, path, detail);
     }
 
     private static async Task<JsonNode?> ReadJsonAsync(HttpResponseMessage response, CancellationToken ct)
