@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Models;
@@ -11,6 +12,13 @@ public sealed class DeviceInfoRow
 {
     public required string Label { get; init; }
     public required string Value { get; init; }
+
+    /// <summary>
+    /// Shows a copy button for this row. Set only for identifiers people actually need
+    /// to paste elsewhere (serial, IMEI, MEID, UDID); a button on every row would be
+    /// noise, and nobody copies "iPhone 14 Pro".
+    /// </summary>
+    public bool Copyable { get; init; }
 }
 
 /// <summary>
@@ -57,6 +65,10 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
     /// <summary>Placeholder for future charging state; false until ideviceinfo reports it.</summary>
     [ObservableProperty]
     private bool _batteryCharging;
+
+    /// <summary>Transient "Скопировано" confirmation; empty when nothing to show.</summary>
+    [ObservableProperty]
+    private string _copyStatus = "";
 
     public ObservableCollection<DeviceInfoRow> Rows { get; } = new();
 
@@ -131,21 +143,24 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         AddRow("Версия iOS", _device.OsVersion);
         AddRow("Сборка", _device.BuildVersion);
         AddRow("Тип устройства", _device.DeviceClass);
-        AddRow("Серийный номер", _device.SerialNumber);
-        AddRow("IMEI", _device.Imei);
-        AddRow("IMEI 2", _device.Imei2);
-        AddRow("MEID", _device.Meid);
-        AddRow("UDID", _device.Udid);
+        // Identifiers get a copy button: these are the values people transcribe into
+        // warranty checks, carrier forms and provisioning profiles, where a typo in a
+        // 40-character UDID is both easy to make and hard to spot.
+        AddRow("Серийный номер", _device.SerialNumber, copyable: true);
+        AddRow("IMEI", _device.Imei, copyable: true);
+        AddRow("IMEI 2", _device.Imei2, copyable: true);
+        AddRow("MEID", _device.Meid, copyable: true);
+        AddRow("UDID", _device.Udid, copyable: true);
         AddRow("Номер телефона", _device.PhoneNumber);
         AddRow("Регион", _device.RegionInfo);
         AddRow("Wi-Fi адрес", _device.WifiAddress);
         AddRow("Bluetooth адрес", _device.BluetoothAddress);
     }
 
-    private void AddRow(string label, string value)
+    private void AddRow(string label, string value, bool copyable = false)
     {
         if (!string.IsNullOrWhiteSpace(value))
-            Rows.Add(new DeviceInfoRow { Label = label, Value = value });
+            Rows.Add(new DeviceInfoRow { Label = label, Value = value, Copyable = copyable });
     }
 
     /// <summary>
@@ -198,6 +213,41 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         // Whole numbers for GB/TB (matches iOS), one decimal for smaller units.
         return unit >= 3 ? $"{value:0.#} {units[unit]}" : $"{value:0.#} {units[unit]}";
     }
+
+    /// <summary>
+    /// Copies an identifier to the clipboard and briefly confirms it on screen.
+    /// </summary>
+    [RelayCommand]
+    private void CopyValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+
+        try
+        {
+            // Clipboard.SetText can throw when another process holds the clipboard open;
+            // WPF's retry variant handles the common contention case for us.
+            Clipboard.SetDataObject(value, true, 3, 100);
+            _ = FlashCopiedAsync("Скопировано");
+        }
+        catch
+        {
+            _ = FlashCopiedAsync("Не удалось скопировать");
+        }
+    }
+
+    /// <summary>
+    /// Shows a short confirmation, then clears it. Uses a token so that rapid taps on
+    /// several rows don't have an earlier timer wipe the newest message.
+    /// </summary>
+    private async Task FlashCopiedAsync(string message)
+    {
+        var token = ++_copyFlashToken;
+        CopyStatus = message;
+        await Task.Delay(1600);
+        if (_copyFlashToken == token) CopyStatus = "";
+    }
+
+    private int _copyFlashToken;
 
     [RelayCommand]
     private void Back() => _navigator?.GoTo(Page.Devices);
