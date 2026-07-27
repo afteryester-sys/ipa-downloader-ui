@@ -349,8 +349,8 @@ public sealed class PhotoService
     /// Tries to read the real album names from the Photos library database.
     ///
     /// The DCIM folders (100APPLE, 101APPLE, …) are not albums: iOS starts a new one every
-    /// 999 files, so presenting them as albums produced the meaningless "Камера (101)",
-    /// "Камера (102)" list. The actual album names, and which assets belong to them, live
+    /// 999 files, so presenting them as albums produced the meaningless "Camera (101)",
+    /// "Camera (102)" list. The actual album names, and which assets belong to them, live
     /// in /PhotoData/Photos.sqlite.
     ///
     /// Returns null when the database cannot be read — Apple restricts this path on

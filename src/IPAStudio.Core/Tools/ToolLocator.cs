@@ -102,7 +102,7 @@ public sealed class ToolLocator
             IdeviceInfoPath,
             // Reads battery capacity and cycle count. Its absence used to go unnoticed
             // here, which reported the tool set as complete — so the repair step that
-            // re-extracts it never ran, and the battery row stayed "недоступно" forever
+            // re-extracts it never ran, and the battery row stayed "unavailable" forever
             // on installs that predate it being shipped.
             IdeviceDiagnosticsPath,
         };

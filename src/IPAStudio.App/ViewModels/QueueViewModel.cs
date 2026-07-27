@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -103,7 +104,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
             >= 1 << 10 => $"{bytes / (1 << 10):0.0} KB",
             _ => $"{bytes:0} B",
         };
-        return $"{Fmt(bps)}/с";
+        return $"{Fmt(bps)}{Loc.Get("L.Unit.PerSecond")}";
     }
 }
 

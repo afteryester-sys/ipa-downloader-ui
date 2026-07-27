@@ -2,6 +2,8 @@ using System.Threading;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -162,7 +164,13 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
             }
             else
             {
-                ErrorMessage = result.Error;
+                // Never surface ipatool's own output: it is untranslated and unreadable
+                // ("Error: authentication failed with Apple: -20101"). The raw text stays
+                // in the log; the user gets a sentence that says what to do next.
+                if (!string.IsNullOrWhiteSpace(result.Error))
+                    AppLog.Warn($"Login failed ({result.Reason}): {result.Error}");
+
+                ErrorMessage = DescribeAuthFailure(result.Reason);
             }
         }
         catch (OperationCanceledException)
@@ -171,7 +179,8 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            AppLog.Error("Login threw.", ex);
+            ErrorMessage = Loc.Get("L.Login.Error.Unknown");
         }
         finally
         {
@@ -182,6 +191,20 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
             _loginCts = null;
         }
     }
+
+    /// <summary>Localized explanation for a classified sign-in failure.</summary>
+    private static string DescribeAuthFailure(AuthFailureReason reason) => reason switch
+    {
+        AuthFailureReason.BadCredentials => Loc.Get("L.Login.Error.BadCredentials"),
+        AuthFailureReason.WrongCode      => Loc.Get("L.Login.Error.WrongCode"),
+        AuthFailureReason.Cancelled      => Loc.Get("L.Login.Error.Cancelled"),
+        AuthFailureReason.Network        => Loc.Get("L.Login.Error.Network"),
+        AuthFailureReason.RateLimited    => Loc.Get("L.Login.Error.RateLimited"),
+        AuthFailureReason.AccountLocked  => Loc.Get("L.Login.Error.AccountLocked"),
+        AuthFailureReason.SessionExpired => Loc.Get("L.Login.Error.SessionExpired"),
+        AuthFailureReason.ToolFailure    => Loc.Get("L.Login.Error.ToolFailure"),
+        _                                => Loc.Get("L.Login.Error.Unknown"),
+    };
 
     /// <summary>
     /// Invoked by <see cref="AuthService"/> (on a background thread) when ipatool asks

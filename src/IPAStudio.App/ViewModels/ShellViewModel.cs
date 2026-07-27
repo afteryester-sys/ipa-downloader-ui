@@ -16,7 +16,7 @@ public enum Page
     Photos,
 
     /// <summary>
-    /// "Скачать IPA": download by Bundle ID into a folder of the user's choice.
+    /// Direct download page: fetch an IPA into a folder of the user's choice.
     /// Needs an Apple ID but no connected device.
     /// </summary>
     DirectDownload,
@@ -39,7 +39,7 @@ public interface INavigator
 
     /// <summary>
     /// Returns to the previously shown page. Needed by pages reachable from anywhere
-    /// (e.g. "Скачать IPA" via the corner menu), where a hardcoded back target would
+    /// (e.g. the direct download page via the corner menu), where a hardcoded back target would
     /// dump the user somewhere they never came from.
     /// </summary>
     void GoBack();

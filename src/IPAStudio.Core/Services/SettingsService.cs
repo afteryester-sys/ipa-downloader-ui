@@ -63,7 +63,7 @@ public sealed class AppSettings
     public InstallMode InstallMode { get; set; } = InstallMode.DownloadAndInstall;
 
     /// <summary>
-    /// Folder last chosen on the "Скачать IPA" screen, so grabbing several apps in a
+    /// Folder last chosen on the direct download screen, so grabbing several apps in a
     /// row only requires picking a destination once. Independent of
     /// <see cref="AppsFolder"/>, which stays the managed location for queue downloads.
     /// </summary>

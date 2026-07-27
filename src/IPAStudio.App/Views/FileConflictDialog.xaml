@@ -1,7 +1,7 @@
 <Window x:Class="IPAStudio.App.Views.FileConflictDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Файл уже существует"
+        Title="{DynamicResource L.Conflict.Title}"
         Width="560" SizeToContent="Height"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -10,7 +10,7 @@
 
     <StackPanel Margin="22">
 
-        <TextBlock Text="Файл уже существует"
+        <TextBlock Text="{DynamicResource L.Conflict.Title}"
                    Style="{StaticResource Text.Body}"
                    FontSize="17" FontWeight="SemiBold" />
 
@@ -35,24 +35,24 @@
 
         <CheckBox x:Name="ApplyToAllBox"
                   Style="{StaticResource Check.Base}"
-                  Content="Применить ко всем остальным файлам в этой очереди"
+                  Content="{DynamicResource L.Conflict.ApplyToAll}"
                   Margin="0,16,0,0" />
 
         <!-- Actions. Keeping both is the safe default and gets focus. -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
             <Button x:Name="CancelButton"
-                    Content="Пропустить"
+                    Content="{DynamicResource L.Conflict.Skip}"
                     Style="{StaticResource Button.Ghost}"
                     MinWidth="110" Margin="0,0,8,0"
                     IsCancel="True"
                     Click="OnCancel" />
             <Button x:Name="ReplaceButton"
-                    Content="Заменить"
+                    Content="{DynamicResource L.Conflict.Replace}"
                     Style="{StaticResource Button.Secondary}"
                     MinWidth="110" Margin="0,0,8,0"
                     Click="OnReplace" />
             <Button x:Name="KeepBothButton"
-                    Content="Сохранить оба"
+                    Content="{DynamicResource L.Conflict.KeepBoth}"
                     Style="{StaticResource Button.Primary}"
                     MinWidth="140"
                     IsDefault="True"

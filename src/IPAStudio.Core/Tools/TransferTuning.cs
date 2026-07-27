@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using IPAStudio.Core.Localization;
 
 namespace IPAStudio.Core.Tools;
 
@@ -77,11 +78,8 @@ public static class TransferTuning
                 {
                     findings.Add(new ThroughputFinding(
                         KindDefender,
-                        "Defender сканирует папку загрузок",
-                        "Каждый записанный блок IPA проверяется антивирусом, а готовый архив "
-                        + "сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно "
-                        + "самая большая потеря скорости. Добавление папки в исключения требует "
-                        + "прав администратора.",
+                        Loc.Get("L.Tuning.Defender.Title"),
+                        Loc.Get("L.Tuning.Defender.Detail"),
                         CanAutoFix: true));
                 }
             }
@@ -103,10 +101,8 @@ public static class TransferTuning
             {
                 findings.Add(new ThroughputFinding(
                     KindCrossVolume,
-                    "Временная папка на другом диске",
-                    $"Стейджинг на {stagingRoot}, а итоговая папка на {appsRoot}. Финальное "
-                    + "перемещение станет полным копированием архива вместо мгновенного "
-                    + "переименования.",
+                    Loc.Get("L.Tuning.CrossVolume.Title"),
+                    Loc.Format("L.Tuning.CrossVolume.Detail", stagingRoot, appsRoot),
                     CanAutoFix: false));
             }
         }
@@ -119,9 +115,8 @@ public static class TransferTuning
             {
                 findings.Add(new ThroughputFinding(
                     KindCompressed,
-                    "Папка загрузок сжата (NTFS)",
-                    "IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но "
-                    + "превращает последовательную запись в цикл чтение-изменение-запись.",
+                    Loc.Get("L.Tuning.Compressed.Title"),
+                    Loc.Get("L.Tuning.Compressed.Detail"),
                     CanAutoFix: false));
             }
         }
@@ -139,9 +134,9 @@ public static class TransferTuning
                 {
                     findings.Add(new ThroughputFinding(
                         KindLowSpace,
-                        "Мало свободного места",
-                        $"Свободно {free / (1024.0 * 1024 * 1024):F1} ГБ. Загрузка требует места "
-                        + "и под временный файл, и под итоговый архив одновременно.",
+                        Loc.Get("L.Tuning.LowSpace.Title"),
+                        Loc.Format("L.Tuning.LowSpace.Detail",
+                            (free / (1024.0 * 1024 * 1024)).ToString("F1")),
                         CanAutoFix: false));
                 }
             }

@@ -1,4 +1,6 @@
 using System.IO;
+using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 
 namespace IPAStudio.Core.Services;
@@ -230,7 +232,7 @@ public sealed class QueueService
             {
                 if (string.IsNullOrEmpty(item.App.LocalIpaPath) || !File.Exists(item.App.LocalIpaPath))
                 {
-                    Fail(item, $"Файл IPA не найден: {item.App.LocalIpaPath}");
+                    Fail(item, Loc.Format("L.Error.IpaNotFound", item.App.LocalIpaPath));
                     return;
                 }
                 await RunInstallStageAsync(item, item.App.LocalIpaPath!, ct).ConfigureAwait(false);
@@ -238,7 +240,7 @@ public sealed class QueueService
             }
 
             // ---- Stage 1: Checking (local cache only — no network, no Apple calls) ----
-            SetStage(item, QueueStage.Checking, "Проверка локальных файлов…");
+            SetStage(item, QueueStage.Checking, Loc.Get("L.Queue.Status.Checking"));
 
             _catalog.RefreshDownloadedFlags(new[] { item.App });
 
@@ -266,7 +268,7 @@ public sealed class QueueService
             if (_settings.InstallMode == InstallMode.DownloadOnly)
             {
                 item.CompletedAt = DateTimeOffset.Now;
-                SetStage(item, QueueStage.Done, "Загружено (установка пропущена)");
+                SetStage(item, QueueStage.Done, Loc.Get("L.Queue.Status.DownloadOnlyDone"));
                 item.StageProgress = 100;
                 Notify(item);
                 return;
@@ -279,13 +281,14 @@ public sealed class QueueService
             item.Stage = QueueStage.Cancelled;
             item.IsConnecting = false;
             item.IsFinalizing = false;
-            item.StatusDetail = "Cancelled";
+            item.StatusDetail = Loc.Get("L.Queue.Cancelled");
             Notify(item);
             throw;
         }
         catch (Exception ex)
         {
-            Fail(item, ex.Message);
+            AppLog.Error($"Queue item '{item.App.Name}' threw.", ex);
+            Fail(item, Loc.Get("L.Error.Unknown"));
         }
     }
 
@@ -295,7 +298,7 @@ public sealed class QueueService
     /// </summary>
     private async Task<bool> RunDownloadStageAsync(QueueItem item, CancellationToken ct)
     {
-        SetStage(item, QueueStage.Downloading, "Соединение с App Store…");
+        SetStage(item, QueueStage.Downloading, Loc.Get("L.Queue.Status.Connecting"));
         item.IsConnecting = true;
         Notify(item);
 
@@ -310,22 +313,23 @@ public sealed class QueueService
         // The Apple ID does not own the app: ipatool's implicit --purchase was not
         // enough (paid app, or a store-side hiccup). Do the explicit purchase now —
         // this is the ONLY path that pays a second handshake, and only when needed.
-        if (!result.Success && DownloadService.IsLicenseError(result.Error))
+        if (!result.Success && result.LicenseRequired)
         {
-            SetStage(item, QueueStage.Licensing, "Получение лицензии…");
-            var (ok, licenseError) = await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
+            SetStage(item, QueueStage.Licensing, Loc.Get("L.Queue.Status.Licensing"));
+            var (ok, licenseError, licenseSessionExpired) =
+                await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
             if (!ok)
             {
-                if (licenseError == DownloadService.SessionExpiredMessage)
+                if (licenseSessionExpired)
                     SessionExpired?.Invoke(this, EventArgs.Empty);
-                Fail(item, licenseError ?? "Failed to obtain license");
+                Fail(item, licenseError ?? Loc.Get("L.Error.LicenseFailed"));
                 return false;
             }
 
             item.App.License = LicenseState.Owned;
             _settings.MarkOwned(item.App.AppStoreId);
 
-            SetStage(item, QueueStage.Downloading, "Соединение с App Store…");
+            SetStage(item, QueueStage.Downloading, Loc.Get("L.Queue.Status.Connecting"));
             item.IsConnecting = true;
             Notify(item);
 
@@ -338,9 +342,11 @@ public sealed class QueueService
 
         if (!result.Success || result.IpaPath is null)
         {
-            if (result.Error == DownloadService.SessionExpiredMessage)
+            if (result.SessionExpired)
                 SessionExpired?.Invoke(this, EventArgs.Empty);
-            Fail(item, result.Error ?? "Download failed");
+            if (!string.IsNullOrWhiteSpace(result.Detail))
+                AppLog.Warn($"Queue item '{item.App.Name}' download failed: {result.Detail}");
+            Fail(item, result.Error ?? Loc.Get("L.Error.DownloadFailed"));
             return false;
         }
 
@@ -373,7 +379,7 @@ public sealed class QueueService
             item.IsFinalizing = p.Finalizing;
             item.IsConnecting = p.Connecting;
 
-            var retrySuffix = p.Attempt > 1 ? $" · попытка {p.Attempt}" : "";
+            var retrySuffix = p.Attempt > 1 ? Loc.Format("L.Queue.Status.Attempt", p.Attempt) : "";
 
             if (p.Connecting)
             {
@@ -381,20 +387,20 @@ public sealed class QueueService
                 // so a slow link reads as "working", not "frozen".
                 var seconds = (int)p.Elapsed.TotalSeconds;
                 item.StatusDetail = seconds >= 2
-                    ? $"Соединение с App Store… {seconds} с{retrySuffix}"
-                    : $"Соединение с App Store…{retrySuffix}";
+                    ? Loc.Format("L.Queue.Status.ConnectingElapsed", seconds) + retrySuffix
+                    : Loc.Get("L.Queue.Status.Connecting") + retrySuffix;
             }
             else if (p.Finalizing)
             {
                 // Bytes are in; ipatool is repackaging / injecting the license.
-                item.StatusDetail = $"Упаковка и подпись… ({FormatBytes(p.DownloadedBytes)})";
+                item.StatusDetail = Loc.Format("L.Queue.Status.Finalizing", FormatBytes(p.DownloadedBytes));
             }
             else if (p.TotalBytes > 0)
             {
                 var eta = p.SpeedBps > 0
                     ? FormatEta((long)((p.TotalBytes - p.DownloadedBytes) / p.SpeedBps))
                     : null;
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
                 item.StatusDetail = string.IsNullOrEmpty(eta)
                     ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed}{retrySuffix}"
                     : $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed} · {eta}{retrySuffix}";
@@ -408,12 +414,13 @@ public sealed class QueueService
                 // animated bar looks like the download is broken. The size is cached
                 // once the download completes, so a later run shows a real percentage.
                 // Wording matters here: the number shown is bytes downloaded so far, and
-                // "размер неизвестен" next to it read as if that number were meaningless.
+                // "size unknown" next to it read as if that number were meaningless.
                 // Label it explicitly instead, so the running total and the unknown total
                 // can't be confused for each other.
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
                 item.StatusDetail =
-                    $"Скачано {FormatBytes(p.DownloadedBytes)}{speed} · всего неизвестно{retrySuffix}";
+                    Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
+                    + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}{retrySuffix}";
             }
 
             Notify(item);
@@ -425,7 +432,7 @@ public sealed class QueueService
     /// </summary>
     private async Task RunInstallStageAsync(QueueItem item, string ipaPath, CancellationToken ct)
     {
-        SetStage(item, QueueStage.Installing, "Ожидание устройства…");
+        SetStage(item, QueueStage.Installing, Loc.Get("L.Queue.Status.WaitingDevice"));
 
         var installProgress = new Progress<InstallProgress>(p =>
         {
@@ -440,9 +447,10 @@ public sealed class QueueService
                 _          => Math.Max(10.0, p.Percent),
             };
             item.StageProgress = displayPct;
+            var statusText = DescribeInstallStatus(p.Status);
             item.StatusDetail = p.Percent > 0
-                ? $"{p.Status} {p.Percent:0}%"
-                : p.Status;
+                ? $"{statusText} {p.Percent:0}%"
+                : statusText;
             Notify(item);
         });
 
@@ -451,56 +459,74 @@ public sealed class QueueService
 
         if (!installResult.Success)
         {
-            Fail(item, HumanizeInstallError(installResult.Error ?? "Installation failed"));
+            if (!string.IsNullOrWhiteSpace(installResult.Error))
+                AppLog.Warn($"Install of '{item.App.Name}' failed: {installResult.Error}");
+            Fail(item, DescribeInstallError(installResult.Error));
             return;
         }
 
         item.App.IsInstalledOnDevice = true;
         item.CompletedAt = DateTimeOffset.Now;
-        SetStage(item, QueueStage.Done, "Готово");
+        SetStage(item, QueueStage.Done, Loc.Get("L.Queue.Done"));
         item.StageProgress = 100;
         Notify(item);
     }
 
-    /// <summary>
-    /// Translates raw ideviceinstaller error strings into human-readable messages
-    /// that explain what the user should do.
-    /// </summary>
-    private static string HumanizeInstallError(string raw)
+    /// <summary>Localized label for the install phase word reported by ideviceinstaller.</summary>
+    private static string DescribeInstallStatus(string status) => status switch
     {
+        "Copying"    => Loc.Get("L.Install.Status.Copying"),
+        "Installing" => Loc.Get("L.Install.Status.Installing"),
+        "Complete"   => Loc.Get("L.Install.Status.Complete"),
+        _            => status,
+    };
+
+    /// <summary>
+    /// Translates raw ideviceinstaller error strings into localized messages that say
+    /// what the user should do. The raw text is only written to the log: ideviceinstaller
+    /// reports things like "ApplicationVerificationFailed", which is neither translatable
+    /// nor actionable on its own.
+    /// </summary>
+    private static string DescribeInstallError(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return Loc.Get("L.Install.Error.Unknown");
+
         var lower = raw.ToLowerInvariant();
 
         if (lower.Contains("applicationverificationfailed") || lower.Contains("verification failed"))
-            return "Ошибка верификации приложения. IPA повреждён или подпись недействительна.";
+            return Loc.Get("L.Install.Error.Verification");
 
         if (lower.Contains("installedappdevcertrevoked") || lower.Contains("certrevoked") || lower.Contains("revoked"))
-            return "Сертификат подписи отозван. Используйте другой IPA.";
+            return Loc.Get("L.Install.Error.CertRevoked");
 
         if (lower.Contains("deviceosdataversionincompatible") || lower.Contains("incompatible"))
-            return "IPA несовместим с версией iOS на устройстве.";
+            return Loc.Get("L.Install.Error.Incompatible");
 
         if (lower.Contains("applicationalreadyinstalled"))
-            return "Это приложение уже установлено на устройстве.";
+            return Loc.Get("L.Install.Error.AlreadyInstalled");
 
         if (lower.Contains("bundleidentifieralreadyinuse") || lower.Contains("bundle id"))
-            return "Bundle ID уже занят другим приложением.";
+            return Loc.Get("L.Install.Error.BundleIdInUse");
 
         if (lower.Contains("devicedisconnected") || lower.Contains("connection to the host"))
-            return "Устройство отключилось во время установки. Подключите снова и повторите.";
+            return Loc.Get("L.Install.Error.DeviceDisconnected");
 
         if (lower.Contains("installdaemon") || lower.Contains("connection refused"))
-            return "Служба установки на устройстве не отвечает. Перезагрузите устройство.";
+            return Loc.Get("L.Install.Error.InstallDaemon");
 
         if (lower.Contains("missingentitlement"))
-            return "IPA использует entitlements, требующие платного Apple Developer аккаунта.";
+            return Loc.Get("L.Install.Error.MissingEntitlement");
 
         if (lower.Contains("not purchased") || lower.Contains("9610") || lower.Contains("license"))
-            return "Это приложение не было куплено на текущем Apple ID. Попробуйте установить IPA напрямую через режим 'Установить IPA из файла'.";
+            return Loc.Get("L.Install.Error.NotPurchased");
+
+        if (lower.Contains("ipa file not found") || lower.Contains("no such file"))
+            return Loc.Format("L.Error.IpaNotFound", raw);
 
         if (lower.Contains("authenticate"))
-            return "Ошибка аутентификации. Проверьте подключение и разблокируйте устройство.";
+            return Loc.Get("L.Install.Error.Authenticate");
 
-        return raw;
+        return Loc.Get("L.Install.Error.Unknown");
     }
 
     private void SetStage(QueueItem item, QueueStage stage, string detail)
@@ -517,7 +543,7 @@ public sealed class QueueService
     {
         item.Stage = QueueStage.Failed;
         item.ErrorMessage = error;
-        item.StatusDetail = "Error";
+        item.StatusDetail = Loc.Get("L.Queue.Failed");
         item.IsConnecting = false;
         item.IsFinalizing = false;
         item.CompletedAt = DateTimeOffset.Now;
@@ -531,19 +557,24 @@ public sealed class QueueService
 
     private static string FormatBytes(long bytes)
     {
-        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:0.0} GB";
-        if (bytes >= 1_048_576)     return $"{bytes / 1_048_576.0:0.0} MB";
-        if (bytes >= 1_024)         return $"{bytes / 1_024.0:0.0} KB";
-        return $"{bytes} B";
+        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:0.0} {Loc.Get("L.Unit.GB")}";
+        if (bytes >= 1_048_576)     return $"{bytes / 1_048_576.0:0.0} {Loc.Get("L.Unit.MB")}";
+        if (bytes >= 1_024)         return $"{bytes / 1_024.0:0.0} {Loc.Get("L.Unit.KB")}";
+        return $"{bytes} {Loc.Get("L.Unit.B")}";
     }
 
-    /// <summary>Formats remaining seconds as human-readable ETA (e.g. "~2 мин 30 с" or "~45 с").</summary>
+    /// <summary>Formats remaining seconds as a localized ETA (e.g. "~2 min 30 s" or "~45 s").</summary>
     private static string FormatEta(long seconds)
     {
         if (seconds <= 0 || seconds > 3600 * 24) return "";
-        if (seconds >= 3600) return $"~{seconds / 3600} ч {(seconds % 3600) / 60} мин";
-        if (seconds >= 60)   return $"~{seconds / 60} мин {seconds % 60} с";
-        return $"~{seconds} с";
+
+        var h = Loc.Get("L.Unit.Hours");
+        var m = Loc.Get("L.Unit.Minutes");
+        var sec = Loc.Get("L.Unit.Seconds");
+
+        if (seconds >= 3600) return $"~{seconds / 3600} {h} {(seconds % 3600) / 60} {m}";
+        if (seconds >= 60)   return $"~{seconds / 60} {m} {seconds % 60} {sec}";
+        return $"~{seconds} {sec}";
     }
 
     /// <summary>Weight of a single item toward overall progress (0..1).</summary>

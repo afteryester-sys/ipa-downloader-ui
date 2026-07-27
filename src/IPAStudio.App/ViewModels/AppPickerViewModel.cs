@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -326,8 +328,8 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Выберите IPA для установки",
-            Filter = "Файлы IPA|*.ipa|Все файлы|*.*",
+            Title = Loc.Get("L.Dialog.PickIpaTitle"),
+            Filter = Loc.Get("L.Dialog.IpaFilter"),
             Multiselect = true,
         };
         if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
@@ -365,10 +367,11 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         // App Store download by Bundle ID requires a licensed Apple ID.
         if (!RequireSignIn()) return;
 
-        var bundleId = BundleIdInput.Trim();
-        if (string.IsNullOrEmpty(bundleId))
+        var raw = BundleIdInput.Trim();
+        var query = AppQueryParser.Parse(raw);
+        if (!query.IsValid)
         {
-            BundleIdError = "Введите Bundle ID, например: com.apple.mobilemail";
+            BundleIdError = Loc.Get("L.Picker.BundleIdEmpty");
             return;
         }
 
@@ -377,9 +380,13 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         try
         {
             // 1. Try to find the app in the already-loaded catalog list (no network required).
+            //    Works for both input forms: a bundle id matches on BundleId, a pasted
+            //    store link or numeric id matches on AppStoreId.
             var fromCatalog = Apps
                 .Select(a => a.App)
-                .FirstOrDefault(e => string.Equals(e.BundleId, bundleId, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(e => query.Kind == AppQueryKind.BundleId
+                    ? string.Equals(e.BundleId, query.BundleId, StringComparison.OrdinalIgnoreCase)
+                    : e.AppStoreId == query.AppStoreId);
 
             if (fromCatalog is not null)
             {
@@ -388,11 +395,11 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
                 return;
             }
 
-            // 2. Not in catalog: search the App Store by bundle ID via iTunes Lookup API.
-            var results = await _catalog.SearchByBundleIdAsync(bundleId).ConfigureAwait(false);
+            // 2. Not in catalog: look the app up in the App Store via the iTunes Lookup API.
+            var results = await _catalog.FindAsync(query).ConfigureAwait(false);
             if (results is null || results.Count == 0)
             {
-                BundleIdError = $"Приложение с Bundle ID «{bundleId}» не найдено в App Store.";
+                BundleIdError = Loc.Format("L.Picker.BundleIdNotFound", raw);
                 return;
             }
 
@@ -402,7 +409,8 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         }
         catch (Exception ex)
         {
-            BundleIdError = $"Ошибка поиска: {ex.Message}";
+            AppLog.Warn($"Bundle ID lookup failed for '{raw}': {ex.Message}");
+            BundleIdError = Loc.Get("L.Picker.BundleIdLookupFailed");
         }
         finally
         {

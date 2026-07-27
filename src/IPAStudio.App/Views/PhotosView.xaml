@@ -210,9 +210,9 @@
 
             <!-- List / Grid toggle -->
             <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                <Button Style="{StaticResource ViewToggle}" ToolTip="Список"
+                <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewList}"
                         Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
-                <Button Style="{StaticResource ViewToggle}" ToolTip="Плитка"
+                <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewGrid}"
                         Content="&#xF0E2;" Command="{Binding SetGridViewCommand}" Margin="4,0,0,0" />
             </StackPanel>
         </Grid>
