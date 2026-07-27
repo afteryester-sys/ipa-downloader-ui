@@ -10,7 +10,11 @@
     <AssemblyName>IPAStudio</AssemblyName>
     <RootNamespace>IPAStudio.App</RootNamespace>
     <ApplicationIcon Condition="Exists('Assets\app.ico')">Assets\app.ico</ApplicationIcon>
-    <Version>1.6.58</Version>
+<<<<<<< HEAD
+    <Version>1.6.59</Version>
+=======
+    <Version>1.6.55</Version>
+>>>>>>> origin/v0/localize-runtime-messages
     <Authors>IPA Studio</Authors>
     <Product>IPA Studio</Product>
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>

@@ -208,6 +208,13 @@
                                                 Command="{Binding DataContext.OpenPhotosCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}" />
                                     </Grid>
+
+                                    <!-- What is already installed here, as opposed to the catalog -->
+                                    <Button Content="{DynamicResource L.OnDevice.Open}"
+                                            Style="{StaticResource Button.Ghost}" Margin="0,8,0,0"
+                                            HorizontalAlignment="Stretch"
+                                            Command="{Binding DataContext.OpenOnDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

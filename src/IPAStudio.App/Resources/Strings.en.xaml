@@ -269,7 +269,8 @@
     <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Downloaded (install skipped)</sys:String>
 
     <!-- Install progress -->
-    <sys:String x:Key="L.Install.Status.Copying">Copying</sys:String>
+    <sys:String x:Key="L.Install.Status.Preparing">Preparing the file</sys:String>
+    <sys:String x:Key="L.Install.Status.Copying">Copying to the device</sys:String>
     <sys:String x:Key="L.Install.Status.Installing">Installing</sys:String>
     <sys:String x:Key="L.Install.Status.Complete">Complete</sys:String>
 
@@ -470,5 +471,25 @@
     <sys:String x:Key="L.ICloud.Downloaded">Downloaded {0} photos.</sys:String>
     <sys:String x:Key="L.ICloud.DownloadedWithErrors">Downloaded {0} photos, {1} failed.</sys:String>
     <sys:String x:Key="L.ICloud.DownloadFailed">The download failed.</sys:String>
+
+
+    <!-- ===== On the device (apps installed on the connected iPhone/iPad) ===== -->
+    <sys:String x:Key="L.OnDevice.Open">On the device</sys:String>
+    <sys:String x:Key="L.OnDevice.Title">Apps on the device</sys:String>
+    <sys:String x:Key="L.OnDevice.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.OnDevice.Loading">Reading the app list from the device…</sys:String>
+    <sys:String x:Key="L.OnDevice.LoadFailed">Could not read the app list from the device. Check the connection, unlock the device, then press Refresh.</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">No user apps found on the device.</sys:String>
+    <sys:String x:Key="L.OnDevice.FolderLabel">Folder for saved IPAs</sys:String>
+    <sys:String x:Key="L.OnDevice.ChooseFolder">Choose folder…</sys:String>
+    <sys:String x:Key="L.OnDevice.Download">Download IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.Reveal">Show file</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLogin">Sign in with an Apple ID to download IPAs</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLoginHint">The file comes from the App Store, not from the device: a copy can only be fetched by the Apple ID that owns the app.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotFromStore">Not installed from the App Store — cannot be downloaded</sys:String>
+    <sys:String x:Key="L.OnDevice.OtherAccount">Bought with a different Apple ID ({0}) — cannot be downloaded</sys:String>
+    <sys:String x:Key="L.OnDevice.AccountUnverified">The device does not report which Apple ID bought this app. If it was not the current account, the App Store will refuse the download.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotOwned">The current Apple ID does not own this app, so the App Store refused the download.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotInStore">This app is not on the App Store, so it cannot be downloaded.</sys:String>
 
 </ResourceDictionary>

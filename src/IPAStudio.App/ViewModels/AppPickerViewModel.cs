@@ -427,4 +427,18 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
     [RelayCommand]
     private void GoBack() => _navigator?.GoTo(Page.Devices);
+
+    /// <summary>
+    /// Opens the list of apps already installed on the target device.
+    ///
+    /// Guarded inside the body rather than gated by CanExecute: the device is assigned
+    /// during navigation, and a CanExecute that is never re-queried afterwards would risk
+    /// leaving the button permanently dead.
+    /// </summary>
+    [RelayCommand]
+    private void OpenOnDevice()
+    {
+        if (TargetDevice is not null)
+            _navigator?.GoToOnDevice(TargetDevice);
+    }
 }

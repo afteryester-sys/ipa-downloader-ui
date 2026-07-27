@@ -64,7 +64,8 @@ public static class Loc
         ["L.Queue.Status.DownloadOnlyDone"] = "Downloaded (install skipped)",
 
         // Install progress words reported by ideviceinstaller
-        ["L.Install.Status.Copying"] = "Copying",
+        ["L.Install.Status.Preparing"] = "Preparing the file",
+        ["L.Install.Status.Copying"] = "Copying to the device",
         ["L.Install.Status.Installing"] = "Installing",
         ["L.Install.Status.Complete"] = "Complete",
 

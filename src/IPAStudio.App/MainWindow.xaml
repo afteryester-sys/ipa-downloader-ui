@@ -40,6 +40,10 @@
         <DataTemplate DataType="{x:Type vm:ICloudViewModel}">
             <views:ICloudView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:OnDeviceViewModel}">
+            <views:OnDeviceView />
+        </DataTemplate>
+
         <DataTemplate DataType="{x:Type vm:DirectDownloadViewModel}">
             <views:DirectDownloadView />
         </DataTemplate>
