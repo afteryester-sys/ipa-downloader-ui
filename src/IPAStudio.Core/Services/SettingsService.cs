@@ -90,12 +90,6 @@ public sealed class AppSettings
     /// Turn on only when diagnosing an issue.
     /// </summary>
     public bool VerboseLogging { get; set; }
-
-    /// <summary>
-    /// Last folder chosen on the "Скачать IPA" screen, so the next direct download
-    /// starts from the same place instead of re-picking it every time.
-    /// </summary>
-    public string? LastDirectDownloadFolder { get; set; }
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>
