@@ -206,11 +206,25 @@
     <sys:String x:Key="L.Menu.Maintenance">Обслуживание</sys:String>
     <sys:String x:Key="L.Menu.ClearCache">Очистить кэш</sys:String>
     <sys:String x:Key="L.Cache.ConfirmTitle">Очистить кэш?</sys:String>
-    <sys:String x:Key="L.Cache.ConfirmBody">Будут удалены загруженные приложения (.ipa), включая недокачанные, кэш иконок и каталога, а также временные файлы — примерно {0}. Настройки и вход сохранятся. Продолжить?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">Будут удалены загруженные приложения (.ipa), включая недокачанные, кэш иконок и каталога, временные файлы и журналы за прошлые дни — примерно {0}. Настройки и вход сохранятся. Продолжить?</sys:String>
     <sys:String x:Key="L.Cache.Clearing">Очистка…</sys:String>
     <sys:String x:Key="L.Cache.Done">Готово. Освобождено {0}.</sys:String>
     <sys:String x:Key="L.Cache.Failed">Не удалось очистить кэш. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.BusyDownloading">Сейчас идёт загрузка. Дождитесь её окончания или отмените очередь.</sys:String>
+    <sys:String x:Key="L.Menu.CheckCache">Проверить размер кэша</sys:String>
+    <sys:String x:Key="L.Cache.Scanning">Подсчёт…</sys:String>
+    <sys:String x:Key="L.Cache.ScanningGroup">Считаем: {0}…</sys:String>
+    <sys:String x:Key="L.Cache.ScanDone">Проверено.</sys:String>
+    <sys:String x:Key="L.Cache.ScanTotal">Всего {0} в {1} файлах</sys:String>
+    <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
+    <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
+    <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
+    <sys:String x:Key="L.Cache.Item.Temp">Временные файлы</sys:String>
+    <sys:String x:Key="L.Cache.Item.Logs">Журналы за прошлые дни</sys:String>
 
     <!-- Журнал -->
     <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>

@@ -321,9 +321,45 @@
                         <TextBlock Text="{Binding CacheStatusText}" Style="{StaticResource Text.Caption}"
                                    TextWrapping="Wrap" Margin="0,0,0,8"
                                    Visibility="{Binding CacheStatusText, Converter={StaticResource NullToCollapsed}}" />
+
+                        <!-- Breakdown from the last check: what is taking the space. -->
+                        <ItemsControl ItemsSource="{Binding CacheGroups}" Margin="0,0,0,4">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,4" ToolTip="{Binding Path}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                                   Style="{StaticResource Text.Caption}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding SizeText}"
+                                                   Style="{StaticResource Text.Caption}"
+                                                   FontWeight="SemiBold" Margin="8,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{Binding CacheTotalText}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Visibility="{Binding CacheTotalText, Converter={StaticResource NullToCollapsed}}" />
+
+                        <!-- Indeterminate while measuring (a scan has no total), then a
+                             real bar driven by bytes deleted. -->
+                        <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                     Value="{Binding CacheProgress}"
+                                     IsIndeterminate="{Binding IsScanningCache}"
+                                     Margin="0,0,0,8"
+                                     Visibility="{Binding IsCacheBusy, Converter={StaticResource BoolToVis}}" />
+
+                        <Button Content="{DynamicResource L.Menu.CheckCache}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Command="{Binding CheckCacheCommand}"
+                                IsEnabled="{Binding IsCacheBusy, Converter={StaticResource InverseBool}}"
+                                Margin="0,0,0,8" />
                         <Button Content="{DynamicResource L.Menu.ClearCache}" Style="{StaticResource Button.Secondary}"
                                 HorizontalAlignment="Stretch" Command="{Binding ClearCacheCommand}"
-                                IsEnabled="{Binding IsClearingCache, Converter={StaticResource InverseBool}}" />
+                                IsEnabled="{Binding IsCacheBusy, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
                 </Border>
             </Popup>

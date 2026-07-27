@@ -206,11 +206,25 @@
     <sys:String x:Key="L.Menu.Maintenance">Maintenance</sys:String>
     <sys:String x:Key="L.Menu.ClearCache">Clear cache</sys:String>
     <sys:String x:Key="L.Cache.ConfirmTitle">Clear cache?</sys:String>
-    <sys:String x:Key="L.Cache.ConfirmBody">This will delete downloaded apps (.ipa), including partial downloads, the icon and catalog caches, and temporary files — about {0}. Your settings and sign-in will be kept. Continue?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">This will delete downloaded apps (.ipa), including partial downloads, the icon and catalog caches, temporary files and logs from previous days — about {0}. Your settings and sign-in will be kept. Continue?</sys:String>
     <sys:String x:Key="L.Cache.Clearing">Clearing…</sys:String>
     <sys:String x:Key="L.Cache.Done">Done. Freed {0}.</sys:String>
     <sys:String x:Key="L.Cache.Failed">Couldn't clear the cache. See the log for details.</sys:String>
     <sys:String x:Key="L.Cache.BusyDownloading">A download is in progress. Wait for it to finish or cancel the queue.</sys:String>
+    <sys:String x:Key="L.Menu.CheckCache">Check cache size</sys:String>
+    <sys:String x:Key="L.Cache.Scanning">Measuring…</sys:String>
+    <sys:String x:Key="L.Cache.ScanningGroup">Measuring: {0}…</sys:String>
+    <sys:String x:Key="L.Cache.ScanDone">Checked.</sys:String>
+    <sys:String x:Key="L.Cache.ScanTotal">Total {0} in {1} files</sys:String>
+    <sys:String x:Key="L.Cache.ScanFailed">Couldn't measure the cache. See the log for details.</sys:String>
+    <sys:String x:Key="L.Cache.AlreadyEmpty">Nothing to clear.</sys:String>
+    <sys:String x:Key="L.Cache.ClearingProgress">Clearing… {0} of {1}</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Freed {0}. {1} file(s) were in use and were kept.</sys:String>
+    <sys:String x:Key="L.Cache.Item.Apps">Downloaded apps (.ipa)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">App icons</sys:String>
+    <sys:String x:Key="L.Cache.Item.Catalog">Catalog cache</sys:String>
+    <sys:String x:Key="L.Cache.Item.Temp">Temporary files</sys:String>
+    <sys:String x:Key="L.Cache.Item.Logs">Logs from previous days</sys:String>
 
     <!-- Logs -->
     <sys:String x:Key="L.Logs.Title">Application log</sys:String>
