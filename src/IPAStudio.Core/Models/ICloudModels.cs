@@ -84,3 +84,24 @@ public sealed class ICloudNote
     public string? Folder { get; init; }
     public DateTimeOffset? Modified { get; init; }
 }
+
+/// <summary>
+/// An iCloud request that came back as an error. Carried as an exception rather than an
+/// empty list so a failed fetch is never shown to the user as "you have none of these".
+/// </summary>
+public sealed class ICloudRequestException : Exception
+{
+    public ICloudRequestException(int statusCode, string path, string? detail)
+        : base($"iCloud {path} → {statusCode}{(string.IsNullOrEmpty(detail) ? "" : $": {detail}")}")
+    {
+        StatusCode = statusCode;
+        Path = path;
+        Detail = detail;
+    }
+
+    public int StatusCode { get; }
+    public string Path { get; }
+
+    /// <summary>Server-provided reason, when the body carried one.</summary>
+    public string? Detail { get; }
+}

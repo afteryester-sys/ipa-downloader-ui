@@ -452,12 +452,13 @@
     <sys:String x:Key="L.ICloud.TabNotes">Notes</sys:String>
     <sys:String x:Key="L.ICloud.Loading">Loading from iCloud…</sys:String>
     <sys:String x:Key="L.ICloud.LoadFailed">iCloud did not return this data. Apple may be limiting access; try again later.</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailedCode">iCloud rejected the request (code {0}). Try Refresh again later.</sys:String>
     <sys:String x:Key="L.ICloud.ContactCount">{0} contacts</sys:String>
     <sys:String x:Key="L.ICloud.PhotoCount">{0} photos</sys:String>
     <sys:String x:Key="L.ICloud.NoteCount">{0} notes</sys:String>
     <sys:String x:Key="L.ICloud.NoContacts">No contacts in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
-    <sys:String x:Key="L.ICloud.NoNotes">Notes are not available for this account. Apple encrypts newer notes so they cannot be read here.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">No notes in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>
     <sys:String x:Key="L.ICloud.VCardFilter">vCard file (*.vcf)|*.vcf</sys:String>
     <sys:String x:Key="L.ICloud.ContactsExported">Saved {0} contacts.</sys:String>

@@ -452,12 +452,13 @@
     <sys:String x:Key="L.ICloud.TabNotes">Заметки</sys:String>
     <sys:String x:Key="L.ICloud.Loading">Загружаем из iCloud…</sys:String>
     <sys:String x:Key="L.ICloud.LoadFailed">iCloud не вернула эти данные. Возможно, Apple ограничивает доступ — попробуйте позже.</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailedCode">iCloud отклонила запрос (код {0}). Данные могли не загрузиться — попробуйте «Обновить» позже.</sys:String>
     <sys:String x:Key="L.ICloud.ContactCount">Контактов: {0}</sys:String>
     <sys:String x:Key="L.ICloud.PhotoCount">Фото: {0}</sys:String>
     <sys:String x:Key="L.ICloud.NoteCount">Заметок: {0}</sys:String>
     <sys:String x:Key="L.ICloud.NoContacts">В этом аккаунте iCloud нет контактов.</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
-    <sys:String x:Key="L.ICloud.NoNotes">Заметки для этого аккаунта недоступны: новые заметки Apple шифрует, и прочитать их здесь нельзя.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
     <sys:String x:Key="L.ICloud.VCardFilter">Файл vCard (*.vcf)|*.vcf</sys:String>
     <sys:String x:Key="L.ICloud.ContactsExported">Сохранено контактов: {0}.</sys:String>

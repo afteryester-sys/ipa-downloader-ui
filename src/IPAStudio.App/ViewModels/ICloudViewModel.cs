@@ -292,6 +292,15 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         {
             // Switching tabs quickly: the newer load owns the status text.
         }
+        catch (ICloudRequestException ex)
+        {
+            // A rejected request is not an empty account: say so, and name the code so the
+            // difference between "nothing there" and "Apple said no" is visible.
+            AppLog.Warn($"iCloud load failed: {ex.Message}");
+            Fail(ex.StatusCode is 401 or 421
+                ? Loc.Get("L.ICloud.SessionExpired")
+                : Loc.Format("L.ICloud.LoadFailedCode", ex.StatusCode));
+        }
         catch (Exception ex)
         {
             AppLog.Warn($"iCloud load failed: {ex.Message}");
