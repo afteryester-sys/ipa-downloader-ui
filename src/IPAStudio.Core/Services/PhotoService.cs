@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using IPAStudio.Core.Models;
+using Microsoft.Data.Sqlite;
 using iMobileDevice;
 using iMobileDevice.Afc;
 using iMobileDevice.iDevice;
@@ -343,6 +344,280 @@ public sealed class PhotoService
 
             return results;
         }, ct);
+
+    /// <summary>
+    /// Tries to read the real album names from the Photos library database.
+    ///
+    /// The DCIM folders (100APPLE, 101APPLE, …) are not albums: iOS starts a new one every
+    /// 999 files, so presenting them as albums produced the meaningless "Камера (101)",
+    /// "Камера (102)" list. The actual album names, and which assets belong to them, live
+    /// in /PhotoData/Photos.sqlite.
+    ///
+    /// Returns null when the database cannot be read — Apple restricts this path on
+    /// current iOS, so a refusal is the expected outcome rather than an error, and the
+    /// caller must have a fallback. The file is copied locally first because SQLite needs
+    /// random access, which AFC streaming does not provide.
+    /// </summary>
+    public Task<Dictionary<string, string>?> TryReadAlbumNamesAsync(
+        string udid,
+        CancellationToken ct = default)
+        => Task.Run<Dictionary<string, string>?>(() =>
+        {
+            // Pull the library database (plus its WAL, which may hold recent changes).
+            var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var localDb = Path.Combine(tempDir, "Photos.sqlite");
+
+            try
+            {
+                if (!TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct))
+                    return null;
+
+                // Best-effort: absence is fine, the main file is still usable.
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
+
+                return ReadAlbumMap(localDb, ct);
+            }
+            catch
+            {
+                // Unreadable or unexpected schema: fall back rather than fail the screen.
+                return null;
+            }
+            finally
+            {
+                try { Directory.Delete(tempDir, recursive: true); } catch { /* temp cleanup */ }
+            }
+        }, ct);
+
+    /// <summary>Copies one device file to a local path. Returns false if unavailable.</summary>
+    private static bool TryPullFile(string udid, string remotePath, string localPath, CancellationToken ct)
+    {
+        try
+        {
+            using var session = OpenSession(udid);
+            var afc = session.Afc;
+            var client = session.Client;
+
+            ulong handle = 0;
+            if (afc.afc_file_open(client, remotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
+                return false;
+
+            try
+            {
+                using var fs = File.Create(localPath);
+                var buffer = new byte[ChunkSize];
+                uint read;
+                do
+                {
+                    ct.ThrowIfCancellationRequested();
+                    read = 0;
+                    if (afc.afc_file_read(client, handle, buffer, ChunkSize, ref read) != AfcError.Success) break;
+                    if (read > 0) fs.Write(buffer, 0, (int)read);
+                }
+                while (read > 0);
+                return fs.Length > 0;
+            }
+            finally
+            {
+                afc.afc_file_close(client, handle);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Maps "DCIM sub-folder + file name" to the album containing that asset.
+    ///
+    /// Keyed by file name rather than by asset id so the caller can match rows it built
+    /// from a directory listing, without a second pass over the database.
+    ///
+    /// Opened read-only and immutable: the copy may have been taken mid-write, and
+    /// immutable stops SQLite from trying to recover the journal (which would fail on a
+    /// partial copy and throw away the names we can still read).
+    /// </summary>
+    private static Dictionary<string, string>? ReadAlbumMap(string dbPath, CancellationToken ct)
+    {
+        // Immutable, not just ReadOnly: the copy was taken while iOS may have been writing,
+        // so the journal can look dirty. ReadOnly alone makes SQLite try to recover it and
+        // fail the open outright, discarding names we could still have read.
+        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Private;");
+        conn.DefaultTimeout = 5;
+        conn.Open();
+
+        // Applied after opening because it is a URI-level flag the builder won't emit.
+        using (var pragma = conn.CreateCommand())
+        {
+            pragma.CommandText = "PRAGMA query_only = 1;";
+            pragma.ExecuteNonQuery();
+        }
+
+        // Table and column names moved between iOS versions (ZGENERICALBUM/ZALBUMLIST,
+        // Z_26ASSETS/Z_27ASSETS and so on). Rather than hard-code one schema, find the
+        // join table by shape: whichever Z_*ASSETS table exists on this device.
+        var joinTable = QueryScalarString(conn,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'Z\\_%ASSETS' ESCAPE '\\' LIMIT 1");
+        if (string.IsNullOrEmpty(joinTable)) return null;
+
+        // The join table has two foreign-key columns, named per iOS version, e.g.
+        // Z_26ALBUMS / Z_34ASSETS. Match on the ALBUM/ASSET suffix and require the two to
+        // be different columns: matching loosely once picked the same column twice, which
+        // produced a self-join that silently returned nothing.
+        var albumColumn = QueryScalarString(conn,
+            $"SELECT name FROM pragma_table_info('{joinTable}') WHERE name LIKE '%ALBUMS' LIMIT 1");
+        var assetColumn = QueryScalarString(conn,
+            $"SELECT name FROM pragma_table_info('{joinTable}') WHERE name LIKE '%ASSETS' LIMIT 1");
+        if (string.IsNullOrEmpty(albumColumn) || string.IsNullOrEmpty(assetColumn)
+            || string.Equals(albumColumn, assetColumn, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // ZTITLE is the user-visible album name; ZFILENAME/ZDIRECTORY locate the asset.
+        // Skip albums with no title: those are system containers, not user albums.
+        var sql = $"""
+            SELECT a.ZFILENAME, g.ZTITLE
+            FROM {joinTable} j
+            JOIN ZGENERICALBUM g ON g.Z_PK = j.{albumColumn}
+            JOIN ZASSET a        ON a.Z_PK = j.{assetColumn}
+            WHERE g.ZTITLE IS NOT NULL AND g.ZTITLE <> ''
+            """;
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                ct.ThrowIfCancellationRequested();
+                if (reader.IsDBNull(0) || reader.IsDBNull(1)) continue;
+                var fileName = reader.GetString(0);
+                var title = reader.GetString(1);
+                if (string.IsNullOrWhiteSpace(fileName)) continue;
+
+                // An asset can sit in several albums; keep the first so grouping is stable.
+                map.TryAdd(fileName, title);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (SqliteException)
+        {
+            // ZGENERICALBUM/ZASSET/ZTITLE are not guaranteed across iOS versions. A schema
+            // we don't recognise means "no names available", not a broken screen — return
+            // whatever was already read and let the caller fall back.
+            return map.Count > 0 ? map : null;
+        }
+
+        return map.Count > 0 ? map : null;
+    }
+
+    /// <summary>Runs a query returning a single string, or null if it yields nothing.</summary>
+    private static string? QueryScalarString(SqliteConnection conn, string sql)
+    {
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = sql;
+            return cmd.ExecuteScalar() as string;
+        }
+        catch
+        {
+            // Older SQLite builds lack pragma_table_info as a table-valued function.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads iOS's own pre-rendered thumbnails for the given items in one AFC session.
+    ///
+    /// Why this exists: the grid used to fetch the *source* files to build previews. A
+    /// DNG is ~25 MB and a HEIC several MB, so filling one screen of tiles meant pulling
+    /// hundreds of megabytes over USB and decoding it — the reason tiles trickled in over
+    /// many seconds. iOS has already rendered a small JPEG for every item in
+    /// /PhotoData/Thumbnails; each is a few KB, so a whole viewport costs less than a
+    /// single source photo did.
+    ///
+    /// Returns only what it finds. The layout is undocumented and varies by iOS version,
+    /// so callers must treat a miss as normal and fall back to decoding the source. A
+    /// thumbnail here is also authoritative for formats Windows cannot decode at all
+    /// (DNG/HEIC without the codec), which is why those tiles were blank.
+    /// </summary>
+    public Task<Dictionary<string, byte[]>> ReadIosThumbnailsAsync(
+        string udid,
+        IReadOnlyList<PhotoItem> items,
+        CancellationToken ct = default)
+        => Task.Run<Dictionary<string, byte[]>>(() =>
+        {
+            var results = new Dictionary<string, byte[]>(items.Count);
+            if (items.Count == 0) return results;
+
+            using var session = OpenSession(udid);
+            var afc = session.Afc;
+            var client = session.Client;
+
+            foreach (var item in items)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                foreach (var candidate in ThumbnailCandidates(item))
+                {
+                    ulong handle = 0;
+                    if (afc.afc_file_open(client, candidate, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
+                        continue;
+
+                    try
+                    {
+                        using var ms = new MemoryStream();
+                        var buffer = new byte[ChunkSize];
+                        uint read;
+                        do
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            read = 0;
+                            if (afc.afc_file_read(client, handle, buffer, ChunkSize, ref read) != AfcError.Success) break;
+                            if (read > 0) ms.Write(buffer, 0, (int)read);
+                            // Guard against a mis-guessed path pointing at something huge:
+                            // a real thumbnail is never anywhere near this size.
+                            if (ms.Length >= 512 * 1024) break;
+                        }
+                        while (read > 0);
+
+                        if (ms.Length > 0)
+                        {
+                            results[item.RemotePath] = ms.ToArray();
+                            break; // found one; skip the remaining candidates
+                        }
+                    }
+                    finally
+                    {
+                        afc.afc_file_close(client, handle);
+                    }
+                }
+            }
+
+            return results;
+        }, ct);
+
+    /// <summary>
+    /// Paths where iOS may keep a pre-rendered thumbnail for a Camera Roll file.
+    ///
+    /// Tried in order and the first hit wins. The scheme differs across iOS releases and
+    /// is not documented, so this is a best-effort list rather than a lookup: for
+    /// /DCIM/100APPLE/IMG_0001.HEIC iOS has been observed to store
+    /// /PhotoData/Thumbnails/V2/DCIM/100APPLE/IMG_0001.HEIC/5005.JPG (and similar).
+    /// </summary>
+    private static IEnumerable<string> ThumbnailCandidates(PhotoItem item)
+    {
+        // "/DCIM/100APPLE/IMG_0001.HEIC" -> "DCIM/100APPLE/IMG_0001.HEIC"
+        var relative = item.RemotePath.TrimStart('/');
+
+        // V2 layout: a folder per original file holding one JPEG per size class.
+        // 5005 is the grid-sized variant on current iOS; the others are older names.
+        yield return $"/PhotoData/Thumbnails/V2/{relative}/5005.JPG";
+        yield return $"/PhotoData/Thumbnails/V2/{relative}/5003.JPG";
+        yield return $"/PhotoData/Thumbnails/V2/{relative}/5000.JPG";
+    }
 
     /// <summary>Reads one media file fully into memory (used for thumbnails/preview).</summary>
     public Task<byte[]?> ReadFileAsync(string udid, string remotePath, long maxBytes, CancellationToken ct = default)

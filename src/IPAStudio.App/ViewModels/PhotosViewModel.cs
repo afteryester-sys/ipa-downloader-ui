@@ -64,6 +64,27 @@ public sealed partial class PhotoItemViewModel : ObservableObject
         return folder;
     }
 
+    /// <summary>
+    /// Real album title from the Photos library, when it could be read. Null means the
+    /// database was unavailable (Apple restricts it on current iOS), and the UI falls
+    /// back to the folder-derived name.
+    /// </summary>
+    private string? _realAlbumName;
+
+    /// <summary>
+    /// The album label shown in the UI and used for filtering: the real album title if
+    /// known, otherwise the DCIM folder name made readable.
+    /// </summary>
+    public string DisplayAlbumName => _realAlbumName ?? FriendlyAlbumName;
+
+    /// <summary>Applies a real album title. Call on the UI thread; raises notifications.</summary>
+    public void SetRealAlbumName(string? title)
+    {
+        if (_realAlbumName == title) return;
+        _realAlbumName = title;
+        OnPropertyChanged(nameof(DisplayAlbumName));
+    }
+
     public bool IsVideo => Item.IsVideo;
 
     /// <summary>
@@ -110,8 +131,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private INavigator? _navigator;
     private Device? _device;
     private CancellationTokenSource? _cts;
-    /// <summary>Maps friendly album label (shown in the picker) to raw DCIM folder name.</summary>
-    private readonly Dictionary<string, string> _albumFriendlyToRaw = new();
+    /// <summary>Picker entry that disables album filtering.</summary>
+    private const string AllAlbums = "Все альбомы";
 
     /// <summary>
     /// Item lookup by AFC path, so a metadata batch arriving from the background can be
@@ -254,12 +275,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     {
         if (obj is not PhotoItemViewModel p) return false;
         // "Все альбомы" (or empty) means show all.
-        if (!string.IsNullOrEmpty(SelectedAlbum) && SelectedAlbum != "Все альбомы")
+        if (!string.IsNullOrEmpty(SelectedAlbum) && SelectedAlbum != AllAlbums)
         {
-            // Resolve friendly name back to raw DCIM folder name for comparison.
-            var rawFolder = _albumFriendlyToRaw.TryGetValue(SelectedAlbum, out var raw)
-                ? raw : SelectedAlbum;
-            if (p.Album != rawFolder) return false;
+            // Compare against the label each row actually shows. With real album names
+            // this is the album title; without them it is the folder-derived name. Going
+            // through the label keeps one code path for both, and matters because several
+            // DCIM folders can map to the same album, so resolving the label back to a
+            // single folder (as this used to) would have hidden the rest of the album.
+            if (!string.Equals(p.DisplayAlbumName, SelectedAlbum, StringComparison.Ordinal))
+                return false;
         }
         return SelectedMediaType switch
         {
@@ -267,6 +291,86 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             "Видео" => p.IsVideo,
             _ => true,
         };
+    }
+
+    /// <summary>
+    /// Rebuilds the album picker from the labels the rows currently show, preserving the
+    /// user's selection where possible. Called once after loading and again if real album
+    /// names arrive later.
+    /// </summary>
+    /// <param name="keepSelection">
+    /// True when relabelling an already-loaded list, so the user's chosen album survives.
+    /// False for a freshly loaded roll, where carrying a selection over from the previous
+    /// device would silently filter the new list if a name happened to coincide.
+    /// </param>
+    private void BuildAlbumList(bool keepSelection)
+    {
+        var previous = keepSelection ? SelectedAlbum : null;
+
+        Albums.Clear();
+        Albums.Add(AllAlbums);
+        foreach (var name in Photos.Select(p => p.DisplayAlbumName)
+                                   .Distinct(StringComparer.Ordinal)
+                                   .OrderBy(n => n, StringComparer.CurrentCulture))
+        {
+            Albums.Add(name);
+        }
+
+        // Keep the current filter if that album still exists; otherwise fall back to all,
+        // so relabelling can't leave the grid filtered on a name that no longer appears.
+        var next = previous is not null && Albums.Contains(previous) ? previous : AllAlbums;
+        if (SelectedAlbum == next)
+        {
+            // Assigning the same value raises no change notification, so the filter would
+            // keep matching on stale labels. Refresh explicitly: after relabelling the
+            // rows moved albums even though the selection text did not change.
+            PhotosView.Refresh();
+        }
+        else
+        {
+            SelectedAlbum = next; // OnSelectedAlbumChanged refreshes the view
+        }
+    }
+
+    /// <summary>
+    /// Attempts to replace the folder-derived album names with the real ones from the
+    /// device Photos library. Silent no-op when the database can't be read, which is the
+    /// normal outcome on current iOS — the folder-based names simply stay.
+    /// </summary>
+    private async Task ApplyRealAlbumNamesAsync(CancellationToken ct)
+    {
+        if (_device is null) return;
+
+        Dictionary<string, string>? map;
+        try
+        {
+            map = await _photos.TryReadAlbumNamesAsync(_device.Udid, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+        catch { return; }
+
+        if (map is null || map.Count == 0 || ct.IsCancellationRequested) return;
+
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+        {
+            if (ct.IsCancellationRequested) return;
+
+            var matched = 0;
+            foreach (var row in Photos)
+            {
+                if (map.TryGetValue(row.FileName, out var title))
+                {
+                    row.SetRealAlbumName(title);
+                    matched++;
+                }
+            }
+
+            // Nothing lined up: the database was readable but describes other assets, so
+            // leave the folder names rather than half-relabelling the picker.
+            if (matched == 0) return;
+
+            BuildAlbumList(keepSelection: true);
+        }).Task.ConfigureAwait(false);
     }
 
     private async Task LoadAsync()
@@ -316,25 +420,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             }
             Photos.ReplaceAll(rows);
 
-            Albums.Clear();
-            Albums.Add("Все альбомы");
-            // Show friendly names in the picker but keep raw folder name as the
-            // value for filtering (both happen to be the same string here —
-            // the filter compares p.Album which is the raw folder name).
-            foreach (var album in items.Select(i => i.Album).Distinct().OrderBy(a => a))
-            {
-                var friendly = PhotoItemViewModel.MakeFriendlyAlbumNameStatic(album);
-                Albums.Add(friendly == album ? album : friendly);
-            }
-            // Rebuild album map so the filter can resolve friendly → raw folder.
-            _albumFriendlyToRaw.Clear();
-            foreach (var vm in Photos)
-            {
-                var friendly = vm.FriendlyAlbumName;
-                if (!_albumFriendlyToRaw.ContainsKey(friendly))
-                    _albumFriendlyToRaw[friendly] = vm.Album;
-            }
-            SelectedAlbum = "Все альбомы";
+            // Also resets the selection to "all albums" for the newly loaded list.
+            BuildAlbumList(keepSelection: false);
 
             TotalCount = Photos.Count;
             StatusText = Photos.Count == 0
@@ -350,6 +437,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             // Sizes and dates come in afterwards, so the grid is usable immediately
             // instead of waiting on one AFC round-trip per file.
             _ = FillMetadataAsync(items, _metaCts.Token);
+
+            // Real album names need the Photos library database copied off the device,
+            // which is slow and often blocked. Run it in the background: the folder-based
+            // names are already showing, and the picker is relabelled only if it succeeds.
+            _ = ApplyRealAlbumNamesAsync(_metaCts.Token);
         }
         catch (Exception ex)
         {
@@ -627,15 +719,37 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 if (batch.Count > (isHeic ? HeicBatchSize : JpegBatchSize))
                     batch = batch.GetRange(0, isHeic ? HeicBatchSize : JpegBatchSize);
 
-                var paths = batch.Select(p => p.Item.RemotePath).ToList();
+                // First ask the device for the thumbnails iOS already rendered. These are a
+                // few KB each, against multi-MB HEIC and ~25 MB DNG source files, which is
+                // what made a screenful of tiles take many seconds to appear. They also
+                // cover formats Windows cannot decode at all (DNG, or HEIC with no codec),
+                // so those tiles stop coming up blank.
+                Dictionary<string, byte[]> thumbMap;
+                try
+                {
+                    thumbMap = await _photos
+                        .ReadIosThumbnailsAsync(_device.Udid, batch.Select(p => p.Item).ToList(), ct)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { return; }
+                catch { thumbMap = new Dictionary<string, byte[]>(); }
+
+                // Only items with no device thumbnail need the source file read.
+                var needSource = batch.Where(p => !thumbMap.ContainsKey(p.Item.RemotePath)).ToList();
 
                 Dictionary<string, byte[]> rawMap;
                 try
                 {
                     // maxBytes 0 = whole file, required for HEIC.
-                    rawMap = await _photos
-                        .ReadFilesAsync(_device.Udid, paths, isHeic ? 0 : ExifHeaderBytes, ct)
-                        .ConfigureAwait(false);
+                    rawMap = needSource.Count == 0
+                        ? new Dictionary<string, byte[]>()
+                        : await _photos
+                            .ReadFilesAsync(
+                                _device.Udid,
+                                needSource.Select(p => p.Item.RemotePath).ToList(),
+                                isHeic ? 0 : ExifHeaderBytes,
+                                ct)
+                            .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { return; }
                 catch { break; } // device disconnected; wait for the next viewport change
@@ -646,6 +760,19 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                     foreach (var item in batch)
                     {
                         if (ct.IsCancellationRequested) break;
+
+                        // Device thumbnail: a small JPEG, so one cheap decode and done.
+                        if (thumbMap.TryGetValue(item.Item.RemotePath, out var thumbBytes)
+                            && thumbBytes is { Length: > 0 })
+                        {
+                            var fromDevice = TryDecodeThumbnail(thumbBytes, ThumbnailWidth);
+                            if (fromDevice is not null)
+                            {
+                                result.Add((item, fromDevice));
+                                continue;
+                            }
+                        }
+
                         if (!rawMap.TryGetValue(item.Item.RemotePath, out var bytes) || bytes is null || bytes.Length == 0) continue;
 
                         // For JPEG the EXIF thumbnail is tiny and near-instant; the
@@ -664,8 +791,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 // whole batch of readable HEIC files decoded to nothing, the codec is
                 // the only plausible cause — surface the hint instead of leaving the
                 // user staring at permanently blank tiles.
+                // Judge the codec only on files we actually had to decode ourselves.
+                // Device thumbnails are plain JPEG and succeed with or without the HEIF
+                // codec, so counting them here would mask a genuinely missing codec.
                 if (isHeic && rawMap.Count > 0)
-                    NoteHeicDecodeOutcome(succeeded: decoded.Count > 0);
+                {
+                    var decodedFromSource = decoded.Count(d => rawMap.ContainsKey(d.item.Item.RemotePath)
+                                                               && !thumbMap.ContainsKey(d.item.Item.RemotePath));
+                    NoteHeicDecodeOutcome(succeeded: decodedFromSource > 0);
+                }
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(
                     () =>
@@ -678,7 +812,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                         // Items whose bytes arrived but produced no image are recorded
                         // as attempted, so the loader doesn't retry them forever.
                         foreach (var item in batch)
-                            if (rawMap.ContainsKey(item.Item.RemotePath))
+                            if (rawMap.ContainsKey(item.Item.RemotePath)
+                                || thumbMap.ContainsKey(item.Item.RemotePath))
                                 item.ThumbnailAttempted = true;
 
                         TrimCache();
@@ -720,8 +855,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             if (item.IsVideo || item.Thumbnail is not null || item.ThumbnailAttempted) continue;
 
             var heic = IsHeicName(item.FileName);
-            // Don't spend reads on HEIC once we know the OS can't decode it.
-            if (heic && IsHeicCodecMissing) continue;
+            // HEIC is no longer skipped when the OS codec is missing: the device's own
+            // thumbnail is a plain JPEG, so those tiles can be filled anyway. The hint
+            // stays visible because full-size preview and export still need the codec.
 
             wantHeic ??= heic;
             if (heic != wantHeic) continue;
