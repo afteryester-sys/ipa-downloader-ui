@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using IPAStudio.App.Services;
 using IPAStudio.App.ViewModels;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Services;
 using IPAStudio.Core.Tools;
 using Microsoft.Extensions.DependencyInjection;
@@ -190,9 +191,9 @@ public partial class App : Application
         try
         {
             MessageBox.Show(
-                "Произошла ошибка, но приложение продолжит работу.\n\n" +
+                Loc.Get("L.Crash.Recovered") + "\n\n" +
                 $"{ex.GetType().Name}: {ex.Message}\n\n" +
-                "Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).",
+                Loc.Get("L.Crash.SeeLog"),
                 "IPA Studio",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

@@ -3,6 +3,7 @@ using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 using Microsoft.Win32;
@@ -10,7 +11,7 @@ using Microsoft.Win32;
 namespace IPAStudio.App.ViewModels;
 
 /// <summary>
-/// "Скачать IPA": enter a Bundle ID, pick a folder, get the IPA signed with the
+/// Direct download: enter a Bundle ID, App Store ID or link, pick a folder, get the IPA signed with the
 /// signed-in Apple ID saved straight into that folder.
 ///
 /// Deliberately independent of the queue and of any connected device — the point is
@@ -88,7 +89,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string? _errorText;
 
-    /// <summary>Path of the finished file; drives the "Открыть папку" button.</summary>
+    /// <summary>Path of the finished file; drives the "Open folder" button.</summary>
     [ObservableProperty]
     private string? _savedPath;
 
@@ -127,7 +128,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Куда сохранить IPA",
+            Title = Loc.Get("L.Dialog.PickFolderTitle"),
             // Reopen where they last saved. Only set it when the folder still exists —
             // pointing at a deleted path makes the dialog open somewhere arbitrary.
             InitialDirectory = Directory.Exists(DestinationFolder) ? DestinationFolder : "",
@@ -155,22 +156,23 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         }
         catch (Exception ex)
         {
-            AppLog.Warn($"Не удалось открыть папку: {ex.Message}");
+            AppLog.Warn($"Could not open the destination folder: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Resolves the Bundle ID to a real App Store entry. Kept separate from the download
-    /// so the user can confirm they got the app they meant before spending bandwidth —
-    /// a typo'd bundle id is otherwise indistinguishable from a missing app.
+    /// Resolves what the user typed — a bundle id, a numeric App Store id, or a store
+    /// link pasted from the browser or Share sheet — to a real App Store entry. Kept
+    /// separate from the download so the user can confirm they got the app they meant
+    /// before spending bandwidth: a typo is otherwise indistinguishable from a missing app.
     /// </summary>
     [RelayCommand]
     private async Task LookupAsync()
     {
-        var id = BundleId.Trim();
-        if (id.Length == 0)
+        var query = AppQueryParser.Parse(BundleId);
+        if (!query.IsValid)
         {
-            ErrorText = Str("L.Direct.NeedBundleId");
+            ErrorText = Loc.Get("L.Direct.NeedQuery");
             return;
         }
 
@@ -183,7 +185,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
         try
         {
-            var results = await _catalog.SearchByBundleIdAsync(id).ConfigureAwait(true);
+            var results = await _catalog.FindAsync(query).ConfigureAwait(true);
             var app = results.FirstOrDefault();
 
             if (app is null)
@@ -196,12 +198,12 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             FoundApp = app;
             FoundIconUrl = app.IconUrl;
             StatusText = null;
-            AppLog.Info($"Direct download: найдено «{app.Name}» ({app.BundleId}) id={app.AppStoreId}");
+            AppLog.Info($"Direct download: found '{app.Name}' ({app.BundleId}) id={app.AppStoreId}");
         }
         catch (Exception ex)
         {
             StatusText = null;
-            ErrorText = ex.Message;
+            ErrorText = Loc.Get("L.Direct.LookupFailed");
             AppLog.Warn($"Direct download lookup failed: {ex.Message}");
         }
         finally
@@ -215,8 +217,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     {
         if (FoundApp is null)
         {
-            // Let the button work as "find and download" when the user typed an id and
-            // pressed download without pressing Найти first.
+            // Let the button work as "find and download" when the user typed something and
+            // pressed Download without pressing Find first.
             await LookupAsync().ConfigureAwait(true);
             if (FoundApp is null) return;
         }
@@ -250,24 +252,25 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             {
                 var seconds = (int)p.Elapsed.TotalSeconds;
                 StatusText = seconds >= 2
-                    ? $"Соединение с App Store… {seconds} с"
-                    : "Соединение с App Store…";
+                    ? Loc.Format("L.Queue.Status.ConnectingElapsed", seconds)
+                    : Loc.Get("L.Queue.Status.Connecting");
             }
             else if (p.Finalizing)
             {
-                StatusText = $"Упаковка и подпись… ({FormatBytes(p.DownloadedBytes)})";
+                StatusText = Loc.Format("L.Queue.Status.Finalizing", FormatBytes(p.DownloadedBytes));
             }
             else if (p.TotalBytes > 0)
             {
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
                 StatusText = $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed}";
             }
             else
             {
                 // Same wording as the queue screen: label the number as bytes-so-far, so
                 // it cannot be misread as the (unknown) total sitting next to it.
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}/с" : "";
-                StatusText = $"Скачано {FormatBytes(p.DownloadedBytes)}{speed} · всего неизвестно";
+                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
+                StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
+                    + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
             }
         });
 
@@ -295,13 +298,16 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             else
             {
                 StatusText = null;
-                ErrorText = result.Error == DownloadService.SessionExpiredMessage
+                ErrorText = result.SessionExpired
                     ? Str("L.Direct.NeedLogin")
-                    : result.Error ?? "Download failed";
+                    : result.Error ?? Loc.Get("L.Error.DownloadFailed");
+
+                if (!string.IsNullOrWhiteSpace(result.Detail))
+                    AppLog.Warn($"Direct download failed: {result.Detail}");
 
                 // The session died mid-download: send the user to the login screen
                 // instead of leaving a dead-end error on screen.
-                if (result.Error == DownloadService.SessionExpiredMessage)
+                if (result.SessionExpired)
                 {
                     OnPropertyChanged(nameof(IsSignedIn));
                     _navigator?.GoTo(Page.Login);
@@ -316,8 +322,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         catch (Exception ex)
         {
             StatusText = null;
-            ErrorText = ex.Message;
-            AppLog.Warn($"Direct download failed: {ex.Message}");
+            ErrorText = Loc.Get("L.Error.Unknown");
+            AppLog.Error("Direct download threw.", ex);
         }
         finally
         {
@@ -337,8 +343,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     private static string FormatBytes(long bytes)
     {
-        if (bytes <= 0) return "0 B";
-        string[] units = { "B", "KB", "MB", "GB" };
+        if (bytes <= 0) return $"0 {Loc.Get("L.Unit.B")}";
+        string[] units = { Loc.Get("L.Unit.B"), Loc.Get("L.Unit.KB"), Loc.Get("L.Unit.MB"), Loc.Get("L.Unit.GB") };
         double value = bytes;
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1)

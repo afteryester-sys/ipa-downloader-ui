@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Infrastructure;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 using Microsoft.Win32;
@@ -42,24 +43,24 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     /// Human-readable album label shown in the UI.
     /// iOS stores Camera Roll photos in numbered DCIM sub-folders (100APPLE,
     /// 101APPLE, …). We can't read real album names over AFC, so we display
-    /// "Камера" (or "Камера 2" for the second folder, etc.).
+    /// a localized "Camera" label (with the folder number for additional rolls).
     /// </summary>
     public string FriendlyAlbumName => MakeFriendlyAlbumNameStatic(Item.Album);
 
     public static string MakeFriendlyAlbumNameStatic(string folder)
     {
-        if (string.IsNullOrEmpty(folder)) return "Камера";
+        if (string.IsNullOrEmpty(folder)) return Loc.Get("L.Photos.Camera");
         // DCIM sub-folder convention: "100APPLE", "101APPLE", … or "100CLOUD", etc.
         // iOS uses 100APPLE for the primary Camera Roll; higher numbers are additional
         // rolls (burst, imports, screen recordings that overflowed, etc.). We don't
         // have access to the real album names via AFC, so we show the folder number
-        // in a human-friendly way: "Камера" for 100, "Камера (101)" for the rest.
+        // in a human-friendly way: "Camera" for 100, "Camera (101)" for the rest.
         if (folder.Length >= 3 && int.TryParse(folder[..3], out var num))
         {
-            if (num == 100) return "Камера";
+            if (num == 100) return Loc.Get("L.Photos.Camera");
             // Show the numeric index so users can distinguish multiple rolls
             // without inventing fake sequential names (39, 40, …).
-            return $"Камера ({num})";
+            return Loc.Format("L.Photos.CameraNumbered", num);
         }
         return folder;
     }
@@ -90,7 +91,7 @@ public sealed partial class PhotoItemViewModel : ObservableObject
     /// <summary>
     /// File size, or an em dash until the device has been asked. Listing skips the
     /// per-file stat so the grid can appear at once, so this shows a placeholder for a
-    /// moment instead of claiming a misleading "0 Б".
+    /// moment instead of claiming a misleading "0 B".
     /// </summary>
     public string SizeText => Item.HasMetadata ? FormatSize(Item.SizeBytes) : "—";
 
@@ -113,7 +114,11 @@ public sealed partial class PhotoItemViewModel : ObservableObject
 
     private static string FormatSize(long bytes)
     {
-        string[] units = { "Б", "КБ", "МБ", "ГБ" };
+        string[] units =
+        {
+            Loc.Get("L.Unit.B"), Loc.Get("L.Unit.KB"),
+            Loc.Get("L.Unit.MB"), Loc.Get("L.Unit.GB"),
+        };
         double value = bytes;
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
@@ -132,7 +137,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private Device? _device;
     private CancellationTokenSource? _cts;
     /// <summary>Picker entry that disables album filtering.</summary>
-    private const string AllAlbums = "Все альбомы";
+    private static string AllAlbums => Loc.Get("L.Photos.AllAlbums");
 
     /// <summary>
     /// Item lookup by AFC path, so a metadata batch arriving from the background can be
@@ -179,7 +184,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     public ObservableCollection<string> Albums { get; } = new();
 
     /// <summary>Media type filter options.</summary>
-    public ObservableCollection<string> MediaTypes { get; } = new() { "Все", "Фото", "Видео" };
+    public ObservableCollection<string> MediaTypes { get; } = new();
 
     [ObservableProperty]
     private string _deviceName = "";
@@ -188,7 +193,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private string? _selectedAlbum;
 
     [ObservableProperty]
-    private string _selectedMediaType = "Все";
+    private string _selectedMediaType = "";
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
@@ -239,8 +244,19 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     public PhotosViewModel(PhotoService photos)
     {
         _photos = photos;
+
+        // Built here rather than in a field initializer because the labels come from the
+        // active language dictionary, and the filter compares the selection against the
+        // same strings.
+        MediaTypes.Add(Loc.Get("L.Photos.Media.All"));
+        MediaTypes.Add(Loc.Get("L.Photos.Media.Photos"));
+        MediaTypes.Add(Loc.Get("L.Photos.Media.Videos"));
+
         PhotosView = CollectionViewSource.GetDefaultView(Photos);
         PhotosView.Filter = Filter;
+
+        // After PhotosView exists: the setter notifies, and the handler refreshes the view.
+        SelectedMediaType = MediaTypes[0];
     }
 
     public void SetDevice(Device device) => _device = device;
@@ -274,7 +290,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private bool Filter(object obj)
     {
         if (obj is not PhotoItemViewModel p) return false;
-        // "Все альбомы" (or empty) means show all.
+        // The "all albums" entry (or empty) means show all.
         if (!string.IsNullOrEmpty(SelectedAlbum) && SelectedAlbum != AllAlbums)
         {
             // Compare against the label each row actually shows. With real album names
@@ -285,12 +301,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             if (!string.Equals(p.DisplayAlbumName, SelectedAlbum, StringComparison.Ordinal))
                 return false;
         }
-        return SelectedMediaType switch
-        {
-            "Фото" => !p.IsVideo,
-            "Видео" => p.IsVideo,
-            _ => true,
-        };
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Photos")) return !p.IsVideo;
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Videos")) return p.IsVideo;
+        return true;
     }
 
     /// <summary>
@@ -389,7 +402,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         _metaCts = new CancellationTokenSource();
 
         IsBusy = true;
-        StatusText = "Чтение медиатеки…";
+        StatusText = Loc.Get("L.Photos.Reading");
 
         foreach (var old in Photos) old.PropertyChanged -= OnPhotoItemPropertyChanged;
         Photos.Clear();
@@ -425,8 +438,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
             TotalCount = Photos.Count;
             StatusText = Photos.Count == 0
-                ? "Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ."
-                : $"Найдено медиафайлов: {Photos.Count}";
+                ? Loc.Get("L.Photos.Empty")
+                : Loc.Format("L.Photos.Found", Photos.Count);
 
             // Start the thumbnail loader. It waits for the view to report which rows are
             // visible; nudge it once here so the first screenful loads even if no scroll
@@ -445,7 +458,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }
         catch (Exception ex)
         {
-            StatusText = $"Не удалось прочитать медиатеку: {ex.Message}";
+            StatusText = Loc.Format("L.Photos.ReadFailed", ex.Message);
         }
         finally
         {
@@ -590,7 +603,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
         var dialog = new OpenFolderDialog
         {
-            Title = "Выберите папку для сохранения",
+            Title = Loc.Get("L.Photos.PickExportFolder"),
         };
         if (dialog.ShowDialog() != true) return;
 
@@ -598,7 +611,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         await RunTransferAsync(async (progress, ct) =>
         {
             var count = await _photos.ExportAsync(_device.Udid, selected, dialog.FolderName, progress, ct);
-            StatusText = $"Скопировано на компьютер: {count} из {selected.Count}";
+            StatusText = Loc.Format("L.Photos.Exported", count, selected.Count);
         });
     }
 
@@ -609,9 +622,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
         var dialog = new OpenFileDialog
         {
-            Title = "Выберите фото или видео для переноса",
+            Title = Loc.Get("L.Photos.PickImportFiles"),
             Multiselect = true,
-            Filter = "Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*",
+            Filter = Loc.Get("L.Photos.MediaFilter"),
         };
         if (dialog.ShowDialog() != true) return;
 
@@ -619,7 +632,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         await RunTransferAsync(async (progress, ct) =>
         {
             var count = await _photos.ImportAsync(_device.Udid, files, progress, ct);
-            StatusText = $"Перенесено на устройство: {count} из {files.Count}";
+            StatusText = Loc.Format("L.Photos.Imported", count, files.Count);
             await LoadAsync();
         });
     }
@@ -645,11 +658,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Операция отменена.";
+            StatusText = Loc.Get("L.Photos.Cancelled");
         }
         catch (Exception ex)
         {
-            StatusText = $"Ошибка переноса: {ex.Message}";
+            StatusText = Loc.Format("L.Photos.TransferFailed", ex.Message);
         }
         finally
         {

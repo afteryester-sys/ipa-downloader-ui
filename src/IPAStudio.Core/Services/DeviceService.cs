@@ -1,5 +1,6 @@
 using System.IO;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -376,7 +377,7 @@ public sealed class DeviceService : IAsyncDisposable
             // explicitly and say so, instead of blaming the device.
             if (!File.Exists(_tools.IdeviceDiagnosticsPath))
             {
-                device.BatteryHealthError = "инструмент диагностики не установлен";
+                device.BatteryHealthError = Loc.Get("L.Battery.Error.ToolMissing");
                 AppLog.Warn($"Battery health: {_tools.IdeviceDiagnosticsPath} not found");
                 return;
             }
@@ -397,7 +398,7 @@ public sealed class DeviceService : IAsyncDisposable
                         new[] { "-u", device.Udid, "ioregentry", entry },
                         ct).ConfigureAwait(false);
 
-                    if (result is null) { lastErr = "таймаут"; continue; }
+                    if (result is null) { lastErr = Loc.Get("L.Battery.Error.Timeout"); continue; }
 
                     if (result.StdOut.Contains("DesignCapacity", StringComparison.Ordinal))
                     {
@@ -409,7 +410,7 @@ public sealed class DeviceService : IAsyncDisposable
                     // to why this failed, and it is what ends up in front of the user.
                     var err = (result.StdErr ?? "").Trim();
                     if (err.Length > 0) lastErr = err.Length > 120 ? err[..120] : err;
-                    else if (result.StdOut.Trim().Length > 0) lastErr = "устройство не сообщает ёмкость";
+                    else if (result.StdOut.Trim().Length > 0) lastErr = Loc.Get("L.Battery.Error.NoCapacity");
                 }
 
                 if (text.Length == 0) await Task.Delay(700, ct).ConfigureAwait(false);
@@ -418,8 +419,8 @@ public sealed class DeviceService : IAsyncDisposable
             if (text.Length == 0)
             {
                 // Record why. Previously this returned silently, so the screen showed
-                // "разблокируйте устройство" even when that was not the actual cause.
-                device.BatteryHealthError = lastErr.Length > 0 ? lastErr : "нет ответа от устройства";
+                // "unlock the device" even when that was not the actual cause.
+                device.BatteryHealthError = lastErr.Length > 0 ? lastErr : Loc.Get("L.Battery.Error.NoResponse");
                 AppLog.Warn($"Battery health unavailable: {device.BatteryHealthError}");
                 return;
             }
@@ -440,7 +441,7 @@ public sealed class DeviceService : IAsyncDisposable
         catch (Exception ex)
         {
             // Swallowed before, which is why this failure was invisible in the log.
-            device.BatteryHealthError = "ошибка чтения";
+            device.BatteryHealthError = Loc.Get("L.Battery.Error.ReadFailed");
             AppLog.Warn($"Battery health failed: {ex.Message}");
         }
     }

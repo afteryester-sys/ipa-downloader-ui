@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -50,10 +51,31 @@ public readonly record struct DownloadProgress(
 public sealed class DownloadResult
 {
     public bool Success { get; init; }
+
     public string? IpaPath { get; init; }
+
+    /// <summary>Localized, user-facing failure message. Safe to show verbatim.</summary>
     public string? Error { get; init; }
+
+    /// <summary>Raw tool output behind <see cref="Error"/>. For the log, never for the UI.</summary>
+    public string? Detail { get; init; }
+
+    /// <summary>True when the ipatool session is no longer valid and the user must sign in again.</summary>
+    public bool SessionExpired { get; init; }
+
+    /// <summary>True when the failure was "the Apple ID does not own this app".</summary>
+    public bool LicenseRequired { get; init; }
+
     public static DownloadResult Ok(string path) => new() { Success = true, IpaPath = path };
-    public static DownloadResult Fail(string error) => new() { Error = error };
+
+    public static DownloadResult Fail(string error, string? detail = null) =>
+        new() { Error = error, Detail = detail };
+
+    public static DownloadResult Expired(string detail) =>
+        new() { Error = Loc.Get("L.Error.SessionExpired"), Detail = detail, SessionExpired = true };
+
+    public static DownloadResult NeedsLicense(string detail) =>
+        new() { Error = Loc.Get("L.Error.NotPurchased"), Detail = detail, LicenseRequired = true };
 }
 
 /// <summary>What to do when the target .ipa already exists on disk.</summary>
@@ -130,9 +152,10 @@ public sealed partial class DownloadService
     [GeneratedRegex(@"([A-Za-z]:\\[^\r\n""']+\.ipa)")]
     private static partial Regex IpaPathRegex();
 
-    /// <summary>Canonical error string used when the ipatool session has expired.
-    /// QueueService and the UI key on this to redirect the user to the login screen.</summary>
-    public const string SessionExpiredMessage =
+    /// <summary>Log marker written when the ipatool session has expired. Consumers key on
+    /// <see cref="DownloadResult.SessionExpired"/> (not on message text) to send the user
+    /// back to the login screen, so the wording can be localized freely.</summary>
+    public const string SessionExpiredDetail =
         "SESSION_EXPIRED: account file is not protected. Please sign in again.";
 
     /// <summary>
@@ -186,6 +209,40 @@ public sealed partial class DownloadService
         !string.IsNullOrEmpty(output) && LicenseRequiredRegex().IsMatch(output);
 
     /// <summary>
+    /// Turns raw ipatool output into a localized sentence. ipatool prints Go-level
+    /// diagnostics ("dial tcp: lookup p25-buy.itunes.apple.com: no such host"), which
+    /// told the user nothing and could never be translated; the raw line still goes to
+    /// the log via <see cref="DownloadResult.Detail"/>.
+    /// </summary>
+    public static string DescribeStoreFailure(string? output)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return Loc.Get("L.Error.DownloadFailed");
+
+        var lower = output.ToLowerInvariant();
+
+        if (AuthService.IsSessionExpiredError(output)) return Loc.Get("L.Error.SessionExpired");
+        if (LicenseRequiredRegex().IsMatch(output))    return Loc.Get("L.Error.NotPurchased");
+
+        if (lower.Contains("no such host") || lower.Contains("dial tcp")
+            || lower.Contains("network is unreachable") || lower.Contains("tls handshake")
+            || lower.Contains("connection reset") || lower.Contains("connection refused")
+            || lower.Contains("timed out") || lower.Contains("i/o timeout") || lower.Contains("timeout"))
+            return Loc.Get("L.Error.Network");
+
+        if (lower.Contains("500") || lower.Contains("502") || lower.Contains("503")
+            || lower.Contains("504") || lower.Contains("temporarily unavailable")
+            || lower.Contains("try again later"))
+            return Loc.Get("L.Error.StoreUnavailable");
+
+        if (lower.Contains("not available") || lower.Contains("no such app")
+            || lower.Contains("could not find") || lower.Contains("not found")
+            || lower.Contains("item not available") || lower.Contains("invalid item"))
+            return Loc.Get("L.Error.NotInStore");
+
+        return Loc.Get("L.Error.DownloadFailed");
+    }
+
+    /// <summary>
     /// Asks ipatool to obtain a license for the app.
     ///
     /// WARNING: this is NOT a read-only probe. ipatool has no "is it owned" query, so
@@ -232,8 +289,11 @@ public sealed partial class DownloadService
         }
     }
 
-    /// <summary>Obtains a license for a free app (ipatool purchase).</summary>
-    public async Task<(bool Success, string? Error)> PurchaseAsync(long appId, CancellationToken ct = default)
+    /// <summary>
+    /// Obtains a license for a free app (ipatool purchase). <c>Error</c> is already
+    /// localized; <c>SessionExpired</c> tells the caller to route the user to sign-in.
+    /// </summary>
+    public async Task<(bool Success, string? Error, bool SessionExpired)> PurchaseAsync(long appId, CancellationToken ct = default)
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
@@ -244,12 +304,17 @@ public sealed partial class DownloadService
             ct: ct).ConfigureAwait(false);
 
         if (result.Success || result.CombinedOutput.Contains("already", StringComparison.OrdinalIgnoreCase))
-            return (true, null);
+            return (true, null, false);
 
         if (AuthService.IsSessionExpiredError(result.CombinedOutput))
-            return (false, SessionExpiredMessage);
+        {
+            AppLog.Warn($"Purchase {appId}: {SessionExpiredDetail}");
+            return (false, Loc.Get("L.Error.SessionExpired"), true);
+        }
 
-        return (false, ExtractError(result.CombinedOutput));
+        var raw = ExtractError(result.CombinedOutput);
+        AppLog.Warn($"Purchase {appId} failed: {raw}");
+        return (false, DescribeStoreFailure(result.CombinedOutput), false);
     }
 
     /// <summary>
@@ -261,7 +326,7 @@ public sealed partial class DownloadService
     /// </summary>
     /// <param name="destinationFolder">
     /// Folder to save into. When null the managed Apps folder is used (queue downloads).
-    /// The "Скачать IPA" screen passes a user-chosen folder here.
+    /// The direct download screen passes a user-chosen folder here.
     /// </param>
     public async Task<DownloadResult> DownloadAsync(
         AppEntry app,
@@ -284,7 +349,8 @@ public sealed partial class DownloadService
         }
         catch (Exception ex)
         {
-            return DownloadResult.Fail($"Не удалось использовать папку «{targetFolder}»: {ex.Message}");
+            return DownloadResult.Fail(
+                Loc.Format("L.Error.FolderUnusable", targetFolder, ex.Message), ex.ToString());
         }
 
         var outputPath = BuildOutputPath(app, targetFolder);
@@ -304,7 +370,8 @@ public sealed partial class DownloadService
             switch (decision)
             {
                 case FileConflictDecision.Cancel:
-                    return DownloadResult.Fail($"Пропущено: файл «{Path.GetFileName(outputPath)}» уже существует.");
+                    return DownloadResult.Fail(
+                        Loc.Format("L.Error.FileExists", Path.GetFileName(outputPath)));
 
                 case FileConflictDecision.Replace:
                     replaceTarget = outputPath;
@@ -373,7 +440,7 @@ public sealed partial class DownloadService
             await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct).ConfigureAwait(false);
         }
 
-        return DownloadResult.Fail(lastError ?? "Download failed");
+        return DownloadResult.Fail(lastError ?? Loc.Get("L.Error.DownloadFailed"));
     }
 
     /// <summary>One ipatool download invocation. Returns the result plus whether the
@@ -490,7 +557,7 @@ public sealed partial class DownloadService
                 state.Touch();
 
                 // A segment we partly understood but which yielded no total is exactly
-                // the case that leaves the user with "всего неизвестно" — and it used to
+                // the case that leaves the user with "total unknown" — and it used to
                 // be invisible here, because matching the speed alone marked the segment
                 // as recognised and skipped the logging below. Sample a few of these so
                 // the real bar format can be read off the log instead of guessed at.
@@ -656,7 +723,7 @@ public sealed partial class DownloadService
             ct.ThrowIfCancellationRequested();
 
             TryDeleteStaleFiles(outputPath);
-            return (DownloadResult.Fail("Соединение зависло, повторная попытка…"), true);
+            return (DownloadResult.Fail(Loc.Get("L.Error.ConnectionStalled")), true);
         }
         finally
         {
@@ -667,7 +734,7 @@ public sealed partial class DownloadService
         if (watchdogFired)
         {
             TryDeleteStaleFiles(outputPath);
-            return (DownloadResult.Fail("Соединение зависло, повторная попытка…"), true);
+            return (DownloadResult.Fail(Loc.Get("L.Error.ConnectionStalled")), true);
         }
 
         var output = result.CombinedOutput;
@@ -697,19 +764,23 @@ public sealed partial class DownloadService
 
         // ---- Failure classification -------------------------------------------------
         if (AuthService.IsSessionExpiredError(output))
-            return (DownloadResult.Fail(SessionExpiredMessage), false);
+        {
+            AppLog.Warn($"Download {app.Name}: {SessionExpiredDetail}");
+            return (DownloadResult.Expired(output), false);
+        }
 
         var error = ExtractError(output);
+        AppLog.Warn($"Download {app.Name} failed: {error}");
 
         // Never retry a license problem: the caller resolves it with an explicit
         // purchase, and a blind retry would just pay another handshake for nothing.
         if (LicenseRequiredRegex().IsMatch(output))
-            return (DownloadResult.Fail(error), false);
+            return (DownloadResult.NeedsLicense(error), false);
 
         var isTransient = TransientRegex().IsMatch(output);
         if (isTransient) TryDeleteStaleFiles(outputPath);
 
-        return (DownloadResult.Fail(error), isTransient);
+        return (DownloadResult.Fail(DescribeStoreFailure(output), error), isTransient);
     }
 
     /// <summary>
@@ -854,7 +925,7 @@ public sealed partial class DownloadService
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            AppLog.Warn($"Диалог конфликта файлов не сработал ({ex.Message}); сохраняем оба файла.");
+            AppLog.Warn($"File conflict dialog failed ({ex.Message}); keeping both files.");
             return FileConflictDecision.KeepBoth;
         }
     }
@@ -880,8 +951,8 @@ public sealed partial class DownloadService
         catch (Exception ex)
         {
             AppLog.Warn(
-                $"Не удалось заменить «{Path.GetFileName(replaceTarget)}» ({ex.Message}); " +
-                $"новый файл сохранён как «{Path.GetFileName(result.IpaPath)}».");
+                $"Could not replace \"{Path.GetFileName(replaceTarget)}\" ({ex.Message}); " +
+                $"the new file was kept as \"{Path.GetFileName(result.IpaPath)}\".");
             return result;
         }
     }
@@ -896,7 +967,7 @@ public sealed partial class DownloadService
     /// data — reports a stale value. In practice that means 0 for the entire duration
     /// of the download, then the full size the instant ipatool closes the file.
     ///
-    /// That stale read is precisely why the bar sat on "Соединение с App Store" and
+    /// That stale read is precisely why the bar sat on "Connecting to the App Store" and
     /// then jumped straight to finished. Opening a handle and querying the file object
     /// itself returns the true current length.
     ///

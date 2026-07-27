@@ -52,7 +52,7 @@ public sealed partial class InstallService
         // The bundled ideviceinstaller uses libzip, whose zip_open() opens files with
         // the narrow (ANSI) CRT and therefore FAILS ("zip_open: ...: 18" = ZIP_ER_OPEN)
         // when the path contains characters outside the current code page — e.g. a
-        // Cyrillic folder name like "C:\...\iPa Файлы\MAX.ipa". To be safe we stage any
+        // Cyrillic folder name like "C:\...\iPa Files\MAX.ipa". To be safe we stage any
         // non-ASCII path into a guaranteed-ASCII folder and install from there.
         string installPath = ipaPath;
         string? stagedCopy = null;

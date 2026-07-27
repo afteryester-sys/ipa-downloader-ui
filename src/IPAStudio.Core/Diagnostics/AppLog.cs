@@ -32,7 +32,7 @@ public static class AppLog
     /// lines every few seconds. Those calls now log at Debug level, leaving the default
     /// log to actual state changes, warnings and errors.
     ///
-    /// Set from the user's "Подробные логи" setting at startup.
+    /// Set from the user's verbose logging setting at startup.
     /// </summary>
     public static volatile bool Verbose;
 

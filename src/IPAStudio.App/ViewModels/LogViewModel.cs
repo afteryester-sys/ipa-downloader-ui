@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Diagnostics;
 
 namespace IPAStudio.App.ViewModels;
@@ -45,11 +46,11 @@ public sealed partial class LogViewModel : ObservableObject, IDisposable
         try
         {
             Clipboard.SetText(string.IsNullOrEmpty(Text) ? " " : Text);
-            Flash("Скопировано в буфер обмена");
+            Flash(Loc.Get("L.Logs.Copied"));
         }
         catch
         {
-            Flash("Не удалось скопировать");
+            Flash(Loc.Get("L.Common.CopyFailed"));
         }
     }
 

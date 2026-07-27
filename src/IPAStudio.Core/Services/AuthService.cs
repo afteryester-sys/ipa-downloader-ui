@@ -58,7 +58,7 @@ public sealed partial class AuthService
             first = await RunLoginAsync(email, password, authCode: null, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { AppLog.Error("Login step 1 threw.", ex); return AuthResult.Fail(ex.Message); }
+        catch (Exception ex) { AppLog.Error("Login step 1 threw.", ex); return AuthResult.Fail(ClassifyException(ex), ex.Message); }
 
         // Success (no 2FA on the account) -> done.
         if (first.Success)
@@ -78,7 +78,10 @@ public sealed partial class AuthService
             if (IsICloudNotFoundError(first.CombinedOutput))
                 return AuthResult.ICloudMissing(errText);
 
-            return AuthResult.Fail(errText);
+            if (IsSessionExpiredError(first.CombinedOutput))
+                return AuthResult.Expired(errText);
+
+            return AuthResult.Fail(Classify(first.CombinedOutput), errText);
         }
 
         // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
@@ -91,7 +94,7 @@ public sealed partial class AuthService
         if (string.IsNullOrWhiteSpace(code))
         {
             AppLog.Info("Login: 2FA entry cancelled by the user.");
-            return AuthResult.Fail("Sign-in was cancelled.");
+            return AuthResult.Fail(AuthFailureReason.Cancelled);
         }
 
         AppLog.Info("Login: step 2 (with 2FA code).");
@@ -101,7 +104,7 @@ public sealed partial class AuthService
             second = await RunLoginAsync(email, password, code.Trim(), ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { AppLog.Error("Login step 2 threw.", ex); return AuthResult.Fail(ex.Message); }
+        catch (Exception ex) { AppLog.Error("Login step 2 threw.", ex); return AuthResult.Fail(ClassifyException(ex), ex.Message); }
 
         if (second.Success)
         {
@@ -112,9 +115,9 @@ public sealed partial class AuthService
         // Wrong/expired code -> a clearer message when ipatool says so.
         var lower = second.CombinedOutput.ToLowerInvariant();
         if (lower.Contains("rejected") || lower.Contains("invalid") || RequiresTwoFactor(second.CombinedOutput))
-            return AuthResult.Fail("The verification code was incorrect. Please try again.");
+            return AuthResult.Fail(AuthFailureReason.WrongCode, ExtractError(second.CombinedOutput));
 
-        return AuthResult.Fail(ExtractError(second.CombinedOutput));
+        return AuthResult.Fail(Classify(second.CombinedOutput), ExtractError(second.CombinedOutput));
 
         AuthResult Complete(AccountInfo? acc)
         {
@@ -299,6 +302,57 @@ public sealed partial class AuthService
             || (lower.Contains("2fa") && lower.Contains("required"))
             || (lower.Contains("two-factor") && lower.Contains("required"));
     }
+
+    /// <summary>
+    /// Maps raw ipatool/Apple output onto a <see cref="AuthFailureReason"/>. Matching is
+    /// done on substrings because the fork prints Apple's own wording verbatim and there
+    /// is no machine-readable error code to key on.
+    /// </summary>
+    public static AuthFailureReason Classify(string output)
+    {
+        var lower = output.ToLowerInvariant();
+
+        if (IsICloudNotFoundError(output)) return AuthFailureReason.ICloudNotFound;
+        if (IsSessionExpiredError(output)) return AuthFailureReason.SessionExpired;
+
+        if (lower.Contains("too many") || lower.Contains("try again later") || lower.Contains("-20301")
+            || lower.Contains("temporarily locked out") || lower.Contains("rate limit"))
+            return AuthFailureReason.RateLimited;
+
+        if (lower.Contains("disabled") || lower.Contains("locked") || lower.Contains("appleid.apple.com")
+            || lower.Contains("-20209"))
+            return AuthFailureReason.AccountLocked;
+
+        if (lower.Contains("incorrect") || lower.Contains("bad credentials") || lower.Contains("wrong password")
+            || lower.Contains("invalid password") || lower.Contains("authentication failed")
+            || lower.Contains("-20101") || lower.Contains("unauthorized"))
+            return AuthFailureReason.BadCredentials;
+
+        if (lower.Contains("no such host") || lower.Contains("dial tcp") || lower.Contains("i/o timeout")
+            || lower.Contains("timeout") || lower.Contains("timed out") || lower.Contains("connection refused")
+            || lower.Contains("connection reset") || lower.Contains("tls handshake")
+            || lower.Contains("network is unreachable") || lower.Contains("eof"))
+            return AuthFailureReason.Network;
+
+        if (lower.Contains("is not recognized") || lower.Contains("cannot find the file")
+            || lower.Contains("no such file") || lower.Contains("access is denied")
+            || lower.Contains("permission denied"))
+            return AuthFailureReason.ToolFailure;
+
+        return AuthFailureReason.Unknown;
+    }
+
+    /// <summary>Classifies an exception thrown while starting or driving ipatool.</summary>
+    private static AuthFailureReason ClassifyException(Exception ex) => ex switch
+    {
+        TimeoutException                                     => AuthFailureReason.Network,
+        HttpRequestException                                 => AuthFailureReason.Network,
+        System.Net.Sockets.SocketException                    => AuthFailureReason.Network,
+        System.ComponentModel.Win32Exception                  => AuthFailureReason.ToolFailure,
+        FileNotFoundException or DirectoryNotFoundException   => AuthFailureReason.ToolFailure,
+        UnauthorizedAccessException                           => AuthFailureReason.ToolFailure,
+        _                                                     => Classify(ex.Message),
+    };
 
     private static string ExtractError(string output)
     {

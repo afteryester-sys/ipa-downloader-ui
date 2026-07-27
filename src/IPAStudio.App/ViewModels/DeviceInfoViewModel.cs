@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -66,7 +67,7 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _batteryCharging;
 
-    /// <summary>Transient "Скопировано" confirmation; empty when nothing to show.</summary>
+    /// <summary>Transient "Copied" confirmation; empty when nothing to show.</summary>
     [ObservableProperty]
     private string _copyStatus = "";
 
@@ -123,8 +124,8 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             : !string.IsNullOrWhiteSpace(_auth.CurrentAccount?.Email)
                 ? _auth.CurrentAccount!.Email
                 : IsLoading
-                    ? "Определение…"
-                    : "Недоступно (iOS скрывает Apple ID)";
+                    ? Loc.Get("L.DeviceInfo.Detecting")
+                    : Loc.Get("L.DeviceInfo.AppleIdHidden");
 
         StorageSummary = FormatStorage(_device);
         StorageUsedPercent = _device is { TotalDiskCapacity: > 0, FreeDiskSpace: >= 0 }
@@ -137,24 +138,28 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         Rows.Clear();
         // Always show the battery-capacity row, even when the value can't be read,
         // so the item is present in the list (with an honest fallback string).
-        Rows.Add(new DeviceInfoRow { Label = "Емкость аккумулятора", Value = FormatBatteryHealth(_device) });
-        AddRow("Модель", _device.Model);
-        AddRow("Идентификатор модели", _device.ProductType);
-        AddRow("Версия iOS", _device.OsVersion);
-        AddRow("Сборка", _device.BuildVersion);
-        AddRow("Тип устройства", _device.DeviceClass);
+        Rows.Add(new DeviceInfoRow
+        {
+            Label = Loc.Get("L.DeviceInfo.BatteryCapacity"),
+            Value = FormatBatteryHealth(_device),
+        });
+        AddRow(Loc.Get("L.DeviceInfo.Model"), _device.Model);
+        AddRow(Loc.Get("L.DeviceInfo.ModelIdentifier"), _device.ProductType);
+        AddRow(Loc.Get("L.DeviceInfo.OsVersion"), _device.OsVersion);
+        AddRow(Loc.Get("L.DeviceInfo.Build"), _device.BuildVersion);
+        AddRow(Loc.Get("L.DeviceInfo.DeviceClass"), _device.DeviceClass);
         // Identifiers get a copy button: these are the values people transcribe into
         // warranty checks, carrier forms and provisioning profiles, where a typo in a
         // 40-character UDID is both easy to make and hard to spot.
-        AddRow("Серийный номер", _device.SerialNumber, copyable: true);
+        AddRow(Loc.Get("L.DeviceInfo.SerialNumber"), _device.SerialNumber, copyable: true);
         AddRow("IMEI", _device.Imei, copyable: true);
         AddRow("IMEI 2", _device.Imei2, copyable: true);
         AddRow("MEID", _device.Meid, copyable: true);
         AddRow("UDID", _device.Udid, copyable: true);
-        AddRow("Номер телефона", _device.PhoneNumber);
-        AddRow("Регион", _device.RegionInfo);
-        AddRow("Wi-Fi адрес", _device.WifiAddress);
-        AddRow("Bluetooth адрес", _device.BluetoothAddress);
+        AddRow(Loc.Get("L.DeviceInfo.PhoneNumber"), _device.PhoneNumber);
+        AddRow(Loc.Get("L.DeviceInfo.Region"), _device.RegionInfo);
+        AddRow(Loc.Get("L.DeviceInfo.WifiAddress"), _device.WifiAddress);
+        AddRow(Loc.Get("L.DeviceInfo.BluetoothAddress"), _device.BluetoothAddress);
     }
 
     private void AddRow(string label, string value, bool copyable = false)
@@ -165,7 +170,7 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 
     /// <summary>
     /// Formats the remaining battery capacity (iOS "Maximum Capacity") plus cycle
-    /// count when available, e.g. "89% · 320 циклов". Empty when nothing was read.
+    /// count when available, e.g. "89% · 320 cycles". Empty when nothing was read.
     /// </summary>
     private string FormatBatteryHealth(Device device)
     {
@@ -173,21 +178,21 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         if (device.BatteryHealthPercent >= 0)
             parts.Add($"{device.BatteryHealthPercent}%");
         if (device.BatteryCycleCount >= 0)
-            parts.Add($"{device.BatteryCycleCount} циклов");
+            parts.Add(Loc.Format("L.DeviceInfo.Cycles", device.BatteryCycleCount));
 
         if (parts.Count > 0)
             return string.Join(" · ", parts);
 
-        if (IsLoading) return "Определение…";
+        if (IsLoading) return Loc.Get("L.DeviceInfo.Detecting");
 
         // Battery health comes from the diagnostics relay (AppleSmartBattery), which iOS
         // only exposes on an unlocked, trusted device — and some iOS builds close it over
-        // USB entirely. The old text always said "разблокируйте устройство", which was
+        // USB entirely. The old text always said "unlock the device", which was
         // misleading whenever that was not the cause, so show what actually happened when
         // we know it.
         return string.IsNullOrEmpty(device.BatteryHealthError)
-            ? "Недоступно — разблокируйте устройство и разрешите доступ"
-            : $"Недоступно — {device.BatteryHealthError}";
+            ? Loc.Get("L.Battery.Unavailable")
+            : Loc.Format("L.Battery.UnavailableReason", device.BatteryHealthError);
     }
 
     private static string FormatStorage(Device device)
@@ -198,7 +203,7 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 
         var used = FormatBytes(device.TotalDiskCapacity - device.FreeDiskSpace);
         var free = FormatBytes(device.FreeDiskSpace);
-        return $"Занято {used} из {total} · свободно {free}";
+        return Loc.Format("L.DeviceInfo.StorageSummary", used, total, free);
     }
 
     private static string FormatBytes(long bytes)
@@ -207,7 +212,11 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         // user sees it — iOS Settings, Finder and iTunes. Using binary units
         // (÷1024) here made a 128 GB iPhone read as "119 GB", which looked wrong.
         // Divide by 1000 so our numbers match what the device itself shows.
-        string[] units = { "Б", "КБ", "МБ", "ГБ", "ТБ" };
+        string[] units =
+        {
+            Loc.Get("L.Unit.B"), Loc.Get("L.Unit.KB"), Loc.Get("L.Unit.MB"),
+            Loc.Get("L.Unit.GB"), Loc.Get("L.Unit.TB"),
+        };
         double value = bytes;
         var unit = 0;
         while (value >= 1000 && unit < units.Length - 1)
@@ -234,11 +243,11 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             // argument overload with retryTimes/retryDelay belongs to WinForms, not WPF.
             // copy: true keeps the value on the clipboard after this app exits.
             Clipboard.SetDataObject(value, true);
-            _ = FlashCopiedAsync("Скопировано");
+            _ = FlashCopiedAsync(Loc.Get("L.Common.Copied"));
         }
         catch
         {
-            _ = FlashCopiedAsync("Не удалось скопировать");
+            _ = FlashCopiedAsync(Loc.Get("L.Common.CopyFailed"));
         }
     }
 

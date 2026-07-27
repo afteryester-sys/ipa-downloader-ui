@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Windows;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Services;
 
 namespace IPAStudio.App.Views;
@@ -27,14 +28,13 @@ public partial class FileConflictDialog : Window
     {
         InitializeComponent();
 
-        AppLine.Text =
-            $"Приложение «{request.AppName}» уже было скачано ранее. " +
-            "Выберите, что сделать с существующим файлом.";
+        AppLine.Text = Loc.Format("L.Conflict.AppLine", request.AppName);
 
         FileNameLine.Text = Path.GetFileName(request.ExistingPath);
-        FileMetaLine.Text =
-            $"{FormatBytes(request.ExistingSizeBytes)} · сохранён " +
-            request.ExistingModifiedLocal.ToString("d MMMM yyyy, HH:mm", CultureInfo.CurrentCulture);
+        FileMetaLine.Text = Loc.Format(
+            "L.Conflict.FileMeta",
+            FormatBytes(request.ExistingSizeBytes),
+            request.ExistingModifiedLocal.ToString("d MMMM yyyy, HH:mm", CultureInfo.CurrentCulture));
     }
 
     private void OnReplace(object sender, RoutedEventArgs e) => Close(FileConflictDecision.Replace);
@@ -51,8 +51,12 @@ public partial class FileConflictDialog : Window
 
     private static string FormatBytes(long bytes)
     {
-        if (bytes <= 0) return "размер неизвестен";
-        string[] units = ["Б", "КБ", "МБ", "ГБ"];
+        if (bytes <= 0) return Loc.Get("L.Conflict.SizeUnknown");
+        string[] units =
+        [
+            Loc.Get("L.Unit.B"), Loc.Get("L.Unit.KB"),
+            Loc.Get("L.Unit.MB"), Loc.Get("L.Unit.GB"),
+        ];
         double value = bytes;
         var unit = 0;
         while (value >= 1024 && unit < units.Length - 1)

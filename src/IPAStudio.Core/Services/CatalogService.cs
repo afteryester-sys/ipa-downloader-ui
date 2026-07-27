@@ -196,8 +196,40 @@ public sealed class CatalogService
     /// Looks up an app in the App Store by its Bundle ID using the iTunes Lookup API.
     /// Returns the found entries (usually 0 or 1).
     /// </summary>
-    public async Task<IReadOnlyList<AppEntry>> SearchByBundleIdAsync(
+    public Task<IReadOnlyList<AppEntry>> SearchByBundleIdAsync(
         string bundleId,
+        CancellationToken ct = default)
+        => LookupAsync($"bundleId={Uri.EscapeDataString(bundleId)}", bundleId, ct);
+
+    /// <summary>
+    /// Looks up an app by its numeric App Store id — the id a user gets from a store
+    /// link (apps.apple.com/…/id389801252) or from the Share sheet.
+    /// </summary>
+    public Task<IReadOnlyList<AppEntry>> LookupByAppStoreIdAsync(
+        long appStoreId,
+        CancellationToken ct = default)
+        => LookupAsync($"id={appStoreId}", appStoreId.ToString(), ct);
+
+    /// <summary>
+    /// Resolves whatever the user typed (bundle id, numeric id or store link) into
+    /// catalog entries. Unrecognized input yields an empty list rather than a network call.
+    /// </summary>
+    public Task<IReadOnlyList<AppEntry>> FindAsync(AppQuery query, CancellationToken ct = default)
+        => query.Kind switch
+        {
+            AppQueryKind.BundleId   => SearchByBundleIdAsync(query.BundleId!, ct),
+            AppQueryKind.AppStoreId => LookupByAppStoreIdAsync(query.AppStoreId, ct),
+            _                       => Task.FromResult<IReadOnlyList<AppEntry>>(Array.Empty<AppEntry>()),
+        };
+
+    /// <summary>
+    /// Shared iTunes Lookup call. <paramref name="queryParam"/> is the already-escaped
+    /// selector ("bundleId=..." or "id=..."); <paramref name="fallbackName"/> is used as
+    /// the display name when Apple returns an entry without one.
+    /// </summary>
+    private async Task<IReadOnlyList<AppEntry>> LookupAsync(
+        string queryParam,
+        string fallbackName,
         CancellationToken ct = default)
     {
         var results = new List<AppEntry>();
@@ -210,7 +242,7 @@ public sealed class CatalogService
             ct.ThrowIfCancellationRequested();
             try
             {
-                var url = $"https://itunes.apple.com/lookup?bundleId={Uri.EscapeDataString(bundleId)}&entity=software"
+                var url = $"https://itunes.apple.com/lookup?{queryParam}&entity=software"
                           + ItunesStorefront.CountryParam(storefront);
                 using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
@@ -223,7 +255,7 @@ public sealed class CatalogService
                     foreach (var item in arr.EnumerateArray())
                     {
                         if (!item.TryGetProperty("trackId", out var trackId)) continue;
-                        var name = GetString(item, "trackName") ?? GetString(item, "trackCensoredName") ?? bundleId;
+                        var name = GetString(item, "trackName") ?? GetString(item, "trackCensoredName") ?? fallbackName;
                         var entry = new AppEntry
                         {
                             Name = name,

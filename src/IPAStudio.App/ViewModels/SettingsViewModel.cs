@@ -68,8 +68,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
         AppLog.Verbose = value;
         AppLog.Info(value
-            ? "Подробные логи включены."
-            : "Подробные логи выключены — рутинные вызовы больше не пишутся.");
+            ? "Verbose logging enabled."
+            : "Verbose logging disabled - routine calls are no longer written.");
     }
 
     // Install mode: three RadioButtons bound via bool helpers below.

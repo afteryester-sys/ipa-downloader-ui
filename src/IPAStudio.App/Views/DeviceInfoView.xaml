@@ -137,14 +137,14 @@
                                          view model, not on the row, so bind past the item's
                                          DataContext via the parent ItemsControl. -->
                                     <Button Grid.Column="2"
-                                            Content="Копировать"
+                                            Content="{DynamicResource L.Common.Copy}"
                                             Style="{StaticResource Button.Ghost}"
                                             Padding="8,2"
                                             FontSize="11"
                                             VerticalAlignment="Top"
                                             HorizontalAlignment="Right"
                                             Cursor="Hand"
-                                            ToolTip="Скопировать в буфер обмена"
+                                            ToolTip="{DynamicResource L.Common.CopyToClipboard}"
                                             Visibility="{Binding Copyable, Converter={StaticResource BoolToVis}}"
                                             Command="{Binding DataContext.CopyValueCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"

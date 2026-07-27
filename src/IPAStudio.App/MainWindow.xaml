@@ -123,7 +123,7 @@
                         <DropShadowEffect BlurRadius="20" ShadowDepth="3" Opacity="0.45" Color="#000000" />
                     </Border.Effect>
                     <StackPanel MinWidth="220">
-                        <TextBlock Text="Связаться с разработчиком"
+                        <TextBlock Text="{DynamicResource L.Contact.Title}"
                                    FontFamily="{StaticResource Font.Body}" FontSize="12"
                                    FontWeight="SemiBold" Foreground="{StaticResource Brush.Text}"
                                    Margin="0,0,0,10" />
@@ -142,7 +142,7 @@
                                            Foreground="{StaticResource Brush.Accent}"
                                            VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <StackPanel>
-                                    <TextBlock Text="Написать письмо"
+                                    <TextBlock Text="{DynamicResource L.Contact.Email}"
                                                FontFamily="{StaticResource Font.Body}" FontSize="11"
                                                Foreground="{StaticResource Brush.TextMuted}" />
                                     <TextBlock Text="leq77751@gmail.com"
@@ -169,7 +169,7 @@
                                            Foreground="{StaticResource Brush.Accent}"
                                            VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <StackPanel>
-                                    <TextBlock Text="Написать в Telegram"
+                                    <TextBlock Text="{DynamicResource L.Contact.Telegram}"
                                                FontFamily="{StaticResource Font.Body}" FontSize="11"
                                                Foreground="{StaticResource Brush.TextMuted}" />
                                     <TextBlock Text="@alfredyester"

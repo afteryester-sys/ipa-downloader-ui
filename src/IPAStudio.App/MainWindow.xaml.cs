@@ -49,7 +49,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Opens the "Скачать IPA" page from the corner flyout.
+    /// Opens the direct download page from the corner flyout.
     ///
     /// This is a Click handler rather than a Command binding because the flyout's
     /// DataContext is the Updater viewmodel, so a binding would look for the command
