@@ -457,6 +457,8 @@
     <sys:String x:Key="L.ICloud.BadCode">That code was not accepted. Try the newest one.</sys:String>
     <sys:String x:Key="L.ICloud.ResendCode">Send the code again</sys:String>
     <sys:String x:Key="L.ICloud.SendingCode">Requesting a new code…</sys:String>
+    <sys:String x:Key="L.ICloud.SendSms">Text the code instead</sys:String>
+    <sys:String x:Key="L.ICloud.SendingSms">Sending the code by text…</sys:String>
     <sys:String x:Key="L.ICloud.CodeResent">A new code was sent. Enter that one.</sys:String>
     <sys:String x:Key="L.ICloud.CodeResendFailed">Apple did not send a code. Wait a minute and try again.</sys:String>
     <sys:String x:Key="L.ICloud.CodeSentDevice">The code was sent to your Apple devices signed in to this Apple ID.</sys:String>

@@ -64,6 +64,14 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _twoFactorDeliveryText = "";
 
+    /// <summary>
+    /// True when the code went to the account's other Apple devices and a trusted number is
+    /// on file, so switching to a text message is worth offering. Hidden once the code has
+    /// already been texted - there is nothing left to switch to.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canSendSms;
+
     [ObservableProperty]
     private bool _isSignedIn;
 
@@ -205,6 +213,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
                 NeedsTwoFactorCode = true;
                 HasError = false;
                 TwoFactorDeliveryText = DescribeCodeDelivery();
+                CanSendSms = _icloud.CanSendTwoFactorSms && _icloud.TwoFactorDelivery == "device";
                 StatusText = Loc.Get("L.ICloud.EnterCode");
                 break;
 
@@ -233,18 +242,29 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     /// the password too — the usual reason to be here is a push that never arrived.
     /// </summary>
     [RelayCommand]
-    private async Task ResendCode()
+    private Task ResendCode() => RequestCodeAsync(preferSms: false);
+
+    /// <summary>
+    /// Asks Apple to text the code instead. The point of a separate command is that the
+    /// other Apple device is not always to hand, and the push route gives the user no way
+    /// out on its own.
+    /// </summary>
+    [RelayCommand]
+    private Task SendCodeBySms() => RequestCodeAsync(preferSms: true);
+
+    private async Task RequestCodeAsync(bool preferSms)
     {
         if (IsBusy) return;
 
         IsBusy = true;
         HasError = false;
-        StatusText = Loc.Get("L.ICloud.SendingCode");
+        StatusText = Loc.Get(preferSms ? "L.ICloud.SendingSms" : "L.ICloud.SendingCode");
         try
         {
-            var sent = await _icloud.ResendTwoFactorCodeAsync().ConfigureAwait(true);
+            var sent = await _icloud.ResendTwoFactorCodeAsync(preferSms).ConfigureAwait(true);
             TwoFactorCode = "";
             TwoFactorDeliveryText = DescribeCodeDelivery();
+            CanSendSms = _icloud.CanSendTwoFactorSms && _icloud.TwoFactorDelivery == "device";
 
             if (sent) StatusText = Loc.Get("L.ICloud.CodeResent");
             else Fail(Loc.Get("L.ICloud.CodeResendFailed"));
@@ -279,6 +299,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         IsSignedIn = false;
         NeedsTwoFactorCode = false;
         TwoFactorDeliveryText = "";
+        CanSendSms = false;
         AccountName = "";
         Password = "";
         TwoFactorCode = "";

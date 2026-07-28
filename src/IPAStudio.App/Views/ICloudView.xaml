@@ -116,6 +116,15 @@
                                 Command="{Binding ResendCodeCommand}"
                                 IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                 HorizontalAlignment="Stretch" Margin="0,8,0,0" />
+
+                        <!-- Only while the code is going to the devices: once it has been
+                             texted there is nothing to switch to. -->
+                        <Button Content="{DynamicResource L.ICloud.SendSms}"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding SendCodeBySmsCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding CanSendSms, Converter={StaticResource BoolToVis}}"
+                                HorizontalAlignment="Stretch" Margin="0,8,0,0" />
                         <Button Content="{DynamicResource L.ICloud.StartOver}"
                                 Style="{StaticResource Button.Ghost}"
                                 Command="{Binding SignOutCommand}"

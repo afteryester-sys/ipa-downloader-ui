@@ -53,6 +53,17 @@ public sealed class ICloudService : IDisposable
     private string? _codePhoneNumber;
     private bool _hasTrustedDevices;
 
+    /// <summary>How Apple actually delivered the pending code.</summary>
+    private enum TwoFactorRoute { Device, Phone }
+
+    /// <summary>
+    /// Set from Apple's answer to the delivery request, never guessed from the handshake.
+    /// It decides which endpoint the code is submitted to, and the two are not
+    /// interchangeable: a code pushed to a trusted device is refused by the phone endpoint
+    /// with the same "incorrect code" error as a wrong code.
+    /// </summary>
+    private TwoFactorRoute _codeRoute = TwoFactorRoute.Device;
+
     // Session state from a successful sign-in.
     private string? _sessionId;
     private string? _scnt;
@@ -92,10 +103,19 @@ public sealed class ICloudService : IDisposable
     /// Worth showing: an account with no second Apple device gets an SMS, and someone
     /// staring at "check your other device" has no reason to look at their phone.
     /// </summary>
-    public string? TwoFactorPhoneNumber => _codePhoneId is null ? null : _codePhoneNumber;
+    public string? TwoFactorPhoneNumber =>
+        _codeRoute == TwoFactorRoute.Phone ? _codePhoneNumber : null;
 
     /// <summary>"sms", "voice" or "device" — how the pending code was delivered.</summary>
-    public string TwoFactorDelivery => _codePhoneId is null ? "device" : _codePushMode;
+    public string TwoFactorDelivery =>
+        _codeRoute == TwoFactorRoute.Phone ? _codePushMode : "device";
+
+    /// <summary>
+    /// True when Apple gave us a trusted number, so falling back to a text message is
+    /// possible. Independent of the route actually used: the point is to offer the switch
+    /// to someone whose other Apple device is not to hand.
+    /// </summary>
+    public bool CanSendTwoFactorSms => _codePhoneId is not null;
 
     // ─────────────────────────── sign-in ───────────────────────────
 
@@ -224,13 +244,14 @@ public sealed class ICloudService : IDisposable
 
         try
         {
-            var phoneFirst = _codePhoneId is not null;
+            var phoneFirst = _codeRoute == TwoFactorRoute.Phone;
 
             var ok = await TryVerifyAsync(code, usePhone: phoneFirst, ct).ConfigureAwait(false);
 
             // Only the route can be wrong here, so retry the other one once. Apple counts
-            // validation attempts, so this is deliberately a single retry.
-            if (!ok && _codePhoneId is not null)
+            // validation attempts, so this is deliberately a single retry, and only when
+            // the other route is actually available.
+            if (!ok && (phoneFirst || _codePhoneId is not null))
                 ok = await TryVerifyAsync(code, usePhone: !phoneFirst, ct).ConfigureAwait(false);
 
             if (!ok) return ICloudSignInResult.InvalidCredentials;
@@ -299,6 +320,7 @@ public sealed class ICloudService : IDisposable
         _codePhoneNumber = null;
         _codePushMode = "sms";
         _hasTrustedDevices = false;
+        _codeRoute = TwoFactorRoute.Device;
 
         try
         {
@@ -313,22 +335,28 @@ public sealed class ICloudService : IDisposable
 
             if (handshake is null) return;
 
-            _hasTrustedDevices = handshake["trustedDevices"] is JsonArray { Count: > 0 };
-
-            var phones = FindTrustedPhoneNumbers(handshake);
             var noDevices = handshake["noTrustedDevices"]?.GetValue<bool>() ?? false;
 
-            // Prefer the trusted-device push when the account has one: it is the route
-            // Apple pushes to by default, and it needs no phone id.
-            if (_hasTrustedDevices && !noDevices) return;
+            // Apple stopped listing trustedDevices in the HSA2 handshake: accounts that
+            // plainly do have other Apple devices come back with trustedPhoneNumbers only.
+            // So the absence of the array proves nothing, and treating it as "no devices"
+            // is what used to send every account down the SMS route. The one negative
+            // Apple does state explicitly is noTrustedDevices.
+            _hasTrustedDevices = !noDevices;
 
-            if (phones is { Count: > 0 } && phones[0] is JsonObject first)
+            // The number is read even when the device push is available, so the user can
+            // switch to a text message from the UI without another handshake.
+            if (FindTrustedPhoneNumbers(handshake) is { Count: > 0 } phones &&
+                phones[0] is JsonObject first)
             {
                 _codePhoneId = first["id"]?.GetValue<int>() ?? 1;
                 _codePushMode = first["pushMode"]?.GetValue<string>() ?? "sms";
                 _codePhoneNumber = first["numberWithDialCode"]?.GetValue<string>()
                                    ?? first["num"]?.GetValue<string>();
             }
+
+            AppLog.Info($"icloud: 2FA options — devices={(_hasTrustedDevices ? "yes" : "no")}, " +
+                        $"phone={(_codePhoneId is null ? "none" : _codePushMode)}");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -369,24 +397,50 @@ public sealed class ICloudService : IDisposable
     }
 
     /// <summary>
-    /// Asks Apple to send the code. For trusted devices this is a PUT with no body, which
-    /// recent Apple builds require before anything is pushed — without it the user waits
-    /// for a code that never arrives.
+    /// Asks Apple to send the code, preferring the push to the account's other Apple
+    /// devices — that is what the user expects, and a text message is the fallback rather
+    /// than the default. The trusted-device push is a PUT with no body, which recent Apple
+    /// builds require before anything is delivered at all.
     ///
-    /// Failure is deliberately not fatal: Apple often sends the code on its own (that is
-    /// the case for accounts with a single trusted phone number), and re-requesting would
-    /// then invalidate the code the user is already holding.
+    /// Failure is deliberately not fatal: Apple often sends a code on its own during the
+    /// handshake, and the route Apple actually used is recorded in <see cref="_codeRoute"/>
+    /// so the code is submitted to the matching endpoint.
     /// </summary>
     private async Task TriggerCodeDeliveryAsync(CancellationToken ct)
     {
-        if (_codePhoneId is not null)
+        _codeRoute = TwoFactorRoute.Device;
+
+        // Apple says outright that this account has no other device to push to, so asking
+        // would only waste a request and delay the text message.
+        if (!_hasTrustedDevices && _codePhoneId is not null)
         {
-            // Apple auto-sends to the only number on the account, so asking again would
-            // supersede the code the user just received.
-            AppLog.Info($"iCloud 2FA: code sent by {_codePushMode} to {_codePhoneNumber ?? "the trusted number"}");
+            if (await RequestPhoneCodeAsync(ct).ConfigureAwait(false)) return;
+        }
+        else if (await RequestDevicePushAsync(ct).ConfigureAwait(false))
+        {
             return;
         }
+        else if (_codePhoneId is not null)
+        {
+            // The push was refused - typically 400/403/412 on an account whose only second
+            // factor is a phone number. A text message is the remaining route.
+            AppLog.Info("icloud: the device push was refused, falling back to a text message");
+            if (await RequestPhoneCodeAsync(ct).ConfigureAwait(false)) return;
+        }
 
+        // Nothing worked, or there was nowhere to fall back to. Not fatal: Apple often sends
+        // a code on its own during the handshake, and the user may already be holding one.
+        AppLog.Warn("icloud: could not confirm how the 2FA code was sent; " +
+                    "waiting for whatever Apple delivered on its own");
+    }
+
+    /// <summary>
+    /// Asks Apple to push the code to the account's trusted devices. Since iOS 26.4 this
+    /// explicit request is required - without it no code is ever delivered and the user
+    /// waits at the prompt forever. Apple answers 202, not 200.
+    /// </summary>
+    private async Task<bool> RequestDevicePushAsync(CancellationToken ct)
+    {
         try
         {
             using var response = await SendAuthAsync(
@@ -394,14 +448,65 @@ public sealed class ICloudService : IDisposable
                 .ConfigureAwait(false);
             CaptureSessionHeaders(response);
 
-            AppLog.Info(response.IsSuccessStatusCode
-                ? "iCloud 2FA: code pushed to the trusted devices"
-                : $"iCloud 2FA: push request returned {(int)response.StatusCode}");
+            if (response.IsSuccessStatusCode)
+            {
+                _codeRoute = TwoFactorRoute.Device;
+                AppLog.Info($"icloud: 2FA code pushed to the trusted devices " +
+                            $"({(int)response.StatusCode})");
+                return true;
+            }
+
+            var reason = await ReadServiceErrorAsync(response, ct).ConfigureAwait(false);
+            AppLog.Warn($"icloud: the 2FA device push returned {(int)response.StatusCode} {reason}");
+            return false;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            AppLog.Warn($"iCloud 2FA: could not trigger the push ({ex.Message})");
+            AppLog.Warn($"icloud: could not request the 2FA device push ({ex.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Asks Apple to text or call the trusted number. The mode must be the one Apple
+    /// reported for that number: hard-coding "sms" makes it reject every code on an account
+    /// set up for a voice call.
+    /// </summary>
+    private async Task<bool> RequestPhoneCodeAsync(CancellationToken ct)
+    {
+        if (_codePhoneId is null) return false;
+
+        try
+        {
+            var body = new JsonObject
+            {
+                ["phoneNumber"] = new JsonObject { ["id"] = _codePhoneId },
+                ["mode"] = _codePushMode,
+            };
+
+            using var response = await SendAuthAsync(
+                HttpMethod.Put, $"{AuthBase}/verify/phone", body, ct).ConfigureAwait(false);
+            CaptureSessionHeaders(response);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _codeRoute = TwoFactorRoute.Phone;
+                AppLog.Info($"icloud: 2FA code sent by {_codePushMode} to " +
+                            $"{_codePhoneNumber ?? "the trusted number"}");
+                return true;
+            }
+
+            var reason = await ReadServiceErrorAsync(response, ct).ConfigureAwait(false);
+            AppLog.Warn($"icloud: the 2FA {_codePushMode} request returned " +
+                        $"{(int)response.StatusCode} {reason}");
+            return false;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"icloud: could not request the 2FA {_codePushMode} ({ex.Message})");
+            return false;
         }
     }
 
@@ -409,43 +514,16 @@ public sealed class ICloudService : IDisposable
     /// Re-requests the code. Used when the first one never arrived; sends by SMS or voice
     /// when a number is known, otherwise pushes to the trusted devices again.
     /// </summary>
-    public async Task<bool> ResendTwoFactorCodeAsync(CancellationToken ct = default)
+    public async Task<bool> ResendTwoFactorCodeAsync(bool preferSms = false, CancellationToken ct = default)
     {
-        try
-        {
-            if (_codePhoneId is null)
-            {
-                using var push = await SendAuthAsync(
-                    HttpMethod.Put, $"{AuthBase}/verify/trusteddevice/securitycode", null, ct)
-                    .ConfigureAwait(false);
-                CaptureSessionHeaders(push);
-                return push.IsSuccessStatusCode;
-            }
+        // An explicit "text it to me instead" must not be quietly turned back into another
+        // push the user cannot receive, so the device route is not tried at all here.
+        if (preferSms && _codePhoneId is not null)
+            return await RequestPhoneCodeAsync(ct).ConfigureAwait(false);
 
-            var body = new JsonObject
-            {
-                ["phoneNumber"] = new JsonObject { ["id"] = _codePhoneId },
-                ["mode"] = _codePushMode,
-            };
+        if (await RequestDevicePushAsync(ct).ConfigureAwait(false)) return true;
 
-            using var response = await SendAuthAsync(HttpMethod.Put, $"{AuthBase}/verify/phone", body, ct)
-                .ConfigureAwait(false);
-            CaptureSessionHeaders(response);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var reason = await ReadServiceErrorAsync(response, ct).ConfigureAwait(false);
-                AppLog.Warn($"iCloud 2FA resend failed: {(int)response.StatusCode} {reason}");
-            }
-
-            return response.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            AppLog.Warn($"iCloud 2FA resend error: {ex.Message}");
-            return false;
-        }
+        return _codePhoneId is not null && await RequestPhoneCodeAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -509,6 +587,7 @@ public sealed class ICloudService : IDisposable
         _codePhoneNumber = null;
         _codePushMode = "sms";
         _hasTrustedDevices = false;
+        _codeRoute = TwoFactorRoute.Device;
         AccountName = null;
         _webServices.Clear();
 
