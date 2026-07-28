@@ -364,6 +364,7 @@
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>
     <sys:String x:Key="L.Photos.Albums.All">Все фото</sys:String>
     <sys:String x:Key="L.Photos.Albums.Videos">Видео</sys:String>
+    <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Недавно удалённые</sys:String>
     <sys:String x:Key="L.Photos.Albums.Screenshots">Снимки экрана</sys:String>
     <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
     <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>

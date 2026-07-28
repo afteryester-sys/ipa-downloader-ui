@@ -364,6 +364,7 @@
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
     <sys:String x:Key="L.Photos.Albums.All">All photos</sys:String>
     <sys:String x:Key="L.Photos.Albums.Videos">Videos</sys:String>
+    <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Recently Deleted</sys:String>
     <sys:String x:Key="L.Photos.Albums.Screenshots">Screenshots</sys:String>
     <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
     <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>

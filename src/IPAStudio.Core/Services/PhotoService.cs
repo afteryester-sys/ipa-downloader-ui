@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using Microsoft.Data.Sqlite;
@@ -610,16 +612,30 @@ public sealed class PhotoService
             return null;
 
         // ZTITLE is the user-visible album name; ZFILENAME/ZDIRECTORY locate the asset.
-        // Skip albums with no title: those are system containers, not user albums.
+        // ZKIND separates user albums from system containers (Hidden, Recently Deleted and
+        // the smart albums); it is read so those can be named rather than dropped, which is
+        // why they were missing from the album list even though their photos were listed.
+        var kindColumn = ColumnExists(conn, "ZGENERICALBUM", "ZKIND") ? "g.ZKIND" : "NULL";
+
+        // A trashed album is one the user deleted; its photos are still in the Camera Roll,
+        // so they are grouped under the Camera Roll rather than a name that no longer exists.
+        var notTrashed = ColumnExists(conn, "ZGENERICALBUM", "ZTRASHEDSTATE")
+            ? "AND (g.ZTRASHEDSTATE IS NULL OR g.ZTRASHEDSTATE = 0)"
+            : "";
+
         var sql = $"""
-            SELECT a.ZFILENAME, g.ZTITLE
+            SELECT a.ZFILENAME, g.ZTITLE, {kindColumn}
             FROM {joinTable} j
             JOIN ZGENERICALBUM g ON g.Z_PK = j.{albumColumn}
             JOIN ZASSET a        ON a.Z_PK = j.{assetColumn}
-            WHERE g.ZTITLE IS NOT NULL AND g.ZTITLE <> ''
+            WHERE 1 = 1 {notTrashed}
             """;
 
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Album kinds seen on this device, logged afterwards: when a group is missing from
+        // the screen this is what shows whether the album was read and under which kind.
+        var kinds = new HashSet<(string Title, long Kind)>();
 
         // Hidden assets first, so a photo that is both hidden and in an album is filed
         // under Hidden — that matches how iOS presents it. ZHIDDEN is not present on
@@ -655,10 +671,20 @@ public sealed class PhotoService
             while (reader.Read())
             {
                 ct.ThrowIfCancellationRequested();
-                if (reader.IsDBNull(0) || reader.IsDBNull(1)) continue;
+                if (reader.IsDBNull(0)) continue;
                 var fileName = reader.GetString(0);
-                var title = reader.GetString(1);
                 if (string.IsNullOrWhiteSpace(fileName)) continue;
+
+                var kind = reader.IsDBNull(2) ? (long?)null : reader.GetInt64(2);
+                var title = reader.IsDBNull(1) ? null : reader.GetString(1);
+
+                // System containers carry no title, so untitled albums used to be skipped
+                // outright - which hid the Hidden and Recently Deleted groups. Name them
+                // from ZKIND instead, and only drop a container we cannot name at all.
+                if (string.IsNullOrWhiteSpace(title)) title = SystemAlbumName(kind);
+                if (title is null) continue;
+
+                if (kind is { } k) kinds.Add((title, k));
 
                 // An asset can sit in several albums; keep the first so grouping is stable.
                 map.TryAdd(fileName, title);
@@ -673,8 +699,26 @@ public sealed class PhotoService
             return map.Count > 0 ? map : null;
         }
 
+        if (kinds.Count > 0)
+            AppLog.Info("photos: albums " + string.Join(", ",
+                kinds.OrderBy(k => k.Kind).Select(k => $"{k.Title} (kind {k.Kind})")));
+
         return map.Count > 0 ? map : null;
     }
+
+    /// <summary>
+    /// Names a titleless system album from its ZKIND, or null when the kind is unknown.
+    ///
+    /// iOS keeps these as albums with no title, so they cannot be told apart any other way.
+    /// The values are stable across the releases this was checked against, but an unknown
+    /// kind is skipped rather than guessed: a wrong name is worse than no group.
+    /// </summary>
+    private static string? SystemAlbumName(long? kind) => kind switch
+    {
+        1505 => Loc.Get("L.Photos.Hidden"),
+        1506 => Loc.Get("L.Photos.Albums.RecentlyDeleted"),
+        _ => null,
+    };
 
     /// <summary>True when the table has the given column on this schema version.</summary>
     private static bool ColumnExists(SqliteConnection conn, string table, string column)
@@ -776,51 +820,111 @@ public sealed class PhotoService
                 }
             }
 
+            if (results.Count < items.Count)
+                AppLog.Info($"photos: {results.Count} of {items.Count} previews read from the device");
+
             return results;
         }, ct);
 
     /// <summary>
-    /// Paths where iOS may keep a pre-rendered thumbnail for a Camera Roll file.
+    /// Directories where iOS may keep pre-rendered previews for a Camera Roll file, as
+    /// format strings taking the file's path relative to the root ("DCIM/100APPLE/IMG_1.HEIC").
     ///
-    /// Tried in order and the first hit wins. The scheme differs across iOS releases and
-    /// is not documented, so this is a best-effort list rather than a lookup: for
-    /// /DCIM/100APPLE/IMG_0001.HEIC iOS has been observed to store
-    /// /PhotoData/Thumbnails/V2/DCIM/100APPLE/IMG_0001.HEIC/5005.JPG (and similar).
+    /// The layout is undocumented and moves between releases, so each is listed rather than
+    /// relied on. Metadata matters most for video: it mirrors DCIM with a rendered still, and
+    /// a video has no frame this app can decode itself.
     /// </summary>
-    private static IEnumerable<string> ThumbnailCandidates(IAfcApi afc, AfcClientHandle client, PhotoItem item)
+    private static readonly string[] ThumbnailDirectories =
+    [
+        "/PhotoData/Thumbnails/V2/{0}",
+        "/PhotoData/Metadata/{0}",
+        "/PhotoData/Mutations/{0}/Adjustments",
+    ];
+
+    /// <summary>
+    /// The directory layout that last produced a preview, so it can be tried first and
+    /// logged once. Guessing every layout for every file costs a round-trip per miss.
+    /// </summary>
+    private string? _thumbnailDirectoryHit;
+
+    /// <summary>Set once the "no layout worked" diagnostics have been logged, so they appear once.</summary>
+    private bool _thumbnailLayoutLogged;
+
+    /// <summary>
+    /// Paths where iOS may keep a pre-rendered thumbnail for one Camera Roll file, best
+    /// first.
+    ///
+    /// Each candidate directory is listed rather than probed by name: the size-class file
+    /// names (5005.JPG and friends) differ across iOS releases, so guessing them found
+    /// nothing on current firmware - which is why video tiles stayed blank and HEIC fell
+    /// back to decoding whole originals. Within a directory the largest JPEG wins, since
+    /// the smallest are icon-sized and look soft in the grid.
+    /// </summary>
+    private IEnumerable<string> ThumbnailCandidates(IAfcApi afc, AfcClientHandle client, PhotoItem item)
     {
         // "/DCIM/100APPLE/IMG_0001.HEIC" -> "DCIM/100APPLE/IMG_0001.HEIC"
         var relative = item.RemotePath.TrimStart('/');
-        var folder = $"/PhotoData/Thumbnails/V2/{relative}";
 
-        // V2 layout: a folder per original file holding one JPEG per size class.
-        // 5005 is the grid-sized variant on current iOS; the others are older names.
-        yield return $"{folder}/5005.JPG";
-        yield return $"{folder}/5003.JPG";
-        yield return $"{folder}/5000.JPG";
+        // Start with whatever worked last time: on one device the layout is the same for
+        // every file, so this turns several failed listings per photo into one.
+        var layouts = _thumbnailDirectoryHit is { } hit
+            ? new[] { hit }.Concat(ThumbnailDirectories.Where(d => d != hit))
+            : ThumbnailDirectories.AsEnumerable();
 
-        // The size-class numbers above are undocumented and change between iOS releases, so
-        // when none of them hit, the folder is listed and whatever JPEG it holds is used.
-        // Guessing alone left videos blank: a video has no thumbnail we can render ourselves,
-        // unlike a photo, where decoding the original is a workable fallback.
-        if (afc.afc_read_directory(client, folder, out var entries) != AfcError.Success || entries is null)
-            yield break;
-
-        foreach (var name in entries)
+        foreach (var layout in layouts)
         {
-            if (name is "." or "..") continue;
-            if (!name.EndsWith(".JPG", StringComparison.OrdinalIgnoreCase)
-                && !name.EndsWith(".JPEG", StringComparison.OrdinalIgnoreCase)) continue;
+            var folder = string.Format(CultureInfo.InvariantCulture, layout, relative);
+            if (afc.afc_read_directory(client, folder, out var entries) != AfcError.Success
+                || entries is null)
+                continue;
 
-            var candidate = $"{folder}/{name}";
-            // Skip the three already tried above rather than paying for them twice.
-            if (candidate is not null
-                && !name.Equals("5005.JPG", StringComparison.OrdinalIgnoreCase)
-                && !name.Equals("5003.JPG", StringComparison.OrdinalIgnoreCase)
-                && !name.Equals("5000.JPG", StringComparison.OrdinalIgnoreCase))
+            var jpegs = entries
+                .Where(name => name is not ("." or "..")
+                               && (name.EndsWith(".JPG", StringComparison.OrdinalIgnoreCase)
+                                   || name.EndsWith(".JPEG", StringComparison.OrdinalIgnoreCase)))
+                .Select(name => $"{folder}/{name}")
+                .OrderByDescending(path => ReadFileInfo(afc, client, path).Size)
+                .ToList();
+
+            if (jpegs.Count == 0) continue;
+
+            if (_thumbnailDirectoryHit != layout)
             {
-                yield return candidate;
+                _thumbnailDirectoryHit = layout;
+                AppLog.Info($"photos: previews found under {layout}");
             }
+
+            foreach (var path in jpegs) yield return path;
+            yield break;
+        }
+
+        LogThumbnailLayoutOnce(afc, client, item.RemotePath);
+    }
+
+    /// <summary>
+    /// Lists the preview roots once when no known layout held a preview.
+    ///
+    /// Without this a device with an unrecognised layout just shows empty tiles and there is
+    /// nothing to go on; the listing names the directories actually present so the layout can
+    /// be added.
+    /// </summary>
+    private void LogThumbnailLayoutOnce(IAfcApi afc, AfcClientHandle client, string remotePath)
+    {
+        if (_thumbnailLayoutLogged || _thumbnailDirectoryHit is not null) return;
+        _thumbnailLayoutLogged = true;
+
+        AppLog.Warn($"photos: no pre-rendered preview for {remotePath} under any known layout");
+
+        foreach (var root in new[] { "/PhotoData/Thumbnails", "/PhotoData/Metadata", "/PhotoData/Mutations" })
+        {
+            if (afc.afc_read_directory(client, root, out var entries) != AfcError.Success || entries is null)
+            {
+                AppLog.Info($"photos: {root} is not readable");
+                continue;
+            }
+
+            var names = entries.Where(n => n is not ("." or "..")).Take(20).ToList();
+            AppLog.Info($"photos: {root} holds [{string.Join(", ", names)}]");
         }
     }
 
