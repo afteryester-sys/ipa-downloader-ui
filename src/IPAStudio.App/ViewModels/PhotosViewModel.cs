@@ -927,10 +927,59 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         var files = dialog.FileNames.ToList();
         await RunTransferAsync(async (progress, ct) =>
         {
-            var count = await _photos.ImportAsync(_device.Udid, files, progress, ct);
-            StatusText = Loc.Format("L.Photos.Imported", count, files.Count);
+            ImportNeedsRestart = false;
+
+            var result = await _photos.ImportAsync(_device.Udid, files, progress, ct);
+
+            // Say what actually happened rather than just a count: copying files into DCIM and
+            // having them show up in Photos are different outcomes, and reporting the first as
+            // the second is what made a failed import look successful.
+            StatusText = result.Copied == 0
+                ? Loc.Get("L.Photos.ImportNothingCopied")
+                : result.AppearedInLibrary
+                    ? Loc.Format("L.Photos.Imported", result.Copied, result.Total)
+                    : Loc.Format("L.Photos.ImportedNotInLibrary", result.Copied, result.Total);
+
+            // The banner offers the reboot, so it appears only when the files are on the
+            // device but the library has not picked them up.
+            ImportNeedsRestart = result.Copied > 0 && !result.AppearedInLibrary;
+
             await LoadAsync();
         });
+    }
+
+    /// <summary>
+    /// True while imported files are on the device but not in the Camera Roll, which is the
+    /// only situation where offering a reboot makes sense.
+    /// </summary>
+    [ObservableProperty]
+    private bool _importNeedsRestart;
+
+    [RelayCommand]
+    private void DismissImportHint() => ImportNeedsRestart = false;
+
+    /// <summary>
+    /// Reboots the device so Photos re-scans DCIM on the way up. Confirmed first: this
+    /// interrupts whatever the user is doing on the phone.
+    /// </summary>
+    [RelayCommand]
+    private async Task RestartDevice()
+    {
+        if (_device is null) return;
+
+        var confirm = MessageBox.Show(
+            Loc.Get("L.Photos.RestartConfirm"),
+            Loc.Get("L.Photos.RestartDevice"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        var restarted = await _photos.RestartDeviceAsync(_device.Udid);
+        StatusText = Loc.Get(restarted ? "L.Photos.Restarting" : "L.Photos.RestartFailed");
+
+        // The device is going away; keeping the banner would invite a second reboot.
+        if (restarted) ImportNeedsRestart = false;
     }
 
     [RelayCommand]

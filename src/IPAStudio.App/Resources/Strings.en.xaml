@@ -82,7 +82,7 @@
     <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
-    <sys:String x:Key="L.Photos.Import">Import to device</sys:String>
+    <sys:String x:Key="L.Photos.Import">Import into DCIM</sys:String>
     <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
@@ -387,6 +387,14 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Choose photos or videos to transfer</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.ImportNothingCopied">No files could be copied</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. Not in the Photos library yet</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are in DCIM but Photos has not picked them up. Restarting the iPhone usually does it.</sys:String>
+    <sys:String x:Key="L.Photos.RestartDevice">Restart iPhone</sys:String>
+    <sys:String x:Key="L.Photos.DismissHint">Dismiss</sys:String>
+    <sys:String x:Key="L.Photos.RestartConfirm">Restart the device now? Unsaved data in apps on the iPhone may be lost.</sys:String>
+    <sys:String x:Key="L.Photos.Restarting">The device is restarting</sys:String>
+    <sys:String x:Key="L.Photos.RestartFailed">The device refused to restart. Please restart it by hand.</sys:String>
     <sys:String x:Key="L.Photos.Cancelled">Operation cancelled.</sys:String>
     <sys:String x:Key="L.Photos.TransferFailed">Transfer error: {0}</sys:String>
 

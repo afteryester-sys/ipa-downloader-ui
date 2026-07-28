@@ -82,7 +82,7 @@
     <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
-    <sys:String x:Key="L.Photos.Import">Импорт на устройство</sys:String>
+    <sys:String x:Key="L.Photos.Import">Импортировать в DCIM</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
@@ -387,6 +387,14 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Выберите фото или видео для переноса</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В Медиатеке файлы пока не появились</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопированы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
+    <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
+    <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
+    <sys:String x:Key="L.Photos.RestartConfirm">Перезагрузить устройство сейчас? Несохранённые данные в приложениях на iPhone могут быть потеряны.</sys:String>
+    <sys:String x:Key="L.Photos.Restarting">Устройство перезагружается</sys:String>
+    <sys:String x:Key="L.Photos.RestartFailed">Устройство отказалось перезагружаться. Перезагрузите его вручную.</sys:String>
     <sys:String x:Key="L.Photos.Cancelled">Операция отменена.</sys:String>
     <sys:String x:Key="L.Photos.TransferFailed">Ошибка переноса: {0}</sys:String>
 

@@ -6,7 +6,12 @@ using IPAStudio.Core.Models;
 using Microsoft.Data.Sqlite;
 using iMobileDevice;
 using iMobileDevice.Afc;
+using iMobileDevice.DiagnosticsRelay;
 using iMobileDevice.iDevice;
+using iMobileDevice.Lockdown;
+using iMobileDevice.NotificationProxy;
+using iMobileDevice.Plist;
+using iMobileDevice.PropertyListService;
 
 namespace IPAStudio.Core.Services;
 
@@ -291,21 +296,32 @@ public sealed class PhotoService
             return done;
         }, ct);
 
-    /// <summary>Copies local files onto the device Camera Roll (DCIM).</summary>
-    public Task<int> ImportAsync(
+    /// <summary>
+    /// Copies local files onto the device Camera Roll (DCIM) and then tries to get Photos to
+    /// ingest them.
+    ///
+    /// The copy alone is not enough: iOS scans DCIM only when its own importer runs, so files
+    /// written here can sit on the device without ever appearing in the Camera Roll. The
+    /// result reports each step so the caller can tell a real import from files merely
+    /// parked on disk.
+    /// </summary>
+    public Task<PhotoImportResult> ImportAsync(
         string udid,
         IReadOnlyList<string> localFiles,
         IProgress<PhotoTransferProgress>? progress = null,
         CancellationToken ct = default)
-        => Task.Run(() =>
+        => Task.Run(async () =>
         {
+            // Names of the files actually written, used to confirm ingestion afterwards.
+            var written = new List<string>();
+            var done = 0;
+            {
             using var session = OpenSession(udid);
             var afc = session.Afc;
             var client = session.Client;
 
             var targetDir = ResolveImportFolder(afc, client);
 
-            var done = 0;
             AfcError lastError = AfcError.Success;
             string? lastFailedFile = null;
 
@@ -340,12 +356,12 @@ public sealed class PhotoService
                     while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
                     {
                         ct.ThrowIfCancellationRequested();
-                        uint written = 0;
+                        uint wroteBytes = 0;
                         var chunk = read == buffer.Length ? buffer : buffer[..read];
-                        var writeResult = afc.afc_file_write(client, handle, chunk, (uint)read, ref written);
+                        var writeResult = afc.afc_file_write(client, handle, chunk, (uint)read, ref wroteBytes);
                         // A short write is as much a failure as an error code: the file would
                         // land truncated and Photos would reject it.
-                        if (writeResult != AfcError.Success || written != (uint)read)
+                        if (writeResult != AfcError.Success || wroteBytes != (uint)read)
                         {
                             lastError = writeResult == AfcError.Success ? AfcError.UnknownError : writeResult;
                             lastFailedFile = name;
@@ -359,10 +375,33 @@ public sealed class PhotoService
                     afc.afc_file_close(client, handle);
                 }
 
+                // Read the size back rather than trusting the write calls: AFC reports success
+                // for a write the device later drops, and a short file is one Photos refuses
+                // without saying why.
+                if (wroteWholeFile)
+                {
+                    var expected = new FileInfo(local).Length;
+                    var actual = ReadFileInfo(afc, client, remotePath).Size;
+                    if (actual != expected)
+                    {
+                        AppLog.Warn($"photos: {remotePath} is {actual} bytes on the device, expected {expected}");
+                        wroteWholeFile = false;
+                        lastError = AfcError.UnknownError;
+                        lastFailedFile = name;
+                    }
+                }
+
                 // Only a complete file counts. The previous version incremented regardless,
                 // so a failed transfer was still reported to the user as imported.
-                if (wroteWholeFile) done++;
-                else afc.afc_remove_path(client, remotePath); // do not leave a truncated file behind
+                if (wroteWholeFile)
+                {
+                    done++;
+                    written.Add(Path.GetFileName(remotePath));
+                }
+                else
+                {
+                    afc.afc_remove_path(client, remotePath); // do not leave a truncated file behind
+                }
             }
 
             progress?.Report(new PhotoTransferProgress(done, localFiles.Count, ""));
@@ -372,8 +411,288 @@ public sealed class PhotoService
             if (done == 0 && lastError != AfcError.Success)
                 throw new IOException($"AFC refused the transfer of '{lastFailedFile}' ({lastError}). Unlock the device and confirm \"Trust this computer\".");
 
-            return done;
+            } // the AFC session is closed here: indexing and the library check open their own
+
+            if (done == 0)
+                return new PhotoImportResult { Copied = 0, Total = localFiles.Count };
+
+            // Probed before nudging the importer, so the log shows what the device offers even
+            // when the notification route works.
+            var photoSync = ProbePhotoSyncService(udid);
+            var indexingRequested = RequestPhotoIndexing(udid);
+
+            var appeared = await WaitForLibraryAsync(udid, written, ct).ConfigureAwait(false);
+            AppLog.Info($"photos: imported {done} file(s); indexing requested: {indexingRequested}; " +
+                        $"in the library: {appeared}");
+
+            return new PhotoImportResult
+            {
+                Copied = done,
+                Total = localFiles.Count,
+                IndexingRequested = indexingRequested,
+                AppearedInLibrary = appeared,
+                PhotoSyncAvailable = photoSync,
+            };
         }, ct);
+
+    /// <summary>
+    /// Asks the device to re-scan DCIM by posting the notifications its own importer listens
+    /// for. Returns true when the device accepted them.
+    ///
+    /// There is no public "rescan the Camera Roll" call, so these are the notifications iTunes
+    /// posts around a sync. They work on some firmware and are ignored on others, which is why
+    /// the result is checked against the library rather than assumed.
+    /// </summary>
+    private static bool RequestPhotoIndexing(string udid)
+    {
+        var np = LibiMobileDevice.Instance.NotificationProxy;
+        var idevice = LibiMobileDevice.Instance.iDevice;
+
+        // Posted in order: the sync-ended pair is what makes the importer run on firmware that
+        // reacts at all; the others put the device into and out of the same state as a sync.
+        string[] notifications =
+        [
+            "com.apple.itunes-mobdev.syncWillStart",
+            "com.apple.itunes-client.syncCancelRequest",
+            "com.apple.mobile.lockdown.device_name_changed",
+            "com.apple.itunes-mobdev.syncDidFinish",
+        ];
+
+        try
+        {
+            if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+            using (device)
+            {
+                if (np.np_client_start_service(device, out var client, "IPAStudio") != NotificationProxyError.Success)
+                {
+                    AppLog.Info("photos: the device did not open the notification service");
+                    return false;
+                }
+
+                using (client)
+                {
+                    var accepted = false;
+                    foreach (var name in notifications)
+                    {
+                        var error = np.np_post_notification(client, name);
+                        if (error == NotificationProxyError.Success) accepted = true;
+                        else AppLog.Info($"photos: the device rejected {name} ({error})");
+                    }
+
+                    return accepted;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"photos: could not ask the device to re-scan ({ex.Message})");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Waits, briefly, for the imported names to turn up in the library database.
+    ///
+    /// This is what tells "Photos ingested the files" apart from "the files are sitting in
+    /// DCIM": ingestion is asynchronous, so the database is re-read a few times before giving
+    /// up. A null map means the database is unreadable (Apple restricts it on current iOS), in
+    /// which case there is nothing to confirm and the caller is told so rather than misled.
+    /// </summary>
+    private async Task<bool> WaitForLibraryAsync(string udid, List<string> names, CancellationToken ct)
+    {
+        if (names.Count == 0) return false;
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            // The importer needs a moment; the first pass is deliberately not immediate.
+            await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
+
+            var known = await TryReadLibraryFileNamesAsync(udid, ct).ConfigureAwait(false);
+            if (known is null)
+            {
+                AppLog.Info("photos: the library database is unreadable, cannot confirm the import");
+                return false;
+            }
+
+            if (names.All(known.Contains)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the file names the library database knows about, or null when it cannot be read.
+    /// </summary>
+    private async Task<HashSet<string>?> TryReadLibraryFileNamesAsync(string udid, CancellationToken ct)
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var localDb = Path.Combine(tempDir, "Photos.sqlite");
+
+        try
+        {
+            if (!await Task.Run(() => TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct), ct)
+                    .ConfigureAwait(false))
+                return null;
+
+            TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
+            TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
+
+            using var conn = new SqliteConnection($"Data Source={localDb};Mode=ReadOnly;Cache=Private");
+            conn.Open();
+
+            using var command = conn.CreateCommand();
+            command.CommandText = "SELECT ZFILENAME FROM ZASSET WHERE ZFILENAME IS NOT NULL";
+
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                ct.ThrowIfCancellationRequested();
+                names.Add(reader.GetString(0));
+            }
+
+            return names;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Info($"photos: could not read the library database ({ex.Message})");
+            return null;
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { /* temp cleanup */ }
+        }
+    }
+
+    /// <summary>
+    /// Reboots the device, with the user's consent, so Photos re-scans DCIM on the way up.
+    ///
+    /// On firmware that ignores the sync notifications this is the only way imported files
+    /// reach the Camera Roll, so it is offered rather than left as folklore for the user to
+    /// discover.
+    /// </summary>
+    public Task<bool> RestartDeviceAsync(string udid, CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            var idevice = LibiMobileDevice.Instance.iDevice;
+            var relay = LibiMobileDevice.Instance.DiagnosticsRelay;
+
+            try
+            {
+                if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+                using (device)
+                {
+                    var started = relay.diagnostics_relay_client_start_service(device, out var client, "IPAStudio");
+                    if (started != DiagnosticsRelayError.Success)
+                    {
+                        AppLog.Warn($"photos: the device did not open the diagnostics service ({started})");
+                        return false;
+                    }
+
+                    using (client)
+                    {
+                        // Wait for the disconnect: the device otherwise cuts the connection
+                        // mid-request and the reboot is reported as a failure.
+                        var error = relay.diagnostics_relay_restart(
+                            client, DiagnosticsRelayAction.ActionFlagWaitForDisconnect);
+
+                        if (error != DiagnosticsRelayError.Success)
+                            AppLog.Warn($"photos: the device refused to restart ({error})");
+
+                        return error == DiagnosticsRelayError.Success;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"photos: could not restart the device ({ex.Message})");
+                return false;
+            }
+        }, ct);
+
+    /// <summary>
+    /// Checks whether the device offers Apple's private photo-sync service and answers a first
+    /// plist exchange.
+    ///
+    /// This is a probe, not an implementation: the protocol is undocumented, so what it can
+    /// honestly do is record whether the service exists on this firmware. The DCIM copy above
+    /// is what imports the files either way; this only makes the log useful if the service
+    /// turns out to be reachable.
+    /// </summary>
+    private static bool ProbePhotoSyncService(string udid)
+    {
+        var idevice = LibiMobileDevice.Instance.iDevice;
+        var lockdown = LibiMobileDevice.Instance.Lockdown;
+        var plistService = LibiMobileDevice.Instance.PropertyListService;
+        var plist = LibiMobileDevice.Instance.Plist;
+
+        try
+        {
+            if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+            using (device)
+            {
+                if (lockdown.lockdownd_client_new_with_handshake(device, out var lockdownClient, "IPAStudio")
+                    != LockdownError.Success)
+                    return false;
+
+                using (lockdownClient)
+                {
+                    var started = lockdown.lockdownd_start_service(
+                        lockdownClient, "com.apple.mobile.photosync", out var descriptor);
+
+                    if (started != LockdownError.Success)
+                    {
+                        AppLog.Info($"photos: the device does not offer photosync ({started})");
+                        return false;
+                    }
+
+                    using (descriptor)
+                    {
+                        if (plistService.property_list_service_client_new(device, descriptor, out var service)
+                            != PropertyListServiceError.Success)
+                            return false;
+
+                        using (service)
+                        {
+                            // The service speaks plists; a version request is the least it can
+                            // be asked without pretending to know the rest of the protocol.
+                            using var request = plist.plist_new_dict();
+                            plist.plist_dict_set_item(request, "MessageName", plist.plist_new_string("Version"));
+
+                            if (plistService.property_list_service_send_xml_plist(service, request)
+                                != PropertyListServiceError.Success)
+                                return false;
+
+                            var received = plistService.property_list_service_receive_plist_with_timeout(
+                                service, out var reply, 5000);
+
+                            if (received != PropertyListServiceError.Success)
+                            {
+                                AppLog.Info($"photos: photosync opened but did not answer ({received})");
+                                return false;
+                            }
+
+                            using (reply)
+                            {
+                                uint length = 0;
+                                plist.plist_to_xml(reply, out var xml, ref length);
+                                AppLog.Info("photos: photosync answered: " +
+                                            (xml?.Replace("\n", " ") ?? "(empty)"));
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Info($"photos: could not probe photosync ({ex.Message})");
+            return false;
+        }
+    }
 
     /// <summary>
     /// Picks the DCIM folder to import into: the highest existing NNNAPPLE folder, or a new
