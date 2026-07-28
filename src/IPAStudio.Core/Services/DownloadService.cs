@@ -234,12 +234,26 @@ public sealed partial class DownloadService
             || lower.Contains("try again later"))
             return Loc.Get("L.Error.StoreUnavailable");
 
-        if (lower.Contains("not available") || lower.Contains("no such app")
-            || lower.Contains("could not find") || lower.Contains("not found")
-            || lower.Contains("item not available") || lower.Contains("invalid item"))
-            return Loc.Get("L.Error.NotInStore");
+        if (IsNotInStoreOutput(output)) return Loc.Get("L.Error.NotInStore");
 
         return Loc.Get("L.Error.DownloadFailed");
+    }
+
+    /// <summary>
+    /// Whether ipatool's output says the store does not have this app.
+    ///
+    /// Kept as its own test so the retry path can ask the same question of the raw output.
+    /// Matching the localized sentence instead would silently stop working the moment a
+    /// translation was reworded.
+    /// </summary>
+    private static bool IsNotInStoreOutput(string? output)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return false;
+
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("not available") || lower.Contains("no such app")
+            || lower.Contains("could not find") || lower.Contains("not found")
+            || lower.Contains("item not available") || lower.Contains("invalid item");
     }
 
     /// <summary>
@@ -401,7 +415,10 @@ public sealed partial class DownloadService
         // bar itself reports the authoritative total, so this is only a seed used
         // during the first seconds (and never blocks the start).
         var sizeHint = new long[] { app.FileSizeBytes ?? 0L };
-        if (sizeHint[0] <= 0 && app.AppStoreId > 0)
+        // No longer gated on a store id: an app known only by bundle identifier has both a
+        // learned size and an Apple lookup available to it now, and those are the only two
+        // sources a repacked entry ever has.
+        if (sizeHint[0] <= 0)
         {
             // A copy already on disk is the last resort, and the only one that works for
             // apps Apple has pulled from every storefront (mail.ru and the like): the
@@ -430,6 +447,9 @@ public sealed partial class DownloadService
         string? lastError = null;
         var attempts = Math.Max(1, MaxAttempts);
 
+        // Guards the bundle-id fallback below so it is attempted once, not on every retry.
+        var triedBundleId = false;
+
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -441,6 +461,39 @@ public sealed partial class DownloadService
             if (result.Success) return FinishReplace(result, replaceTarget);
 
             lastError = result.Error;
+
+            // The store refused the numeric id, but the app has a bundle identifier we have
+            // not tried yet. Worth one more go: asking by id goes through the storefront
+            // catalog, which hides apps pulled from sale or limited to another region, while
+            // asking by bundle identifier resolves against what the account owns and hands
+            // those same apps over. This is exactly the case a user hits when an app sits on
+            // their phone but the on-device list reports it as not available.
+            if (!triedBundleId && ShouldRetryByBundleId(result, app))
+            {
+                triedBundleId = true;
+                AppLog.Info($"download: id {app.AppStoreId} was refused; retrying as {app.BundleId}");
+
+                var byBundle = new AppEntry
+                {
+                    Name = app.Name,
+                    // Zero is what steers the argument builder onto "-b".
+                    AppStoreId = 0,
+                    BundleId = app.BundleId,
+                    LatestVersion = app.LatestVersion,
+                    FileSizeBytes = app.FileSizeBytes,
+                };
+
+                var (retry, _) = await DownloadOnceAsync(
+                    byBundle, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct)
+                    .ConfigureAwait(false);
+
+                if (retry.Success) return FinishReplace(retry, replaceTarget);
+
+                // Report the bundle-id attempt's error: it is the more informative of the
+                // two, because it came from the request that could actually have worked.
+                lastError = retry.Error;
+                return retry;
+            }
 
             // Auth, license, disk and "app not available" errors will not fix themselves.
             if (!transient || attempt == attempts) return result;
@@ -455,6 +508,20 @@ public sealed partial class DownloadService
 
         return DownloadResult.Fail(lastError ?? Loc.Get("L.Error.DownloadFailed"));
     }
+
+    /// <summary>
+    /// Whether a failed download is worth retrying by bundle identifier.
+    ///
+    /// Limited to the "not in the store" verdict: any other error (wrong password, no
+    /// licence, full disk, network) would fail the same way a second time, and re-running a
+    /// multi-second Apple handshake for nothing is a delay the user feels.
+    /// </summary>
+    private static bool ShouldRetryByBundleId(DownloadResult result, AppEntry app)
+        => app.AppStoreId > 0
+           && !string.IsNullOrWhiteSpace(app.BundleId)
+           && !result.SessionExpired
+           && !result.LicenseRequired
+           && IsNotInStoreOutput(result.Detail);
 
     /// <summary>One ipatool download invocation. Returns the result plus whether the
     /// failure looks retryable.</summary>
@@ -826,7 +893,7 @@ public sealed partial class DownloadService
                 // sends no Content-Length for them either, so the first download can only
                 // show bytes-so-far. Recording it now means the next one has a real total
                 // and a bar that fills.
-                if (app.AppStoreId > 0) RememberSize(app.AppStoreId, app.LatestVersion, finalTotal);
+                RememberSize(app, finalTotal);
             }
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
@@ -1180,16 +1247,17 @@ public sealed partial class DownloadService
     }
 
     /// <summary>Records the exact size of a completed download for future runs.</summary>
-    private void RememberSize(long appId, string? version, long bytes)
+    private void RememberSize(AppEntry app, long bytes)
     {
-        if (appId <= 0 || bytes <= 0) return;
+        var identity = LearnedIdentity(app);
+        if (identity is null || bytes <= 0) return;
 
         try
         {
             lock (LearnedSizesLock)
             {
                 var table = LoadLearnedSizes();
-                var keys = LearnedKeys(appId, version);
+                var keys = LearnedKeys(identity, app.LatestVersion);
 
                 // Both keys are written: the exact one so a re-download of this build gets
                 // the right total, and the bare id so a build we have never seen still
@@ -1215,23 +1283,43 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
+    /// What a learned size is filed under, or null when the app cannot be identified.
+    ///
+    /// The store id is preferred so the table stays compatible with what earlier versions
+    /// wrote, but a bundle identifier is accepted in its place. That second form is the
+    /// whole point of this method: repacked and delisted entries ("… (Оригинал)") carry no
+    /// store id, so keying on the id alone meant their size was never recorded and every
+    /// download of them started over with no total - which is exactly the "всего неизвестно"
+    /// the user still saw. Prefixed so a bundle identifier can never collide with an id.
+    /// </summary>
+    private static string? LearnedIdentity(AppEntry app)
+    {
+        if (app.AppStoreId > 0) return app.AppStoreId.ToString();
+        return string.IsNullOrWhiteSpace(app.BundleId)
+            ? null
+            : "b:" + app.BundleId.Trim().ToLowerInvariant();
+    }
+
+    /// <summary>
     /// Keys under which a size is stored: the exact build first, then the app on its own.
     /// Lookups walk them in this order, so a size measured from the very build being
     /// downloaded always wins over one left from an earlier release.
     /// </summary>
-    private static string[] LearnedKeys(long appId, string? version)
+    private static string[] LearnedKeys(string identity, string? version)
         => string.IsNullOrWhiteSpace(version)
-            ? new[] { appId.ToString() }
-            : new[] { $"{appId}@{version.Trim()}", appId.ToString() };
+            ? new[] { identity }
+            : new[] { $"{identity}@{version.Trim()}", identity };
 
     /// <summary>Previously measured size for this build, or 0 if not known yet.</summary>
-    private long GetLearnedSize(long appId, string? version)
+    private long GetLearnedSize(AppEntry app)
     {
-        if (appId <= 0) return 0;
+        var identity = LearnedIdentity(app);
+        if (identity is null) return 0;
+
         lock (LearnedSizesLock)
         {
             var table = LoadLearnedSizes();
-            foreach (var key in LearnedKeys(appId, version))
+            foreach (var key in LearnedKeys(identity, app.LatestVersion))
                 if (table.TryGetValue(key, out var bytes) && bytes > 0) return bytes;
             return 0;
         }
@@ -1272,18 +1360,21 @@ public sealed partial class DownloadService
     /// </summary>
     private async Task<long> TryLookupFileSizeAsync(AppEntry app, CancellationToken ct)
     {
-        var appId = app.AppStoreId;
-
         // A size measured from an earlier download of this exact app beats the catalog:
         // it is the real file, not the generic-device figure, and it is the only source
         // for delisted apps that the catalog does not list at all.
-        // Guarded on a real id: the learned sizes are keyed by store id, so looking one up
-        // for an app that has none would hand out whatever size the last such download
-        // happened to have - a wrong total on the progress bar of an unrelated app.
-        if (appId <= 0) return 0;
-
-        var learned = GetLearnedSize(appId, app.LatestVersion);
+        var learned = GetLearnedSize(app);
         if (learned > 0) return learned;
+
+        // Apple's lookup takes either an id or a bundle identifier. The second form is what
+        // makes this work at all for entries that carry no store id, which is every app
+        // queued by bundle identifier; without it those downloads had no total to ask for.
+        var query = app.AppStoreId > 0
+            ? $"id={app.AppStoreId}"
+            : string.IsNullOrWhiteSpace(app.BundleId)
+                ? null
+                : $"bundleId={Uri.EscapeDataString(app.BundleId.Trim())}";
+        if (query is null) return 0;
 
         foreach (var storefront in ItunesStorefront.Candidates)
         {
@@ -1293,7 +1384,7 @@ public sealed partial class DownloadService
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
 
-                var url = $"https://itunes.apple.com/lookup?id={appId}&entity=software"
+                var url = $"https://itunes.apple.com/lookup?{query}&entity=software"
                           + ItunesStorefront.CountryParam(storefront);
                 using var response = await _http.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();

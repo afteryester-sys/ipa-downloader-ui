@@ -123,7 +123,7 @@
 
         <!-- ── ALBUM tile template ── -->
         <DataTemplate x:Key="AlbumTileTemplate">
-            <Grid Width="168" Margin="8">
+            <Grid Width="168" Margin="8" x:Name="AlbumTileRoot" Background="Transparent">
                 <StackPanel>
                     <Border Width="168" Height="126" Style="{StaticResource ThumbBorder}">
                         <Grid>
@@ -157,6 +157,35 @@
                                    Margin="4,0,0,0" />
                     </StackPanel>
                 </StackPanel>
+
+                <!-- Saves the album straight from the grid, without opening it first. Shown
+                     only while the pointer is over the tile, so a wall of these does not
+                     compete with the covers. The tile's own click handler skips opening the
+                     album when the press landed in here. -->
+                <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,6,6,0" Padding="6,3"
+                        Command="{Binding DataContext.ExportAlbumCommand,
+                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="{DynamicResource L.Photos.ExportAlbum}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+                            <!-- Collapsed rather than transparent: an invisible button would
+                                 still swallow clicks meant to open the album. -->
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <!-- Bound to the tile by name rather than by ancestor type, so
+                                     adding a Grid anywhere between the two cannot quietly
+                                     retarget it and leave the button stuck out of sight. -->
+                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=AlbumTileRoot}"
+                                             Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE896;" />
+                </Button>
             </Grid>
         </DataTemplate>
 
@@ -271,6 +300,11 @@
                         Command="{Binding SelectAllVisibleCommand}" />
                 <Button Content="{DynamicResource L.Photos.ClearAll}" Style="{StaticResource Button.Ghost}"
                         Command="{Binding ClearSelectionCommand}" Margin="4,0,0,0" />
+                <!-- Saves the open album without selecting anything. No CommandParameter: the
+                     command falls back to the open album, so this stays correct as the user
+                     moves between albums. Sits beside the media filter it honours. -->
+                <Button Content="{DynamicResource L.Photos.ExportAlbum}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding ExportAlbumCommand}" Margin="8,0,0,0" />
             </StackPanel>
             <Button Grid.Column="4" Content="{DynamicResource L.Photos.Import}" Style="{StaticResource Button.Secondary}"
                     Command="{Binding ImportCommand}" Margin="12,0,0,0" />

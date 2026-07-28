@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using IPAStudio.App.Controls;
@@ -74,7 +75,25 @@ public partial class PhotosView : UserControl
         if (DataContext is not PhotosViewModel vm) return;
         if (sender is not ListBoxItem { DataContext: PhotoAlbumViewModel album }) return;
 
+        // The tile carries a save button of its own. This handler sees the click first,
+        // because it tunnels down from the container, so without this check pressing save
+        // would also open the album and leave the user inside it mid-transfer. The button
+        // is left to raise its own Click, which is what runs the command.
+        if (IsWithinButton(e.OriginalSource as DependencyObject)) return;
+
         vm.OpenAlbumCommand.Execute(album);
+    }
+
+    /// <summary>True when the clicked element sits inside a button on the tile.</summary>
+    private static bool IsWithinButton(DependencyObject? source)
+    {
+        for (var node = source; node is not null; node = VisualTreeHelper.GetParent(node))
+        {
+            if (node is ButtonBase) return true;
+            if (node is ListBoxItem) return false;
+        }
+
+        return false;
     }
 
     /// <summary>Hooked from XAML on both list boxes; fires as either one scrolls.</summary>

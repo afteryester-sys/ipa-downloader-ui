@@ -379,6 +379,11 @@
     <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
     <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbum">Скачать альбом</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumTooltip">Сохранить все файлы альбома «{0}» на компьютер</sys:String>
+    <sys:String x:Key="L.Photos.ExportingAlbum">Сохранение альбома «{0}»…</sys:String>
+    <sys:String x:Key="L.Photos.ExportedAlbum">Альбом «{0}»: сохранено {1} из {2} в папку {3}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumEmpty">В альбоме «{0}» нет файлов, подходящих под текущий фильтр.</sys:String>
     <sys:String x:Key="L.Photos.Delete">Удалить</sys:String>
     <sys:String x:Key="L.Photos.Deleted">Удалено {0} из {1}.</sys:String>
     <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Удалить с устройства?</sys:String>

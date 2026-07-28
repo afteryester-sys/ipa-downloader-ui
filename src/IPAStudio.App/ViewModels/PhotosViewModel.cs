@@ -248,6 +248,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportAlbumCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSelectedCommand))]
     private bool _isTransferring;
 
@@ -425,10 +426,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         // tile, so it would only duplicate it.
         var noAlbum = Loc.Get("L.Photos.NoAlbum");
         var hidden = Loc.Get("L.Photos.Hidden");
+        var recentlyDeleted = Loc.Get("L.Photos.Albums.RecentlyDeleted");
         foreach (var name in Photos.Select(p => p.DisplayAlbumName)
                                    .Distinct(StringComparer.Ordinal)
                                    .Where(n => !string.Equals(n, noAlbum, StringComparison.Ordinal))
-                                   .OrderBy(n => n == hidden ? 1 : 0)
+                                   // Hidden and the trash last, as in Photos itself: they are
+                                   // containers the user rarely opens, so they must not push the
+                                   // real albums down the list.
+                                   .OrderBy(n => n == hidden ? 1 : n == recentlyDeleted ? 2 : 0)
                                    .ThenBy(n => n, StringComparer.CurrentCulture))
         {
             var albumName = name; // captured per iteration, not shared by every predicate
@@ -446,7 +451,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             {
                 if (!album.Matches(photo)) continue;
                 count++;
-                album.CoverItem ??= photo;
+
+                // A still is preferred over a movie: for a photo the tile can fall back to
+                // decoding the file itself, while a video depends on iOS having rendered a
+                // still for it. A Live Photo is stored as a still plus a movie under one
+                // name, so without this the Live Photos tile picked the movie and showed the
+                // film glyph instead of the picture.
+                if (album.CoverItem is null || (album.CoverItem.IsVideo && !photo.IsVideo))
+                    album.CoverItem = photo;
             }
             album.Count = count;
         }
@@ -860,6 +872,79 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             var count = await _photos.ExportAsync(_device.Udid, selected, dialog.FolderName, progress, ct);
             StatusText = Loc.Format("L.Photos.Exported", count, selected.Count);
         });
+    }
+
+    /// <summary>
+    /// Saves a whole album to the computer without the user ticking anything.
+    ///
+    /// Takes the album as a parameter rather than reading <see cref="CurrentAlbum"/>, so the
+    /// same command serves the button on the album tile and the one in the toolbar inside the
+    /// album. Honours the Photos/Videos filter, because the button sits next to it and it
+    /// would be surprising for "Videos" to also pull in every still.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanExportAlbum))]
+    private async Task ExportAlbum(PhotoAlbumViewModel? album)
+    {
+        album ??= CurrentAlbum;
+        if (_device is null || album is null) return;
+
+        var items = Photos
+            .Where(p => album.IsEverything || album.Matches(p))
+            .Where(MatchesMediaFilter)
+            .Select(p => p.Item)
+            .ToList();
+
+        if (items.Count == 0)
+        {
+            StatusText = Loc.Format("L.Photos.ExportAlbumEmpty", album.Name);
+            return;
+        }
+
+        var dialog = new OpenFolderDialog
+        {
+            Title = Loc.Get("L.Photos.PickExportFolder"),
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        // Into a sub-folder named after the album, so several albums can be saved into the
+        // same place without their files mixing together.
+        var target = Path.Combine(dialog.FolderName, SafeFolderName(album.Name));
+
+        await RunTransferAsync(async (progress, ct) =>
+        {
+            StatusText = Loc.Format("L.Photos.ExportingAlbum", album.Name);
+            Directory.CreateDirectory(target);
+            var count = await _photos.ExportAsync(_device.Udid, items, target, progress, ct);
+            StatusText = Loc.Format("L.Photos.ExportedAlbum", album.Name, count, items.Count, target);
+        });
+    }
+
+    private bool CanExportAlbum() => !IsTransferring;
+
+    /// <summary>True when the item passes the current Photos/Videos filter.</summary>
+    private bool MatchesMediaFilter(PhotoItemViewModel item)
+    {
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Photos")) return !item.IsVideo;
+        if (SelectedMediaType == Loc.Get("L.Photos.Media.Videos")) return item.IsVideo;
+        return true;
+    }
+
+    /// <summary>
+    /// Turns an album name into a folder name Windows will accept.
+    ///
+    /// Album names come from the user's phone and routinely contain characters that are
+    /// illegal in a path ("Trip 06/07", "Kids: 2024"), which would otherwise fail the export
+    /// at the point of creating the directory.
+    /// </summary>
+    private static string SafeFolderName(string name)
+    {
+        var cleaned = new string(name
+            .Select(c => Array.IndexOf(Path.GetInvalidFileNameChars(), c) >= 0 ? '_' : c)
+            .ToArray())
+            // A trailing dot or space is legal in the string but not as a folder name.
+            .Trim().TrimEnd('.');
+
+        return string.IsNullOrEmpty(cleaned) ? "Album" : cleaned;
     }
 
     private bool CanDelete() => SelectedCount > 0 && !IsTransferring;
