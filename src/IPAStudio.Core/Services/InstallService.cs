@@ -1,4 +1,7 @@
 using System.Runtime.InteropServices;
+using iMobileDevice;
+using iMobileDevice.iDevice;
+using iMobileDevice.SpringBoardServices;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using IPAStudio.Core.Diagnostics;
@@ -372,6 +375,86 @@ public sealed partial class InstallService
     /// comma separated with quoted fields, which breaks on the many app names that
     /// contain a comma or a quote. The XML is a plist array of dictionaries.
     /// </summary>
+    /// <summary>
+    /// Fetches home-screen icons for the given bundle identifiers as PNG bytes.
+    ///
+    /// The icons come from SpringBoard over its own lockdown service, which is the only
+    /// source for them: ideviceinstaller reports names and versions but no artwork, so the
+    /// list previously had nothing to show and fell back to a letter tile for every row.
+    ///
+    /// One service session serves the whole list, because starting it costs a lockdown
+    /// handshake and doing that per app would take longer than the listing itself. Bundles
+    /// SpringBoard has no icon for are simply absent from the result; the caller keeps its
+    /// letter tile for those. Errors are swallowed for the same reason: artwork is a nicety
+    /// and must never take the app list down with it.
+    /// </summary>
+    public Task<Dictionary<string, byte[]>> GetAppIconsAsync(
+        string udid, IReadOnlyList<string> bundleIds, CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            var icons = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+            if (bundleIds.Count == 0) return icons;
+
+            try
+            {
+                NativeLibraries.Load();
+
+                var idevice = LibiMobileDevice.Instance.iDevice;
+                var sb = LibiMobileDevice.Instance.SpringBoardServices;
+
+                if (idevice.idevice_new(out var device, udid) != iDeviceError.Success)
+                    return icons;
+
+                using (device)
+                {
+                    if (sb.sbservices_client_start_service(device, out var client, "IPAStudio")
+                        != SpringBoardServicesError.Success)
+                    {
+                        AppLog.Info("icons: SpringBoard did not accept a connection");
+                        return icons;
+                    }
+
+                    using (client)
+                    {
+                        foreach (var bundleId in bundleIds)
+                        {
+                            ct.ThrowIfCancellationRequested();
+
+                            var data = IntPtr.Zero;
+                            ulong size = 0;
+                            if (sb.sbservices_get_icon_pngdata(client, bundleId, ref data, ref size)
+                                    != SpringBoardServicesError.Success
+                                || data == IntPtr.Zero || size == 0)
+                                continue;
+
+                            try
+                            {
+                                var bytes = new byte[size];
+                                Marshal.Copy(data, bytes, 0, (int)size);
+                                icons[bundleId] = bytes;
+                            }
+                            finally
+                            {
+                                // Allocated by the native library on every success, so it is
+                                // freed here rather than at the end: on a full device this loop
+                                // runs a few hundred times.
+                                Marshal.FreeHGlobal(data);
+                            }
+                        }
+                    }
+                }
+
+                AppLog.Info($"icons: {icons.Count} of {bundleIds.Count} apps returned artwork");
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Info($"icons: could not read app icons ({ex.Message})");
+            }
+
+            return icons;
+        }, ct);
+
     public async Task<IReadOnlyList<InstalledApp>> GetInstalledAppsAsync(
         string udid, CancellationToken ct = default)
     {

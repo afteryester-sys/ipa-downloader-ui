@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
@@ -37,6 +39,13 @@ public sealed partial class InstalledAppViewModel : ObservableObject
 
     public string Name => App.Name;
     public string BundleId => App.BundleId;
+
+    /// <summary>
+    /// Home-screen icon, once SpringBoard has handed it over. Null until then, and for apps
+    /// it has no artwork for, which is what keeps the letter tile as the fallback.
+    /// </summary>
+    [ObservableProperty]
+    private ImageSource? _icon;
     public string? Version => App.Version;
 
     /// <summary>"1.2.3 · com.example.app" — one muted line under the name.</summary>
@@ -272,6 +281,11 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
             ApplyFilter();
             AppLog.Info($"On-device list: {apps.Count} apps on {TargetDevice.Name}");
+
+            // After the list is on screen, not before: the icons need a separate SpringBoard
+            // session and a few hundred round-trips, and holding the list back for artwork
+            // would make the page feel slower than it did without it.
+            await LoadIconsAsync(TargetDevice.Udid).ConfigureAwait(true);
         }
         catch (OperationCanceledException) { /* left the page */ }
         catch (Exception ex)
@@ -575,6 +589,48 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// a bundle-id lookup can come back empty for apps that were renamed or pulled from
     /// the store in the user's region.
     /// </summary>
+    /// <summary>
+    /// Fills in the home-screen icons for the rows already on screen.
+    ///
+    /// Decoding happens here rather than in the service because a BitmapImage belongs to the
+    /// UI layer; each one is frozen so the list can scroll without re-decoding it.
+    /// </summary>
+    private async Task LoadIconsAsync(string udid)
+    {
+        var rows = Apps.ToList();
+        if (rows.Count == 0) return;
+
+        var icons = await _install
+            .GetAppIconsAsync(udid, rows.Select(r => r.BundleId).ToList())
+            .ConfigureAwait(true);
+
+        foreach (var row in rows)
+        {
+            if (!icons.TryGetValue(row.BundleId, out var png)) continue;
+
+            try
+            {
+                var image = new BitmapImage();
+                using (var stream = new MemoryStream(png))
+                {
+                    image.BeginInit();
+                    image.CacheOption = BitmapCacheOption.OnLoad;
+                    // Decoded at tile size: the artwork is up to 180 px square and the row
+                    // shows it at 40, so full-size bitmaps would be wasted memory per app.
+                    image.DecodePixelWidth = 80;
+                    image.StreamSource = stream;
+                    image.EndInit();
+                }
+                image.Freeze();
+                row.Icon = image;
+            }
+            catch
+            {
+                // A single unreadable icon leaves that row on its letter tile.
+            }
+        }
+    }
+
     private async Task<AppEntry?> ResolveEntryAsync(InstalledApp app, CancellationToken ct)
     {
         if (app.StoreItemId is > 0)

@@ -379,6 +379,11 @@
     <sys:String x:Key="L.Photos.ReadFailed">Couldn't read the media library: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Choose a folder to save into</sys:String>
     <sys:String x:Key="L.Photos.Exported">Copied to the computer: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbum">Save album</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumTooltip">Save every file in "{0}" to the computer</sys:String>
+    <sys:String x:Key="L.Photos.ExportingAlbum">Saving "{0}"…</sys:String>
+    <sys:String x:Key="L.Photos.ExportedAlbum">"{0}": saved {1} of {2} into {3}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumEmpty">"{0}" holds no files matching the current filter.</sys:String>
     <sys:String x:Key="L.Photos.Delete">Delete</sys:String>
     <sys:String x:Key="L.Photos.Deleted">Deleted {0} of {1}.</sys:String>
     <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Delete from device?</sys:String>

@@ -525,19 +525,13 @@ public sealed class PhotoService
     /// </summary>
     private async Task<HashSet<string>?> TryReadLibraryFileNamesAsync(string udid, CancellationToken ct)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
-        var localDb = Path.Combine(tempDir, "Photos.sqlite");
+        // Freshly pulled every time: this is asked precisely because the caller is waiting
+        // for the library to catch up with files just written, and a cached copy predates them.
+        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh: true, ct).ConfigureAwait(false);
+        if (localDb is null) return null;
 
         try
         {
-            if (!await Task.Run(() => TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct), ct)
-                    .ConfigureAwait(false))
-                return null;
-
-            TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
-            TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
-
             using var conn = new SqliteConnection($"Data Source={localDb};Mode=ReadOnly;Cache=Private");
             conn.Open();
 
@@ -559,10 +553,6 @@ public sealed class PhotoService
         {
             AppLog.Info($"photos: could not read the library database ({ex.Message})");
             return null;
-        }
-        finally
-        {
-            try { Directory.Delete(tempDir, recursive: true); } catch { /* temp cleanup */ }
         }
     }
 
@@ -816,37 +806,105 @@ public sealed class PhotoService
     /// caller must have a fallback. The file is copied locally first because SQLite needs
     /// random access, which AFC streaming does not provide.
     /// </summary>
-    public Task<Dictionary<string, string>?> TryReadAlbumNamesAsync(
+    public async Task<Dictionary<string, string>?> TryReadAlbumNamesAsync(
         string udid,
         CancellationToken ct = default)
-        => Task.Run<Dictionary<string, string>?>(() =>
-        {
-            // Pull the library database (plus its WAL, which may hold recent changes).
-            var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tempDir);
-            var localDb = Path.Combine(tempDir, "Photos.sqlite");
+    {
+        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh: false, ct).ConfigureAwait(false);
+        if (localDb is null) return null;
 
+        return await Task.Run<Dictionary<string, string>?>(() =>
+        {
             try
             {
-                if (!TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct))
-                    return null;
-
-                // Best-effort: absence is fine, the main file is still usable.
-                TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
-                TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
-
                 return ReadAlbumMap(localDb, ct);
             }
+            catch (OperationCanceledException) { throw; }
             catch
             {
                 // Unreadable or unexpected schema: fall back rather than fail the screen.
                 return null;
             }
-            finally
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Guards the pull so two callers never copy the same database at once.</summary>
+    private readonly SemaphoreSlim _libraryDbLock = new(1, 1);
+
+    /// <summary>The local copy of the library database, and when it was taken.</summary>
+    private (string Udid, string Path, DateTime TakenUtc)? _libraryDb;
+
+    /// <summary>
+    /// How long a copy is reused. Long enough to cover a screen open (album names, then the
+    /// covers, then a re-scan), short enough that a photo taken meanwhile is picked up.
+    /// </summary>
+    private static readonly TimeSpan LibraryDbLifetime = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Returns a local copy of /PhotoData/Photos.sqlite, reusing a recent one.
+    ///
+    /// The file is hundreds of megabytes on a full device and every caller needs random
+    /// access to it, so it has to be copied off first. It used to be pulled again for each
+    /// question asked of it - once for the album names, again to confirm an import - which
+    /// is what made opening the screen take so long. One copy now serves them all.
+    ///
+    /// Returns null when the path is restricted, which is the expected outcome on current
+    /// iOS rather than an error; callers fall back to folder-derived names.
+    /// </summary>
+    private async Task<string?> GetLibraryDatabaseAsync(string udid, bool forceRefresh, CancellationToken ct)
+    {
+        await _libraryDbLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (!forceRefresh
+                && _libraryDb is { } cached
+                && string.Equals(cached.Udid, udid, StringComparison.OrdinalIgnoreCase)
+                && DateTime.UtcNow - cached.TakenUtc < LibraryDbLifetime
+                && File.Exists(cached.Path))
             {
-                try { Directory.Delete(tempDir, recursive: true); } catch { /* temp cleanup */ }
+                AppLog.Info("photos: reusing the library database copy");
+                return cached.Path;
             }
-        }, ct);
+
+            var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var localDb = Path.Combine(tempDir, "Photos.sqlite");
+
+            var pulled = await Task.Run(() =>
+            {
+                if (!TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct)) return false;
+
+                // Best-effort: absence is fine, the main file is still usable.
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
+                return true;
+            }, ct).ConfigureAwait(false);
+
+            if (!pulled)
+            {
+                TryDeleteDirectory(tempDir);
+                return null;
+            }
+
+            // Dropped only now: the previous copy stays usable until the new one is in hand,
+            // so a failed pull does not leave the caller with nothing.
+            if (_libraryDb is { } previous) TryDeleteDirectory(Path.GetDirectoryName(previous.Path));
+
+            _libraryDb = (udid, localDb, DateTime.UtcNow);
+            return localDb;
+        }
+        finally
+        {
+            _libraryDbLock.Release();
+        }
+    }
+
+    /// <summary>Removes a temporary copy, ignoring the usual "still in use" failures.</summary>
+    private static void TryDeleteDirectory(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        try { Directory.Delete(path, recursive: true); } catch { /* temp cleanup */ }
+    }
 
     /// <summary>Copies one device file to a local path. Returns false if unavailable.</summary>
     private static bool TryPullFile(string udid, string remotePath, string localPath, CancellationToken ct)
@@ -863,14 +921,21 @@ public sealed class PhotoService
 
             try
             {
-                using var fs = File.Create(localPath);
-                var buffer = new byte[ChunkSize];
+                // A larger chunk than the grid uses: the library database runs to hundreds of
+                // megabytes, and at 256 KiB per round-trip the read alone accounted for most
+                // of the wait before album names appeared.
+                const uint bulkChunk = 1024 * 1024 * 4;
+
+                using var fs = new FileStream(
+                    localPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                    bufferSize: (int)bulkChunk, useAsync: false);
+                var buffer = new byte[bulkChunk];
                 uint read;
                 do
                 {
                     ct.ThrowIfCancellationRequested();
                     read = 0;
-                    if (afc.afc_file_read(client, handle, buffer, ChunkSize, ref read) != AfcError.Success) break;
+                    if (afc.afc_file_read(client, handle, buffer, bulkChunk, ref read) != AfcError.Success) break;
                     if (read > 0) fs.Write(buffer, 0, (int)read);
                 }
                 while (read > 0);
@@ -979,6 +1044,40 @@ public sealed class PhotoService
             catch (SqliteException)
             {
                 // Hidden is a bonus; carry on with the regular albums.
+            }
+        }
+
+        // Then the trash. A deleted asset keeps its file in DCIM until iOS purges it, so the
+        // directory scan still lists it; without this pass it stayed grouped under the album
+        // it used to belong to, and "Recently Deleted" appeared only on devices that also
+        // expose the trash as an album row. Written after Hidden and before the albums so the
+        // trash wins, which is how iOS presents an asset that is both deleted and filed.
+        if (ColumnExists(conn, "ZASSET", "ZTRASHEDSTATE"))
+        {
+            try
+            {
+                using var trashedCmd = conn.CreateCommand();
+                trashedCmd.CommandText = "SELECT ZFILENAME FROM ZASSET WHERE ZTRASHEDSTATE = 1";
+                using var trashedReader = trashedCmd.ExecuteReader();
+                var trashedLabel = Loc.Get("L.Photos.Albums.RecentlyDeleted");
+                var trashedCount = 0;
+                while (trashedReader.Read())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (trashedReader.IsDBNull(0)) continue;
+                    var trashedName = trashedReader.GetString(0);
+                    if (string.IsNullOrWhiteSpace(trashedName)) continue;
+                    map[trashedName] = trashedLabel;
+                    trashedCount++;
+                }
+
+                if (trashedCount > 0)
+                    AppLog.Info($"photos: {trashedCount} deleted items are still on the device");
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (SqliteException)
+            {
+                // The trash is a bonus group; carry on with the regular albums.
             }
         }
 
@@ -1158,6 +1257,11 @@ public sealed class PhotoService
         "/PhotoData/Thumbnails/V2/{0}",
         "/PhotoData/Metadata/{0}",
         "/PhotoData/Mutations/{0}/Adjustments",
+        // Video stills sit beside the movie's metadata rather than under its own name on
+        // some releases, which is why video tiles stayed blank while photos worked: the
+        // folder above exists for a HEIC but not for the matching MOV.
+        "/PhotoData/Thumbnails/{0}",
+        "/PhotoData/Metadata/{0}/Metadata",
     ];
 
     /// <summary>
@@ -1165,6 +1269,9 @@ public sealed class PhotoService
     /// logged once. Guessing every layout for every file costs a round-trip per miss.
     /// </summary>
     private string? _thumbnailDirectoryHit;
+
+    /// <summary>Layouts already mentioned in the log, so each is reported once.</summary>
+    private readonly HashSet<string> _loggedThumbnailLayouts = new(StringComparer.Ordinal);
 
     /// <summary>Set once the "no layout worked" diagnostics have been logged, so they appear once.</summary>
     private bool _thumbnailLayoutLogged;
@@ -1190,34 +1297,82 @@ public sealed class PhotoService
             ? new[] { hit }.Concat(ThumbnailDirectories.Where(d => d != hit))
             : ThumbnailDirectories.AsEnumerable();
 
+        // Some releases key the preview folder on the name without its extension, so both
+        // spellings are tried; the plain name first because that is the common case.
+        var noExtension = Path.ChangeExtension(relative, null);
+        var names = string.Equals(noExtension, relative, StringComparison.Ordinal)
+            ? new[] { relative }
+            : new[] { relative, noExtension };
+
         foreach (var layout in layouts)
         {
-            var folder = string.Format(CultureInfo.InvariantCulture, layout, relative);
-            if (afc.afc_read_directory(client, folder, out var entries) != AfcError.Success
-                || entries is null)
-                continue;
-
-            var jpegs = entries
-                .Where(name => name is not ("." or "..")
-                               && (name.EndsWith(".JPG", StringComparison.OrdinalIgnoreCase)
-                                   || name.EndsWith(".JPEG", StringComparison.OrdinalIgnoreCase)))
-                .Select(name => $"{folder}/{name}")
-                .OrderByDescending(path => ReadFileInfo(afc, client, path).Size)
-                .ToList();
-
-            if (jpegs.Count == 0) continue;
-
-            if (_thumbnailDirectoryHit != layout)
+            foreach (var name in names)
             {
-                _thumbnailDirectoryHit = layout;
-                AppLog.Info($"photos: previews found under {layout}");
-            }
+                var folder = string.Format(CultureInfo.InvariantCulture, layout, name);
 
-            foreach (var path in jpegs) yield return path;
-            yield break;
+                // Descends one level: several layouts put the rendered sizes in a
+                // sub-folder (".../IMG_0001.MOV/Thumbs/5005.JPG"), and stopping at the top
+                // level found nothing there — a video then had no preview at all, since
+                // unlike a photo it has no original this app could decode itself.
+                var jpegs = LargestJpegsFirst(afc, client, folder, depth: 1);
+                if (jpegs.Count == 0) continue;
+
+                // Remembered so the next item starts with the layout that just worked.
+                // Logged only for layouts not seen before: stills and movies can live under
+                // different ones, and without this the two would trade places in the log
+                // once per tile.
+                _thumbnailDirectoryHit = layout;
+                if (_loggedThumbnailLayouts.Add(layout))
+                    AppLog.Info($"photos: previews found under {layout}");
+
+                foreach (var path in jpegs) yield return path;
+                yield break;
+            }
         }
 
         LogThumbnailLayoutOnce(afc, client, item.RemotePath);
+    }
+
+    /// <summary>
+    /// Every JPEG in <paramref name="folder"/> (and, while <paramref name="depth"/> allows,
+    /// its sub-folders), largest first.
+    ///
+    /// Largest first because the smallest rendered size is icon-sized and looks soft in the
+    /// grid. Sub-folders are walked because the layout differs per iOS release and per media
+    /// type; entries with no extension are taken to be directories, which avoids one stat
+    /// round-trip per name.
+    /// </summary>
+    private static List<string> LargestJpegsFirst(
+        IAfcApi afc, AfcClientHandle client, string folder, int depth)
+    {
+        if (afc.afc_read_directory(client, folder, out var entries) != AfcError.Success
+            || entries is null)
+            return [];
+
+        var jpegs = new List<string>();
+        var subFolders = new List<string>();
+
+        foreach (var name in entries)
+        {
+            if (name is "." or "..") continue;
+
+            if (name.EndsWith(".JPG", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".JPEG", StringComparison.OrdinalIgnoreCase))
+            {
+                jpegs.Add($"{folder}/{name}");
+            }
+            else if (depth > 0 && string.IsNullOrEmpty(Path.GetExtension(name)))
+            {
+                subFolders.Add($"{folder}/{name}");
+            }
+        }
+
+        foreach (var sub in subFolders)
+            jpegs.AddRange(LargestJpegsFirst(afc, client, sub, depth - 1));
+
+        return jpegs
+            .OrderByDescending(path => ReadFileInfo(afc, client, path).Size)
+            .ToList();
     }
 
     /// <summary>

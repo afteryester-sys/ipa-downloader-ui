@@ -174,13 +174,23 @@
                                           IsEnabled="{Binding IsIdle}"
                                           Visibility="{Binding CanDownload, Converter={StaticResource BoolToVis}}" />
 
-                                <!-- Initial tile: the device does not hand over artwork -->
+                                <!-- The home-screen icon, with the app's initial showing
+                                     through until SpringBoard hands the artwork over and for
+                                     the apps it has none for. Clipped to a rounded square so
+                                     it reads the way it does on the phone. -->
                                 <Border Grid.Column="1" Width="40" Height="40" CornerRadius="9"
                                         Background="{StaticResource Brush.SurfaceHover}" Margin="0,0,14,0">
-                                    <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               FontSize="16" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.TextMuted}" />
+                                    <Grid>
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   FontSize="16" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.TextMuted}" />
+                                        <Border CornerRadius="9" Visibility="{Binding Icon, Converter={StaticResource NullToCollapsed}}">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                                            </Border.Background>
+                                        </Border>
+                                    </Grid>
                                 </Border>
 
                                 <StackPanel Grid.Column="2" VerticalAlignment="Center">
