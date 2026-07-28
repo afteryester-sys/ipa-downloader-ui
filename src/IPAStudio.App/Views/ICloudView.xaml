@@ -257,7 +257,7 @@
                                                      indistinguishable from a still. -->
                                                 <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets"
                                                            FontSize="13" Margin="6"
-                                                           Foreground="{StaticResource Brush.TextPrimary}"
+                                                           Foreground="{StaticResource Brush.Text}"
                                                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
                                                            Visibility="{Binding Item.IsVideo, Converter={StaticResource BoolToVis}}" />
                                             </Grid>
@@ -332,7 +332,7 @@
                                 <TextBox Text="{Binding OpenNote.Body, Mode=OneWay}"
                                          IsReadOnly="True" TextWrapping="Wrap"
                                          Background="Transparent" BorderThickness="0"
-                                         Foreground="{StaticResource Brush.TextPrimary}" />
+                                         Foreground="{StaticResource Brush.Text}" />
                             </ScrollViewer>
                         </Grid>
                     </Border>
