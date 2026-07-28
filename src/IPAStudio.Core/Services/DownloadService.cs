@@ -485,9 +485,10 @@ public sealed partial class DownloadService
             "download",
         };
         if (byBundleId)
-            // Long form on purpose: the shorthand for this flag has moved between ipatool
-            // releases, while --bundle-identifier has been accepted by every v2 and v3 build.
-            args.AddRange(new[] { "--bundle-identifier", app.BundleId! });
+            // "-b" and nothing else: the bundled ipatool rejects --bundle-identifier and
+            // answers with its usage text, which the caller then reports as a failed
+            // download. Its own usage line spells the flag as "-b BUNDLE_ID".
+            args.AddRange(new[] { "-b", app.BundleId! });
         else
             args.AddRange(new[] { "-i", app.AppStoreId.ToString() });
 

@@ -1100,11 +1100,6 @@ public sealed class ICloudService : IDisposable
             if (preview is not null) previews[masterName] = preview;
         }
 
-        // Without this the only symptom of a query that returns masters but no assets is an
-        // entirely grey grid, with nothing anywhere saying why.
-        if (assetRecords > 0 && thumbs.Count == 0 && previews.Count == 0)
-            AppLog.Warn($"icloud: {assetRecords} asset records carried no preview rendition");
-
         var result = new List<ICloudAsset>();
         foreach (var record in records)
         {
@@ -1117,13 +1112,20 @@ public sealed class ICloudService : IDisposable
             var original = fields?["resOriginalRes"]?["value"];
             var fileType = fields?["resOriginalFileType"]?["value"]?.GetValue<string>();
 
+            // The renditions live on the master record next to the original, not on the
+            // library entry - reading them only off CPLAsset found nothing at all, which is
+            // why every tile stayed blank. The asset record is still consulted afterwards,
+            // because some libraries do publish a thumbnail there instead.
+            var masterThumb = DownloadUrl(fields?["resJPEGThumbRes"]);
+            var masterPreview = DownloadUrl(fields?["resJPEGMedRes"]) ?? DownloadUrl(fields?["resVidSmallRes"]);
+
             result.Add(new ICloudAsset
             {
                 RecordName = recordName,
                 FileName = DecodeFileName(fields?["filenameEnc"]?["value"]?.GetValue<string>()) ?? $"{recordName}.jpg",
                 DownloadUrl = original?["downloadURL"]?.GetValue<string>(),
-                ThumbnailUrl = thumbs.TryGetValue(recordName, out var t) ? t : null,
-                PreviewUrl = previews.TryGetValue(recordName, out var m) ? m : null,
+                ThumbnailUrl = masterThumb ?? (thumbs.TryGetValue(recordName, out var t) ? t : null),
+                PreviewUrl = masterPreview ?? (previews.TryGetValue(recordName, out var m) ? m : null),
                 SizeBytes = original?["size"]?.GetValue<long>() ?? 0,
                 Created = ReadTimestamp(fields?["assetDate"]?["value"]),
                 IsVideo = fileType?.Contains("mov", StringComparison.OrdinalIgnoreCase) == true
@@ -1131,7 +1133,29 @@ public sealed class ICloudService : IDisposable
             });
         }
 
+        // Without this the only symptom of a page whose renditions sit under field names we
+        // do not read is an entirely blank grid, with nothing anywhere saying why.
+        if (result.Count > 0 && result.All(a => a.ThumbnailUrl is null && a.PreviewUrl is null))
+            AppLog.Warn($"icloud: none of {result.Count} assets carried a preview rendition " +
+                        $"({assetRecords} asset record(s) seen); available master fields: " +
+                        string.Join(", ", MasterFieldNames(records)));
+
         return result;
+    }
+
+    /// <summary>
+    /// The field names CloudKit actually returned on the first master record. Logged only
+    /// when no preview was found, so a mismatch can be diagnosed from the log alone.
+    /// </summary>
+    private static IEnumerable<string> MasterFieldNames(JsonArray records)
+    {
+        foreach (var record in records)
+        {
+            if (record?["recordType"]?.GetValue<string>() != "CPLMaster") continue;
+            if (record["fields"] is JsonObject fields) return fields.Select(f => f.Key);
+        }
+
+        return Array.Empty<string>();
     }
 
     /// <summary>
