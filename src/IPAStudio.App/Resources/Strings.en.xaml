@@ -491,6 +491,14 @@
     <sys:String x:Key="L.ICloud.PhotoCount">{0} photos</sys:String>
     <sys:String x:Key="L.ICloud.NoteCount">{0} notes</sys:String>
     <sys:String x:Key="L.ICloud.NoContacts">No contacts in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Favourites">Favourites</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Videos">Videos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Screenshots">Screenshots</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Selfies">Selfies</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Panoramas">Panoramas</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.SloMo">Slo-mo</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.TimeLapse">Time-lapse</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">No notes in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>
@@ -524,5 +532,11 @@
     <sys:String x:Key="L.OnDevice.AccountUnverified">The device does not report which Apple ID bought this app. If it was not the current account, the App Store will refuse the download.</sys:String>
     <sys:String x:Key="L.OnDevice.NotOwned">The current Apple ID does not own this app, so the App Store refused the download.</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">This app is not on the App Store, so it cannot be downloaded.</sys:String>
+    <sys:String x:Key="L.OnDevice.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.OnDevice.ClearSelection">Clear selection</sys:String>
+    <sys:String x:Key="L.OnDevice.DownloadSelected">Download selected ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchProgress">Downloading {0} of {1}…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDone">Saved {0} IPA file(s).</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Saved {0}, failed {1}.</sys:String>
 
 </ResourceDictionary>

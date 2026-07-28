@@ -78,6 +78,15 @@ public sealed partial class InstalledAppViewModel : ObservableObject
     /// <summary>True when the account is unverifiable, so the UI can say so plainly.</summary>
     public bool IsAccountUnverified => CanDownload && AccountMatches is null;
 
+    /// <summary>
+    /// Ticked for a batch download.
+    ///
+    /// Only rows that can actually be downloaded show the tick, so a selection can never
+    /// hold an app the download would refuse anyway.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     [ObservableProperty]
     private bool _isDownloading;
 
@@ -172,6 +181,33 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// <summary>Apps left after the search filter; the list binds to this.</summary>
     public ObservableCollection<InstalledAppViewModel> VisibleApps { get; } = new();
 
+    /// <summary>How many rows are ticked, shown next to the batch button.</summary>
+    public int SelectedCount => Apps.Count(a => a.IsSelected);
+
+    public bool HasSelection => SelectedCount > 0;
+
+    /// <summary>
+    /// True when every downloadable row is ticked, so the button can offer to clear the
+    /// selection instead of re-ticking what is already ticked.
+    /// </summary>
+    public bool AreAllSelected =>
+        VisibleApps.Any(a => a.CanDownload) && VisibleApps.Where(a => a.CanDownload).All(a => a.IsSelected);
+
+    /// <summary>"Download selected (3)" — the count has to be in the text, not beside it.</summary>
+    public string DownloadSelectedLabel => Loc.Format("L.OnDevice.DownloadSelected", SelectedCount);
+
+    /// <summary>The tick-all button flips its own wording once everything is ticked.</summary>
+    public string SelectAllLabel =>
+        AreAllSelected ? Loc.Get("L.OnDevice.ClearSelection") : Loc.Get("L.OnDevice.SelectAll");
+
+    /// <summary>True while the batch is working through the ticked rows.</summary>
+    [ObservableProperty]
+    private bool _isBatchRunning;
+
+    /// <summary>"3 of 7" while a batch runs; null when none is.</summary>
+    [ObservableProperty]
+    private string? _batchStatus;
+
     public bool IsSignedIn => _auth.IsAuthenticated;
     public string? AccountEmail => _auth.CurrentAccount?.Email;
 
@@ -206,8 +242,14 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         IsLoading = true;
         ErrorText = null;
+
+        // Detach first: a row left subscribed would keep reporting ticks into a list it is
+        // no longer part of, and keep this page alive through the handler.
+        foreach (var stale in Apps) stale.PropertyChanged -= OnRowPropertyChanged;
+
         Apps.Clear();
         VisibleApps.Clear();
+        RefreshSelectionState();
 
         try
         {
@@ -220,7 +262,13 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             var metadataAvailable = apps.Any(a => a.StoreItemId is not null || a.StoreAccount is not null);
 
             foreach (var app in apps)
-                Apps.Add(new InstalledAppViewModel(app, account, metadataAvailable));
+            {
+                var row = new InstalledAppViewModel(app, account, metadataAvailable);
+
+                // The batch button counts ticks, so it has to hear about every one.
+                row.PropertyChanged += OnRowPropertyChanged;
+                Apps.Add(row);
+            }
 
             ApplyFilter();
             AppLog.Info($"On-device list: {apps.Count} apps on {TargetDevice.Name}");
@@ -240,6 +288,99 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>Recomputes what the batch controls show. Called whenever a tick changes.</summary>
+    private void RefreshSelectionState()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(AreAllSelected));
+        OnPropertyChanged(nameof(DownloadSelectedLabel));
+        OnPropertyChanged(nameof(SelectAllLabel));
+    }
+
+    private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(InstalledAppViewModel.IsSelected)) RefreshSelectionState();
+    }
+
+    /// <summary>
+    /// Ticks every downloadable row on screen, or clears them when they are all ticked.
+    ///
+    /// Deliberately limited to the filtered rows: after a search, "select all" that also
+    /// caught the hidden ones would queue downloads the user cannot see.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleSelectAll()
+    {
+        var select = !AreAllSelected;
+        foreach (var app in VisibleApps)
+            if (app.CanDownload) app.IsSelected = select;
+
+        RefreshSelectionState();
+    }
+
+    /// <summary>
+    /// Downloads the ticked apps one after another.
+    ///
+    /// Sequential on purpose: ipatool drives one App Store session, and parallel downloads
+    /// on the same account get throttled or refused outright, which would look like random
+    /// failures across the batch.
+    /// </summary>
+    [RelayCommand]
+    private async Task DownloadSelectedAsync()
+    {
+        if (IsBatchRunning) return;
+
+        var queue = Apps.Where(a => a.IsSelected && a.CanDownload && !a.IsDownloading).ToList();
+        if (queue.Count == 0) return;
+
+        if (!_auth.IsAuthenticated)
+        {
+            ErrorText = Loc.Get("L.OnDevice.NeedLogin");
+            return;
+        }
+
+        // Asked once for the whole batch rather than per app: prompting between downloads
+        // would interrupt a run the user has already walked away from.
+        if (string.IsNullOrWhiteSpace(DestinationFolder))
+        {
+            BrowseFolder();
+            if (string.IsNullOrWhiteSpace(DestinationFolder)) return;
+        }
+
+        IsBatchRunning = true;
+        try
+        {
+            var done = 0;
+            foreach (var app in queue)
+            {
+                BatchStatus = Loc.Format("L.OnDevice.BatchProgress", done + 1, queue.Count);
+
+                await DownloadAsync(app).ConfigureAwait(true);
+
+                // Ticks are cleared only for what succeeded, so a second click retries the
+                // failures instead of downloading everything again.
+                if (app.ErrorText is null) app.IsSelected = false;
+
+                done++;
+
+                // A cancelled row means the user pressed Cancel: stopping the batch there is
+                // the only reading of that click that does not fight the user.
+                if (app.SavedPath is null && app.ErrorText is null) break;
+            }
+
+            var failed = queue.Count(a => a.ErrorText is not null);
+            BatchStatus = failed == 0
+                ? Loc.Format("L.OnDevice.BatchDone", queue.Count - failed)
+                : Loc.Format("L.OnDevice.BatchDoneWithErrors", queue.Count - failed, failed);
+        }
+        finally
+        {
+            IsBatchRunning = false;
+            RefreshSelectionState();
+        }
+    }
+
     private void ApplyFilter()
     {
         VisibleApps.Clear();
@@ -254,6 +395,10 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
                 VisibleApps.Add(app);
             }
         }
+
+        // "All" is defined over the visible rows, so it changes with the filter.
+        OnPropertyChanged(nameof(AreAllSelected));
+        OnPropertyChanged(nameof(SelectAllLabel));
     }
 
     // ─────────────────────────── commands ───────────────────────────
@@ -378,7 +523,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             item.Progress = 100;
             item.StatusText = Path.GetFileName(finalPath);
 
-            _settings.MarkOwned(entry.AppStoreId);
+            // Ownership is keyed by store id, so a bundle-id download has nothing to record.
+            if (entry.AppStoreId > 0) _settings.MarkOwned(entry.AppStoreId);
             AppLog.Info($"On-device download OK: {finalPath}");
         }
         catch (OperationCanceledException)
@@ -448,7 +594,21 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         }
 
         var byBundle = await _catalog.SearchByBundleIdAsync(app.BundleId, ct).ConfigureAwait(true);
-        return byBundle.Count > 0 ? byBundle[0] : null;
+        if (byBundle.Count > 0) return byBundle[0];
+
+        // Nothing in any storefront and no id from the device. The App Store can still hand
+        // over an app the account owns when asked by bundle identifier, so the attempt is
+        // made instead of refusing on the strength of a catalog that is merely incomplete:
+        // the lookup API hides apps pulled from sale, apps restricted by region and apps
+        // that were never listed publicly, all of which stay downloadable for their owner.
+        AppLog.Info($"On-device: {app.BundleId} is not in the catalog; trying the bundle id directly");
+        return new AppEntry
+        {
+            Name = app.Name,
+            AppStoreId = 0,
+            BundleId = app.BundleId,
+            LatestVersion = app.Version,
+        };
     }
 
     /// <summary>

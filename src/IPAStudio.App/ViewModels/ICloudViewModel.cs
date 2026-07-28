@@ -446,9 +446,12 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     /// </summary>
     private async Task LoadPhotosAsync(ICloudAlbum? album, CancellationToken ct)
     {
-        var photos = album is { IsAllPhotos: false, RecordName: { } record }
-            ? await _icloud.GetAlbumPhotosAsync(record, ct: ct).ConfigureAwait(true)
-            : await _icloud.GetPhotosAsync(ct: ct).ConfigureAwait(true);
+        // One call for all three album kinds: a real album, a smart album and the whole
+        // library need different CloudKit queries, and picking between them here meant the
+        // smart albums silently fell through to "everything".
+        var photos = album is null
+            ? await _icloud.GetPhotosAsync(ct: ct).ConfigureAwait(true)
+            : await _icloud.GetAlbumAssetsAsync(album, ct: ct).ConfigureAwait(true);
 
         Photos.Clear();
         foreach (var p in photos) Photos.Add(new ICloudAssetViewModel(p));
@@ -482,7 +485,10 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         {
             var tasks = rows.Select(async row =>
             {
-                if (row.PreviewAttempted || row.Item.ThumbnailUrl is null) return;
+                // Either rendition will do; skipping on a missing thumbnail alone left the
+                // assets that only publish a medium rendition permanently blank.
+                if (row.PreviewAttempted) return;
+                if (row.Item.ThumbnailUrl is null && row.Item.PreviewUrl is null) return;
                 row.PreviewAttempted = true;
 
                 await gate.WaitAsync(ct).ConfigureAwait(false);

@@ -857,7 +857,45 @@ public sealed class ICloudService : IDisposable
     /// Pages are walked here until Apple stops handing out records.
     /// </summary>
     public Task<IReadOnlyList<ICloudAsset>> GetPhotosAsync(int limit = 10000, CancellationToken ct = default)
-        => QueryAssetsAsync("CPLAssetAndMasterByAddedDate", parentId: null, limit, ct);
+        => QueryAssetsAsync("CPLAssetAndMasterByAddedDate", parentId: null, smartAlbum: null, limit, ct);
+
+    /// <summary>
+    /// The computed albums the Photos app shows on every account: Favourites, Videos,
+    /// Screenshots and the rest.
+    ///
+    /// They are queried by a filter on the whole library rather than by membership of a
+    /// container, so they are listed here as fixed entries: asking CloudKit for them costs a
+    /// request each, and an account with no screenshots is not a reason to hide the album any
+    /// more than it is in Photos itself.
+    /// </summary>
+    private static readonly (string Key, string LocKey)[] SmartAlbums =
+    {
+        ("FAVORITE", "L.ICloud.Smart.Favourites"),
+        ("VIDEO", "L.ICloud.Smart.Videos"),
+        ("SCREENSHOT", "L.ICloud.Smart.Screenshots"),
+        ("SELFIE", "L.ICloud.Smart.Selfies"),
+        ("LIVE", "L.ICloud.Smart.Live"),
+        ("PANORAMA", "L.ICloud.Smart.Panoramas"),
+        ("SLOMO", "L.ICloud.Smart.SloMo"),
+        ("TIMELAPSE", "L.ICloud.Smart.TimeLapse"),
+    };
+
+    /// <summary>
+    /// Photos of one album, whichever kind it is. The three kinds need three different
+    /// CloudKit queries, and keeping that choice here means callers only ever hold an album.
+    /// </summary>
+    public Task<IReadOnlyList<ICloudAsset>> GetAlbumAssetsAsync(
+        ICloudAlbum album, int limit = 10000, CancellationToken ct = default)
+    {
+        if (album.SmartAlbum is { Length: > 0 } smart)
+            return QueryAssetsAsync(
+                "CPLAssetAndMasterInSmartAlbumByAssetDate", parentId: null, smartAlbum: smart, limit, ct);
+
+        if (album.RecordName is { Length: > 0 } record)
+            return GetAlbumPhotosAsync(record, limit, ct);
+
+        return GetPhotosAsync(limit, ct);
+    }
 
     /// <summary>
     /// The albums the user made, plus a synthetic entry for the whole library.
@@ -886,6 +924,9 @@ public sealed class ICloudService : IDisposable
         };
 
         var albums = new List<ICloudAlbum> { all };
+        foreach (var (key, locKey) in SmartAlbums)
+            albums.Add(new ICloudAlbum { SmartAlbum = key, Name = Loc.Get(locKey) });
+
         try
         {
             var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
@@ -906,7 +947,8 @@ public sealed class ICloudService : IDisposable
                 }
             }
 
-            AppLog.Info($"icloud: {albums.Count - 1} albums listed");
+            AppLog.Info($"icloud: {albums.Count - 1 - SmartAlbums.Length} user albums " +
+                        $"plus {SmartAlbums.Length} smart albums listed");
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -922,14 +964,15 @@ public sealed class ICloudService : IDisposable
     /// <summary>Photos inside one album, newest first.</summary>
     public Task<IReadOnlyList<ICloudAsset>> GetAlbumPhotosAsync(
         string albumRecordName, int limit = 10000, CancellationToken ct = default)
-        => QueryAssetsAsync("CPLContainerRelationNotDeletedByAssetDate", albumRecordName, limit, ct);
+        => QueryAssetsAsync(
+            "CPLContainerRelationNotDeletedByAssetDate", albumRecordName, smartAlbum: null, limit, ct);
 
     /// <summary>
     /// Walks a photo query page by page. <paramref name="parentId"/> is an album record name,
     /// or null for the whole library.
     /// </summary>
     private async Task<IReadOnlyList<ICloudAsset>> QueryAssetsAsync(
-        string recordType, string? parentId, int limit, CancellationToken ct)
+        string recordType, string? parentId, string? smartAlbum, int limit, CancellationToken ct)
     {
         var root = ServiceUrl("ckdatabasews");
         if (root is null) return Array.Empty<ICloudAsset>();
@@ -971,6 +1014,14 @@ public sealed class ICloudService : IDisposable
                     ["comparator"] = "EQUALS",
                 });
 
+            if (smartAlbum is not null)
+                filters.Add(new JsonObject
+                {
+                    ["fieldName"] = "smartAlbum",
+                    ["fieldValue"] = new JsonObject { ["type"] = "STRING", ["value"] = smartAlbum },
+                    ["comparator"] = "EQUALS",
+                });
+
             var body = new JsonObject
             {
                 ["query"] = new JsonObject
@@ -981,8 +1032,12 @@ public sealed class ICloudService : IDisposable
                 // Masters and assets arrive as separate records, so a page of N photos costs
                 // 2N records.
                 ["resultsLimit"] = PageSize * 2,
+                // resJPEGMedRes is asked for as well: not every asset carries a thumbnail
+                // rendition (a fresh upload, a video, a screen recording), and without a
+                // second rendition to fall back on those tiles stayed permanently blank.
                 ["desiredKeys"] = new JsonArray(
-                    "resOriginalRes", "resOriginalFileType", "resJPEGThumbRes",
+                    "resOriginalRes", "resOriginalFileType",
+                    "resJPEGThumbRes", "resJPEGMedRes", "resVidSmallRes",
                     "filenameEnc", "itemType", "assetDate", "masterRef", "isDeleted"),
                 ["zoneID"] = new JsonObject { ["zoneName"] = "PrimarySync" },
             };
@@ -1008,7 +1063,9 @@ public sealed class ICloudService : IDisposable
         }
 
         AppLog.Info($"icloud: {result.Count} photos listed over {pages} page(s)" +
-                    (parentId is null ? "" : $" from album {parentId}"));
+                    (parentId is null ? "" : $" from album {parentId}") +
+                    (smartAlbum is null ? "" : $" from the {smartAlbum} smart album") +
+                    $", {result.Count(a => a.ThumbnailUrl is not null || a.PreviewUrl is not null)} with a preview");
         return result;
     }
 
@@ -1019,14 +1076,34 @@ public sealed class ICloudService : IDisposable
     /// </summary>
     private static List<ICloudAsset> ParseAssetRecords(JsonArray records)
     {
+        // Two renditions per photo, both keyed by the master they belong to: the small
+        // thumbnail when the asset has one, and the medium rendition as a fallback.
         var thumbs = new Dictionary<string, string>(StringComparer.Ordinal);
+        var previews = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var assetRecords = 0;
         foreach (var record in records)
         {
             if (record?["recordType"]?.GetValue<string>() != "CPLAsset") continue;
-            var masterName = record["fields"]?["masterRef"]?["value"]?["recordName"]?.GetValue<string>();
-            var thumb = record["fields"]?["resJPEGThumbRes"]?["value"]?["downloadURL"]?.GetValue<string>();
-            if (masterName is not null && thumb is not null) thumbs[masterName] = thumb;
+            assetRecords++;
+
+            var fields = record["fields"];
+            var masterName = fields?["masterRef"]?["value"]?["recordName"]?.GetValue<string>();
+            if (masterName is null) continue;
+
+            var thumb = DownloadUrl(fields?["resJPEGThumbRes"]);
+            if (thumb is not null) thumbs[masterName] = thumb;
+
+            // Videos publish a small video rendition instead of a still, and the first frame
+            // of it is a usable tile - better than the blank square it replaces.
+            var preview = DownloadUrl(fields?["resJPEGMedRes"]) ?? DownloadUrl(fields?["resVidSmallRes"]);
+            if (preview is not null) previews[masterName] = preview;
         }
+
+        // Without this the only symptom of a query that returns masters but no assets is an
+        // entirely grey grid, with nothing anywhere saying why.
+        if (assetRecords > 0 && thumbs.Count == 0 && previews.Count == 0)
+            AppLog.Warn($"icloud: {assetRecords} asset records carried no preview rendition");
 
         var result = new List<ICloudAsset>();
         foreach (var record in records)
@@ -1046,6 +1123,7 @@ public sealed class ICloudService : IDisposable
                 FileName = DecodeFileName(fields?["filenameEnc"]?["value"]?.GetValue<string>()) ?? $"{recordName}.jpg",
                 DownloadUrl = original?["downloadURL"]?.GetValue<string>(),
                 ThumbnailUrl = thumbs.TryGetValue(recordName, out var t) ? t : null,
+                PreviewUrl = previews.TryGetValue(recordName, out var m) ? m : null,
                 SizeBytes = original?["size"]?.GetValue<long>() ?? 0,
                 Created = ReadTimestamp(fields?["assetDate"]?["value"]),
                 IsVideo = fileType?.Contains("mov", StringComparison.OrdinalIgnoreCase) == true
@@ -1065,25 +1143,41 @@ public sealed class ICloudService : IDisposable
     /// </summary>
     public async Task<byte[]?> GetThumbnailAsync(ICloudAsset asset, CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(asset.ThumbnailUrl)) return null;
-
-        try
+        // Thumbnail first, medium rendition only if there is none or it is refused: the
+        // medium file is many times larger, so it is a fallback, not a default.
+        foreach (var url in new[] { asset.ThumbnailUrl, asset.PreviewUrl })
         {
-            using var response = await _http.GetAsync(asset.ThumbnailUrl, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            if (string.IsNullOrEmpty(url)) continue;
+
+            try
             {
-                AppLog.Warn($"icloud: preview for {asset.FileName} returned {(int)response.StatusCode}");
-                return null;
-            }
+                using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    AppLog.Warn($"icloud: preview for {asset.FileName} returned {(int)response.StatusCode}");
+                    continue;
+                }
 
-            return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                var bytes = await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+                if (bytes.Length > 0) return bytes;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"icloud: could not fetch the preview for {asset.FileName} ({ex.Message})");
+            }
         }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            AppLog.Warn($"icloud: could not fetch the preview for {asset.FileName} ({ex.Message})");
-            return null;
-        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Signed URL out of a CloudKit asset field, or null when the field is absent or empty.
+    /// </summary>
+    private static string? DownloadUrl(JsonNode? field)
+    {
+        var url = field?["value"]?["downloadURL"]?.GetValue<string>();
+        return string.IsNullOrWhiteSpace(url) ? null : url;
     }
 
     /// <summary>

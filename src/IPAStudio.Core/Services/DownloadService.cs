@@ -473,13 +473,29 @@ public sealed partial class DownloadService
         TryDeleteStaleFiles(outputPath);
         TryCleanStaging(stagingDir);
 
+        // The numeric store id is preferred: it names the exact app and still works for
+        // apps Apple has pulled from every storefront. Only when the device gave no id at
+        // all is the bundle identifier used instead - ipatool then resolves it through the
+        // store, which is weaker (a delisted app is not found), but refusing outright would
+        // block apps that are perfectly downloadable.
+        var byBundleId = app.AppStoreId <= 0 && !string.IsNullOrWhiteSpace(app.BundleId);
+
         var args = new List<string>
         {
             "download",
-            "-i", app.AppStoreId.ToString(),
+        };
+        if (byBundleId)
+            // Long form on purpose: the shorthand for this flag has moved between ipatool
+            // releases, while --bundle-identifier has been accepted by every v2 and v3 build.
+            args.AddRange(new[] { "--bundle-identifier", app.BundleId! });
+        else
+            args.AddRange(new[] { "-i", app.AppStoreId.ToString() });
+
+        args.AddRange(new[]
+        {
             "-o", outputPath,
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
-        };
+        });
         if (autoPurchase) args.Add("--purchase");
 
         // NOTE: "--format json" is deliberately NOT passed here.
@@ -809,7 +825,7 @@ public sealed partial class DownloadService
                 // sends no Content-Length for them either, so the first download can only
                 // show bytes-so-far. Recording it now means the next one has a real total
                 // and a bar that fills.
-                RememberSize(app.AppStoreId, app.LatestVersion, finalTotal);
+                if (app.AppStoreId > 0) RememberSize(app.AppStoreId, app.LatestVersion, finalTotal);
             }
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
@@ -922,9 +938,16 @@ public sealed partial class DownloadService
         if (string.IsNullOrEmpty(version))
             version = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+        // Apps resolved by bundle identifier have no store id, and a literal "0" in the
+        // name would make every one of them look like the same app. The bundle id is the
+        // only identifier they do have, so it stands in.
+        var identifier = app.AppStoreId > 0
+            ? app.AppStoreId.ToString(CultureInfo.InvariantCulture)
+            : MakeAsciiSafeName(app.BundleId ?? "app");
+
         return Path.Combine(
             string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
-            $"{safeName}_{app.AppStoreId}_{version}.ipa");
+            $"{safeName}_{identifier}_{version}.ipa");
     }
 
     /// <summary>
@@ -1253,6 +1276,11 @@ public sealed partial class DownloadService
         // A size measured from an earlier download of this exact app beats the catalog:
         // it is the real file, not the generic-device figure, and it is the only source
         // for delisted apps that the catalog does not list at all.
+        // Guarded on a real id: the learned sizes are keyed by store id, so looking one up
+        // for an app that has none would hand out whatever size the last such download
+        // happened to have - a wrong total on the progress bar of an unrelated app.
+        if (appId <= 0) return 0;
+
         var learned = GetLearnedSize(appId, app.LatestVersion);
         if (learned > 0) return learned;
 
