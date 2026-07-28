@@ -45,6 +45,14 @@ public sealed class ICloudService : IDisposable
     private string? _srpC;
     private string? _pendingAccountName;
 
+    // Where Apple said it would send the six-digit code, learned from the handshake that
+    // follows the 409. Which endpoint verifies the code depends on this, so it is not
+    // cosmetic: a code delivered by SMS is rejected by the trusted-device endpoint.
+    private int? _codePhoneId;
+    private string _codePushMode = "sms";
+    private string? _codePhoneNumber;
+    private bool _hasTrustedDevices;
+
     // Session state from a successful sign-in.
     private string? _sessionId;
     private string? _scnt;
@@ -76,6 +84,18 @@ public sealed class ICloudService : IDisposable
 
     /// <summary>True when a previous session was saved and can be resumed without a password.</summary>
     public bool HasSavedSession => _store.Load(new CookieContainer()) is not null;
+
+    /// <summary>
+    /// Where Apple sent the six-digit code: a masked phone number when it went out by SMS
+    /// or voice call, or null when it was pushed to the account's trusted devices.
+    ///
+    /// Worth showing: an account with no second Apple device gets an SMS, and someone
+    /// staring at "check your other device" has no reason to look at their phone.
+    /// </summary>
+    public string? TwoFactorPhoneNumber => _codePhoneId is null ? null : _codePhoneNumber;
+
+    /// <summary>"sms", "voice" or "device" — how the pending code was delivered.</summary>
+    public string TwoFactorDelivery => _codePhoneId is null ? "device" : _codePushMode;
 
     // ─────────────────────────── sign-in ───────────────────────────
 
@@ -155,6 +175,13 @@ public sealed class ICloudService : IDisposable
             if (completeResponse.StatusCode == HttpStatusCode.Conflict)
             {
                 AppLog.Info("iCloud sign-in: two-factor code required");
+
+                // The 409 body already describes the account's second factor; when it
+                // doesn't, GET /auth returns the same handshake.
+                var handshake = await ReadJsonAsync(completeResponse, ct).ConfigureAwait(false);
+                await LoadTwoFactorOptionsAsync(handshake, ct).ConfigureAwait(false);
+                await TriggerCodeDeliveryAsync(ct).ConfigureAwait(false);
+
                 return ICloudSignInResult.NeedsTwoFactorCode;
             }
 
@@ -181,28 +208,32 @@ public sealed class ICloudService : IDisposable
     }
 
     /// <summary>
-    /// Submits the six-digit code from a trusted device and, on success, asks Apple to
-    /// trust this machine so the code is not needed every time.
+    /// Submits the six-digit code and, on success, asks Apple to trust this machine so the
+    /// code is not needed every time.
+    ///
+    /// Which endpoint accepts the code depends on how Apple delivered it. A code that
+    /// arrived by SMS is rejected by the trusted-device endpoint with the same
+    /// "incorrect code" error as a genuinely wrong code, which is why this picks the route
+    /// from the handshake and falls back to the other one before giving up: the two are
+    /// indistinguishable from the error alone, and the user is holding a valid code.
     /// </summary>
     public async Task<ICloudSignInResult> SubmitTwoFactorCodeAsync(string code, CancellationToken ct = default)
     {
+        code = new string(code.Where(char.IsDigit).ToArray());
+        if (code.Length == 0) return ICloudSignInResult.InvalidCredentials;
+
         try
         {
-            var body = new JsonObject
-            {
-                ["securityCode"] = new JsonObject { ["code"] = code.Trim() },
-            };
+            var phoneFirst = _codePhoneId is not null;
 
-            using var response = await SendAuthAsync(
-                HttpMethod.Post, $"{AuthBase}/verify/trusteddevice/securitycode", body, ct).ConfigureAwait(false);
+            var ok = await TryVerifyAsync(code, usePhone: phoneFirst, ct).ConfigureAwait(false);
 
-            if (!response.IsSuccessStatusCode)
-            {
-                AppLog.Warn($"iCloud 2FA code rejected: {(int)response.StatusCode}");
-                return ICloudSignInResult.InvalidCredentials;
-            }
+            // Only the route can be wrong here, so retry the other one once. Apple counts
+            // validation attempts, so this is deliberately a single retry.
+            if (!ok && _codePhoneId is not null)
+                ok = await TryVerifyAsync(code, usePhone: !phoneFirst, ct).ConfigureAwait(false);
 
-            CaptureSessionHeaders(response);
+            if (!ok) return ICloudSignInResult.InvalidCredentials;
 
             // Ask for a trust token so future launches skip the code prompt.
             using var trust = await SendAuthAsync(HttpMethod.Get, $"{AuthBase}/2sv/trust", null, ct)
@@ -216,6 +247,228 @@ public sealed class ICloudService : IDisposable
         {
             AppLog.Warn($"iCloud 2FA error: {ex.Message}");
             return ICloudSignInResult.Failed;
+        }
+    }
+
+    /// <summary>
+    /// Posts the code to one of the two verification endpoints. Returns false when Apple
+    /// rejects it, logging Apple's own error code so a rejection can be told apart from a
+    /// network failure in the log.
+    /// </summary>
+    private async Task<bool> TryVerifyAsync(string code, bool usePhone, CancellationToken ct)
+    {
+        JsonObject body;
+        string url;
+
+        if (usePhone)
+        {
+            url = $"{AuthBase}/verify/phone/securitycode";
+            body = new JsonObject
+            {
+                ["phoneNumber"] = new JsonObject { ["id"] = _codePhoneId ?? 1 },
+                ["securityCode"] = new JsonObject { ["code"] = code },
+                // Must match how Apple actually sent it. Hard-coding "sms" makes Apple
+                // reject every code on accounts set to receive a voice call instead.
+                ["mode"] = _codePushMode,
+            };
+        }
+        else
+        {
+            url = $"{AuthBase}/verify/trusteddevice/securitycode";
+            body = new JsonObject { ["securityCode"] = new JsonObject { ["code"] = code } };
+        }
+
+        using var response = await SendAuthAsync(HttpMethod.Post, url, body, ct).ConfigureAwait(false);
+        CaptureSessionHeaders(response);
+
+        if (response.IsSuccessStatusCode) return true;
+
+        var reason = await ReadServiceErrorAsync(response, ct).ConfigureAwait(false);
+        AppLog.Warn($"iCloud 2FA rejected via {(usePhone ? "phone" : "trusteddevice")}: " +
+                    $"{(int)response.StatusCode} {reason}");
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the account's second-factor setup: trusted devices, and the phone numbers
+    /// Apple can text or call, along with the delivery mode it uses for them.
+    /// </summary>
+    private async Task LoadTwoFactorOptionsAsync(JsonNode? handshake, CancellationToken ct)
+    {
+        _codePhoneId = null;
+        _codePhoneNumber = null;
+        _codePushMode = "sms";
+        _hasTrustedDevices = false;
+
+        try
+        {
+            if (!HasTwoFactorShape(handshake))
+            {
+                using var response = await SendAuthAsync(HttpMethod.Get, AuthBase, null, ct)
+                    .ConfigureAwait(false);
+                CaptureSessionHeaders(response);
+                if (response.IsSuccessStatusCode)
+                    handshake = await ReadJsonAsync(response, ct).ConfigureAwait(false);
+            }
+
+            if (handshake is null) return;
+
+            _hasTrustedDevices = handshake["trustedDevices"] is JsonArray { Count: > 0 };
+
+            var phones = FindTrustedPhoneNumbers(handshake);
+            var noDevices = handshake["noTrustedDevices"]?.GetValue<bool>() ?? false;
+
+            // Prefer the trusted-device push when the account has one: it is the route
+            // Apple pushes to by default, and it needs no phone id.
+            if (_hasTrustedDevices && !noDevices) return;
+
+            if (phones is { Count: > 0 } && phones[0] is JsonObject first)
+            {
+                _codePhoneId = first["id"]?.GetValue<int>() ?? 1;
+                _codePushMode = first["pushMode"]?.GetValue<string>() ?? "sms";
+                _codePhoneNumber = first["numberWithDialCode"]?.GetValue<string>()
+                                   ?? first["num"]?.GetValue<string>();
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            // A handshake we cannot read must not block sign-in: the trusted-device route
+            // is still attempted, and the phone route is tried as the fallback.
+            AppLog.Warn($"iCloud: could not read the two-factor options ({ex.Message})");
+        }
+    }
+
+    private static bool HasTwoFactorShape(JsonNode? node)
+        => node is not null
+           && (node["trustedDevices"] is JsonArray { Count: > 0 }
+               || FindTrustedPhoneNumbers(node) is { Count: > 0 });
+
+    /// <summary>
+    /// Digs out trustedPhoneNumbers, which Apple has moved between several places in the
+    /// handshake over time. Checking every known location keeps the SMS route working
+    /// across their changes instead of silently losing it.
+    /// </summary>
+    private static JsonArray? FindTrustedPhoneNumbers(JsonNode? root)
+    {
+        if (root is null) return null;
+
+        JsonNode?[] candidates =
+        {
+            root["trustedPhoneNumbers"],
+            root["twoSV"]?["phoneNumberVerification"]?["trustedPhoneNumbers"],
+            root["twoSV"]?["bridgeInitiateData"]?["phoneNumberVerification"]?["trustedPhoneNumbers"],
+            root["direct"]?["phoneNumberVerification"]?["trustedPhoneNumbers"],
+            root["phoneNumberVerification"]?["trustedPhoneNumbers"],
+        };
+
+        foreach (var candidate in candidates)
+            if (candidate is JsonArray { Count: > 0 } array) return array;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Asks Apple to send the code. For trusted devices this is a PUT with no body, which
+    /// recent Apple builds require before anything is pushed — without it the user waits
+    /// for a code that never arrives.
+    ///
+    /// Failure is deliberately not fatal: Apple often sends the code on its own (that is
+    /// the case for accounts with a single trusted phone number), and re-requesting would
+    /// then invalidate the code the user is already holding.
+    /// </summary>
+    private async Task TriggerCodeDeliveryAsync(CancellationToken ct)
+    {
+        if (_codePhoneId is not null)
+        {
+            // Apple auto-sends to the only number on the account, so asking again would
+            // supersede the code the user just received.
+            AppLog.Info($"iCloud 2FA: code sent by {_codePushMode} to {_codePhoneNumber ?? "the trusted number"}");
+            return;
+        }
+
+        try
+        {
+            using var response = await SendAuthAsync(
+                HttpMethod.Put, $"{AuthBase}/verify/trusteddevice/securitycode", null, ct)
+                .ConfigureAwait(false);
+            CaptureSessionHeaders(response);
+
+            AppLog.Info(response.IsSuccessStatusCode
+                ? "iCloud 2FA: code pushed to the trusted devices"
+                : $"iCloud 2FA: push request returned {(int)response.StatusCode}");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"iCloud 2FA: could not trigger the push ({ex.Message})");
+        }
+    }
+
+    /// <summary>
+    /// Re-requests the code. Used when the first one never arrived; sends by SMS or voice
+    /// when a number is known, otherwise pushes to the trusted devices again.
+    /// </summary>
+    public async Task<bool> ResendTwoFactorCodeAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            if (_codePhoneId is null)
+            {
+                using var push = await SendAuthAsync(
+                    HttpMethod.Put, $"{AuthBase}/verify/trusteddevice/securitycode", null, ct)
+                    .ConfigureAwait(false);
+                CaptureSessionHeaders(push);
+                return push.IsSuccessStatusCode;
+            }
+
+            var body = new JsonObject
+            {
+                ["phoneNumber"] = new JsonObject { ["id"] = _codePhoneId },
+                ["mode"] = _codePushMode,
+            };
+
+            using var response = await SendAuthAsync(HttpMethod.Put, $"{AuthBase}/verify/phone", body, ct)
+                .ConfigureAwait(false);
+            CaptureSessionHeaders(response);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var reason = await ReadServiceErrorAsync(response, ct).ConfigureAwait(false);
+                AppLog.Warn($"iCloud 2FA resend failed: {(int)response.StatusCode} {reason}");
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"iCloud 2FA resend error: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Apple's own reason for a refusal, from the service_errors array. Logging the raw
+    /// code is what makes a wrong code ("-21669") distinguishable from a stale session
+    /// afterwards; without it every failure looks the same in the log.
+    /// </summary>
+    private static async Task<string> ReadServiceErrorAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var text = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(text)) return "(no body)";
+
+            var json = JsonNode.Parse(text);
+            if (json?["service_errors"] is JsonArray { Count: > 0 } errors && errors[0] is JsonObject first)
+                return $"{first["code"]} {first["message"]}";
+
+            return text.Length > 200 ? text[..200] : text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return "(unreadable body)";
         }
     }
 
@@ -252,6 +505,10 @@ public sealed class ICloudService : IDisposable
     {
         _store.Clear();
         _sessionToken = _trustToken = _dsid = _sessionId = _scnt = null;
+        _codePhoneId = null;
+        _codePhoneNumber = null;
+        _codePushMode = "sms";
+        _hasTrustedDevices = false;
         AccountName = null;
         _webServices.Clear();
 

@@ -403,9 +403,22 @@ public sealed partial class DownloadService
         var sizeHint = new long[] { app.FileSizeBytes ?? 0L };
         if (sizeHint[0] <= 0 && app.AppStoreId > 0)
         {
+            // A copy already on disk is the last resort, and the only one that works for
+            // apps Apple has pulled from every storefront (mail.ru and the like): the
+            // catalog entry is gone, so the lookup answers nothing, and Apple's download
+            // carries no Content-Length either. Seed only - the progress bar supersedes it
+            // as soon as it prints a real total, and an overshoot throws it away instead of
+            // pinning the bar just short of the end.
+            var onDisk = TrySizeOfExistingCopy(app);
+            if (onDisk > 0)
+            {
+                Volatile.Write(ref sizeHint[0], onDisk);
+                AppLog.Info($"size: seeded from an existing copy ({onDisk / 1048576.0:F1}MB)");
+            }
+
             _ = Task.Run(async () =>
             {
-                var looked = await TryLookupFileSizeAsync(app.AppStoreId, ct).ConfigureAwait(false);
+                var looked = await TryLookupFileSizeAsync(app, ct).ConfigureAwait(false);
                 if (looked > 0)
                 {
                     Volatile.Write(ref sizeHint[0], looked);
@@ -550,6 +563,24 @@ public sealed partial class DownloadService
             {
                 state.ReportedPercent = Math.Clamp(pctVal, 0, 100);
                 sawNumbers = true;
+
+                // Some ipatool builds print a percentage next to the bytes transferred but
+                // never the pair, which left the total unknown even though the tool plainly
+                // knew it. Dividing one by the other recovers it. Held off until 5% because
+                // the rounded percentage is far too coarse before that - at 1% the result
+                // would be wrong by a factor of two.
+                var known = Volatile.Read(ref sizeHint[0]);
+                var done = state.Downloaded;
+                if (known <= 0 && done > 0 && state.ReportedPercent >= 5)
+                {
+                    var derived = (long)(done / (state.ReportedPercent / 100.0));
+                    if (derived > done)
+                    {
+                        Volatile.Write(ref sizeHint[0], derived);
+                        AppLog.Info($"size: derived from {state.ReportedPercent:F0}% " +
+                                    $"of {done / 1048576.0:F1}MB -> {derived / 1048576.0:F1}MB");
+                    }
+                }
             }
 
             if (sawNumbers)
@@ -602,6 +633,19 @@ public sealed partial class DownloadService
                     var parsed = state.Downloaded;
                     var downloaded = Math.Max(onDisk, parsed);
                     var total = Volatile.Read(ref sizeHint[0]);
+
+                    // A seeded total can be stale - the app was updated since the copy on
+                    // disk, or since the size was last measured. Once the transfer passes
+                    // it, keeping it would clamp the bar just short of the end for the rest
+                    // of the download; an honest indeterminate bar is better than a fake
+                    // one stuck at 99%.
+                    if (total > 0 && downloaded > total * 1.02)
+                    {
+                        AppLog.Info($"size: dropping a stale total ({total / 1048576.0:F1}MB) " +
+                                    $"passed by {downloaded / 1048576.0:F1}MB");
+                        Volatile.Write(ref sizeHint[0], 0);
+                        total = 0;
+                    }
 
                     if (downloaded > 0)
                     {
@@ -754,7 +798,7 @@ public sealed partial class DownloadService
                 // sends no Content-Length for them either, so the first download can only
                 // show bytes-so-far. Recording it now means the next one has a real total
                 // and a bar that fills.
-                RememberSize(app.AppStoreId, finalTotal);
+                RememberSize(app.AppStoreId, app.LatestVersion, finalTotal);
             }
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
@@ -1063,10 +1107,15 @@ public sealed partial class DownloadService
     // which is what lets the bar fill on the second and later runs.
 
     private static readonly object LearnedSizesLock = new();
-    private static Dictionary<long, long>? _learnedSizes;
+
+    // String keys, because an app is remembered both as "<id>" and as "<id>@<version>": the
+    // size changes with every release, and a figure left over from an older build made the
+    // bar run past its own total. JSON object keys are strings anyway, so tables written by
+    // earlier versions (which were keyed by the numeric id) still load unchanged.
+    private static Dictionary<string, long>? _learnedSizes;
 
     /// <summary>Loads the learned-size table, or an empty one if absent/unreadable.</summary>
-    private Dictionary<long, long> LoadLearnedSizes()
+    private Dictionary<string, long> LoadLearnedSizes()
     {
         lock (LearnedSizesLock)
         {
@@ -1077,18 +1126,18 @@ public sealed partial class DownloadService
                 if (File.Exists(_tools.LearnedSizesFile))
                 {
                     var json = File.ReadAllText(_tools.LearnedSizesFile);
-                    _learnedSizes = JsonSerializer.Deserialize<Dictionary<long, long>>(json)
-                                    ?? new Dictionary<long, long>();
+                    _learnedSizes = JsonSerializer.Deserialize<Dictionary<string, long>>(json)
+                                    ?? new Dictionary<string, long>();
                 }
                 else
                 {
-                    _learnedSizes = new Dictionary<long, long>();
+                    _learnedSizes = new Dictionary<string, long>();
                 }
             }
             catch
             {
                 // A corrupt file must not break downloading; start over with an empty table.
-                _learnedSizes = new Dictionary<long, long>();
+                _learnedSizes = new Dictionary<string, long>();
             }
 
             return _learnedSizes;
@@ -1096,7 +1145,7 @@ public sealed partial class DownloadService
     }
 
     /// <summary>Records the exact size of a completed download for future runs.</summary>
-    private void RememberSize(long appId, long bytes)
+    private void RememberSize(long appId, string? version, long bytes)
     {
         if (appId <= 0 || bytes <= 0) return;
 
@@ -1105,9 +1154,19 @@ public sealed partial class DownloadService
             lock (LearnedSizesLock)
             {
                 var table = LoadLearnedSizes();
-                if (table.TryGetValue(appId, out var existing) && existing == bytes) return;
+                var keys = LearnedKeys(appId, version);
 
-                table[appId] = bytes;
+                // Both keys are written: the exact one so a re-download of this build gets
+                // the right total, and the bare id so a build we have never seen still
+                // starts from something close instead of nothing.
+                var changed = false;
+                foreach (var key in keys)
+                {
+                    if (table.TryGetValue(key, out var existing) && existing == bytes) continue;
+                    table[key] = bytes;
+                    changed = true;
+                }
+                if (!changed) return;
 
                 Directory.CreateDirectory(_tools.DataFolder);
                 File.WriteAllText(_tools.LearnedSizesFile, JsonSerializer.Serialize(table));
@@ -1120,13 +1179,48 @@ public sealed partial class DownloadService
         }
     }
 
-    /// <summary>Previously measured size for this app, or 0 if not known yet.</summary>
-    private long GetLearnedSize(long appId)
+    /// <summary>
+    /// Keys under which a size is stored: the exact build first, then the app on its own.
+    /// Lookups walk them in this order, so a size measured from the very build being
+    /// downloaded always wins over one left from an earlier release.
+    /// </summary>
+    private static string[] LearnedKeys(long appId, string? version)
+        => string.IsNullOrWhiteSpace(version)
+            ? new[] { appId.ToString() }
+            : new[] { $"{appId}@{version.Trim()}", appId.ToString() };
+
+    /// <summary>Previously measured size for this build, or 0 if not known yet.</summary>
+    private long GetLearnedSize(long appId, string? version)
     {
         if (appId <= 0) return 0;
         lock (LearnedSizesLock)
         {
-            return LoadLearnedSizes().TryGetValue(appId, out var bytes) ? bytes : 0;
+            var table = LoadLearnedSizes();
+            foreach (var key in LearnedKeys(appId, version))
+                if (table.TryGetValue(key, out var bytes) && bytes > 0) return bytes;
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Size of an IPA for this app that is already sitting in the local Apps folder, or 0
+    /// when there is none. Returns the file's real length, so it is exact whenever the app
+    /// has not been updated since - and a close estimate when it has.
+    /// </summary>
+    private static long TrySizeOfExistingCopy(AppEntry app)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(app.LocalIpaPath)) return 0;
+
+            var info = new FileInfo(app.LocalIpaPath);
+            // Anything under a megabyte is a truncated leftover, not an app.
+            return info.Exists && info.Length > 1_048_576 ? info.Length : 0;
+        }
+        catch
+        {
+            // Only a seed for the progress bar; an unreadable path is not worth reporting.
+            return 0;
         }
     }
 
@@ -1141,12 +1235,14 @@ public sealed partial class DownloadService
     /// other regions used to yield no size at all — leaving the transfer with no
     /// total, hence no percentage and a progress bar that never filled.
     /// </summary>
-    private async Task<long> TryLookupFileSizeAsync(long appId, CancellationToken ct)
+    private async Task<long> TryLookupFileSizeAsync(AppEntry app, CancellationToken ct)
     {
+        var appId = app.AppStoreId;
+
         // A size measured from an earlier download of this exact app beats the catalog:
         // it is the real file, not the generic-device figure, and it is the only source
         // for delisted apps that the catalog does not list at all.
-        var learned = GetLearnedSize(appId);
+        var learned = GetLearnedSize(appId, app.LatestVersion);
         if (learned > 0) return learned;
 
         foreach (var storefront in ItunesStorefront.Candidates)
