@@ -41,7 +41,11 @@
         <!-- ===== Signed out: credentials, then the 2FA code ===== -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
-            <StackPanel MaxWidth="460" HorizontalAlignment="Left">
+            <!-- Centred: this is the only thing on screen at this point, and left-aligning
+                 it under a full-width header just looks like a layout bug. The right margin
+                 matches the header's, so the card sits centred in the same visual column. -->
+            <StackPanel MaxWidth="460" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="0,24,0,24">
 
                 <!-- Step 1: Apple ID and password -->
                 <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
@@ -85,7 +89,14 @@
                                    Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
                         <TextBlock Text="{DynamicResource L.ICloud.TwoFactorHint}"
                                    Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                                   Margin="0,2,0,14" />
+                                   Margin="0,2,0,0" />
+
+                        <!-- Apple decides the delivery route, so it is reported rather than
+                             assumed: accounts with no second device get an SMS or a call. -->
+                        <TextBlock Text="{Binding TwoFactorDeliveryText}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Brush.Accent}"
+                                   Margin="0,6,0,14" />
 
                         <TextBox x:Name="CodeInput" Style="{StaticResource Input.TextBox}" MaxLength="8"
                                  FontSize="20"
@@ -100,6 +111,11 @@
                                 Style="{StaticResource Button.Primary}"
                                 Command="{Binding SubmitCodeCommand}"
                                 HorizontalAlignment="Stretch" Margin="0,16,0,0" />
+                        <Button Content="{DynamicResource L.ICloud.ResendCode}"
+                                Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ResendCodeCommand}"
+                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                HorizontalAlignment="Stretch" Margin="0,8,0,0" />
                         <Button Content="{DynamicResource L.ICloud.StartOver}"
                                 Style="{StaticResource Button.Ghost}"
                                 Command="{Binding SignOutCommand}"

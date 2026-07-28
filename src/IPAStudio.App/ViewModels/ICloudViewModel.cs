@@ -56,6 +56,14 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _needsTwoFactorCode;
 
+    /// <summary>
+    /// Where the code went, in words. Accounts without a second Apple device get an SMS or
+    /// a call, and telling someone to "check your other device" then sends them looking for
+    /// a code that is already sitting in their messages.
+    /// </summary>
+    [ObservableProperty]
+    private string _twoFactorDeliveryText = "";
+
     [ObservableProperty]
     private bool _isSignedIn;
 
@@ -196,6 +204,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
             case ICloudSignInResult.NeedsTwoFactorCode:
                 NeedsTwoFactorCode = true;
                 HasError = false;
+                TwoFactorDeliveryText = DescribeCodeDelivery();
                 StatusText = Loc.Get("L.ICloud.EnterCode");
                 break;
 
@@ -206,6 +215,48 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
             default:
                 Fail(Loc.Get("L.ICloud.SignInFailed"));
                 break;
+        }
+    }
+
+    private string DescribeCodeDelivery() => _icloud.TwoFactorDelivery switch
+    {
+        "sms" when _icloud.TwoFactorPhoneNumber is { Length: > 0 } number
+            => Loc.Format("L.ICloud.CodeSentSms", number),
+        "voice" when _icloud.TwoFactorPhoneNumber is { Length: > 0 } number
+            => Loc.Format("L.ICloud.CodeSentCall", number),
+        "sms" or "voice" => Loc.Get("L.ICloud.CodeSentPhone"),
+        _ => Loc.Get("L.ICloud.CodeSentDevice"),
+    };
+
+    /// <summary>
+    /// Asks Apple to send the code again. Separate from starting over, which throws away
+    /// the password too — the usual reason to be here is a push that never arrived.
+    /// </summary>
+    [RelayCommand]
+    private async Task ResendCode()
+    {
+        if (IsBusy) return;
+
+        IsBusy = true;
+        HasError = false;
+        StatusText = Loc.Get("L.ICloud.SendingCode");
+        try
+        {
+            var sent = await _icloud.ResendTwoFactorCodeAsync().ConfigureAwait(true);
+            TwoFactorCode = "";
+            TwoFactorDeliveryText = DescribeCodeDelivery();
+
+            if (sent) StatusText = Loc.Get("L.ICloud.CodeResent");
+            else Fail(Loc.Get("L.ICloud.CodeResendFailed"));
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"iCloud 2FA resend failed: {ex.Message}");
+            Fail(Loc.Get("L.ICloud.CodeResendFailed"));
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
@@ -227,6 +278,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
 
         IsSignedIn = false;
         NeedsTwoFactorCode = false;
+        TwoFactorDeliveryText = "";
         AccountName = "";
         Password = "";
         TwoFactorCode = "";

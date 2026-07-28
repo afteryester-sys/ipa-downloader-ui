@@ -455,6 +455,14 @@
     <sys:String x:Key="L.ICloud.StartOver">Другой Apple ID</sys:String>
     <sys:String x:Key="L.ICloud.VerifyingCode">Проверяем код…</sys:String>
     <sys:String x:Key="L.ICloud.BadCode">Код не принят. Попробуйте самый новый.</sys:String>
+    <sys:String x:Key="L.ICloud.ResendCode">Отправить код заново</sys:String>
+    <sys:String x:Key="L.ICloud.SendingCode">Запрашиваем новый код…</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResent">Новый код отправлен. Введите именно его.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResendFailed">Apple не отправила код. Подождите минуту и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentDevice">Код отправлен на ваши устройства Apple с этим Apple ID.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentSms">Код отправлен SMS на номер {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentCall">Код продиктуют звонком на номер {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentPhone">Код отправлен на доверенный номер телефона.</sys:String>
     <sys:String x:Key="L.ICloud.BadCredentials">Неверный Apple ID или пароль.</sys:String>
     <sys:String x:Key="L.ICloud.SignInFailed">Apple отклонила вход. Попробуйте позже или проверьте аккаунт на icloud.com.</sys:String>
     <sys:String x:Key="L.ICloud.SignOut">Выйти</sys:String>

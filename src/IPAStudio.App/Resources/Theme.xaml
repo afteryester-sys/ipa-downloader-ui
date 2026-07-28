@@ -247,16 +247,39 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
-                    <StackPanel Orientation="Horizontal">
-                        <Border x:Name="Box" Width="20" Height="20" CornerRadius="5"
-                                Background="{DynamicResource Brush.Surface}"
-                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1.5"
-                                VerticalAlignment="Center">
-                            <Path x:Name="Check" Data="M4,10 L8.5,14.5 L16,6" Stroke="White" StrokeThickness="2.2"
-                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                  Opacity="0" Stretch="None" />
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <!--
+                            An empty box has to be visible on a cheap or badly calibrated
+                            monitor, which rules out the old styling: the box was filled with
+                            Brush.Surface and outlined in Brush.Border, so on a Surface-coloured
+                            card it was a white square on white behind a ~1.5:1 outline — on a
+                            list of apps waiting to be selected, there was nothing to see.
+
+                            Instead the well is filled with the page background (a step darker
+                            than the card in the light theme, a step darker still in the dark
+                            one) and outlined in Brush.TextMuted, which is contrast-checked
+                            against both surfaces because it is body-text colour. A 22px box
+                            with a 2px outline also survives fractional DPI scaling, where 1.5px
+                            edges land between physical pixels and wash out.
+                        -->
+                        <Border x:Name="Box" Width="22" Height="22" CornerRadius="6"
+                                Background="{DynamicResource Brush.Background}"
+                                BorderBrush="{DynamicResource Brush.TextMuted}" BorderThickness="2"
+                                VerticalAlignment="Center" SnapsToDevicePixels="True">
+                            <Grid>
+                                <Path x:Name="Check" Data="M4.5,10.5 L8.5,14.5 L15,6.5"
+                                      Stroke="White" StrokeThickness="2.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      Opacity="0" Stretch="None"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <!-- "Some but not all" for the select-all boxes: a tick there
+                                     would claim the whole list is selected. -->
+                                <Rectangle x:Name="Dash" Width="10" Height="2.6" RadiusX="1.3" RadiusY="1.3"
+                                           Fill="White" Opacity="0"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
                         </Border>
-                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" />
+                        <ContentPresenter x:Name="Label" Margin="8,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
@@ -264,8 +287,19 @@
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
                             <Setter TargetName="Check" Property="Opacity" Value="1" />
                         </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.Accent}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                            <Setter TargetName="Dash" Property="Opacity" Value="1" />
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                        </Trigger>
+                        <!-- Without this a disabled checkbox looked exactly like an enabled
+                             empty one, so a row that cannot be selected read as one that can. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Box" Property="Opacity" Value="0.4" />
+                            <Setter TargetName="Label" Property="Opacity" Value="0.4" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

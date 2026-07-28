@@ -455,6 +455,14 @@
     <sys:String x:Key="L.ICloud.StartOver">Use a different Apple ID</sys:String>
     <sys:String x:Key="L.ICloud.VerifyingCode">Checking the code…</sys:String>
     <sys:String x:Key="L.ICloud.BadCode">That code was not accepted. Try the newest one.</sys:String>
+    <sys:String x:Key="L.ICloud.ResendCode">Send the code again</sys:String>
+    <sys:String x:Key="L.ICloud.SendingCode">Requesting a new code…</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResent">A new code was sent. Enter that one.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResendFailed">Apple did not send a code. Wait a minute and try again.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentDevice">The code was sent to your Apple devices signed in to this Apple ID.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentSms">The code was texted to {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentCall">The code will be read out in a call to {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentPhone">The code was sent to your trusted phone number.</sys:String>
     <sys:String x:Key="L.ICloud.BadCredentials">Apple ID or password is incorrect.</sys:String>
     <sys:String x:Key="L.ICloud.SignInFailed">Apple refused the sign-in. Try again later, or check the account at icloud.com.</sys:String>
     <sys:String x:Key="L.ICloud.SignOut">Sign out</sys:String>
