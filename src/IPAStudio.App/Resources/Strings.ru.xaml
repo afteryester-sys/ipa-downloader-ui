@@ -457,6 +457,11 @@
     <sys:String x:Key="L.ICloud.BadCode">Код не принят. Попробуйте самый новый.</sys:String>
     <sys:String x:Key="L.ICloud.ResendCode">Отправить код заново</sys:String>
     <sys:String x:Key="L.ICloud.SendingCode">Запрашиваем новый код…</sys:String>
+    <sys:String x:Key="L.ICloud.SendSms">Отправить код по SMS</sys:String>
+    <sys:String x:Key="L.ICloud.SendingSms">Отправляем код по SMS…</sys:String>
+    <sys:String x:Key="L.ICloud.AllPhotos">Все фото</sys:String>
+    <sys:String x:Key="L.ICloud.CloseNote">Закрыть</sys:String>
+    <sys:String x:Key="L.ICloud.NoteBodyFailed">Не удалось загрузить текст заметки</sys:String>
     <sys:String x:Key="L.ICloud.CodeResent">Новый код отправлен. Введите именно его.</sys:String>
     <sys:String x:Key="L.ICloud.CodeResendFailed">Apple не отправила код. Подождите минуту и попробуйте снова.</sys:String>
     <sys:String x:Key="L.ICloud.CodeSentDevice">Код отправлен на ваши устройства Apple с этим Apple ID.</sys:String>

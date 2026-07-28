@@ -6,6 +6,7 @@ using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services.ICloud;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 
 namespace IPAStudio.App.ViewModels;
@@ -19,6 +20,21 @@ public sealed partial class ICloudAssetViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+
+    /// <summary>
+    /// The grid preview. Fetched through the signed-in http client rather than bound
+    /// straight to the CloudKit url: that url is only served to a caller carrying the
+    /// session cookies, so letting the image control fetch it yields a 401 and an empty
+    /// tile.
+    /// </summary>
+    [ObservableProperty]
+    private BitmapImage? _preview;
+
+    /// <summary>
+    /// Set once a preview has been requested, successfully or not, so a photo iCloud will
+    /// not serve a preview for is not retried on every pass.
+    /// </summary>
+    public bool PreviewAttempted { get; set; }
 }
 
 /// <summary>
@@ -64,6 +80,14 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _twoFactorDeliveryText = "";
 
+    /// <summary>
+    /// True when the code went to the account's other Apple devices and a trusted number is
+    /// on file, so switching to a text message is worth offering. Hidden once the code has
+    /// already been texted - there is nothing left to switch to.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canSendSms;
+
     [ObservableProperty]
     private bool _isSignedIn;
 
@@ -85,6 +109,20 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     public ObservableCollection<ICloudContact> Contacts { get; } = new();
     public ObservableCollection<ICloudAssetViewModel> Photos { get; } = new();
     public ObservableCollection<ICloudNote> Notes { get; } = new();
+
+    /// <summary>Albums in the iCloud library, with "all photos" first.</summary>
+    public ObservableCollection<ICloudAlbum> Albums { get; } = new();
+
+    /// <summary>
+    /// Which album the grid is showing. Assigning it reloads the grid, so it is also what
+    /// the album list binds its selection to.
+    /// </summary>
+    [ObservableProperty]
+    private ICloudAlbum? _selectedAlbum;
+
+    /// <summary>The note being read, or null while the list is showing.</summary>
+    [ObservableProperty]
+    private ICloudNote? _openNote;
 
     /// <summary>0 = contacts, 1 = photos, 2 = notes. Drives which list is loaded.</summary>
     [ObservableProperty]
@@ -205,6 +243,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
                 NeedsTwoFactorCode = true;
                 HasError = false;
                 TwoFactorDeliveryText = DescribeCodeDelivery();
+                CanSendSms = _icloud.CanSendTwoFactorSms && _icloud.TwoFactorDelivery == "device";
                 StatusText = Loc.Get("L.ICloud.EnterCode");
                 break;
 
@@ -233,18 +272,29 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     /// the password too — the usual reason to be here is a push that never arrived.
     /// </summary>
     [RelayCommand]
-    private async Task ResendCode()
+    private Task ResendCode() => RequestCodeAsync(preferSms: false);
+
+    /// <summary>
+    /// Asks Apple to text the code instead. The point of a separate command is that the
+    /// other Apple device is not always to hand, and the push route gives the user no way
+    /// out on its own.
+    /// </summary>
+    [RelayCommand]
+    private Task SendCodeBySms() => RequestCodeAsync(preferSms: true);
+
+    private async Task RequestCodeAsync(bool preferSms)
     {
         if (IsBusy) return;
 
         IsBusy = true;
         HasError = false;
-        StatusText = Loc.Get("L.ICloud.SendingCode");
+        StatusText = Loc.Get(preferSms ? "L.ICloud.SendingSms" : "L.ICloud.SendingCode");
         try
         {
-            var sent = await _icloud.ResendTwoFactorCodeAsync().ConfigureAwait(true);
+            var sent = await _icloud.ResendTwoFactorCodeAsync(preferSms).ConfigureAwait(true);
             TwoFactorCode = "";
             TwoFactorDeliveryText = DescribeCodeDelivery();
+            CanSendSms = _icloud.CanSendTwoFactorSms && _icloud.TwoFactorDelivery == "device";
 
             if (sent) StatusText = Loc.Get("L.ICloud.CodeResent");
             else Fail(Loc.Get("L.ICloud.CodeResendFailed"));
@@ -279,6 +329,7 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         IsSignedIn = false;
         NeedsTwoFactorCode = false;
         TwoFactorDeliveryText = "";
+        CanSendSms = false;
         AccountName = "";
         Password = "";
         TwoFactorCode = "";
@@ -287,6 +338,11 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         Contacts.Clear();
         Photos.Clear();
         Notes.Clear();
+        Albums.Clear();
+        _reloadOnAlbumChange = false;
+        SelectedAlbum = null;
+        _reloadOnAlbumChange = true;
+        OpenNote = null;
     }
 
     partial void OnSelectedTabChanged(int value) => _ = LoadCurrentTabAsync();
@@ -321,17 +377,27 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
                     break;
 
                 case 1:
-                    var photos = await _icloud.GetPhotosAsync(ct: ct).ConfigureAwait(true);
-                    Photos.Clear();
-                    foreach (var p in photos) Photos.Add(new ICloudAssetViewModel(p));
-                    OnPropertyChanged(nameof(SelectedPhotoCount));
-                    StatusText = photos.Count == 0
-                        ? Loc.Get("L.ICloud.NoPhotos")
-                        : Loc.Format("L.ICloud.PhotoCount", photos.Count);
+                    if (Albums.Count == 0)
+                    {
+                        var albums = await _icloud.GetAlbumsAsync(ct).ConfigureAwait(true);
+                        foreach (var a in albums) Albums.Add(a);
+                    }
+
+                    // Seeding the selection would reload through OnSelectedAlbumChanged and
+                    // re-enter this method, so the change handler sits out this one assignment.
+                    if (SelectedAlbum is null)
+                    {
+                        _reloadOnAlbumChange = false;
+                        SelectedAlbum = Albums.FirstOrDefault();
+                        _reloadOnAlbumChange = true;
+                    }
+
+                    await LoadPhotosAsync(SelectedAlbum, ct).ConfigureAwait(true);
                     break;
 
                 default:
                     var notes = await _icloud.GetNotesAsync(ct).ConfigureAwait(true);
+                    OpenNote = null;
                     Notes.Clear();
                     foreach (var n in notes) Notes.Add(n);
                     StatusText = notes.Count == 0
@@ -363,6 +429,156 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
             IsBusy = false;
         }
     }
+
+    /// <summary>
+    /// False only while the album selection is being seeded, so choosing an album still
+    /// reloads the grid but the initial load does not reload itself.
+    /// </summary>
+    private bool _reloadOnAlbumChange = true;
+
+    partial void OnSelectedAlbumChanged(ICloudAlbum? value)
+    {
+        if (_reloadOnAlbumChange) _ = LoadCurrentTabAsync();
+    }
+
+    /// <summary>
+    /// Fills the grid from one album, or the whole library, and then fetches the previews.
+    /// </summary>
+    private async Task LoadPhotosAsync(ICloudAlbum? album, CancellationToken ct)
+    {
+        var photos = album is { IsAllPhotos: false, RecordName: { } record }
+            ? await _icloud.GetAlbumPhotosAsync(record, ct: ct).ConfigureAwait(true)
+            : await _icloud.GetPhotosAsync(ct: ct).ConfigureAwait(true);
+
+        Photos.Clear();
+        foreach (var p in photos) Photos.Add(new ICloudAssetViewModel(p));
+        OnPropertyChanged(nameof(SelectedPhotoCount));
+        DownloadPhotosCommand.NotifyCanExecuteChanged();
+
+        StatusText = photos.Count == 0
+            ? Loc.Get("L.ICloud.NoPhotos")
+            : Loc.Format("L.ICloud.PhotoCount", photos.Count);
+
+        // Deliberately not awaited: the grid is usable while the tiles fill in, and a slow
+        // preview must not hold up the count the user is waiting for.
+        _ = LoadPreviewsAsync(Photos.ToList(), ct);
+    }
+
+    /// <summary>
+    /// Fetches the grid previews a few at a time.
+    ///
+    /// The tiles cannot simply bind to the CloudKit url: it is signed for the logged-in
+    /// session, and an unauthenticated fetch by the image control gets a 401 - which is why
+    /// the grid used to show nothing but placeholders. Concurrency is capped because a large
+    /// library would otherwise open a request per photo at once.
+    /// </summary>
+    private async Task LoadPreviewsAsync(List<ICloudAssetViewModel> rows, CancellationToken ct)
+    {
+        const int Parallelism = 6;
+        using var gate = new SemaphoreSlim(Parallelism);
+        var loaded = 0;
+
+        try
+        {
+            var tasks = rows.Select(async row =>
+            {
+                if (row.PreviewAttempted || row.Item.ThumbnailUrl is null) return;
+                row.PreviewAttempted = true;
+
+                await gate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    var bytes = await _icloud.GetThumbnailAsync(row.Item, ct).ConfigureAwait(false);
+                    if (bytes is null || bytes.Length == 0) return;
+
+                    var image = DecodePreview(bytes);
+                    if (image is null) return;
+
+                    // Freezing lets the bitmap cross to the UI thread; without it the
+                    // assignment throws because it was created on a worker.
+                    image.Freeze();
+                    Interlocked.Increment(ref loaded);
+
+                    await App.Current.Dispatcher.InvokeAsync(() => row.Preview = image);
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks).ConfigureAwait(true);
+            AppLog.Info($"icloud: {loaded} of {rows.Count} previews loaded");
+        }
+        catch (OperationCanceledException)
+        {
+            // Album switched or signed out mid-fetch; the newer load owns the grid.
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"icloud: preview loading stopped ({ex.Message})");
+        }
+    }
+
+    /// <summary>
+    /// Decodes a preview at tile size. iCloud thumbnails are jpeg whatever the original
+    /// was, so a HEIC or video original still previews here even when Windows has no codec
+    /// for the file itself.
+    /// </summary>
+    private static BitmapImage? DecodePreview(byte[] bytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(bytes, writable: false);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+            image.DecodePixelWidth = 160; // tiles render at 132 wide
+            image.StreamSource = stream;
+            image.EndInit();
+            return image;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"icloud: could not decode a preview ({ex.Message})");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Opens a note. The list query returns only a snippet, so the body is fetched here -
+    /// which is why tapping a note used to do nothing.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenNoteBody(ICloudNote? note)
+    {
+        if (note is null) return;
+
+        OpenNote = note;
+        if (note.Body is not null) return;
+
+        try
+        {
+            var body = await _icloud.GetNoteBodyAsync(note, _cts?.Token ?? default)
+                .ConfigureAwait(true);
+
+            // Store the empty string rather than null for a genuinely empty note, so it is
+            // not fetched again every time it is opened.
+            note.Body = body ?? "";
+            OnPropertyChanged(nameof(OpenNote));
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"icloud: could not open the note ({ex.Message})");
+            note.Body = Loc.Get("L.ICloud.NoteBodyFailed");
+            OnPropertyChanged(nameof(OpenNote));
+        }
+    }
+
+    [RelayCommand]
+    private void CloseNote() => OpenNote = null;
 
     private bool CanExportContacts() => Contacts.Count > 0 && !IsBusy;
 
