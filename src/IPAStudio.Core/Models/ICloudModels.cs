@@ -64,6 +64,15 @@ public sealed class ICloudAsset
     /// <summary>Signed URL for the small preview shown in the grid.</summary>
     public string? ThumbnailUrl { get; init; }
 
+    /// <summary>
+    /// Signed URL for the medium-size rendition, used when no thumbnail came back.
+    ///
+    /// Kept as a separate field rather than folded into <see cref="ThumbnailUrl"/> because
+    /// it is a much larger download: it is worth falling back to for a tile that would
+    /// otherwise stay blank, but not worth preferring.
+    /// </summary>
+    public string? PreviewUrl { get; init; }
+
     public long SizeBytes { get; init; }
     public DateTimeOffset? Created { get; init; }
     public bool IsVideo { get; init; }
@@ -87,7 +96,16 @@ public sealed class ICloudAlbum
     /// <summary>Number of assets, when Apple reported it; 0 when unknown.</summary>
     public int Count { get; init; }
 
-    public bool IsAllPhotos => RecordName is null;
+    /// <summary>
+    /// CloudKit smart-album key (FAVORITE, SCREENSHOT, VIDEO, …) for the computed albums the
+    /// Photos app shows, or null for a real album the user made.
+    ///
+    /// Smart albums are queried by a filter rather than by container membership, so they
+    /// carry no record name - which is why "all photos" cannot simply be "no record name".
+    /// </summary>
+    public string? SmartAlbum { get; init; }
+
+    public bool IsAllPhotos => RecordName is null && SmartAlbum is null;
 }
 
 /// <summary>A note from iCloud Notes.</summary>

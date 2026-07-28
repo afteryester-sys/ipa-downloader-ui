@@ -415,10 +415,18 @@ public sealed partial class InstallService
                               ?? PlistString(dict, "CFBundleVersion"),
                     // Only apps that came from the App Store carry store metadata, and
                     // that is exactly what makes an app re-downloadable.
-                    StoreItemId = PlistLong(dict, "ITunesMetadataItemId")
-                                  ?? PlistLong(dict, "StoreItemIdentifier"),
-                    StoreAccount = PlistString(dict, "ITunesMetadataAppleID")
-                                   ?? PlistString(dict, "AppleID"),
+                    //
+                    // Searched through the whole app dictionary rather than its direct keys:
+                    // depending on the iOS version the same numbers arrive either at the top
+                    // level or nested inside the app's iTunes metadata, and reading only the
+                    // top level left modern devices reporting no store id at all - which then
+                    // forced a catalog lookup that fails for every delisted app.
+                    StoreItemId = PlistLongDeep(dict,
+                                      "ITunesMetadataItemId", "StoreItemIdentifier",
+                                      "itemId", "item-id", "storeItemIdentifier"),
+                    StoreAccount = PlistStringDeep(dict,
+                                       "ITunesMetadataAppleID", "AppleID", "appleId",
+                                       "com.apple.iTunesStore.downloadInfo.accountInfo.AppleID"),
                 });
             }
         }
@@ -428,7 +436,16 @@ public sealed partial class InstallService
             return ParsePlainListing(result.StdOut);
         }
 
-        AppLog.Info($"Device {udid}: {apps.Count} user apps");
+        var withId = apps.Count(a => a.StoreItemId is > 0);
+        AppLog.Info($"Device {udid}: {apps.Count} user apps, {withId} with a store id, " +
+                    $"{apps.Count(a => a.StoreAccount is not null)} with a purchase account");
+
+        // Without this line a device that discloses no ids is indistinguishable from a
+        // parsing mistake on our side, and the download then fails much later with a
+        // misleading "not on the App Store".
+        if (withId == 0 && apps.Count > 0)
+            AppLog.Warn("The device disclosed no store ids; downloads will resolve apps by bundle id");
+
         return apps
             .GroupBy(a => a.BundleId, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
@@ -457,6 +474,58 @@ public sealed partial class InstallService
         return value?.Name.LocalName == "string" && !string.IsNullOrWhiteSpace(value.Value)
             ? value.Value.Trim()
             : null;
+    }
+
+    /// <summary>
+    /// First of the given keys found anywhere inside the app dictionary, read as a positive
+    /// number. Accepts a string value too: some iOS versions write the store id quoted.
+    /// </summary>
+    private static long? PlistLongDeep(XElement dict, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            foreach (var value in DeepValues(dict, key))
+            {
+                var name = value.Name.LocalName;
+                if (name is not ("integer" or "string")) continue;
+                if (long.TryParse(value.Value.Trim(), out var parsed) && parsed > 0) return parsed;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// First of the given keys found anywhere inside the app dictionary, read as a
+    /// non-empty string.
+    /// </summary>
+    private static string? PlistStringDeep(XElement dict, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            foreach (var value in DeepValues(dict, key))
+            {
+                if (value.Name.LocalName != "string") continue;
+                var text = value.Value.Trim();
+                if (text.Length > 0) return text;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Every value sitting after a &lt;key&gt; of that name, at any depth. Plain iteration
+    /// rather than one lookup because the same key can appear both as an empty placeholder
+    /// and as the real value, and only the filled one is of any use.
+    /// </summary>
+    private static IEnumerable<XElement> DeepValues(XElement dict, string key)
+    {
+        foreach (var element in dict.Descendants("key"))
+        {
+            if (!string.Equals(element.Value.Trim(), key, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var value = element.ElementsAfterSelf().FirstOrDefault();
+            if (value is not null) yield return value;
+        }
     }
 
     /// <summary>Reads an integer plist value.</summary>

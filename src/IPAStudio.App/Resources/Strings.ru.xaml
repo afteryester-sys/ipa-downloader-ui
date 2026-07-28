@@ -491,6 +491,14 @@
     <sys:String x:Key="L.ICloud.PhotoCount">Фото: {0}</sys:String>
     <sys:String x:Key="L.ICloud.NoteCount">Заметок: {0}</sys:String>
     <sys:String x:Key="L.ICloud.NoContacts">В этом аккаунте iCloud нет контактов.</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Favourites">Избранное</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Videos">Видео</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Screenshots">Снимки экрана</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Selfies">Селфи</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Panoramas">Панорамы</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.SloMo">Замедленно</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.TimeLapse">Таймлапс</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
@@ -524,5 +532,11 @@
     <sys:String x:Key="L.OnDevice.AccountUnverified">Устройство не сообщает, каким Apple ID куплено приложение. Если оно куплено не текущим аккаунтом, App Store откажет в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
+    <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
+    <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchProgress">Скачиваем {0} из {1}…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDone">Сохранено файлов: {0}.</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Сохранено {0}, с ошибкой {1}.</sys:String>
 
 </ResourceDictionary>
