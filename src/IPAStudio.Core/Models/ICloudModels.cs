@@ -75,6 +75,21 @@ public sealed class ICloudAsset
             : $"{SizeBytes / 1024.0:0} KB";
 }
 
+/// <summary>
+/// An album in the iCloud photo library. <see cref="RecordName"/> is null for the synthetic
+/// "all photos" entry, which is not a CloudKit container but the whole library.
+/// </summary>
+public sealed class ICloudAlbum
+{
+    public string? RecordName { get; init; }
+    public string Name { get; init; } = "";
+
+    /// <summary>Number of assets, when Apple reported it; 0 when unknown.</summary>
+    public int Count { get; init; }
+
+    public bool IsAllPhotos => RecordName is null;
+}
+
 /// <summary>A note from iCloud Notes.</summary>
 public sealed class ICloudNote
 {
@@ -83,6 +98,12 @@ public sealed class ICloudNote
     public string? Snippet { get; init; }
     public string? Folder { get; init; }
     public DateTimeOffset? Modified { get; init; }
+
+    /// <summary>
+    /// Full text, fetched on demand. Null until the note is opened - the list query returns
+    /// only the snippet, and pulling every body up front would be a request per note.
+    /// </summary>
+    public string? Body { get; set; }
 }
 
 /// <summary>

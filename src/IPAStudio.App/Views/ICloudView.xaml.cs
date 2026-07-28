@@ -30,4 +30,23 @@ public partial class ICloudView : UserControl
     // "N selected" counter and the Download button's enabled state.
     private void OnPhotoCheckChanged(object sender, RoutedEventArgs e)
         => ViewModel?.OnPhotoSelectionChanged();
+
+    // Double-click and Enter both open a note. Selection alone deliberately does not: the
+    // body costs a request, and arrowing through the list would fire one per note.
+    private void OnNoteActivated(object sender, MouseButtonEventArgs e) => OpenSelectedNote(sender);
+
+    private void OnNoteKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Space)) return;
+        OpenSelectedNote(sender);
+        e.Handled = true;
+    }
+
+    private void OpenSelectedNote(object sender)
+    {
+        if (ViewModel is not { } vm) return;
+        if (sender is not ListBox { SelectedItem: { } note }) return;
+
+        if (vm.OpenNoteBodyCommand.CanExecute(note)) vm.OpenNoteBodyCommand.Execute(note);
+    }
 }

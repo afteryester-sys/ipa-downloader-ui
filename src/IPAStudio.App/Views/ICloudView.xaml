@@ -8,6 +8,7 @@
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:IntEqualsConverter x:Key="IntEquals" />
         <conv:IntEqualsToVisibilityConverter x:Key="TabVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToVis" />
 
         <!-- Tab indices. IntEqualsConverter compares ints, so the parameters must be
              typed rather than the string "0". -->
@@ -193,7 +194,43 @@
             <!-- Photos -->
             <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4"
                     Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabPhotos}}">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Albums, with "all photos" first. Hidden when the account has none
+                         so the grid keeps the full width. -->
+                    <ListBox Grid.Column="0" Width="180" Margin="4,4,10,4"
+                             ItemsSource="{Binding Albums}"
+                             SelectedItem="{Binding SelectedAlbum}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.Style>
+                            <Style TargetType="ListBox">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Albums.Count}" Value="1">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Albums.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.Style>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" Margin="6,5"
+                                           Style="{StaticResource Text.Body}"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Name}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Photos}" Margin="6">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -206,12 +243,24 @@
                                         Background="{StaticResource Brush.Surface}"
                                         CornerRadius="{StaticResource Radius.Control}">
                                     <StackPanel>
-                                        <!-- Thumbnails stream from iCloud over https; DecodePixelWidth
-                                             keeps a large library from eating memory. -->
+                                        <!-- Bound to the fetched bitmap rather than the CloudKit
+                                             url: that url is signed for the logged-in session
+                                             and an unauthenticated fetch by the image control
+                                             gets a 401, leaving every tile blank. -->
                                         <Border Height="104" Background="{StaticResource Brush.SurfaceHover}"
                                                 CornerRadius="{StaticResource Radius.Control}">
-                                            <Image Stretch="UniformToFill"
-                                                   Source="{Binding Item.ThumbnailUrl}" />
+                                            <Grid>
+                                                <Image Stretch="UniformToFill"
+                                                       Source="{Binding Preview}" />
+
+                                                <!-- Marks a video, which is otherwise
+                                                     indistinguishable from a still. -->
+                                                <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="13" Margin="6"
+                                                           Foreground="{StaticResource Brush.TextPrimary}"
+                                                           HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                           Visibility="{Binding Item.IsVideo, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
                                         </Border>
 
                                         <CheckBox IsChecked="{Binding IsSelected}"
@@ -229,25 +278,65 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </ScrollViewer>
+                    </ScrollViewer>
+                </Grid>
             </Border>
 
             <!-- Notes -->
             <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4"
                     Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabNotes}}">
-                <ListBox ItemsSource="{Binding Notes}" Background="Transparent" BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="8,6">
-                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
-                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Snippet}" Style="{StaticResource Text.Caption}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <Grid>
+                    <ListBox ItemsSource="{Binding Notes}" Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             MouseDoubleClick="OnNoteActivated" KeyDown="OnNoteKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="8,6">
+                                    <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Snippet}" Style="{StaticResource Text.Caption}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Reader, over the list. Selecting a note in the list did nothing
+                         before: the body is not part of the list query. -->
+                    <Border Background="{StaticResource Brush.Surface}"
+                            Visibility="{Binding OpenNote, Converter={StaticResource NullToVis}}">
+                        <Grid Margin="12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding OpenNote.Title}"
+                                               Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding OpenNote.Folder}"
+                                               Style="{StaticResource Text.Caption}" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="{DynamicResource L.ICloud.CloseNote}"
+                                        Style="{StaticResource Button.Ghost}"
+                                        Command="{Binding CloseNoteCommand}" />
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <TextBox Text="{Binding OpenNote.Body, Mode=OneWay}"
+                                         IsReadOnly="True" TextWrapping="Wrap"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{StaticResource Brush.TextPrimary}" />
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Border>
         </Grid>
 

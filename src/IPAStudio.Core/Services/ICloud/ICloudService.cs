@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
 
@@ -848,48 +849,176 @@ public sealed class ICloudService : IDisposable
     // ─────────────────────────── photos ───────────────────────────
 
     /// <summary>
-    /// Lists the photo library, newest first. iCloud paginates through CloudKit, so
-    /// <paramref name="limit"/> caps how many are pulled in one go.
+    /// Lists the photo library, newest first.
+    ///
+    /// CloudKit answers this query one page at a time and caps a page well below what the
+    /// library holds, so a single request returns only the most recent photos however large
+    /// the requested limit is - which is why the grid used to stop at a couple of hundred.
+    /// Pages are walked here until Apple stops handing out records.
     /// </summary>
-    public async Task<IReadOnlyList<ICloudAsset>> GetPhotosAsync(int limit = 200, CancellationToken ct = default)
+    public Task<IReadOnlyList<ICloudAsset>> GetPhotosAsync(int limit = 10000, CancellationToken ct = default)
+        => QueryAssetsAsync("CPLAssetAndMasterByAddedDate", parentId: null, limit, ct);
+
+    /// <summary>
+    /// The albums the user made, plus a synthetic entry for the whole library.
+    ///
+    /// Albums are ordinary CloudKit records in the photo zone; their names arrive
+    /// base64-encoded in albumNameEnc. Smart albums (Favourites, Screenshots, …) are a
+    /// different record type and are deliberately left out: they are computed views, and
+    /// listing them would imply a folder the user cannot recognise from the Photos app.
+    /// </summary>
+    public async Task<IReadOnlyList<ICloudAlbum>> GetAlbumsAsync(CancellationToken ct = default)
+    {
+        var all = new ICloudAlbum { RecordName = null, Name = Loc.Get("L.ICloud.AllPhotos") };
+
+        var root = ServiceUrl("ckdatabasews");
+        if (root is null) return new[] { all };
+
+        var url = $"{root}/database/1/com.apple.photos.cloud/production/private/records/query" +
+                  $"{CommonQuery()}&remapEnums=True&getCurrentSyncToken=True";
+
+        var body = new JsonObject
+        {
+            ["query"] = new JsonObject { ["recordType"] = "CPLAlbumByPositionLive" },
+            ["resultsLimit"] = 500,
+            ["desiredKeys"] = new JsonArray("albumNameEnc", "albumType", "isDeleted", "recordName"),
+            ["zoneID"] = new JsonObject { ["zoneName"] = "PrimarySync" },
+        };
+
+        var albums = new List<ICloudAlbum> { all };
+        try
+        {
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            if (json?["records"] is JsonArray records)
+            {
+                foreach (var record in records)
+                {
+                    if (record?["fields"] is not JsonObject fields) continue;
+                    if (fields["isDeleted"]?["value"]?.GetValue<int>() == 1) continue;
+
+                    var recordName = record["recordName"]?.GetValue<string>();
+                    if (string.IsNullOrEmpty(recordName)) continue;
+
+                    var name = DecodeCloudKitText(fields["albumNameEnc"]?["value"]);
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    albums.Add(new ICloudAlbum { RecordName = recordName, Name = name });
+                }
+            }
+
+            AppLog.Info($"icloud: {albums.Count - 1} albums listed");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            // An album list we cannot read must not take the photo grid down with it: the
+            // library itself is still browsable through the synthetic entry.
+            AppLog.Warn($"icloud: could not list the albums ({ex.Message})");
+        }
+
+        return albums;
+    }
+
+    /// <summary>Photos inside one album, newest first.</summary>
+    public Task<IReadOnlyList<ICloudAsset>> GetAlbumPhotosAsync(
+        string albumRecordName, int limit = 10000, CancellationToken ct = default)
+        => QueryAssetsAsync("CPLContainerRelationNotDeletedByAssetDate", albumRecordName, limit, ct);
+
+    /// <summary>
+    /// Walks a photo query page by page. <paramref name="parentId"/> is an album record name,
+    /// or null for the whole library.
+    /// </summary>
+    private async Task<IReadOnlyList<ICloudAsset>> QueryAssetsAsync(
+        string recordType, string? parentId, int limit, CancellationToken ct)
     {
         var root = ServiceUrl("ckdatabasews");
         if (root is null) return Array.Empty<ICloudAsset>();
 
-        var url = $"{root}/database/1/com.apple.photos.cloud/production/private/records/query{CommonQuery()}&remapEnums=True&getCurrentSyncToken=True";
+        var url = $"{root}/database/1/com.apple.photos.cloud/production/private/records/query" +
+                  $"{CommonQuery()}&remapEnums=True&getCurrentSyncToken=True";
 
-        var body = new JsonObject
+        const int PageSize = 200;
+        var result = new List<ICloudAsset>();
+
+        // CloudKit ranks assets rather than paginating by cursor here, so the next page is
+        // asked for by rank. Tracking the record names as well guards against a page that
+        // repeats itself: without it, a server ignoring startRank would loop forever.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var offset = 0;
+        var pages = 0;
+
+        while (result.Count < limit && !ct.IsCancellationRequested)
         {
-            ["query"] = new JsonObject
+            var filters = new JsonArray(
+                new JsonObject
+                {
+                    ["fieldName"] = "startRank",
+                    ["fieldValue"] = new JsonObject { ["type"] = "INT64", ["value"] = offset },
+                    ["comparator"] = "EQUALS",
+                },
+                new JsonObject
+                {
+                    ["fieldName"] = "direction",
+                    ["fieldValue"] = new JsonObject { ["type"] = "STRING", ["value"] = "DESCENDING" },
+                    ["comparator"] = "EQUALS",
+                });
+
+            if (parentId is not null)
+                filters.Add(new JsonObject
+                {
+                    ["fieldName"] = "parentId",
+                    ["fieldValue"] = new JsonObject { ["type"] = "STRING", ["value"] = parentId },
+                    ["comparator"] = "EQUALS",
+                });
+
+            var body = new JsonObject
             {
-                ["recordType"] = "CPLAssetAndMasterByAddedDate",
-                ["filterBy"] = new JsonArray(
-                    new JsonObject
-                    {
-                        ["fieldName"] = "startRank",
-                        ["fieldValue"] = new JsonObject { ["type"] = "INT64", ["value"] = 0 },
-                        ["comparator"] = "EQUALS",
-                    },
-                    new JsonObject
-                    {
-                        ["fieldName"] = "direction",
-                        ["fieldValue"] = new JsonObject { ["type"] = "STRING", ["value"] = "DESCENDING" },
-                        ["comparator"] = "EQUALS",
-                    }),
-            },
-            ["resultsLimit"] = limit * 2, // masters and assets arrive as separate records
-            ["desiredKeys"] = new JsonArray(
-                "resOriginalRes", "resOriginalFileType", "resJPEGThumbRes",
-                "filenameEnc", "itemType", "assetDate", "masterRef", "isDeleted"),
-            ["zoneID"] = new JsonObject { ["zoneName"] = "PrimarySync" },
-        };
+                ["query"] = new JsonObject
+                {
+                    ["recordType"] = recordType,
+                    ["filterBy"] = filters,
+                },
+                // Masters and assets arrive as separate records, so a page of N photos costs
+                // 2N records.
+                ["resultsLimit"] = PageSize * 2,
+                ["desiredKeys"] = new JsonArray(
+                    "resOriginalRes", "resOriginalFileType", "resJPEGThumbRes",
+                    "filenameEnc", "itemType", "assetDate", "masterRef", "isDeleted"),
+                ["zoneID"] = new JsonObject { ["zoneName"] = "PrimarySync" },
+            };
 
-        var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
-        if (json?["records"] is not JsonArray records) return Array.Empty<ICloudAsset>();
+            var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+            if (json?["records"] is not JsonArray records || records.Count == 0) break;
 
-        // CloudKit returns a "master" record (the file) and an "asset" record (the library
-        // entry) per photo. Thumbnails hang off the asset, originals off the master, so we
-        // index the assets first and then emit one row per master.
+            pages++;
+            var page = ParseAssetRecords(records);
+            var added = 0;
+            foreach (var asset in page)
+            {
+                if (!seen.Add(asset.RecordName)) continue;
+                result.Add(asset);
+                added++;
+            }
+
+            // Either Apple ran out of photos, or it ignored the rank and replayed a page we
+            // already have. Both mean there is nothing further to fetch.
+            if (added == 0) break;
+
+            offset += page.Count;
+        }
+
+        AppLog.Info($"icloud: {result.Count} photos listed over {pages} page(s)" +
+                    (parentId is null ? "" : $" from album {parentId}"));
+        return result;
+    }
+
+    /// <summary>
+    /// Turns one page of CloudKit records into assets. Each photo arrives as a "master"
+    /// record (the file) and an "asset" record (the library entry): the thumbnail hangs off
+    /// the asset, the original off the master, so the assets are indexed first.
+    /// </summary>
+    private static List<ICloudAsset> ParseAssetRecords(JsonArray records)
+    {
         var thumbs = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var record in records)
         {
@@ -924,8 +1053,37 @@ public sealed class ICloudService : IDisposable
             });
         }
 
-        AppLog.Info($"iCloud: {result.Count} photos listed");
         return result;
+    }
+
+    /// <summary>
+    /// Fetches one grid preview.
+    ///
+    /// It has to go through this client rather than being handed to the image control as a
+    /// URL: the signed CloudKit link is only served to a caller carrying the session
+    /// cookies, and a plain image download gets a 401 back and shows an empty tile.
+    /// </summary>
+    public async Task<byte[]?> GetThumbnailAsync(ICloudAsset asset, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(asset.ThumbnailUrl)) return null;
+
+        try
+        {
+            using var response = await _http.GetAsync(asset.ThumbnailUrl, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                AppLog.Warn($"icloud: preview for {asset.FileName} returned {(int)response.StatusCode}");
+                return null;
+            }
+
+            return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"icloud: could not fetch the preview for {asset.FileName} ({ex.Message})");
+            return null;
+        }
     }
 
     /// <summary>
@@ -1052,6 +1210,10 @@ public sealed class ICloudService : IDisposable
                        : folderNames.TryGetValue(folderId, out var name) ? name : null,
                 Modified = ReadTimestamp(fields["ModificationDate"]?["value"]
                                          ?? fields["ModifiedDate"]?["value"]),
+
+                // Free when the zone already carried the field; otherwise the note is
+                // opened with a lookup of its own.
+                Body = DecodeNoteText(fields["TextDataEncrypted"]?["value"]),
             });
         }
 
@@ -1231,6 +1393,170 @@ public sealed class ICloudService : IDisposable
         }
 
         return names;
+    }
+
+    /// <summary>
+    /// Fetches the full text of one note.
+    ///
+    /// The list query carries only a snippet, so without this there is nothing to show when
+    /// a note is opened. Note is not a queryable record type, so the note is looked up by
+    /// record name.
+    /// </summary>
+    public async Task<string?> GetNoteBodyAsync(ICloudNote note, CancellationToken ct = default)
+    {
+        if (note.Body is not null) return note.Body;
+        if (string.IsNullOrEmpty(note.RecordName)) return null;
+
+        var root = ServiceUrl("ckdatabasews");
+        if (root is null) return null;
+
+        var body = new JsonObject
+        {
+            ["records"] = new JsonArray(new JsonObject { ["recordName"] = note.RecordName }),
+            ["zoneID"] = new JsonObject { ["zoneName"] = "Notes" },
+        };
+
+        var url = $"{root}/database/1/com.apple.notes/production/private/records/lookup{CommonQuery()}";
+        var json = await PostJsonAsync(url, body, ct).ConfigureAwait(false);
+
+        var fields = (json?["records"] as JsonArray)?.FirstOrDefault()?["fields"];
+        if (fields is null) return null;
+
+        return DecodeNoteText(fields["TextDataEncrypted"]?["value"])
+               // Older accounts, and notes made by very old clients, store plain text.
+               ?? DecodeCloudKitText(fields["SnippetEncrypted"]?["value"])
+               ?? fields["text"]?["value"]?.GetValue<string>();
+    }
+
+    /// <summary>
+    /// Decodes a note body.
+    ///
+    /// Unlike the title and snippet, the body is not plain text under the base64: it is a
+    /// compressed protobuf document (Apple keeps the note as a CRDT so edits from several
+    /// devices can be merged). Running it through the plain text decoder yields nothing,
+    /// because the packed bytes trip its control-character guard.
+    /// </summary>
+    private static string? DecodeNoteText(JsonNode? node)
+    {
+        string? raw;
+        try { raw = node?.GetValue<string>(); }
+        catch (InvalidOperationException) { return null; }
+        if (string.IsNullOrEmpty(raw)) return null;
+
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(raw); }
+        catch (FormatException) { return raw; }
+
+        bytes = Inflate(bytes);
+
+        // NoteStoreProto { Document document = 2 } > Document { Note note = 3 } >
+        // Note { string note_text = 2 }.
+        var text = ReadProtobufField(bytes, 2) is { } document
+                   && ReadProtobufField(document, 3) is { } noteRecord
+                   && ReadProtobufField(noteRecord, 2) is { } noteText
+            ? Encoding.UTF8.GetString(noteText)
+            : null;
+
+        if (string.IsNullOrEmpty(text)) return null;
+
+        // Apple marks attachments and tables with placeholder code points that render as
+        // empty boxes, and terminates the text with a null.
+        return text.Replace("\uFFFC", "").Replace("\uFFFD", "").TrimEnd('\0');
+    }
+
+    /// <summary>
+    /// Decompresses a note body. Apple uses gzip on some accounts and raw zlib on others,
+    /// and hands the bytes over uncompressed for short notes.
+    /// </summary>
+    private static byte[] Inflate(byte[] bytes)
+    {
+        if (bytes.Length < 3) return bytes;
+
+        var isGzip = bytes[0] == 0x1F && bytes[1] == 0x8B;
+        var isZlib = bytes[0] == 0x78;
+        if (!isGzip && !isZlib) return bytes;
+
+        try
+        {
+            using var input = new MemoryStream(bytes);
+            using Stream decompressor = isGzip
+                ? new GZipStream(input, CompressionMode.Decompress)
+                : new ZLibStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            decompressor.CopyTo(output);
+            return output.ToArray();
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException)
+        {
+            return bytes;
+        }
+    }
+
+    /// <summary>
+    /// Returns the payload of the first length-delimited protobuf field with the given
+    /// number, or null. Just enough of a reader to walk down to the note text: fields of
+    /// other wire types are skipped rather than interpreted.
+    /// </summary>
+    private static byte[]? ReadProtobufField(byte[] buffer, int fieldNumber)
+    {
+        var pos = 0;
+        while (pos < buffer.Length)
+        {
+            if (!TryReadVarint(buffer, ref pos, out var tag)) return null;
+
+            var number = (int)(tag >> 3);
+            var wireType = (int)(tag & 0x7);
+
+            switch (wireType)
+            {
+                case 0: // varint
+                    if (!TryReadVarint(buffer, ref pos, out _)) return null;
+                    break;
+
+                case 1: // 64-bit
+                    pos += 8;
+                    break;
+
+                case 5: // 32-bit
+                    pos += 4;
+                    break;
+
+                case 2: // length-delimited
+                    if (!TryReadVarint(buffer, ref pos, out var length)) return null;
+                    if (length > int.MaxValue || pos + (int)length > buffer.Length) return null;
+
+                    if (number == fieldNumber)
+                        return buffer.AsSpan(pos, (int)length).ToArray();
+
+                    pos += (int)length;
+                    break;
+
+                default:
+                    // Groups and anything unknown: the rest of the buffer can no longer be
+                    // walked safely, so stop rather than return a misaligned slice.
+                    return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool TryReadVarint(byte[] buffer, ref int pos, out ulong value)
+    {
+        value = 0;
+        var shift = 0;
+
+        while (pos < buffer.Length)
+        {
+            var b = buffer[pos++];
+            value |= (ulong)(b & 0x7F) << shift;
+            if ((b & 0x80) == 0) return true;
+
+            shift += 7;
+            if (shift > 63) return false; // malformed: a varint is at most ten bytes
+        }
+
+        return false;
     }
 
     /// <summary>
