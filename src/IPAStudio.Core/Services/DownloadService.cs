@@ -563,24 +563,6 @@ public sealed partial class DownloadService
             {
                 state.ReportedPercent = Math.Clamp(pctVal, 0, 100);
                 sawNumbers = true;
-
-                // Some ipatool builds print a percentage next to the bytes transferred but
-                // never the pair, which left the total unknown even though the tool plainly
-                // knew it. Dividing one by the other recovers it. Held off until 5% because
-                // the rounded percentage is far too coarse before that - at 1% the result
-                // would be wrong by a factor of two.
-                var known = Volatile.Read(ref sizeHint[0]);
-                var done = state.Downloaded;
-                if (known <= 0 && done > 0 && state.ReportedPercent >= 5)
-                {
-                    var derived = (long)(done / (state.ReportedPercent / 100.0));
-                    if (derived > done)
-                    {
-                        Volatile.Write(ref sizeHint[0], derived);
-                        AppLog.Info($"size: derived from {state.ReportedPercent:F0}% " +
-                                    $"of {done / 1048576.0:F1}MB -> {derived / 1048576.0:F1}MB");
-                    }
-                }
             }
 
             if (sawNumbers)
@@ -616,6 +598,7 @@ public sealed partial class DownloadService
         var reporter = Task.Run(async () =>
         {
             double emaSpeed = 0;
+            long derivedTotal = 0;
             long prevBytes = 0;
             var prevTime = DateTimeOffset.UtcNow;
             var sawBytes = false;
@@ -646,6 +629,34 @@ public sealed partial class DownloadService
                         Volatile.Write(ref sizeHint[0], 0);
                         total = 0;
                     }
+
+                    // Still no total: derive one from the percentage the tool prints and the
+                    // bytes we can see. This is the case for apps Apple has delisted - the
+                    // catalog has no entry to look up and the transfer carries no
+                    // Content-Length - so without this the bar stays indeterminate for the
+                    // whole download and the size is never shown at all.
+                    //
+                    // Deliberately computed against the on-disk size rather than ipatool's
+                    // own byte count: the tool does not always print bytes next to the
+                    // percentage, and the file it is writing into is always measurable.
+                    // Recomputed every tick because a rounded percentage is coarse early on
+                    // (at 5% it can be out by a tenth) and sharpens as the download runs;
+                    // kept in a local so it is never mistaken for a measured size, learned,
+                    // or remembered across runs.
+                    if (total <= 0 && downloaded > 0 && state.ReportedPercent >= 5)
+                    {
+                        var derived = (long)(downloaded / (state.ReportedPercent / 100.0));
+                        if (derived > downloaded)
+                        {
+                            if (derivedTotal <= 0)
+                                AppLog.Info(
+                                    $"size: no catalog entry and no Content-Length; deriving " +
+                                    $"the total from {state.ReportedPercent:F0}% of " +
+                                    $"{downloaded / 1048576.0:F1}MB -> {derived / 1048576.0:F1}MB");
+                            derivedTotal = derived;
+                        }
+                    }
+                    if (total <= 0) total = derivedTotal;
 
                     if (downloaded > 0)
                     {
