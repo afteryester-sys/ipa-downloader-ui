@@ -20,6 +20,25 @@
                 <TextBlock Text="{DynamicResource L.Settings.Title}" Style="{StaticResource Text.Title}" />
             </StackPanel>
 
+            <!-- Device connection over Wi-Fi -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Wifi}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.Wifi.Toggle}"
+                              IsChecked="{Binding WifiDeviceConnection}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Wifi.Hint}" />
+                    <!-- Only present while there is something to report, so the card does not
+                         carry an empty line in the common case. -->
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{StaticResource Brush.Accent}"
+                               Text="{Binding WifiStatus}"
+                               Visibility="{Binding WifiStatus, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Border>
+
             <!-- Language -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
@@ -108,25 +127,6 @@
                     <RadioButton Content="{DynamicResource L.Settings.Mode.InstallExistingOnly}"
                                  GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
                                  IsChecked="{Binding ModeIsInstallExistingOnly}" />
-                </StackPanel>
-            </Border>
-
-            <!-- Device connection over Wi-Fi -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                <StackPanel>
-                    <TextBlock Text="{DynamicResource L.Settings.Wifi}" Style="{StaticResource Text.Body}"
-                               FontWeight="SemiBold" Margin="0,0,0,10" />
-                    <CheckBox Style="{StaticResource Check.Base}"
-                              Content="{DynamicResource L.Settings.Wifi.Toggle}"
-                              IsChecked="{Binding WifiDeviceConnection}" />
-                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Text="{DynamicResource L.Settings.Wifi.Hint}" />
-                    <!-- Only present while there is something to report, so the card does not
-                         carry an empty line in the common case. -->
-                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               Foreground="{StaticResource Brush.Accent}"
-                               Text="{Binding WifiStatus}"
-                               Visibility="{Binding WifiStatus, Converter={StaticResource NullToCollapsed}}" />
                 </StackPanel>
             </Border>
 

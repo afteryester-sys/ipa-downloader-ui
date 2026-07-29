@@ -199,23 +199,39 @@ public sealed partial class InstallService
     /// Returns a path ideviceinstaller can definitely open, plus the throwaway file to
     /// delete afterwards (null when the original path was used directly).
     ///
-    /// ideviceinstaller uses libzip, whose zip_open() goes through the narrow (ANSI) CRT
-    /// and fails with ZIP_ER_OPEN when the path cannot be expressed in the system code
-    /// page. That used to be approximated as "any non-ASCII path", which meant a Russian
-    /// Windows — where a Cyrillic path is perfectly representable in CP1251 — copied the
-    /// whole IPA before every single install. On a 1 GB app that copy alone was most of
-    /// the wait. The code page is now actually consulted, and when a staging file IS
-    /// needed it is a hard link (instant, no extra disk space), with a copy only as the
-    /// fallback for a different volume.
+    /// ideviceinstaller takes the archive path as bytes and hands it to libzip, and the
+    /// bundled Windows build does NOT interpret those bytes in the system code page.
+    ///
+    /// This was previously "safe if the path converts to the ANSI code page", on the theory
+    /// that the tool would read it back the same way. A Russian Windows disproves that:
+    /// CP1251 encodes Cyrillic exactly, so the check passed, the path was handed over
+    /// unchanged, and the install died on a path that is perfectly legal on disk:
+    ///
+    ///     ERROR: zip_open: C:\Users\User\Desktop\iPa ...\MAX 26.17.3.ipa: 18
+    ///
+    /// (18 is ZIP_ER_INVAL. That the tool echoed the Cyrillic back as single high bytes is
+    /// what shows it received the CP1251 form intact and still could not open it.)
+    ///
+    /// So the code page cannot be consulted to answer this: what a byte means depends on
+    /// the tool's build, not on this machine's settings. Only pure ASCII, where every
+    /// encoding agrees, is treated as safe. The reason that check was loosened in the first
+    /// place was the cost of copying a 1 GB IPA before every install — but the hard link
+    /// below already removes that cost, so being strict here is nearly free.
     /// </summary>
     private static async Task<(string path, string? staged)> PrepareLocalPathAsync(
         string ipaPath, long totalBytes, IProgress<InstallProgress>? progress, CancellationToken ct)
     {
-        if (CanOpenWithNarrowApi(ipaPath)) return (ipaPath, null);
+        if (IsEncodingSafePath(ipaPath)) return (ipaPath, null);
 
-        var stageRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments),
-            "IPAStudio", "stage");
+        var stageRoot = FindEncodingSafeStageRoot(ipaPath);
+        if (stageRoot is null)
+        {
+            // Nowhere ASCII to put it. Handing over the original path is what we would have
+            // done anyway; say so plainly, because the install is about to fail on it.
+            AppLog.Warn("No ASCII-safe folder available to stage the IPA; " +
+                        "passing the original path, which the installer may refuse.");
+            return (ipaPath, null);
+        }
 
         try
         {
@@ -224,21 +240,21 @@ public sealed partial class InstallService
 
             if (CreateHardLinkW(dest, ipaPath, IntPtr.Zero))
             {
-                AppLog.Info($"IPA path is not code-page safe; linked to {dest}");
+                AppLog.Info($"IPA path is not ASCII; linked to {dest}");
                 return (dest, dest);
             }
 
             // Different volume, or a filesystem without hard links: copy, and report it,
             // because a silent several-hundred-megabyte copy is exactly the kind of pause
             // that reads as a hang.
-            AppLog.Info($"IPA path is not code-page safe and cannot be linked; copying to {dest}");
+            AppLog.Info($"IPA path is not ASCII and cannot be linked; copying to {dest}");
             await CopyWithProgressAsync(ipaPath, dest, totalBytes, progress, ct).ConfigureAwait(false);
             return (dest, dest);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            AppLog.Warn($"Failed to stage IPA to a code-page safe path, using original: {ex.Message}");
+            AppLog.Warn($"Failed to stage IPA to an ASCII path, using original: {ex.Message}");
             return (ipaPath, null);
         }
     }
@@ -279,61 +295,55 @@ public sealed partial class InstallService
     }
 
     /// <summary>
-    /// True when the path survives conversion to the system code page, i.e. when the
-    /// narrow file APIs that libzip uses can open it.
+    /// Picks a folder for the staged copy whose own path is ASCII — staging into
+    /// "C:\Users\Вася\AppData\Local\Temp" would just relocate the problem.
+    ///
+    /// Ordered so the first candidate is normally on the system drive, the same volume as
+    /// Desktop and Downloads where IPAs actually live, because a hard link only works
+    /// within one volume; failing that we still try, and fall back to a copy.
     /// </summary>
-    private static bool CanOpenWithNarrowApi(string path)
+    private static string? FindEncodingSafeStageRoot(string sourcePath)
     {
-        var ascii = true;
+        var candidates = new List<string>(4);
+
+        void Add(string? root, params string[] parts)
+        {
+            if (string.IsNullOrWhiteSpace(root)) return;
+            try { candidates.Add(Path.Combine(new[] { root }.Concat(parts).ToArray())); }
+            catch { /* an unusable root is simply not a candidate */ }
+        }
+
+        Add(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "IPAStudio", "stage");
+        Add(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "IPAStudio", "stage");
+        // Same volume as the IPA, so the hard link can succeed even for a D: drive.
+        Add(Path.GetPathRoot(Path.GetFullPath(sourcePath)), "IPAStudio", "stage");
+        Add(Path.GetTempPath(), "IPAStudio-stage");
+
+        foreach (var candidate in candidates)
+            if (IsEncodingSafePath(candidate))
+                return candidate;
+
+        return null;
+    }
+
+    /// <summary>
+    /// True when every byte of the path means the same thing to any tool that reads it,
+    /// which in practice means pure ASCII. See PrepareLocalPathAsync for why the system
+    /// code page deliberately plays no part in this decision.
+    /// </summary>
+    private static bool IsEncodingSafePath(string path)
+    {
         foreach (var c in path)
-            if (c > 127) { ascii = false; break; }
-        if (ascii) return true;
-
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return true;
-
-        try
-        {
-            const uint cpAcp = 0;
-            const uint utf8 = 65001;
-            const uint noBestFit = 0x00000400;
-
-            // A UTF-8 code page (Windows 10+ opt-in, and the default in some builds)
-            // represents everything, and rejects the no-best-fit flag outright.
-            if (GetACP() == utf8) return true;
-
-            var needed = WideCharToMultiByte(cpAcp, noBestFit, path, path.Length, null, 0, IntPtr.Zero, out _);
-            if (needed <= 0) return false;
-
-            var buffer = new byte[needed];
-            var written = WideCharToMultiByte(
-                cpAcp, noBestFit, path, path.Length, buffer, buffer.Length, IntPtr.Zero, out var usedDefault);
-
-            // usedDefault means at least one character was replaced by "?", so the narrow
-            // path would point at a file that does not exist.
-            return written > 0 && usedDefault == 0;
-        }
-        catch (Exception ex)
-        {
-            // Unable to tell: assume the worst and stage, which is always safe.
-            AppLog.Debug(() => $"Code page check failed for '{path}': {ex.Message}");
-            return false;
-        }
+            if (c > 127) return false;
+        return true;
     }
 
     // DllImport rather than LibraryImport: the source-generated variant demands
     // AllowUnsafeBlocks for the whole project, which is a large permission to grant for
-    // three tiny calls.
+    // one tiny call.
     [DllImport("kernel32.dll", EntryPoint = "CreateHardLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool CreateHardLinkW(string newFile, string existingFile, IntPtr securityAttributes);
-
-    [DllImport("kernel32.dll")]
-    private static extern uint GetACP();
-
-    [DllImport("kernel32.dll", EntryPoint = "WideCharToMultiByte", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int WideCharToMultiByte(
-        uint codePage, uint flags, string wideStr, int wideCount,
-        byte[]? multiByteStr, int multiByteCount, IntPtr defaultChar, out int usedDefaultChar);
 
     // ─────────────────────────── listing installed apps ───────────────────────────
 
