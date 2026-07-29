@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using iMobileDevice;
 using iMobileDevice.iDevice;
 using iMobileDevice.SpringBoardServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using IPAStudio.Core.Diagnostics;
@@ -458,17 +459,10 @@ public sealed partial class InstallService
     public async Task<IReadOnlyList<InstalledApp>> GetInstalledAppsAsync(
         string udid, CancellationToken ct = default)
     {
-        var result = await _runner.RunAsync(
-            _tools.IdeviceInstallerPath,
-            new[] { "-u", udid, "-l", "-o", "list_user", "-o", "xml" },
-            closeStdin: true,
-            ct: ct).ConfigureAwait(false);
+        var result = await BrowseAsync(udid, Array.Empty<string>(), ct).ConfigureAwait(false);
+        var xml = ExtractPlist(result.StdOut);
 
-        var xml = result.StdOut;
-        var start = xml.IndexOf("<?xml", StringComparison.Ordinal);
-        if (start < 0) start = xml.IndexOf("<plist", StringComparison.Ordinal);
-
-        if (start < 0)
+        if (xml is null)
         {
             // Fall back to the plain listing rather than showing an empty device: names
             // are less exact there, but "no apps" would be plainly wrong.
@@ -477,47 +471,25 @@ public sealed partial class InstallService
                 result.StdOut.Length > 0 ? result.StdOut : await PlainListAsync(udid, ct).ConfigureAwait(false));
         }
 
-        var apps = new List<InstalledApp>();
+        List<InstalledApp> apps;
         try
         {
-            var doc = XDocument.Parse(xml[start..]);
-            foreach (var dict in doc.Descendants("dict"))
-            {
-                // Only top-level app dictionaries: nested ones (entitlements, environment
-                // variables) carry no bundle identifier of their own.
-                var bundleId = PlistString(dict, "CFBundleIdentifier");
-                if (string.IsNullOrEmpty(bundleId)) continue;
-
-                apps.Add(new InstalledApp
-                {
-                    BundleId = bundleId!,
-                    Name = PlistString(dict, "CFBundleDisplayName")
-                           ?? PlistString(dict, "CFBundleName")
-                           ?? bundleId!,
-                    Version = PlistString(dict, "CFBundleShortVersionString")
-                              ?? PlistString(dict, "CFBundleVersion"),
-                    // Only apps that came from the App Store carry store metadata, and
-                    // that is exactly what makes an app re-downloadable.
-                    //
-                    // Searched through the whole app dictionary rather than its direct keys:
-                    // depending on the iOS version the same numbers arrive either at the top
-                    // level or nested inside the app's iTunes metadata, and reading only the
-                    // top level left modern devices reporting no store id at all - which then
-                    // forced a catalog lookup that fails for every delisted app.
-                    StoreItemId = PlistLongDeep(dict,
-                                      "ITunesMetadataItemId", "StoreItemIdentifier",
-                                      "itemId", "item-id", "storeItemIdentifier"),
-                    StoreAccount = PlistStringDeep(dict,
-                                       "ITunesMetadataAppleID", "AppleID", "appleId",
-                                       "com.apple.iTunesStore.downloadInfo.accountInfo.AppleID"),
-                });
-            }
+            apps = ParseListing(xml);
         }
         catch (Exception ex)
         {
             AppLog.Warn($"Could not parse the installed app list: {ex.Message}");
-            return ParsePlainListing(result.StdOut);
+            return ParsePlainListing(result.StdOut).ToList();
         }
+
+        // A browse without an attribute filter returns only what the device volunteers, and
+        // that set leaves the iTunes metadata out. Naming it explicitly is the one way to
+        // learn an app's numeric store id, and that id is what makes a delisted app
+        // downloadable at all - ipatool asked by bundle identifier resolves through the
+        // store catalog, which no longer lists such an app. So a second call is worth it
+        // whenever the first found no ids; when it did, this is skipped entirely.
+        if (apps.Count > 0 && !apps.Any(a => a.StoreItemId is > 0))
+            apps = await MergeStoreMetadataAsync(udid, apps, ct).ConfigureAwait(false);
 
         var withId = apps.Count(a => a.StoreItemId is > 0);
         AppLog.Info($"Device {udid}: {apps.Count} user apps, {withId} with a store id, " +
@@ -534,6 +506,225 @@ public sealed partial class InstallService
             .Select(g => g.First())
             .OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// One installation_proxy browse. Naming attributes restricts the reply to those fields;
+    /// passing none asks for whatever the device reports by default.
+    /// </summary>
+    private Task<ProcessResult> BrowseAsync(string udid, string[] attributes, CancellationToken ct)
+    {
+        var args = new List<string> { "-u", udid, "-l", "-o", "list_user", "-o", "xml" };
+        foreach (var attribute in attributes)
+        {
+            args.Add("-a");
+            args.Add(attribute);
+        }
+
+        return _runner.RunAsync(_tools.IdeviceInstallerPath, args, closeStdin: true, ct: ct);
+    }
+
+    /// <summary>Start of the plist inside a tool's chatter, or null if there is none.</summary>
+    private static string? ExtractPlist(string stdout)
+    {
+        var start = stdout.IndexOf("<?xml", StringComparison.Ordinal);
+        if (start < 0) start = stdout.IndexOf("<plist", StringComparison.Ordinal);
+        return start < 0 ? null : stdout[start..];
+    }
+
+    /// <summary>Apps described by an ideviceinstaller XML listing.</summary>
+    private static List<InstalledApp> ParseListing(string xml)
+    {
+        var apps = new List<InstalledApp>();
+        var doc = XDocument.Parse(xml);
+
+        foreach (var dict in doc.Descendants("dict"))
+        {
+            // Only top-level app dictionaries: nested ones (entitlements, environment
+            // variables) carry no bundle identifier of their own.
+            var bundleId = PlistString(dict, "CFBundleIdentifier");
+            if (string.IsNullOrEmpty(bundleId)) continue;
+
+            // The store fields are read from the app's iTunes metadata blob first, since
+            // that is where current iOS keeps them, and only then from plain plist keys as
+            // older devices wrote them.
+            var metadata = StoreMetadata(dict);
+
+            apps.Add(new InstalledApp
+            {
+                BundleId = bundleId!,
+                Name = PlistString(dict, "CFBundleDisplayName")
+                       ?? PlistString(dict, "CFBundleName")
+                       ?? bundleId!,
+                Version = PlistString(dict, "CFBundleShortVersionString")
+                          ?? PlistString(dict, "CFBundleVersion"),
+                // Only apps that came from the App Store carry store metadata, and
+                // that is exactly what makes an app re-downloadable.
+                //
+                // Searched through the whole app dictionary rather than its direct keys:
+                // depending on the iOS version the same numbers arrive either at the top
+                // level or nested inside the app's iTunes metadata, and reading only the
+                // top level left modern devices reporting no store id at all - which then
+                // forced a catalog lookup that fails for every delisted app.
+                StoreItemId = BinaryPlist.FindLong(metadata,
+                                  "itemId", "item-id", "storeItemIdentifier")
+                              ?? PlistLongDeep(dict,
+                                     "ITunesMetadataItemId", "StoreItemIdentifier",
+                                     "itemId", "item-id", "storeItemIdentifier"),
+                StoreAccount = BinaryPlist.FindString(metadata, "AppleID", "apple-id")
+                               ?? PlistStringDeep(dict,
+                                      "ITunesMetadataAppleID", "AppleID", "appleId",
+                                      "com.apple.iTunesStore.downloadInfo.accountInfo.AppleID"),
+            });
+        }
+
+        return apps;
+    }
+
+    /// <summary>
+    /// The app's decoded iTunes metadata, or null when it reported none.
+    ///
+    /// The device hands this over as an opaque blob holding a nested property list, so it
+    /// has to be decoded before the store id inside it can be read; treating it as plain
+    /// plist elements finds nothing at all.
+    /// </summary>
+    private static object? StoreMetadata(XElement dict)
+    {
+        foreach (var value in DeepValues(dict, "iTunesMetadata"))
+        {
+            if (value.Name.LocalName != "data") continue;
+
+            byte[] raw;
+            try
+            {
+                raw = Convert.FromBase64String(value.Value);
+            }
+            catch (FormatException)
+            {
+                continue;
+            }
+
+            if (BinaryPlist.LooksBinary(raw))
+            {
+                var parsed = BinaryPlist.Parse(raw);
+                if (parsed is not null) return parsed;
+                continue;
+            }
+
+            // Some devices store the same metadata as a text plist. It is converted into the
+            // same shape the binary reader produces so the fields are read one way only.
+            try
+            {
+                var text = Encoding.UTF8.GetString(raw);
+                var inner = ExtractPlist(text);
+                if (inner is null) continue;
+
+                var root = XDocument.Parse(inner).Root;
+                var converted = root is null ? null : FromXmlPlist(root, 0);
+                if (converted is not null) return converted;
+            }
+            catch (Exception)
+            {
+                // Not a plist we can read; the plain-key fallback still applies.
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A text plist turned into the dictionaries, lists and scalars that
+    /// <see cref="BinaryPlist"/> yields, so both encodings are searched by the same code.
+    /// </summary>
+    private static object? FromXmlPlist(XElement node, int depth)
+    {
+        if (depth > 32) return null;
+
+        switch (node.Name.LocalName)
+        {
+            case "plist":
+                var first = node.Elements().FirstOrDefault();
+                return first is null ? null : FromXmlPlist(first, depth + 1);
+
+            case "dict":
+                var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var key in node.Elements("key"))
+                {
+                    var value = key.ElementsAfterSelf().FirstOrDefault();
+                    if (value is null) continue;
+                    dict[key.Value.Trim()] = FromXmlPlist(value, depth + 1);
+                }
+                return dict;
+
+            case "array":
+                return node.Elements().Select(e => FromXmlPlist(e, depth + 1)).ToList();
+
+            case "integer":
+                return long.TryParse(node.Value.Trim(), out var number) ? number : null;
+
+            case "true": return true;
+            case "false": return false;
+
+            // Everything else (string, real, date) is only ever read as text here.
+            default:
+                return node.Value.Trim();
+        }
+    }
+
+    /// <summary>
+    /// The listing again, this time asking the device for its iTunes metadata by name, with
+    /// the store ids merged into the apps we already have.
+    ///
+    /// Attribute names are only a request: a device that does not know one simply leaves it
+    /// out, and an older ideviceinstaller that does not support asking at all fails the call
+    /// outright. Both cases end up returning the original list untouched.
+    /// </summary>
+    private async Task<List<InstalledApp>> MergeStoreMetadataAsync(
+        string udid, List<InstalledApp> apps, CancellationToken ct)
+    {
+        try
+        {
+            var result = await BrowseAsync(
+                udid,
+                new[] { "CFBundleIdentifier", "iTunesMetadata" },
+                ct).ConfigureAwait(false);
+
+            var xml = ExtractPlist(result.StdOut);
+            if (xml is null) return apps;
+
+            var detailed = ParseListing(xml)
+                .Where(a => a.StoreItemId is > 0 || a.StoreAccount is not null)
+                .GroupBy(a => a.BundleId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            if (detailed.Count == 0) return apps;
+
+            AppLog.Info($"Device {udid}: iTunes metadata supplied ids for {detailed.Count} apps");
+
+            // Names and versions stay as the first listing reported them: this second pass
+            // asked for two fields only, so everything else in it is blank by construction.
+            return apps
+                .Select(app => detailed.TryGetValue(app.BundleId, out var extra)
+                    ? new InstalledApp
+                    {
+                        BundleId = app.BundleId,
+                        Name = app.Name,
+                        Version = app.Version,
+                        StoreItemId = app.StoreItemId ?? extra.StoreItemId,
+                        StoreAccount = app.StoreAccount ?? extra.StoreAccount,
+                    }
+                    : app)
+                .ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Could not read iTunes metadata from the device: {ex.Message}");
+            return apps;
+        }
     }
 
     /// <summary>Plain (non-XML) listing, used when the XML mode is unsupported.</summary>

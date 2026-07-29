@@ -463,11 +463,10 @@ public sealed partial class DownloadService
             lastError = result.Error;
 
             // The store refused the numeric id, but the app has a bundle identifier we have
-            // not tried yet. Worth one more go: asking by id goes through the storefront
-            // catalog, which hides apps pulled from sale or limited to another region, while
-            // asking by bundle identifier resolves against what the account owns and hands
-            // those same apps over. This is exactly the case a user hits when an app sits on
-            // their phone but the on-device list reports it as not available.
+            // not tried yet. Worth one last go, though only as a long shot: resolving a
+            // bundle identifier searches the storefront catalog, so it cannot rescue an app
+            // pulled from sale - it only helps when the id the device reported is stale and
+            // the app is still listed. Hence the original error is the one reported.
             if (!triedBundleId && ShouldRetryByBundleId(result, app))
             {
                 triedBundleId = true;
@@ -489,10 +488,10 @@ public sealed partial class DownloadService
 
                 if (retry.Success) return FinishReplace(retry, replaceTarget);
 
-                // Report the bundle-id attempt's error: it is the more informative of the
-                // two, because it came from the request that could actually have worked.
-                lastError = retry.Error;
-                return retry;
+                // Keep the numeric-id error: that request named the exact app, so its
+                // verdict says why the download failed. The bundle-id attempt can only ever
+                // add "not found", which would bury the real reason.
+                return result;
             }
 
             // Auth, license, disk and "app not available" errors will not fix themselves.
@@ -515,6 +514,10 @@ public sealed partial class DownloadService
     /// Limited to the "not in the store" verdict: any other error (wrong password, no
     /// licence, full disk, network) would fail the same way a second time, and re-running a
     /// multi-second Apple handshake for nothing is a delay the user feels.
+    ///
+    /// Note this is the weaker of the two ways to name an app, not a stronger fallback: it
+    /// is worth trying only because a device can report an id that the store has since
+    /// retired.
     /// </summary>
     private static bool ShouldRetryByBundleId(DownloadResult result, AppEntry app)
         => app.AppStoreId > 0
