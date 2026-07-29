@@ -80,7 +80,7 @@
                                 Padding="8,4" FontSize="12" />
                     </StackPanel>
 
-                    <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
+                    <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
                             Command="{Binding BackToCredentialsCommand}" Margin="0,6,0,0"
                             HorizontalAlignment="Center" />
                 </StackPanel>

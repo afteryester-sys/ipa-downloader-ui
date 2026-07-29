@@ -19,6 +19,16 @@ public sealed partial class DeviceViewModel : ObservableObject
     [ObservableProperty]
     private bool _justConnected;
 
+    /// <summary>
+    /// Whether this device is currently on Wi-Fi rather than a cable.
+    ///
+    /// Observable rather than read straight off the model, because a device that is
+    /// unplugged while also on Wi-Fi stays connected and merely changes transport; the
+    /// card has to be able to follow that without the device disappearing and coming back.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isNetworkLink;
+
     public string Name => Device.Name;
     public string Model => Device.Model;
     public string OsVersion => Device.OsVersion;
@@ -28,11 +38,13 @@ public sealed partial class DeviceViewModel : ObservableObject
     {
         Device = device;
         _batteryLevel = device.BatteryLevel;
+        _isNetworkLink = device.IsNetworkLink;
     }
 
     public void Refresh()
     {
         BatteryLevel = Device.BatteryLevel;
+        IsNetworkLink = Device.IsNetworkLink;
     }
 }
 

@@ -235,15 +235,16 @@
         <!-- Header -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal">
-                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
                         Command="{Binding BackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
                 <StackPanel>
                     <TextBlock Text="{DynamicResource L.Photos.Title}" Style="{StaticResource Text.Title}" />
                     <TextBlock Text="{Binding DeviceName}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" />
                 </StackPanel>
             </StackPanel>
+            <!-- 56px clears the MainWindow gear button, which is drawn over the page. -->
             <Button Content="{DynamicResource L.Photos.Refresh}" Style="{StaticResource Button.Secondary}"
-                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,56,0"
                     Command="{Binding RefreshCommand}"
                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
         </Grid>

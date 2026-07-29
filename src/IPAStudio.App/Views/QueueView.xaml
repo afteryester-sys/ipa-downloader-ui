@@ -181,7 +181,7 @@
 
         <!-- Footer -->
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
+            <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
                     Command="{Binding BackToAppsCommand}" Margin="0,0,8,0" />
             <Button Content="{DynamicResource L.Queue.Finish}" Style="{StaticResource Button.Primary}"
                     Command="{Binding BackToDevicesCommand}"

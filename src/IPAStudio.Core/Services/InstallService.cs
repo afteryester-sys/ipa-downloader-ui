@@ -169,7 +169,7 @@ public sealed partial class InstallService
             // subcommand caused "ERROR: No mode/command was supplied."
             var result = await _runner.RunStreamingAsync(
                 _tools.IdeviceInstallerPath,
-                new[] { "-u", udid, "-i", installPath },
+                DeviceTransport.TargetArgs(udid, "-i", installPath),
                 onSegment: ParseSegment,
                 ct: ct).ConfigureAwait(false);
 
@@ -348,7 +348,7 @@ public sealed partial class InstallService
         {
             var result = await _runner.RunAsync(
                 _tools.IdeviceInstallerPath,
-                new[] { "-u", udid, "-l" },
+                DeviceTransport.TargetArgs(udid, "-l"),
                 closeStdin: true,
                 quiet: true,
                 ct: ct).ConfigureAwait(false);
@@ -398,12 +398,11 @@ public sealed partial class InstallService
 
             try
             {
-                NativeLibraries.Load();
+                NativeDevice.EnsureLoaded();
 
-                var idevice = LibiMobileDevice.Instance.iDevice;
                 var sb = LibiMobileDevice.Instance.SpringBoardServices;
 
-                if (idevice.idevice_new(out var device, udid) != iDeviceError.Success)
+                if (NativeDevice.Open(udid, out var device) != iDeviceError.Success)
                     return icons;
 
                 using (device)
@@ -514,7 +513,7 @@ public sealed partial class InstallService
     /// </summary>
     private Task<ProcessResult> BrowseAsync(string udid, string[] attributes, CancellationToken ct)
     {
-        var args = new List<string> { "-u", udid, "-l", "-o", "list_user", "-o", "xml" };
+        var args = new List<string>(DeviceTransport.TargetArgs(udid, "-l", "-o", "list_user", "-o", "xml"));
         foreach (var attribute in attributes)
         {
             args.Add("-a");
@@ -732,7 +731,7 @@ public sealed partial class InstallService
     {
         var result = await _runner.RunAsync(
             _tools.IdeviceInstallerPath,
-            new[] { "-u", udid, "-l" },
+            DeviceTransport.TargetArgs(udid, "-l"),
             closeStdin: true,
             ct: ct).ConfigureAwait(false);
         return result.StdOut;

@@ -3,13 +3,17 @@
 
     <!-- ============ Dark palette (5 colors) ============
          Primary accent:  #0A84FF (iOS blue)
-         Neutrals:        #101014 (bg), #1B1B21 (surface), #EDEDF2 (text)
+         Neutrals:        #101014 (bg), #212129 (surface), #EDEDF2 (text)
          Accent 2:        #30D158 (success green)
+
+         Surface and border are deliberately kept a clear step apart from the background:
+         closer together they were technically distinct but read as one flat surface, so
+         cards and inputs lost their edges.
     -->
     <Color x:Key="Color.Background">#101014</Color>
-    <Color x:Key="Color.Surface">#1B1B21</Color>
-    <Color x:Key="Color.SurfaceHover">#24242C</Color>
-    <Color x:Key="Color.Border">#2E2E38</Color>
+    <Color x:Key="Color.Surface">#212129</Color>
+    <Color x:Key="Color.SurfaceHover">#2C2C38</Color>
+    <Color x:Key="Color.Border">#3C3C4A</Color>
     <Color x:Key="Color.Text">#EDEDF2</Color>
     <Color x:Key="Color.TextMuted">#9A9AA6</Color>
     <Color x:Key="Color.Accent">#0A84FF</Color>
