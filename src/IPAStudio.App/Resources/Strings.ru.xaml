@@ -289,7 +289,7 @@
     <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
-    <sys:String x:Key="L.Error.NotInStore">Приложение недоступно в App Store (удалено или ограничено регионом).</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">Приложения нет на серверах Apple: оно удалено, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). IPA берётся только из App Store, поэтому забрать копию с самого устройства нельзя.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>

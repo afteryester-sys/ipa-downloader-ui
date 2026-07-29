@@ -85,7 +85,7 @@ public static class Loc
         ["L.Error.SessionExpired"] = "The Apple ID session is no longer valid. Please sign in again.",
         ["L.Error.DownloadFailed"] = "The download could not be completed.",
         ["L.Error.LicenseFailed"] = "Could not obtain a license for this app on the current Apple ID.",
-        ["L.Error.NotInStore"] = "This app is not available in the App Store (it may be delisted or region-limited).",
+        ["L.Error.NotInStore"] = "This app is not on Apple's servers: it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). An IPA can only come from the App Store, so a copy cannot be taken off the device itself.",
         ["L.Error.NotPurchased"] = "The signed-in Apple ID does not own this app, and the license could not be obtained automatically.",
         ["L.Error.StoreUnavailable"] = "The App Store did not respond. Please try again in a moment.",
         ["L.Error.ConnectionStalled"] = "The connection stalled; retrying…",

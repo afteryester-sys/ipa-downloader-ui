@@ -496,6 +496,23 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         try
         {
+            // Every download on this screen goes out to Apple, even though the app is sitting
+            // right there on the device. That looks like a missed shortcut and keeps getting
+            // raised as one, so, having checked: there is no way to copy it off the device.
+            //
+            //  - The app bundle lives under /var/containers/Bundle/Application, which no
+            //    host-side service exposes. AFC is limited to /var/mobile/Media, and
+            //    house_arrest hands back a chosen app's Documents/Library container, never
+            //    the .app itself.
+            //  - instproxy's archive command did exactly this once, and the bundled
+            //    ideviceinstaller still carries the verbs (archive / list-archives / restore
+            //    are present in the binary). Apple dropped the underlying support back in
+            //    iOS 7, so on anything current it answers UnknownCommand.
+            //  - Even given the bundle, App Store binaries are FairPlay encrypted; getting a
+            //    usable one means dumping from memory on a jailbroken device.
+            //
+            // So the store really is the only source, and an app Apple no longer serves
+            // cannot be fetched at all - which is what the verdict below has to say.
             var entry = await ResolveEntryAsync(item.App, cts.Token).ConfigureAwait(true);
             if (entry is null)
             {
