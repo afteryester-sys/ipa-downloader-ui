@@ -14,15 +14,18 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
+        <!-- Header. Back sits left of the title, as on every other page; the top-right
+             corner belongs to the MainWindow gear button. The 56px right margin keeps the
+             title clear of that gear. -->
         <Grid Grid.Row="0" Margin="0,0,0,24">
-            <StackPanel>
-                <TextBlock Text="{DynamicResource L.DeviceInfo.Title}" Style="{StaticResource Text.Title}" />
-                <TextBlock Text="{Binding ModelLine}" Style="{StaticResource Text.Subtitle}" Margin="0,4,0,0" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,56,0">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding BackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.DeviceInfo.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{Binding ModelLine}" Style="{StaticResource Text.Subtitle}" Margin="0,4,0,0" />
+                </StackPanel>
             </StackPanel>
-            <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
-                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Command="{Binding BackCommand}" />
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

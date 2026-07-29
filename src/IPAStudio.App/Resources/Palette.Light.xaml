@@ -10,7 +10,7 @@
     <Color x:Key="Color.Background">#F2F2F7</Color>
     <Color x:Key="Color.Surface">#FFFFFF</Color>
     <Color x:Key="Color.SurfaceHover">#E9E9EF</Color>
-    <Color x:Key="Color.Border">#D1D1DB</Color>
+    <Color x:Key="Color.Border">#C4C4D0</Color>
     <Color x:Key="Color.Text">#1C1C1E</Color>
     <Color x:Key="Color.TextMuted">#6C6C70</Color>
     <Color x:Key="Color.Accent">#007AFF</Color>

@@ -25,9 +25,10 @@
 
             <!-- Right-hand action row: account + sign-in/out only.
                  The settings/update button lives in MainWindow and must NOT
-                 be duplicated here to avoid overlap. -->
+                 be duplicated here to avoid overlap. The 56px right margin keeps this row
+                 clear of that gear, which is drawn over the page. -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                        VerticalAlignment="Center">
+                        VerticalAlignment="Center" Margin="0,0,56,0">
                 <TextBlock Text="{Binding AccountEmail}" Style="{StaticResource Text.Caption}"
                            VerticalAlignment="Center" Margin="0,0,12,0"
                            Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}" />
@@ -148,15 +149,46 @@
                                                        Foreground="{StaticResource Brush.Accent}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.SuccessSoft}"
-                                                HorizontalAlignment="Right" VerticalAlignment="Top">
-                                            <StackPanel Orientation="Horizontal">
-                                                <Ellipse Width="7" Height="7" Fill="{StaticResource Brush.Success}"
-                                                         VerticalAlignment="Center" Margin="0,0,6,0" />
-                                                <TextBlock Text="{DynamicResource L.Devices.Connected}"
-                                                           Foreground="{StaticResource Brush.Success}" FontSize="11" />
-                                            </StackPanel>
-                                        </Border>
+                                        <!-- Connection state and transport, side by side in one row so the
+                                             two badges cannot overlap as either label changes length between
+                                             languages. -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top">
+                                            <!-- Transport: which of the two is shown is driven by IsNetworkLink,
+                                                 so a device unplugged while on Wi-Fi updates in place. -->
+                                            <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.AccentSoft}"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="{DynamicResource L.Devices.Link.Wifi}"
+                                                    Visibility="{Binding IsNetworkLink, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE701;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                               Foreground="{StaticResource Brush.Accent}"
+                                                               VerticalAlignment="Center" Margin="0,0,5,0" />
+                                                    <TextBlock Text="{DynamicResource L.Devices.Link.Wifi}"
+                                                               Foreground="{StaticResource Brush.Accent}" FontSize="11" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.AccentSoft}"
+                                                    Margin="0,0,6,0"
+                                                    ToolTip="{DynamicResource L.Devices.Link.Usb}"
+                                                    Visibility="{Binding IsNetworkLink, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="&#xE88E;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                                               Foreground="{StaticResource Brush.Accent}"
+                                                               VerticalAlignment="Center" Margin="0,0,5,0" />
+                                                    <TextBlock Text="{DynamicResource L.Devices.Link.Usb}"
+                                                               Foreground="{StaticResource Brush.Accent}" FontSize="11" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.SuccessSoft}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="7" Height="7" Fill="{StaticResource Brush.Success}"
+                                                             VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                    <TextBlock Text="{DynamicResource L.Devices.Connected}"
+                                                               Foreground="{StaticResource Brush.Success}" FontSize="11" />
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
                                     </Grid>
 
                                     <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"

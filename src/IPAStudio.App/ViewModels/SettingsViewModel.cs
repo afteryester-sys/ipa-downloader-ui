@@ -21,6 +21,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private readonly ToolLocator _tools;
     private readonly LocalizationManager _localization;
     private readonly UpdateService _updates;
+    private readonly DeviceService _devices;
     private INavigator? _navigator;
 
     [ObservableProperty]
@@ -71,6 +72,68 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             ? "Verbose logging enabled."
             : "Verbose logging disabled - routine calls are no longer written.");
     }
+
+    /// <summary>
+    /// Look for devices over the local network as well as on the cable.
+    ///
+    /// Turning this on also asks every currently connected device to start advertising
+    /// itself over Wi-Fi. That extra step is what actually makes the feature work on a
+    /// phone that has only ever been synced by cable: the device decides whether to
+    /// announce itself, that flag is off by default, and it can only be set while a
+    /// trusted connection exists. Doing it at the moment the switch is flipped is the one
+    /// point where a cable is likely still plugged in.
+    /// </summary>
+    [ObservableProperty]
+    private bool _wifiDeviceConnection;
+
+    /// <summary>Set while the connected devices are being prepared for Wi-Fi.</summary>
+    [ObservableProperty]
+    private string _wifiStatus = "";
+
+    partial void OnWifiDeviceConnectionChanged(bool value)
+    {
+        // Fires when the page loads and copies the saved value in, where nothing changed
+        // and there is nothing to announce or prepare.
+        if (DeviceTransport.WifiEnabled == value) return;
+
+        DeviceTransport.WifiEnabled = value;
+        AppLog.Info(value
+            ? "Wi-Fi device connection enabled - devices will also be looked for on the network."
+            : "Wi-Fi device connection disabled - only cabled devices will be used.");
+
+        if (value) _ = PrepareConnectedForWifiAsync();
+        else WifiStatus = "";
+    }
+
+    /// <summary>
+    /// Asks the connected devices to advertise themselves over the network.
+    ///
+    /// Failure is reported but not fatal, and deliberately does not switch the setting back
+    /// off: a device may well already be enabled from an earlier iTunes sync, in which case
+    /// the setting is still useful even though this call had nothing to do.
+    /// </summary>
+    private async Task PrepareConnectedForWifiAsync()
+    {
+        try
+        {
+            WifiStatus = Str("L.Settings.Wifi.Preparing", "Preparing devices…");
+            var count = await _devices.EnableWifiSyncOnConnectedAsync().ConfigureAwait(true);
+
+            WifiStatus = count > 0
+                ? string.Format(Str("L.Settings.Wifi.Ready", "Wi-Fi enabled on {0} device(s)."), count)
+                : Str("L.Settings.Wifi.NoDevices",
+                      "No cabled device to prepare. Connect the device by cable once so it can be enabled for Wi-Fi.");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Could not prepare devices for Wi-Fi: {ex.Message}");
+            WifiStatus = Str("L.Settings.Wifi.Failed", "Could not prepare the device for Wi-Fi. See the log.");
+        }
+    }
+
+    /// <summary>Localized string by key, with a fallback so a missing key cannot blank the UI.</summary>
+    private static string Str(string key, string fallback)
+        => Application.Current?.TryFindResource(key) as string ?? fallback;
 
     // Install mode: three RadioButtons bound via bool helpers below.
     [ObservableProperty]
@@ -142,7 +205,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     public SettingsViewModel(
         SettingsService settings, AuthService auth, QueueService queue,
-        ToolLocator tools, LocalizationManager localization, UpdateService updates)
+        ToolLocator tools, LocalizationManager localization, UpdateService updates,
+        DeviceService devices)
     {
         _settings = settings;
         _auth = auth;
@@ -150,6 +214,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _tools = tools;
         _localization = localization;
         _updates = updates;
+        _devices = devices;
     }
 
     public void OnNavigatedTo(INavigator navigator)
@@ -164,6 +229,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         ToolsFolder = _tools.ToolsRoot;
         InstallMode = _settings.Current.InstallMode;
         VerboseLogging = _settings.Current.VerboseLogging;
+        WifiDeviceConnection = _settings.Current.WifiDeviceConnection;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -353,6 +419,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.InstallMode = InstallMode;
+        _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();
 

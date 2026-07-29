@@ -59,6 +59,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.Control}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -79,21 +81,57 @@
         </Setter>
     </Style>
 
+    <!-- Surface-colored, so it needs an outline to be distinguishable from the card it sits
+         on; without one it was the same fill as its own container. -->
     <Style x:Key="Button.Secondary" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+        <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
     </Style>
 
     <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
         <Setter Property="Background" Value="{DynamicResource Brush.Danger}" />
     </Style>
 
+    <!--
+        Borderless on purpose: Ghost also carries link-like buttons and the small icon
+        buttons inside list rows, which an outline would turn into something they are not.
+        What it was missing was hover feedback - see the template below.
+    -->
     <Style x:Key="Button.Ghost" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Radius.Control}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- A real fill change on hover. The inherited template only lowered the
+                             opacity of the background, which does nothing at all when that
+                             background is transparent, so these buttons looked inert. -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ============ TextBox / PasswordBox ============ -->
@@ -391,7 +429,58 @@
         </Setter>
     </Style>
 
+    <!--
+        Back button. A style of its own rather than plain Ghost: Back appears on nine pages
+        and is the one control a user reaches for when lost, so it gets a visible outline and
+        a chevron instead of looking like the borderless link buttons beside it. Defining it
+        once also means the nine pages cannot drift apart in padding or wording.
+    -->
+    <Style x:Key="Button.Back" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Radius.Control}"
+                            Padding="{TemplateBinding Padding}">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Chevron from the standard icon font, so the direction of travel
+                                 is readable without depending on the translated label. -->
+                            <TextBlock Text="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                       VerticalAlignment="Center" Margin="0,0,7,0" />
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                            <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ Card ============ -->
+    <!--
+        Deliberately no DropShadowEffect. Most cards in this app wrap a ListBox or a photo
+        grid, and a WPF Effect pushes its whole visual subtree through an intermediate
+        bitmap: scrolling those lists gets more expensive and the text inside loses
+        ClearType and turns slightly fuzzy. The raised look comes from contrast instead -
+        surface and border are spaced a clear step away from the page background in
+        Palette.*.xaml, which costs nothing to render.
+    -->
     <Style x:Key="Card" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />

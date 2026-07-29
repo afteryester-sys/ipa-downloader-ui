@@ -1,3 +1,5 @@
+using IPAStudio.Core.Tools;
+
 namespace IPAStudio.Core.Models;
 
 /// <summary>
@@ -78,6 +80,20 @@ public sealed class Device
 
     /// <summary>Build version, e.g. "21E236".</summary>
     public string BuildVersion { get; set; } = "";
+
+    /// <summary>
+    /// Whether this device is currently reached by cable or over the network. Set during
+    /// discovery, which is the only place that can tell the two apart, and shown on the
+    /// device card so a Wi-Fi device is not mistaken for a cabled one when a slow or
+    /// failing operation needs explaining.
+    /// </summary>
+    public DeviceLink Link { get; set; } = DeviceLink.Usb;
+
+    /// <summary>True when <see cref="Link"/> is a network connection. For XAML binding.</summary>
+    public bool IsNetworkLink => Link == DeviceLink.Network;
+
+    /// <summary>True when this device is on a cable. For XAML binding.</summary>
+    public bool IsUsbLink => Link == DeviceLink.Usb;
 
     /// <summary>When the device was first seen in the current session.</summary>
     public DateTimeOffset ConnectedAt { get; init; } = DateTimeOffset.Now;

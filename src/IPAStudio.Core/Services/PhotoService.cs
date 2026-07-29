@@ -3,6 +3,7 @@ using System.Globalization;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
+using IPAStudio.Core.Tools;
 using Microsoft.Data.Sqlite;
 using iMobileDevice;
 using iMobileDevice.Afc;
@@ -54,19 +55,7 @@ public sealed class PhotoService
 
     private const uint ChunkSize = 1024 * 256; // 256 KiB per AFC read/write.
 
-    private static bool _nativeLoaded;
-    private static readonly object NativeLock = new();
-
-    private static void EnsureNativeLoaded()
-    {
-        if (_nativeLoaded) return;
-        lock (NativeLock)
-        {
-            if (_nativeLoaded) return;
-            NativeLibraries.Load();
-            _nativeLoaded = true;
-        }
-    }
+    private static void EnsureNativeLoaded() => NativeDevice.EnsureLoaded();
 
     /// <summary>Opens an AFC session to the device; caller must dispose the result.</summary>
     private static AfcSession OpenSession(string udid)
@@ -76,7 +65,7 @@ public sealed class PhotoService
         var idevice = LibiMobileDevice.Instance.iDevice;
         var afc = LibiMobileDevice.Instance.Afc;
 
-        idevice.idevice_new(out var deviceHandle, udid).ThrowOnError();
+        NativeDevice.Open(udid, out var deviceHandle).ThrowOnError();
         try
         {
             afc.afc_client_start_service(deviceHandle, out var afcHandle, "IPAStudio").ThrowOnError();
@@ -460,7 +449,7 @@ public sealed class PhotoService
 
         try
         {
-            if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+            if (NativeDevice.Open(udid, out var device) != iDeviceError.Success) return false;
             using (device)
             {
                 if (np.np_client_start_service(device, out var client, "IPAStudio") != NotificationProxyError.Success)
@@ -571,7 +560,7 @@ public sealed class PhotoService
 
             try
             {
-                if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+                if (NativeDevice.Open(udid, out var device) != iDeviceError.Success) return false;
                 using (device)
                 {
                     var started = relay.diagnostics_relay_client_start_service(device, out var client, "IPAStudio");
@@ -620,7 +609,7 @@ public sealed class PhotoService
 
         try
         {
-            if (idevice.idevice_new(out var device, udid) != iDeviceError.Success) return false;
+            if (NativeDevice.Open(udid, out var device) != iDeviceError.Success) return false;
             using (device)
             {
                 if (lockdown.lockdownd_client_new_with_handshake(device, out var lockdownClient, "IPAStudio")

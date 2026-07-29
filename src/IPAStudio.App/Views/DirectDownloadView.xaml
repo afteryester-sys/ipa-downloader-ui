@@ -14,19 +14,20 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ===== Header (200px right margin clears the MainWindow gear button) ===== -->
+        <!-- ===== Header. Back sits left of the title, as on every other page; the
+             top-right corner belongs to the MainWindow gear button, which is drawn over
+             the page and was covering Back here. ===== -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
-            <StackPanel Margin="0,0,200,0">
-                <TextBlock Text="{DynamicResource L.Direct.Title}" Style="{StaticResource Text.Title}" />
-                <TextBlock Text="{DynamicResource L.Direct.Subtitle}"
-                           Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0"
-                           TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,56,0">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Direct.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{DynamicResource L.Direct.Subtitle}"
+                               Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
             </StackPanel>
-
-            <Button Content="{DynamicResource L.Back}" HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Style="{StaticResource Button.Ghost}"
-                    Command="{Binding GoBackCommand}" />
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

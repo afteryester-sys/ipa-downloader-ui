@@ -239,6 +239,15 @@
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Toggle">Искать устройства по Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Preparing">Настраиваю устройства…</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
+    <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
 
 
     <!-- Заголовки диалогов и фильтры -->

@@ -239,6 +239,15 @@
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Verbose logging</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging.Hint">Logs every internal call, including the device poll that runs every few seconds. Normally unnecessary: those lines repeat constantly and bury real errors. Turn it on when diagnosing a problem.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi">Wi-Fi connection</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Toggle">Look for devices over Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Hint">Lets you use a device without a cable. Connect the device by cable once when enabling this — that is the only way to allow the iPhone to respond over the network. After that the device must be on the same network and unlocked. Wi-Fi is markedly slower, so a cable remains more reliable for installing apps and browsing photos.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Preparing">Preparing devices…</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi enabled on {0} device(s). You can unplug the cable now.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">No cabled device found. Connect the iPhone by cable and turn this on again, otherwise the device will not respond over the network.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Failed">Could not prepare the device for Wi-Fi. Check that it is unlocked and that you tapped Trust. See the log for details.</sys:String>
+    <sys:String x:Key="L.Devices.Link.Usb">Cable</sys:String>
+    <sys:String x:Key="L.Devices.Link.Wifi">Wi-Fi</sys:String>
 
 
     <!-- Dialog titles and filters -->

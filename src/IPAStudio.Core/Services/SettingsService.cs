@@ -97,6 +97,19 @@ public sealed class AppSettings
     /// Turn on only when diagnosing an issue.
     /// </summary>
     public bool VerboseLogging { get; set; }
+
+    /// <summary>
+    /// When true, devices are also looked for on the local network, so an iPhone that is
+    /// not plugged in can be used over Wi-Fi.
+    ///
+    /// Off by default, and deliberately a setting rather than always-on. Looking on the
+    /// network costs an extra discovery query every few seconds, and a device reached over
+    /// Wi-Fi is markedly slower and less reliable for the bulk transfers this app does
+    /// (installing an IPA, reading the camera roll) than the same device on a cable. It is
+    /// also easy to be surprised by: with this on, a phone in another room can appear and
+    /// be acted on. So it stays something the user turns on knowingly.
+    /// </summary>
+    public bool WifiDeviceConnection { get; set; }
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>
@@ -220,5 +233,10 @@ public sealed class SettingsService
         _tools.IpatoolVersion = Current.IpatoolVersion;
         if (!string.IsNullOrWhiteSpace(Current.AppsFolder))
             _tools.AppsFolder = Current.AppsFolder;
+
+        // Mirrored into DeviceTransport here, on both load and save, so device discovery
+        // never has to read settings itself. Doing it in one place means the flag cannot
+        // drift out of step with what was saved.
+        DeviceTransport.WifiEnabled = Current.WifiDeviceConnection;
     }
 }

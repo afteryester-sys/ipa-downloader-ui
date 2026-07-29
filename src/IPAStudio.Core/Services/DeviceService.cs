@@ -88,14 +88,15 @@ public sealed class DeviceService : IAsyncDisposable
     /// </param>
     public async Task PollOnceAsync(CancellationToken ct = default, bool quiet = false)
     {
-        var result = await _runner
-            .RunAsync(_tools.IdeviceIdPath, new[] { "-l" }, quiet: quiet, ct: ct)
-            .ConfigureAwait(false);
+        var links = await ListDevicesAsync(ct, quiet).ConfigureAwait(false);
+        var currentUdids = links.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var currentUdids = result.StdOut
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(u => u.Length >= 24) // UDIDs are 40 (old) or 25 (dash format) chars
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Record the transport before anything tries to talk to these devices: every
+        // later call resolves its own -u/-n arguments from here, so a device discovered
+        // on the network has to be registered first or it would be addressed over USB
+        // and simply not be found.
+        foreach (var (udid, link) in links)
+            DeviceTransport.Remember(udid, link);
 
         List<Device> disconnected;
         List<string> newUdids;
@@ -111,6 +112,7 @@ public sealed class DeviceService : IAsyncDisposable
         {
             // Always worth a line: this is a real state change, not routine polling.
             AppLog.Info($"Device disconnected: {device.Name} ({device.Udid})");
+            DeviceTransport.Forget(device.Udid);
             DeviceDisconnected?.Invoke(this, device);
         }
 
@@ -119,8 +121,10 @@ public sealed class DeviceService : IAsyncDisposable
             // A newly attached device is read in full at Info level even during a quiet
             // poll — this happens once per connection, so it is signal, not noise.
             var device = await ReadDeviceInfoAsync(udid, ct).ConfigureAwait(false);
+            device.Link = links[udid];
             lock (_devices) _devices[udid] = device;
-            AppLog.Info($"Device connected: {device.Name} — {device.Model}, iOS {device.OsVersion} ({udid})");
+            var over = device.Link == DeviceLink.Network ? "Wi-Fi" : "USB";
+            AppLog.Info($"Device connected over {over}: {device.Name} — {device.Model}, iOS {device.OsVersion} ({udid})");
             DeviceConnected?.Invoke(this, device);
         }
 
@@ -131,21 +135,137 @@ public sealed class DeviceService : IAsyncDisposable
 
         foreach (var device in existing)
         {
+            var changed = false;
+
+            // Unplugging a phone that is also on Wi-Fi does not disconnect it, it moves it
+            // to the other transport. Without noticing that, the card would keep claiming a
+            // cable and, worse, later calls would keep being addressed over USB.
+            if (links.TryGetValue(device.Udid, out var link) && link != device.Link)
+            {
+                AppLog.Info($"Device {device.Name} moved to {(link == DeviceLink.Network ? "Wi-Fi" : "USB")}");
+                device.Link = link;
+                changed = true;
+            }
+
             var battery = await ReadBatteryAsync(device.Udid, ct, quiet).ConfigureAwait(false);
             if (battery != device.BatteryLevel && battery >= 0)
             {
                 device.BatteryLevel = battery;
-                DeviceUpdated?.Invoke(this, device);
+                changed = true;
             }
+
+            if (changed) DeviceUpdated?.Invoke(this, device);
         }
     }
+
+    /// <summary>
+    /// Lists every reachable device together with the transport it is reachable on.
+    ///
+    /// With Wi-Fi off this issues the same USB-only <c>idevice_id -l</c> the app has always
+    /// issued, so nothing about the cabled case changes. With Wi-Fi on it asks for both
+    /// transports at once; given both flags <c>idevice_id</c> annotates each line with
+    /// <c>(USB)</c> or <c>(Network)</c>, which is the only way to learn a device's transport
+    /// without probing it, and probing is exactly what needs the answer.
+    /// </summary>
+    private async Task<Dictionary<string, DeviceLink>> ListDevicesAsync(CancellationToken ct, bool quiet)
+    {
+        var wantNetwork = DeviceTransport.WifiEnabled;
+
+        if (wantNetwork)
+        {
+            var both = await _runner
+                .RunAsync(_tools.IdeviceIdPath, new[] { "-l", "-n" }, quiet: quiet, ct: ct)
+                .ConfigureAwait(false);
+
+            if (both.Success)
+                return ParseDeviceList(both.StdOut, annotated: true);
+
+            // An idevice_id predating network support rejects -n outright and exits with a
+            // usage error. Falling back keeps such an install working over USB instead of
+            // showing no devices at all, which is how this would otherwise fail.
+            if (!_networkUnsupportedLogged)
+            {
+                _networkUnsupportedLogged = true;
+                AppLog.Warn("idevice_id rejected -n, so this build cannot see network devices; using USB only");
+            }
+        }
+
+        var usbOnly = await _runner
+            .RunAsync(_tools.IdeviceIdPath, new[] { "-l" }, quiet: quiet, ct: ct)
+            .ConfigureAwait(false);
+
+        return ParseDeviceList(usbOnly.StdOut, annotated: false);
+    }
+
+    private bool _networkUnsupportedLogged;
+
+    /// <summary>
+    /// Parses <c>idevice_id</c> output. Lines are a bare UDID, or a UDID followed by
+    /// <c>(USB)</c> / <c>(Network)</c> when both transports were requested.
+    /// </summary>
+    /// <param name="annotated">
+    /// Whether the suffix was expected. A device that is both plugged in and on the network
+    /// is listed twice, so when it is, USB wins: it is the faster and steadier transport,
+    /// and preferring it means plugging a phone in silently upgrades the connection.
+    /// </param>
+    private static Dictionary<string, DeviceLink> ParseDeviceList(string stdout, bool annotated)
+    {
+        var links = new Dictionary<string, DeviceLink>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            // Take the UDID as the first whitespace-delimited token so the parse is the same
+            // whether or not a suffix is present; the old code read the whole line, which
+            // would have quietly turned "UDID (USB)" into an unusable identifier.
+            var space = line.IndexOf(' ');
+            var udid = space < 0 ? line : line[..space].Trim();
+
+            // UDIDs are 40 chars (through iPhone X) or 25 with the dash (iPhone XS onward).
+            if (udid.Length < 24) continue;
+
+            var link = annotated && line.Contains("(Network)", StringComparison.OrdinalIgnoreCase)
+                ? DeviceLink.Network
+                : DeviceLink.Usb;
+
+            if (links.TryGetValue(udid, out var existing) && existing == DeviceLink.Usb) continue;
+            links[udid] = link;
+        }
+
+        return links;
+    }
+
+    /// <summary>
+    /// Asks every currently connected device to advertise itself over the network, so that
+    /// it can still be found once unplugged.
+    ///
+    /// This is the step that makes the Wi-Fi setting do anything on a phone that has only
+    /// ever been synced by cable: the device, not the computer, decides whether to announce
+    /// itself, and that flag defaults to off. It needs a live trusted connection to set, so
+    /// it is run when the setting is switched on, while a cable is presumably still in.
+    /// </summary>
+    /// <returns>How many devices accepted the change.</returns>
+    public Task<int> EnableWifiSyncOnConnectedAsync(CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            var enabled = 0;
+            foreach (var device in ConnectedDevices)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (NativeDevice.TrySetWifiSync(device.Udid, true, out var error))
+                    enabled++;
+                else
+                    AppLog.Warn($"Could not enable Wi-Fi sync on {device.Name}: {error}");
+            }
+            return enabled;
+        }, ct);
 
     private async Task<Device> ReadDeviceInfoAsync(string udid, CancellationToken ct)
     {
         var device = new Device { Udid = udid };
 
         // Primary path: a single full-domain dump (fast when it works).
-        var info = await RunToolAsync(_tools.IdeviceInfoPath, new[] { "-u", udid }, ct).ConfigureAwait(false);
+        var info = await RunToolAsync(_tools.IdeviceInfoPath, DeviceTransport.TargetArgs(udid), ct).ConfigureAwait(false);
         if (info is not null)
             ApplyInfoLines(device, info.StdOut);
 
@@ -276,8 +396,8 @@ public sealed class DeviceService : IAsyncDisposable
     private async Task<string> ReadKeyAsync(string udid, string? domain, string key, CancellationToken ct)
     {
         var args = domain is null
-            ? new[] { "-u", udid, "-k", key }
-            : new[] { "-u", udid, "-q", domain, "-k", key };
+            ? DeviceTransport.TargetArgs(udid, "-k", key)
+            : DeviceTransport.TargetArgs(udid, "-q", domain, "-k", key);
 
         var result = await RunToolAsync(_tools.IdeviceInfoPath, args, ct).ConfigureAwait(false);
         if (result is null || !result.Success) return "";
@@ -316,7 +436,7 @@ public sealed class DeviceService : IAsyncDisposable
         {
             var disk = await RunToolAsync(
                 _tools.IdeviceInfoPath,
-                new[] { "-u", device.Udid, "-q", "com.apple.disk_usage" },
+                DeviceTransport.TargetArgs(device.Udid, "-q", "com.apple.disk_usage"),
                 ct).ConfigureAwait(false);
 
             // The disk_usage domain exposes several free-space keys that differ a lot:
@@ -395,7 +515,7 @@ public sealed class DeviceService : IAsyncDisposable
                 {
                     var result = await RunToolAsync(
                         _tools.IdeviceDiagnosticsPath,
-                        new[] { "-u", device.Udid, "ioregentry", entry },
+                        DeviceTransport.TargetArgs(device.Udid, "ioregentry", entry),
                         ct).ConfigureAwait(false);
 
                     if (result is null) { lastErr = Loc.Get("L.Battery.Error.Timeout"); continue; }
@@ -475,16 +595,16 @@ public sealed class DeviceService : IAsyncDisposable
         string[][] probes =
         {
             // iOS 14+ root-level key (no domain needed)
-            new[] { "-u", udid, "-k", "AppleID" },
+            DeviceTransport.TargetArgs(udid, "-k", "AppleID"),
             // Older iOS / iPadOS (≤13)
-            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes",       "-k", "AppleID" },
-            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AppleID" },
-            new[] { "-u", udid, "-q", "com.apple.mobile.iTunes",       "-k", "AccountUsername" },
-            new[] { "-u", udid, "-q", "com.apple.mobile.data_sync",    "-k", "AccountName" },
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes",       "-k", "AppleID"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AppleID"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes",       "-k", "AccountUsername"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.data_sync",    "-k", "AccountName"),
             // Backup-service domain (present on iOS 12-15)
-            new[] { "-u", udid, "-q", "com.apple.mobile.backup",       "-k", "LastiTunesAccountHash" },
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "LastiTunesAccountHash"),
             // MobileDeviceCompatibility (works with newer libimobiledevice)
-            new[] { "-u", udid, "-q", "com.apple.MobileDeviceCompatibility", "-k", "AppleID" },
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.MobileDeviceCompatibility", "-k", "AppleID"),
         };
 
         foreach (var args in probes)
@@ -503,7 +623,7 @@ public sealed class DeviceService : IAsyncDisposable
         {
             var dump = await RunToolAsync(
                 _tools.IdeviceInfoPath,
-                new[] { "-u", udid, "-q", "com.apple.mobile.iTunes" },
+                DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes"),
                 ct).ConfigureAwait(false);
 
             foreach (var line in (dump?.StdOut ?? "").Split('\n'))
@@ -537,7 +657,7 @@ public sealed class DeviceService : IAsyncDisposable
     {
         var result = await RunToolAsync(
             _tools.IdeviceInfoPath,
-            new[] { "-u", udid, "-q", "com.apple.mobile.battery", "-k", "BatteryCurrentCapacity" },
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.battery", "-k", "BatteryCurrentCapacity"),
             ct, quiet: quiet).ConfigureAwait(false);
         return result is not null && int.TryParse(result.StdOut.Trim(), out var level) ? level : -1;
     }

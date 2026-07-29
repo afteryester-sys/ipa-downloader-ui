@@ -22,14 +22,16 @@
         <!-- Header -->
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal">
-                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Ghost}"
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
                         Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
                 <StackPanel>
                     <TextBlock Text="{DynamicResource L.Picker.Title}" Style="{StaticResource Text.Title}" />
                     <TextBlock Text="{Binding DeviceName}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" />
                 </StackPanel>
             </StackPanel>
+            <!-- 56px clears the MainWindow gear button, which is drawn over the page. -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,56,0"
                         Visibility="{Binding IsRefreshingStatuses, Converter={StaticResource BoolToVis}}">
                 <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="120"
                              VerticalAlignment="Center" />
