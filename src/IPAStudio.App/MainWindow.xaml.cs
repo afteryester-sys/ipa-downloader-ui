@@ -69,6 +69,22 @@ public partial class MainWindow : Window
         shell.GoTo(Page.ICloud);
     }
 
+    /// <summary>
+    /// Opens the settings page. A Click handler for the same reason as the two above: the
+    /// flyout's DataContext is the Updater, not the shell that owns the navigator.
+    ///
+    /// DevicesViewModel.OpenSettings could already do this, but nothing was ever bound to
+    /// it, so Page.Settings had no caller anywhere in the app and the page could not be
+    /// opened. Routing it from the flyout instead of a per-page button keeps it reachable
+    /// from every page, including the ones a user lands on before any device is connected.
+    /// </summary>
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.GoTo(Page.Settings);
+    }
+
     // ---- Developer credit popup ----
 
     private void CreditButton_Click(object sender, RoutedEventArgs e)

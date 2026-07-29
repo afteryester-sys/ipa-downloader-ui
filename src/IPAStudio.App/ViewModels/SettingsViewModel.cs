@@ -459,5 +459,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private void GoBack() => _navigator?.GoTo(Page.Devices);
+    // GoBack rather than a hard-coded Devices: settings now open from the corner flyout on
+    // any page, so returning to Devices would drop a user who came from Login or Setup onto
+    // a page they had not reached yet.
+    private void GoBack() => _navigator?.GoBack();
 }

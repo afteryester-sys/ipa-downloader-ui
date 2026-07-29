@@ -167,9 +167,6 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private void OpenSettings() => _navigator?.GoTo(Page.Settings);
-
-    [RelayCommand]
     private void SignIn() => _navigator?.GoTo(Page.Login);
 
     [RelayCommand]
