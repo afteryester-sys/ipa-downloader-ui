@@ -248,6 +248,20 @@
                             </TextBlock>
                         </Grid>
 
+                        <!-- Settings page.
+                             First item, and present at all: the gear carries the settings
+                             glyph, so this flyout is where anyone hunting for a setting
+                             looks - yet every setting except the theme lives on a separate
+                             page that had no way in whatsoever. Its navigation command
+                             existed but was bound to nothing, so the page was unreachable
+                             and everything on it impossible to find. -->
+                        <Button Content="{DynamicResource L.Settings.Title}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Click="OpenSettings_Click" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
                         <!-- Updates section -->
                         <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Caption}"
                                    FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
