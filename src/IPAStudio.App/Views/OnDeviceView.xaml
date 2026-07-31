@@ -100,6 +100,63 @@
                         Command="{Binding DownloadSelectedCommand}" Margin="0,0,8,0"
                         Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}"
                         IsEnabled="{Binding IsBatchRunning, Converter={StaticResource InverseBool}}" />
+                <!-- Transfer: only meaningful with a second device attached and rows ticked,
+                     so it stays hidden rather than appearing as a dead button. -->
+                <Grid Margin="0,0,8,0"
+                      Visibility="{Binding CanTransfer, Converter={StaticResource BoolToVis}}">
+
+                    <Button x:Name="TransferToggle" Content="{Binding TransferSelectedLabel}"
+                            Style="{StaticResource Button.Secondary}"
+                            Command="{Binding ToggleTransferMenuCommand}"
+                            IsEnabled="{Binding IsBatchRunning, Converter={StaticResource InverseBool}}" />
+
+                    <!-- Placed in a Popup so the list floats over the app rows instead of
+                         pushing the toolbar taller when it opens. -->
+                    <Popup IsOpen="{Binding IsTransferMenuOpen}" PlacementTarget="{Binding ElementName=TransferToggle}"
+                           Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                           HorizontalOffset="0" VerticalOffset="6">
+                        <Border Background="{StaticResource Brush.Surface}"
+                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                CornerRadius="10" Padding="8" MinWidth="260" MaxWidth="360">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource L.OnDevice.TransferPickTarget}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                           Margin="6,2,6,8" />
+
+                                <ItemsControl ItemsSource="{Binding TransferTargets}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button HorizontalContentAlignment="Left"
+                                                    Style="{StaticResource Button.Ghost}"
+                                                    Padding="10,8" Margin="0,1"
+                                                    Command="{Binding DataContext.TransferSelectedCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
+                                                        <Run Text="{Binding Model, Mode=OneWay}" />
+                                                        <Run Text="  ·  iOS " />
+                                                        <Run Text="{Binding OsVersion, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- The apps are re-fetched from the store, not copied off this
+                                     phone; saying so up front prevents the queue's download
+                                     step from looking like a bug. -->
+                                <TextBlock Text="{DynamicResource L.OnDevice.TransferHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                           Margin="6,8,6,2" />
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                </Grid>
+
                 <Button Content="{DynamicResource L.OnDevice.ChooseFolder}"
                         Style="{StaticResource Button.Secondary}" Command="{Binding BrowseFolderCommand}" />
             </StackPanel>

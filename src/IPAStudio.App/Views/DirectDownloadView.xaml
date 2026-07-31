@@ -6,6 +6,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:InitialConverter x:Key="Initial" />
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
@@ -99,7 +100,18 @@
                             <Border.Clip>
                                 <RectangleGeometry Rect="0,0,64,64" RadiusX="14" RadiusY="14" />
                             </Border.Clip>
-                            <Image Source="{Binding FoundIconUrl}" Stretch="UniformToFill" />
+                            <Grid>
+                                <!-- The initial shows through until artwork arrives, and stays
+                                     for apps no source has any for. -->
+                                <TextBlock Text="{Binding FoundApp.Name, Converter={StaticResource Initial}}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="24" FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.TextMuted}" />
+                                <Image Source="{Binding FoundIconUrl}" Stretch="UniformToFill" />
+                                <!-- Read off a connected device, for apps with no store
+                                     artwork URL. Drawn last so it wins when both exist. -->
+                                <Image Source="{Binding FoundIconImage}" Stretch="UniformToFill" />
+                            </Grid>
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -107,13 +119,13 @@
                                        FontWeight="SemiBold" FontSize="15" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding FoundApp.Developer}"
                                        Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                <TextBlock Text="{Binding FoundApp.BundleId}"
-                                           Style="{StaticResource Text.Caption}" />
-                                <TextBlock Text="  ·  " Style="{StaticResource Text.Caption}" />
-                                <TextBlock Text="{Binding FoundApp.LatestVersion}"
-                                           Style="{StaticResource Text.Caption}" />
-                            </StackPanel>
+                            <!-- Joined in the view model so the separator cannot outlive the
+                                 values it separates: an unlisted app has neither, and this
+                                 line was rendering as a single stray "·" under the name. -->
+                            <TextBlock Text="{Binding FoundDetails}"
+                                       Style="{StaticResource Text.Caption}" Margin="0,4,0,0"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding FoundDetails, Converter={StaticResource NullToCollapsed}}" />
                         </StackPanel>
 
                         <!-- Add to catalog, or a note that it is already there -->

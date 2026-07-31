@@ -68,6 +68,18 @@ public sealed class AppEntry
     /// the flag exists: the UI must not present a guessed name as confirmed store metadata.
     /// </summary>
     public bool IsProvisional { get; set; }
+
+    /// <summary>
+    /// True when a provisional entry's name and artwork were recovered locally — from the
+    /// bundled catalog, the hand-added catalog, or an app installed on a connected device —
+    /// instead of being left as the raw identifier.
+    ///
+    /// Kept separate from <see cref="IsProvisional"/> because the two answer different
+    /// questions: that one says the store did not confirm the app, this one says whether
+    /// there is a real name to show. The UI needs both, or it ends up telling the user its
+    /// name cannot be shown directly above the name.
+    /// </summary>
+    public bool HasLocalMetadata { get; set; }
 }
 
 public enum LicenseState

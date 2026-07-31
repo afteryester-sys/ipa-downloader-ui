@@ -71,10 +71,45 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     [ObservableProperty]
     private Page _currentPage = Page.Setup;
 
-    private Page _previousPage = Page.Setup;
+    /// <summary>
+    /// Pages visited, most recent last, each with the device it was showing.
+    ///
+    /// Replaces a single "previous page" field, which could not survive its own use: going back
+    /// ran through <see cref="GoTo"/>, and that first recorded the page being left as the new
+    /// previous one. So after one Back the previous page was the page just abandoned, and the
+    /// next Back returned to it — the two screens trading places for as long as the user kept
+    /// pressing, which is exactly the loop reported.
+    ///
+    /// The device is stored alongside the page because the device-bound screens are handed
+    /// their target on the way in. Recording the page alone sent the user back to an "Apps on
+    /// the device" screen with no device attached to it.
+    ///
+    /// A list rather than a Stack so the oldest entry can be dropped once the history grows
+    /// long; a Stack can only be trimmed from the end that matters.
+    /// </summary>
+    private readonly List<(Page Page, Device? Device)> _history = new();
+
+    /// <summary>How many steps back are kept. Deep enough for any real path through the app.</summary>
+    private const int MaxHistory = 32;
 
     /// <summary>Device passed to a page that needs a target (login/info/photos).</summary>
     private Device? _pendingDevice;
+
+    /// <summary>
+    /// The device the current page was opened with, so it can be restored when the user comes
+    /// back to it. Distinct from <see cref="_pendingDevice"/>, which is cleared as soon as it
+    /// has been handed over.
+    /// </summary>
+    private Device? _currentDevice;
+
+    /// <summary>
+    /// False until the first page has been shown, so the startup navigation does not record a
+    /// step back to a page that was never displayed.
+    /// </summary>
+    private bool _hasNavigated;
+
+    /// <summary>Whether there is anywhere to go back to.</summary>
+    public bool CanGoBack => _history.Count > 0;
 
     /// <summary>Global updater backing the corner update flyout (available everywhere).</summary>
     public UpdaterViewModel Updater { get; }
@@ -85,9 +120,29 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         GoTo(Page.Setup);
     }
 
-    public void GoTo(Page page)
+    public void GoTo(Page page) => Navigate(page, recordHistory: true);
+
+    /// <summary>
+    /// Performs the page switch. <paramref name="recordHistory"/> is false only when going
+    /// back: recording that step would put the page being left onto the history the user is
+    /// currently walking out of, which is what made Back bounce between two screens.
+    /// </summary>
+    private void Navigate(Page page, bool recordHistory)
     {
-        _previousPage = CurrentPage;
+        // A repeat of the current page is not a step; recording it would mean one Back press
+        // that visibly does nothing. The very first navigation has no page to record either.
+        if (recordHistory && _hasNavigated && page != CurrentPage)
+        {
+            _history.Add((CurrentPage, _currentDevice));
+
+            if (_history.Count > MaxHistory)
+                _history.RemoveAt(0);
+        }
+
+        // Captured before _pendingDevice is cleared below, so returning here later reopens the
+        // page against the same device.
+        _currentDevice = _pendingDevice ?? (page == CurrentPage ? _currentDevice : null);
+
         CurrentPage = page;
         CurrentViewModel = page switch
         {
@@ -118,12 +173,19 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             aware.OnNavigatedTo(this);
 
         _pendingDevice = null;
+        _hasNavigated = true;
+
+        OnPropertyChanged(nameof(CanGoBack));
     }
 
     public void GoToAppPicker(Device device)
     {
         var picker = Resolve<AppPickerViewModel>();
         picker.TargetDevice = device;
+
+        // This page takes its device by assignment rather than through _pendingDevice, but the
+        // history still needs to know which device it was showing.
+        _pendingDevice = device;
         GoTo(Page.AppPicker);
     }
 
@@ -151,7 +213,27 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         GoTo(Page.OnDevice);
     }
 
-    public void GoBack() => GoTo(_previousPage);
+    public void GoBack()
+    {
+        // Nothing recorded yet — the device list is the app's root, and pressing Back on a page
+        // reached some other way should land somewhere sensible rather than do nothing.
+        if (_history.Count == 0)
+        {
+            Navigate(Page.Devices, recordHistory: false);
+            return;
+        }
+
+        var (page, device) = _history[^1];
+        _history.RemoveAt(_history.Count - 1);
+
+        // Restored so a device-bound page reopens against the device it was showing.
+        _pendingDevice = device;
+
+        if (page == Page.AppPicker && device is not null)
+            Resolve<AppPickerViewModel>().TargetDevice = device;
+
+        Navigate(page, recordHistory: false);
+    }
 
     private static T Resolve<T>() where T : ObservableObject
         => App.Services.GetRequiredService<T>();

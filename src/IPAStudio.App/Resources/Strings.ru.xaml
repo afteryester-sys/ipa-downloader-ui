@@ -185,6 +185,7 @@
     <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Найти</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
@@ -413,7 +414,7 @@
     <sys:String x:Key="L.Photos.Media.Videos">Видео</sys:String>
     <sys:String x:Key="L.Photos.Reading">Чтение медиатеки…</sys:String>
     <sys:String x:Key="L.Photos.Empty">Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ.</sys:String>
-    <sys:String x:Key="L.Photos.Found">Найдено медиафайлов: {0}</sys:String>
+    <sys:String x:Key="L.Photos.Found">Н��йдено медиафайлов: {0}</sys:String>
     <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
     <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
@@ -582,5 +583,8 @@
     <sys:String x:Key="L.OnDevice.BatchProgress">Скачиваем {0} из {1}…</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDone">Сохранено файлов: {0}.</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Сохранено {0}, с ошибкой {1}.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferSelected">Перенести на другой iPhone ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferPickTarget">Куда перенести:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачиваются из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
 
 </ResourceDictionary>

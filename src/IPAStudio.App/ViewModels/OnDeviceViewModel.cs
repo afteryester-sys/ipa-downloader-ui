@@ -170,6 +170,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     private readonly AuthService _auth;
     private readonly SettingsService _settings;
 
+    /// <summary>Other attached devices, offered as transfer destinations.</summary>
+    private readonly DeviceService _devices;
+
+    /// <summary>
+    /// The ordinary install queue. A transfer is built as a normal download-and-install run
+    /// against the destination device, so it inherits that pipeline rather than duplicating it.
+    /// </summary>
+    private readonly QueueService _queue;
+
     private INavigator? _navigator;
 
     public Device? TargetDevice { get; private set; }
@@ -181,13 +190,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         DownloadService download,
         CatalogService catalog,
         AuthService auth,
-        SettingsService settings)
+        SettingsService settings,
+        DeviceService devices,
+        QueueService queue)
     {
         _install = install;
         _download = download;
         _catalog = catalog;
         _auth = auth;
         _settings = settings;
+        _devices = devices;
+        _queue = queue;
 
         DestinationFolder = settings.Current.LastOnDeviceFolder
                             ?? settings.Current.LastDirectDownloadFolder
@@ -238,6 +251,114 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// <summary>"3 of 7" while a batch runs; null when none is.</summary>
     [ObservableProperty]
     private string? _batchStatus;
+
+    // ─────────────────── transfer to another device ───────────────────
+
+    /// <summary>
+    /// Other devices currently attached, as transfer destinations. The source device is
+    /// excluded: the apps are already on it.
+    /// </summary>
+    public ObservableCollection<Device> TransferTargets { get; } = new();
+
+    /// <summary>
+    /// True when another device is attached right now.
+    ///
+    /// Asks the device service rather than reading <see cref="TransferTargets"/>, which is only
+    /// filled when the menu opens — the button has to know a destination exists before then, or
+    /// it would never appear to be clicked in the first place.
+    /// </summary>
+    public bool HasTransferTargets =>
+        _devices.ConnectedDevices.Any(d =>
+            TargetDevice is null
+            || !string.Equals(d.Udid, TargetDevice.Udid, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Rows are ticked and there is another device to send them to.</summary>
+    public bool CanTransfer => HasSelection && HasTransferTargets;
+
+    /// <summary>"Transfer to another iPhone (3)" — the count belongs in the label.</summary>
+    public string TransferSelectedLabel => Loc.Format("L.OnDevice.TransferSelected", SelectedCount);
+
+    /// <summary>Whether the destination list is open.</summary>
+    [ObservableProperty]
+    private bool _isTransferMenuOpen;
+
+    /// <summary>
+    /// Rebuilds the destination list from what is attached right now.
+    ///
+    /// Recomputed on open rather than kept in sync continuously: a device unplugged while the
+    /// list sat closed would otherwise still be offered, and the queue would fail against a
+    /// UDID that is no longer there.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleTransferMenu()
+    {
+        if (IsTransferMenuOpen)
+        {
+            IsTransferMenuOpen = false;
+            return;
+        }
+
+        RefreshTransferTargets();
+        IsTransferMenuOpen = true;
+    }
+
+    private void RefreshTransferTargets()
+    {
+        TransferTargets.Clear();
+
+        foreach (var device in _devices.ConnectedDevices)
+        {
+            if (TargetDevice is not null
+                && string.Equals(device.Udid, TargetDevice.Udid, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            TransferTargets.Add(device);
+        }
+
+        OnPropertyChanged(nameof(HasTransferTargets));
+    }
+
+    /// <summary>
+    /// Sends the ticked apps to another attached device.
+    ///
+    /// Deliberately routed through the ordinary install queue rather than copying anything off
+    /// this phone: what is installed here is a decrypted, device-signed binary that the other
+    /// device will refuse. The App Store copy is the only one that installs, so a "transfer"
+    /// is a fresh download plus an install — which is also why the queue's parallelism and its
+    /// existing error handling apply unchanged.
+    /// </summary>
+    [RelayCommand]
+    private void TransferSelected(Device? destination)
+    {
+        if (destination is null) return;
+
+        IsTransferMenuOpen = false;
+
+        var selected = Apps.Where(a => a.IsSelected).ToList();
+        if (selected.Count == 0) return;
+
+        // The App Store is the source, so an Apple ID is required. Without this the queue
+        // would start and fail every item on the licence step.
+        if (!_auth.IsAuthenticated)
+        {
+            _navigator?.GoToLoginForDevice(destination);
+            return;
+        }
+
+        var entries = selected.Select(row => new AppEntry
+        {
+            Name = row.Name,
+            AppStoreId = row.App.StoreItemId ?? 0,
+            BundleId = row.BundleId,
+            LatestVersion = row.Version,
+        }).ToList();
+
+        AppLog.Info(
+            $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}");
+
+        _queue.Build(entries, destination);
+        _navigator?.GoTo(Page.Queue);
+    }
 
     public bool IsSignedIn => _auth.IsAuthenticated;
     public string? AccountEmail => _auth.CurrentAccount?.Email;
@@ -332,6 +453,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(AreAllSelected));
         OnPropertyChanged(nameof(DownloadSelectedLabel));
         OnPropertyChanged(nameof(SelectAllLabel));
+        OnPropertyChanged(nameof(TransferSelectedLabel));
+
+        // Re-checked on every tick, so unplugging the second phone mid-selection retracts the
+        // button instead of leaving it pointing at a device that is gone.
+        OnPropertyChanged(nameof(HasTransferTargets));
+        OnPropertyChanged(nameof(CanTransfer));
     }
 
     private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -560,9 +687,20 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
                     : Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes));
             });
 
+            // autoPurchase, like every other download path in the app. This screen was the
+            // one caller passing false, and that single flag is why the same app downloads
+            // from "Download IPA" but not from here: without it ipatool runs `download`
+            // with no licence step, and the store answers "not purchased" (9610) for any
+            // app whose licence record this Apple ID does not already hold. With it,
+            // `download --purchase` claims the free licence first and proceeds; for an app
+            // already owned the purchase is a no-op the tool reports as "already purchased".
+            //
+            // Nothing is bought silently by this: --purchase only ever obtains a free
+            // licence, and Apple refuses it outright for a paid app, which surfaces as the
+            // same "not purchased" message as before.
             var result = await _download.DownloadAsync(
                 entry,
-                autoPurchase: false,
+                autoPurchase: true,
                 progress,
                 destinationFolder: null,
                 ct: cts.Token).ConfigureAwait(true);

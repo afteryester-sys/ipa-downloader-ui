@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -185,6 +185,7 @@
     <sys:String x:Key="L.Direct.BundleIdHint">For example: com.burbn.instagram, 389801252, or https://apps.apple.com/us/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Find</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedKnown">This app is not in the public App Store catalog — it was most likely withdrawn from sale. Its name and icon come from local data, so the size cannot be shown. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>
@@ -582,5 +583,8 @@
     <sys:String x:Key="L.OnDevice.BatchProgress">Downloading {0} of {1}…</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDone">Saved {0} IPA file(s).</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Saved {0}, failed {1}.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferSelected">Transfer to another iPhone ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferPickTarget">Transfer to:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
 
 </ResourceDictionary>

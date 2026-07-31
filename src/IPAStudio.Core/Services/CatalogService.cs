@@ -362,27 +362,81 @@ public sealed class CatalogService
     }
 
     /// <summary>
-    /// An entry standing in for an app the public catalog does not list, built only from
-    /// what the user typed. Null when the query names nothing identifiable.
+    /// An entry standing in for an app the public catalog does not list. Null when the query
+    /// names nothing identifiable.
+    ///
+    /// The catalog already on disk is read before falling back to the bare identifier. It
+    /// carries a name for every app it lists — including apps Apple has since pulled, which
+    /// is exactly what reaches this point — so ignoring it made a delisted app come back
+    /// titled with the number the user had just typed, while the same screen simultaneously
+    /// reported it as "already in the catalog". Both statements described one entry; only one
+    /// of them had bothered to read it.
     /// </summary>
-    private static AppEntry? ProvisionalEntry(AppQuery query) => query.Kind switch
+    private AppEntry? ProvisionalEntry(AppQuery query)
     {
-        AppQueryKind.BundleId => new AppEntry
+        var known = FindInLocalCatalog(query);
+
+        return query.Kind switch
         {
-            // No name is known, so the identifier is shown rather than inventing one.
-            Name = query.BundleId!,
-            AppStoreId = 0,
-            BundleId = query.BundleId,
-            IsProvisional = true,
-        },
-        AppQueryKind.AppStoreId => new AppEntry
+            AppQueryKind.BundleId => new AppEntry
+            {
+                // The identifier is shown only when nothing else is known, rather than
+                // inventing a name.
+                Name = known?.Name ?? query.BundleId!,
+                // A catalog hit contributes its store id: it names the exact app, and the
+                // downloader prefers it precisely because it still resolves for apps that
+                // are no longer listed, which a bundle id cannot do.
+                AppStoreId = known?.AppStoreId ?? 0,
+                BundleId = query.BundleId,
+                IconUrl = known?.IconUrl,
+                IconUrlLarge = known?.IconUrlLarge,
+                CachedIconPath = known?.CachedIconPath,
+                Developer = known?.Developer,
+                LatestVersion = known?.LatestVersion,
+                IsProvisional = true,
+                HasLocalMetadata = known is not null,
+            },
+            AppQueryKind.AppStoreId => new AppEntry
+            {
+                Name = known?.Name ?? query.AppStoreId.ToString(),
+                AppStoreId = query.AppStoreId,
+                BundleId = known?.BundleId,
+                IconUrl = known?.IconUrl,
+                IconUrlLarge = known?.IconUrlLarge,
+                CachedIconPath = known?.CachedIconPath,
+                Developer = known?.Developer,
+                LatestVersion = known?.LatestVersion,
+                IsProvisional = true,
+                HasLocalMetadata = known is not null,
+            },
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Looks the query up in the bundled and hand-added catalogs. Bundled entries hold a name
+    /// and store id only, so a bundle-id query can match nothing but a hand-added app.
+    /// </summary>
+    private AppEntry? FindInLocalCatalog(AppQuery query)
+    {
+        try
         {
-            Name = query.AppStoreId.ToString(),
-            AppStoreId = query.AppStoreId,
-            IsProvisional = true,
-        },
-        _ => null,
-    };
+            return query.Kind switch
+            {
+                AppQueryKind.AppStoreId =>
+                    LoadCatalog().FirstOrDefault(e => e.AppStoreId == query.AppStoreId),
+                AppQueryKind.BundleId =>
+                    LoadCatalog().FirstOrDefault(e => string.Equals(
+                        e.BundleId, query.BundleId, StringComparison.OrdinalIgnoreCase)),
+                _ => null,
+            };
+        }
+        catch
+        {
+            // The catalog is an optional courtesy here; a lookup must not fail over it.
+            return null;
+        }
+    }
 
     /// <summary>
     /// Shared iTunes Lookup call. <paramref name="queryParam"/> is the already-escaped

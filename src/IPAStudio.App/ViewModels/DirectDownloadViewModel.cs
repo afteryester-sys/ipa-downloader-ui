@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.IO;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
@@ -25,6 +27,15 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private readonly DownloadService _download;
     private readonly AuthService _auth;
     private readonly SettingsService _settings;
+
+    /// <summary>
+    /// Connected devices, used only to recover a name and icon the store refused to give.
+    /// This page deliberately works without a device; these are consulted when one happens
+    /// to be attached, never required.
+    /// </summary>
+    private readonly DeviceService _devices;
+    private readonly InstallService _install;
+
     private INavigator? _navigator;
 
     private CancellationTokenSource? _cts;
@@ -33,12 +44,16 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         CatalogService catalog,
         DownloadService download,
         AuthService auth,
-        SettingsService settings)
+        SettingsService settings,
+        DeviceService devices,
+        InstallService install)
     {
         _catalog = catalog;
         _download = download;
         _auth = auth;
         _settings = settings;
+        _devices = devices;
+        _install = install;
 
         // Reuse the last folder so a user grabbing several apps in a row picks once.
         DestinationFolder = settings.Current.LastDirectDownloadFolder ?? "";
@@ -55,11 +70,39 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     // ---- Resolved app ----
 
     /// <summary>The app found for <see cref="BundleId"/>, or null before a lookup.</summary>
+    [NotifyPropertyChangedFor(nameof(FoundDetails))]
     [ObservableProperty]
     private AppEntry? _foundApp;
 
+    /// <summary>
+    /// Bundle id and version on one line, joined only where they exist. An unlisted app has
+    /// neither, and the view previously drew the separator regardless, leaving a stray "·"
+    /// hanging under the name.
+    /// </summary>
+    public string? FoundDetails
+    {
+        get
+        {
+            if (FoundApp is null) return null;
+
+            var parts = new[] { FoundApp.BundleId, FoundApp.LatestVersion }
+                .Where(p => !string.IsNullOrWhiteSpace(p));
+
+            var text = string.Join("  ·  ", parts);
+            return string.IsNullOrEmpty(text) ? null : text;
+        }
+    }
+
     [ObservableProperty]
     private string? _foundIconUrl;
+
+    /// <summary>
+    /// Home-screen artwork read off a connected device, for apps the store has no artwork URL
+    /// for. Held as an image rather than a URL because it never had one: the bytes come from
+    /// SpringBoard.
+    /// </summary>
+    [ObservableProperty]
+    private ImageSource? _foundIconImage;
 
     /// <summary>
     /// True when the found app is already in the catalog, so the button reads
@@ -201,6 +244,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         StatusText = Str("L.Direct.Searching");
         FoundApp = null;
         FoundIconUrl = null;
+        FoundIconImage = null;
         IsInCatalog = false;
         SavedPath = null;
 
@@ -216,6 +260,20 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 return;
             }
 
+            // A provisional entry may still be an app sitting on a phone plugged into this
+            // machine, which knows its real name and holds its artwork. That is the only
+            // remaining source once the store has declined to answer, and it is the source
+            // that covers the apps most worth rescuing.
+            if (app.IsProvisional)
+            {
+                var fromDevice = await TryResolveFromDeviceAsync(app).ConfigureAwait(true);
+                if (fromDevice is not null)
+                {
+                    app = fromDevice.Value.Entry;
+                    FoundIconImage = fromDevice.Value.Icon;
+                }
+            }
+
             FoundApp = app;
             FoundIconUrl = app.IconUrl;
             IsInCatalog = _catalog.IsInCatalog(app.AppStoreId);
@@ -229,7 +287,16 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             // through this very catalog; downloads by bundle id demonstrably keep working, so
             // that warning only talked users out of the one route that still fetches delisted
             // apps. Neither case is predicted here — the store is left to answer.
-            StatusText = app.IsProvisional ? Str("L.Direct.Unlisted") : null;
+            //
+            // Two wordings, because the old single one claimed the name could not be shown —
+            // which now sits directly above the name whenever it was recovered locally, and
+            // reads as the screen contradicting itself.
+            StatusText = app switch
+            {
+                { IsProvisional: false } => null,
+                { HasLocalMetadata: true } => Str("L.Direct.UnlistedKnown"),
+                _ => Str("L.Direct.Unlisted"),
+            };
 
             AppLog.Info(app.IsProvisional
                 ? $"Direct download: '{BundleId.Trim()}' is not in the public catalog; will try the store directly"
@@ -407,6 +474,105 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private void CancelDownload() => _cts?.Cancel();
 
     // ---- Helpers ----
+
+    /// <summary>
+    /// Recovers an unlisted app's real name, bundle id, version and icon from a connected
+    /// device that has it installed. Returns null when no device is attached, none of them has
+    /// the app, or the device cannot be read.
+    ///
+    /// Worth the round trip only for a provisional entry: for anything the store described
+    /// there is nothing here to add, and listing a device's apps takes seconds.
+    /// </summary>
+    private async Task<(AppEntry Entry, ImageSource? Icon)?> TryResolveFromDeviceAsync(AppEntry app)
+    {
+        var devices = _devices.ConnectedDevices.ToList();
+        if (devices.Count == 0) return null;
+
+        // Bounded so an unresponsive or sleeping device cannot hold the lookup open with no
+        // way out — the button would sit spinning on a page that needs no device at all.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+
+        foreach (var device in devices)
+        {
+            try
+            {
+                var installed = await _install
+                    .GetInstalledAppsAsync(device.Udid, cts.Token)
+                    .ConfigureAwait(true);
+
+                var match = installed.FirstOrDefault(a =>
+                    (app.AppStoreId > 0 && a.StoreItemId == app.AppStoreId)
+                    || (!string.IsNullOrWhiteSpace(app.BundleId)
+                        && string.Equals(a.BundleId, app.BundleId, StringComparison.OrdinalIgnoreCase)));
+
+                if (match is null) continue;
+
+                // Rebuilt rather than patched: Name and AppStoreId are init-only, which is
+                // what keeps an entry from being quietly rewritten after it has been handed
+                // to the downloader.
+                var entry = new AppEntry
+                {
+                    Name = match.Name,
+                    // The device's store id is used only to fill a gap. Overriding an id the
+                    // user typed would download a different app from the one they asked for.
+                    AppStoreId = app.AppStoreId > 0 ? app.AppStoreId : match.StoreItemId ?? 0,
+                    BundleId = app.BundleId ?? match.BundleId,
+                    IconUrl = app.IconUrl,
+                    IconUrlLarge = app.IconUrlLarge,
+                    CachedIconPath = app.CachedIconPath,
+                    Developer = app.Developer,
+                    LatestVersion = app.LatestVersion ?? match.Version,
+                    IsProvisional = true,
+                    HasLocalMetadata = true,
+                };
+
+                AppLog.Info($"Direct download: '{entry.Name}' identified from {device.Name}");
+
+                var icons = await _install
+                    .GetAppIconsAsync(device.Udid, new[] { match.BundleId }, cts.Token)
+                    .ConfigureAwait(true);
+
+                return (entry, icons.TryGetValue(match.BundleId, out var png) ? DecodeIcon(png) : null);
+            }
+            catch (OperationCanceledException)
+            {
+                // Out of time, or the page was left. Either way the identifier still stands
+                // on its own and the download can proceed without a name.
+                return null;
+            }
+            catch (Exception ex)
+            {
+                // Try the next device; artwork must never break a lookup.
+                AppLog.Warn($"Could not read app metadata from {device.Name}: {ex.Message}");
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Decodes SpringBoard's PNG for display, or null if it cannot be read.</summary>
+    private static ImageSource? DecodeIcon(byte[] png)
+    {
+        try
+        {
+            var image = new BitmapImage();
+            using (var stream = new MemoryStream(png))
+            {
+                image.BeginInit();
+                image.CacheOption = BitmapCacheOption.OnLoad;
+                // The card draws it at 64 px; the source is up to 180 px square.
+                image.DecodePixelWidth = 128;
+                image.StreamSource = stream;
+                image.EndInit();
+            }
+            image.Freeze();
+            return image;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
     private static string Str(string key) =>
         System.Windows.Application.Current?.TryFindResource(key) as string ?? key;

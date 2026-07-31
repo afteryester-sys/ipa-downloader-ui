@@ -435,8 +435,11 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         return dispatcher.InvokeAsync(action).Task;
     }
 
+    // Goes back through the shell's history rather than jumping straight to the device list.
+    // A forward navigation to Devices also pushed a history entry, so the button both ignored
+    // where the user came from and left a step behind that Back would later have to unwind.
     [RelayCommand]
-    private void GoBack() => _navigator?.GoTo(Page.Devices);
+    private void GoBack() => _navigator?.GoBack();
 
     /// <summary>
     /// Opens the list of apps already installed on the target device.
