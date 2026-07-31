@@ -270,7 +270,32 @@ public sealed partial class AuthService
         return lower.Contains("account file is not protected")
             || lower.Contains("not logged in")
             || lower.Contains("please run 'auth login'")
-            || lower.Contains("please run \"auth login\"");
+            || lower.Contains("please run \"auth login\"")
+            // ipatool's wording once Apple has invalidated the stored token. This is the form
+            // users actually hit, because "auth info" only reads the local keychain and never
+            // asks Apple: the app keeps showing a signed-in account long after the token
+            // behind it died, and a download is the first thing that finds out.
+            || lower.Contains("password token is expired")
+            || lower.Contains("password token has expired");
+    }
+
+    /// <summary>
+    /// Drops the cached account after something that talks to Apple reported the session
+    /// dead, without running "auth revoke".
+    ///
+    /// Needed because the cached account comes from the local keychain, which stays readable
+    /// after Apple stops honouring the token in it. Leaving it in place let the window go on
+    /// naming a signed-in Apple ID while every download failed asking the user to sign in —
+    /// the contradiction that made the message look like a bug rather than an instruction.
+    /// The keychain is deliberately left alone so a fresh login can reuse it.
+    /// </summary>
+    public void InvalidateSession()
+    {
+        if (CurrentAccount is null) return;
+
+        AppLog.Warn($"Session for '{CurrentAccount.Email}' rejected by Apple; clearing the cached account.");
+        CurrentAccount = null;
+        AccountChanged?.Invoke(this, null);
     }
 
     /// <summary>

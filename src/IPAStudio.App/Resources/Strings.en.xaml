@@ -184,6 +184,8 @@
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, App Store ID or link</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">For example: com.burbn.instagram, 389801252, or https://apps.apple.com/us/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Find</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: a numeric ID goes straight to the store, which will hand the app over if your Apple ID owns it.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedBundle">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. Downloading by Bundle ID needs that same catalog, so it will probably fail — find the app’s numeric ID and search for that instead.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>

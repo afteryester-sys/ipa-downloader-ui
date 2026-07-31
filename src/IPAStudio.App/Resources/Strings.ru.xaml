@@ -184,6 +184,8 @@
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, ID из App Store или ссылка</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Найти</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: числовой ID передаётся прямо в магазин, и тот отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedBundle">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузка по Bundle ID обращается к тому же каталогу, поэтому, скорее всего, не сработает — найдите числовой ID приложения и введите его.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>

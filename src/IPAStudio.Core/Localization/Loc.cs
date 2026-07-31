@@ -124,6 +124,8 @@ public static class Loc
         ["L.Direct.NeedQuery"] = "Enter a Bundle ID, an App Store ID, or a link to the app.",
         ["L.Direct.NotFound"] = "No app found for that Bundle ID, App Store ID or link. Check the spelling.",
         ["L.Direct.LookupFailed"] = "Could not look the app up in the App Store. Check your connection and try again.",
+        ["L.Direct.Unlisted"] = "This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: a numeric ID goes straight to the store, which will hand the app over if your Apple ID owns it.",
+        ["L.Direct.UnlistedBundle"] = "This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. Downloading by Bundle ID needs that same catalog, so it will probably fail — find the app's numeric ID and search for that instead.",
 
         // Throughput advisor
         ["L.Tuning.Defender.Title"] = "Defender is scanning the download folder",

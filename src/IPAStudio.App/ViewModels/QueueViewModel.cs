@@ -115,6 +115,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
 public sealed partial class QueueViewModel : ObservableObject, IPageAware
 {
     private readonly QueueService _queue;
+    private readonly AuthService _auth;
     private INavigator? _navigator;
 
     public ObservableCollection<QueueItemViewModel> Items { get; } = new();
@@ -143,9 +144,10 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     public bool IsFinished => !IsRunning && Items.Count > 0;
 
-    public QueueViewModel(QueueService queue)
+    public QueueViewModel(QueueService queue, AuthService auth)
     {
         _queue = queue;
+        _auth = auth;
         _queue.ItemChanged += OnItemChanged;
         _queue.QueueCompleted += OnQueueCompleted;
         _queue.SessionExpired += OnSessionExpired;
@@ -193,6 +195,11 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         {
             SessionExpired = true;
             IsRunning = false;
+
+            // The banner tells the user to sign in again, so the dead account must go with it.
+            // Left in place, the rest of the app still believes it is signed in and the sign-in
+            // screen has nothing to do, which is how the banner ended up unactionable.
+            _auth.InvalidateSession();
         });
     }
 

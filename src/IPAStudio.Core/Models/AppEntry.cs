@@ -56,6 +56,18 @@ public sealed class AppEntry
 
     /// <summary>Whether the app is already installed on the currently selected device.</summary>
     public bool IsInstalledOnDevice { get; set; }
+
+    /// <summary>
+    /// True when the public iTunes Lookup API returned nothing for this app and the entry
+    /// was built from what the user typed instead.
+    ///
+    /// The lookup API only lists apps currently on sale, so it answers "no such app" for
+    /// anything pulled from sale, restricted to a storefront it was not asked about, or
+    /// never listed publicly — all of which the App Store still hands to an Apple ID that
+    /// owns them. Everything except the identifier is therefore unknown here, which is why
+    /// the flag exists: the UI must not present a guessed name as confirmed store metadata.
+    /// </summary>
+    public bool IsProvisional { get; set; }
 }
 
 public enum LicenseState

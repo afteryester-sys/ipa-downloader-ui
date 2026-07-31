@@ -404,6 +404,20 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
             }
 
             var app = results[0];
+
+            // The catalog does not list this app, so all that is known about it is what was
+            // typed. A numeric id is still installable, because ipatool hands it to the store
+            // untouched; a bundle id has to be resolved through the very catalog that just came
+            // up empty, so queueing it would only produce a job that fails a minute later.
+            //
+            // The wording is shared with the download page on purpose: it is the same situation
+            // explained to the same person, and two hand-maintained copies of it would drift.
+            if (app.IsProvisional && app.AppStoreId <= 0)
+            {
+                BundleIdError = Loc.Get("L.Direct.UnlistedBundle");
+                return;
+            }
+
             _queue.Build(new[] { app }, TargetDevice);
             _navigator?.GoTo(Page.Queue);
         }
