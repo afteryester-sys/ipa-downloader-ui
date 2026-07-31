@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses�����</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -121,7 +121,7 @@
     <sys:String x:Key="L.Queue.CancelAll">Cancel All</sys:String>
     <sys:String x:Key="L.Queue.Finish">Finish</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Apple ID session expired</sys:String>
-    <sys:String x:Key="L.Queue.SessionExpiredHint">The auth file is unprotected or was created with a different passphrase. Sign in again to continue.</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Apple no longer accepts the saved sign-in: it has expired, or the auth file is damaged. Sign in again to continue.</sys:String>
     <sys:String x:Key="L.Queue.SignInAgain">Sign in again</sys:String>
     <sys:String x:Key="L.Stage.Pending">Queued</sys:String>
     <sys:String x:Key="L.Stage.Checking">Checking</sys:String>
@@ -184,8 +184,7 @@
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, App Store ID or link</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">For example: com.burbn.instagram, 389801252, or https://apps.apple.com/us/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Find</sys:String>
-    <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: a numeric ID goes straight to the store, which will hand the app over if your Apple ID owns it.</sys:String>
-    <sys:String x:Key="L.Direct.UnlistedBundle">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. Downloading by Bundle ID needs that same catalog, so it will probably fail — find the app’s numeric ID and search for that instead.</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>
@@ -313,7 +312,7 @@
     <sys:String x:Key="L.Error.SessionExpired">The Apple ID session is no longer valid. Please sign in again.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">The download could not be completed.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Could not obtain a license for this app on the current Apple ID.</sys:String>
-    <sys:String x:Key="L.Error.NotInStore">This app is not on Apple's servers: it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). An IPA can only come from the App Store, so a copy cannot be taken off the device itself.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">The App Store did not hand this app over for the current request. That usually means it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). Retrying, or using the other kind of identifier, is worth a go: delisted apps often do download.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">The signed-in Apple ID does not own this app, and the license could not be obtained automatically.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">The App Store did not respond. Please try again in a moment.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">The connection stalled; retrying…</sys:String>

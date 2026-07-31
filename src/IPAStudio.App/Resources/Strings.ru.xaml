@@ -121,7 +121,7 @@
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
-    <sys:String x:Key="L.Queue.SessionExpiredHint">Файл авториз��ции повреждён или создан без шифрования. Войдите снова, чтобы продолжить.</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Apple больше не принимает сохранённый вход: срок его действия истёк либо файл авторизации повреждён. Войдите снова, чтобы продолжить.</sys:String>
     <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
     <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
     <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
@@ -184,8 +184,7 @@
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, ID из App Store или ссылка</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
     <sys:String x:Key="L.Direct.Find">Найти</sys:String>
-    <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: числовой ID передаётся прямо в магазин, и тот отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
-    <sys:String x:Key="L.Direct.UnlistedBundle">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузка по Bundle ID обращается к тому же каталогу, поэтому, скорее всего, не сработает — найдите числовой ID приложения и введите его.</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
@@ -268,7 +267,7 @@
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Preparing">Настраиваю устройства…</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
-    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключи��е iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
     <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
@@ -313,7 +312,7 @@
     <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
-    <sys:String x:Key="L.Error.NotInStore">Приложения нет на серверах Apple: оно удалено, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). IPA берётся только из App Store, поэтому забрать копию с самого устройства нельзя.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
@@ -468,7 +467,7 @@
     <sys:String x:Key="L.Conflict.Replace">Заменить</sys:String>
     <sys:String x:Key="L.Conflict.KeepBoth">Сохранить оба</sys:String>
 
-    <!-- Режи��ы просмотра фото -->
+    <!-- Режимы просмотра фото -->
     <sys:String x:Key="L.Photos.ViewList">Список</sys:String>
     <sys:String x:Key="L.Photos.ViewGrid">Плитка</sys:String>
 

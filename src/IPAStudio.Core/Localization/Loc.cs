@@ -85,7 +85,7 @@ public static class Loc
         ["L.Error.SessionExpired"] = "The Apple ID session is no longer valid. Please sign in again.",
         ["L.Error.DownloadFailed"] = "The download could not be completed.",
         ["L.Error.LicenseFailed"] = "Could not obtain a license for this app on the current Apple ID.",
-        ["L.Error.NotInStore"] = "This app is not on Apple's servers: it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). An IPA can only come from the App Store, so a copy cannot be taken off the device itself.",
+        ["L.Error.NotInStore"] = "The App Store did not hand this app over for the current request. That usually means it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). Retrying, or using the other kind of identifier, is worth a go: delisted apps often do download.",
         ["L.Error.NotPurchased"] = "The signed-in Apple ID does not own this app, and the license could not be obtained automatically.",
         ["L.Error.StoreUnavailable"] = "The App Store did not respond. Please try again in a moment.",
         ["L.Error.ConnectionStalled"] = "The connection stalled; retrying…",
@@ -124,8 +124,7 @@ public static class Loc
         ["L.Direct.NeedQuery"] = "Enter a Bundle ID, an App Store ID, or a link to the app.",
         ["L.Direct.NotFound"] = "No app found for that Bundle ID, App Store ID or link. Check the spelling.",
         ["L.Direct.LookupFailed"] = "Could not look the app up in the App Store. Check your connection and try again.",
-        ["L.Direct.Unlisted"] = "This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: a numeric ID goes straight to the store, which will hand the app over if your Apple ID owns it.",
-        ["L.Direct.UnlistedBundle"] = "This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. Downloading by Bundle ID needs that same catalog, so it will probably fail — find the app's numeric ID and search for that instead.",
+        ["L.Direct.Unlisted"] = "This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: the store will hand the app over if your Apple ID owns it.",
 
         // Throughput advisor
         ["L.Tuning.Defender.Title"] = "Defender is scanning the download folder",

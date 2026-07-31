@@ -405,19 +405,15 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
             var app = results[0];
 
-            // The catalog does not list this app, so all that is known about it is what was
-            // typed. A numeric id is still installable, because ipatool hands it to the store
-            // untouched; a bundle id has to be resolved through the very catalog that just came
-            // up empty, so queueing it would only produce a job that fails a minute later.
+            // A bundle id missing from the public catalog is queued like any other. An earlier
+            // version refused it here, reasoning that ipatool resolves "-b" through that same
+            // catalog and so the job was doomed. That reasoning was wrong in practice: these
+            // downloads do succeed, because ipatool queries the storefront tied to the signed-in
+            // account, which still answers for apps the anonymous sweep above cannot see.
             //
-            // The wording is shared with the download page on purpose: it is the same situation
-            // explained to the same person, and two hand-maintained copies of it would drift.
-            if (app.IsProvisional && app.AppStoreId <= 0)
-            {
-                BundleIdError = Loc.Get("L.Direct.UnlistedBundle");
-                return;
-            }
-
+            // Refusing up front removed the only way to fetch a delisted app, which is precisely
+            // what this tool is for. The store is the authority on what it will hand over, so the
+            // attempt goes through and the store's own answer decides.
             _queue.Build(new[] { app }, TargetDevice);
             _navigator?.GoTo(Page.Queue);
         }

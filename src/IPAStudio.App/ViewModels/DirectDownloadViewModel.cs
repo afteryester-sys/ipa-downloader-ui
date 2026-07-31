@@ -224,17 +224,12 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             // no name, size or version to show — only the identifier the user typed. Saying so
             // explains the bare panel instead of letting it look like a half-failed lookup.
             //
-            // The two kinds of identifier are not equally hopeful, and it would be misleading
-            // to imply otherwise. A numeric app id goes to ipatool as "-i", which hands it
-            // straight to the store without ever consulting the catalog, so an unlisted app
-            // really can download. A bundle id goes as "-b", which makes ipatool resolve it
-            // through the same public catalog that just came up empty — and it queries only
-            // the account's own storefront, where this app is searched already. That is very
-            // likely to fail, so the user is told to find the numeric id instead of being
-            // sent to retry hopefully.
-            StatusText = app.IsProvisional
-                ? Str(app.AppStoreId > 0 ? "L.Direct.Unlisted" : "L.Direct.UnlistedBundle")
-                : null;
+            // Both kinds of identifier get the same message. A previous version singled out
+            // bundle ids as near-hopeless, on the theory that ipatool has to resolve them
+            // through this very catalog; downloads by bundle id demonstrably keep working, so
+            // that warning only talked users out of the one route that still fetches delisted
+            // apps. Neither case is predicted here — the store is left to answer.
+            StatusText = app.IsProvisional ? Str("L.Direct.Unlisted") : null;
 
             AppLog.Info(app.IsProvisional
                 ? $"Direct download: '{BundleId.Trim()}' is not in the public catalog; will try the store directly"
