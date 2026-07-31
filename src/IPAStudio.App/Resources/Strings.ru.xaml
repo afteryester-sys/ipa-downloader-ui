@@ -414,7 +414,7 @@
     <sys:String x:Key="L.Photos.Media.Videos">Видео</sys:String>
     <sys:String x:Key="L.Photos.Reading">Чтение медиатеки…</sys:String>
     <sys:String x:Key="L.Photos.Empty">Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ.</sys:String>
-    <sys:String x:Key="L.Photos.Found">Н��йдено медиафайлов: {0}</sys:String>
+    <sys:String x:Key="L.Photos.Found">Найдено медиафайлов: {0}</sys:String>
     <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
     <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
@@ -585,6 +585,7 @@
     <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Сохранено {0}, с ошибкой {1}.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferSelected">Перенести на другой iPhone ({0})</sys:String>
     <sys:String x:Key="L.OnDevice.TransferPickTarget">Куда перенести:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferNoTargets">Других подключённых устройств нет. Подключите второй iPhone кабелем, нажмите на нём «Доверять» и откройте этот список снова.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачиваются из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
 
 </ResourceDictionary>

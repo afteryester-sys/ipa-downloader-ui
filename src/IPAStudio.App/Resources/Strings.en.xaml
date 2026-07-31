@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -585,6 +585,7 @@
     <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Saved {0}, failed {1}.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferSelected">Transfer to another iPhone ({0})</sys:String>
     <sys:String x:Key="L.OnDevice.TransferPickTarget">Transfer to:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferNoTargets">No other device is connected. Attach a second iPhone by cable, tap Trust on it, then open this list again.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
 
 </ResourceDictionary>

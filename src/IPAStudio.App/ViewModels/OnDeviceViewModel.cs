@@ -260,20 +260,25 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     public ObservableCollection<Device> TransferTargets { get; } = new();
 
-    /// <summary>
-    /// True when another device is attached right now.
-    ///
-    /// Asks the device service rather than reading <see cref="TransferTargets"/>, which is only
-    /// filled when the menu opens — the button has to know a destination exists before then, or
-    /// it would never appear to be clicked in the first place.
-    /// </summary>
-    public bool HasTransferTargets =>
-        _devices.ConnectedDevices.Any(d =>
-            TargetDevice is null
-            || !string.Equals(d.Udid, TargetDevice.Udid, StringComparison.OrdinalIgnoreCase));
+    /// <summary>At least one destination was found, so the list has something to show.</summary>
+    public bool HasTransferTargets => TransferTargets.Count > 0;
 
-    /// <summary>Rows are ticked and there is another device to send them to.</summary>
-    public bool CanTransfer => HasSelection && HasTransferTargets;
+    /// <summary>
+    /// Whether the transfer button is shown. Tied to the selection alone, deliberately.
+    ///
+    /// Hiding it until a second device was attached meant that with one phone connected — the
+    /// ordinary case — the feature was invisible with nothing to indicate it existed or what it
+    /// wanted. Hiding it also depended on the device list being current, so plugging in a second
+    /// phone while this screen was already open would not have revealed it. The button is now
+    /// always offered and the destination list explains an empty result.
+    /// </summary>
+    public bool CanTransfer => HasSelection;
+
+    /// <summary>
+    /// True when the destination list came back empty, so the menu can say why instead of
+    /// opening as an empty box.
+    /// </summary>
+    public bool NoTransferTargets => TransferTargets.Count == 0;
 
     /// <summary>"Transfer to another iPhone (3)" — the count belongs in the label.</summary>
     public string TransferSelectedLabel => Loc.Format("L.OnDevice.TransferSelected", SelectedCount);
@@ -290,7 +295,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// UDID that is no longer there.
     /// </summary>
     [RelayCommand]
-    private void ToggleTransferMenu()
+    private async Task ToggleTransferMenuAsync()
     {
         if (IsTransferMenuOpen)
         {
@@ -298,8 +303,23 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             return;
         }
 
+        // Shown from the cached list first so the menu opens instantly, then re-polled: a phone
+        // plugged in moments ago should appear without the user having to leave the screen.
         RefreshTransferTargets();
         IsTransferMenuOpen = true;
+
+        try
+        {
+            await _devices.PollOnceAsync(quiet: true).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            // The cached list is already on screen, so a failed poll costs nothing but freshness.
+            AppLog.Warn($"Device poll for transfer menu failed: {ex.Message}");
+        }
+
+        if (IsTransferMenuOpen)
+            RefreshTransferTargets();
     }
 
     private void RefreshTransferTargets()
@@ -316,6 +336,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         }
 
         OnPropertyChanged(nameof(HasTransferTargets));
+        OnPropertyChanged(nameof(NoTransferTargets));
     }
 
     /// <summary>
@@ -455,9 +476,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(SelectAllLabel));
         OnPropertyChanged(nameof(TransferSelectedLabel));
 
-        // Re-checked on every tick, so unplugging the second phone mid-selection retracts the
-        // button instead of leaving it pointing at a device that is gone.
-        OnPropertyChanged(nameof(HasTransferTargets));
         OnPropertyChanged(nameof(CanTransfer));
     }
 

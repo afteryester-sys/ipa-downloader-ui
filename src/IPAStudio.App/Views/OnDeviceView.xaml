@@ -100,8 +100,9 @@
                         Command="{Binding DownloadSelectedCommand}" Margin="0,0,8,0"
                         Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}"
                         IsEnabled="{Binding IsBatchRunning, Converter={StaticResource InverseBool}}" />
-                <!-- Transfer: only meaningful with a second device attached and rows ticked,
-                     so it stays hidden rather than appearing as a dead button. -->
+                <!-- Shown whenever rows are ticked. Gating it on a second device being attached
+                     hid the feature entirely in the common one-phone case, with nothing to say
+                     it existed; the menu explains an empty destination list instead. -->
                 <Grid Margin="0,0,8,0"
                       Visibility="{Binding CanTransfer, Converter={StaticResource BoolToVis}}">
 
@@ -121,7 +122,8 @@
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource L.OnDevice.TransferPickTarget}"
                                            Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                                           Margin="6,2,6,8" />
+                                           Margin="6,2,6,8"
+                                           Visibility="{Binding HasTransferTargets, Converter={StaticResource BoolToVis}}" />
 
                                 <ItemsControl ItemsSource="{Binding TransferTargets}">
                                     <ItemsControl.ItemTemplate>
@@ -145,6 +147,13 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+
+                                <!-- Without this the menu would open as an empty box whenever
+                                     only one phone is connected. -->
+                                <TextBlock Text="{DynamicResource L.OnDevice.TransferNoTargets}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                           Margin="6,2,6,2"
+                                           Visibility="{Binding NoTransferTargets, Converter={StaticResource BoolToVis}}" />
 
                                 <!-- The apps are re-fetched from the store, not copied off this
                                      phone; saying so up front prevents the queue's download
