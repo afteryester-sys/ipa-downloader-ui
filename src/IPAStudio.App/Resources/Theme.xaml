@@ -496,20 +496,40 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- ============ ScrollBar (thin, dark) ============ -->
+    <!-- ============ ScrollBar (thin, translucent) ============ -->
+    <!-- A 4 px translucent bar that firms up under the pointer. The track is left empty so
+         only the thumb is ever drawn, and the thumb keeps a minimum length: a Track with no
+         MinHeight collapses the thumb to a few pixels on a long list, which is both hard to
+         hit and hard to see. -->
     <Style TargetType="ScrollBar">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Width" Value="8" />
+        <Setter Property="MinWidth" Value="8" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ScrollBar">
                     <Grid Background="Transparent">
-                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True"
+                               ViewportSize="{TemplateBinding ViewportSize}">
                             <Track.Thumb>
-                                <Thumb>
+                                <Thumb MinHeight="28">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Border Background="{DynamicResource Brush.Border}" CornerRadius="4" Margin="1" />
+                                            <!-- Transparent hit area wider than the visible bar,
+                                                 so a 4 px line is still easy to grab. -->
+                                            <Border Background="Transparent" Padding="2,0">
+                                                <Border x:Name="Bar" Width="4"
+                                                        Background="{DynamicResource Brush.TextMuted}"
+                                                        Opacity="0.28" CornerRadius="2" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bar" Property="Opacity" Value="0.55" />
+                                                </Trigger>
+                                                <Trigger Property="IsDragging" Value="True">
+                                                    <Setter TargetName="Bar" Property="Opacity" Value="0.75" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -522,7 +542,41 @@
         <Style.Triggers>
             <Trigger Property="Orientation" Value="Horizontal">
                 <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="0" />
                 <Setter Property="Height" Value="8" />
+                <Setter Property="MinHeight" Value="8" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track" Orientation="Horizontal"
+                                       ViewportSize="{TemplateBinding ViewportSize}">
+                                    <Track.Thumb>
+                                        <Thumb MinWidth="28">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Border Background="Transparent" Padding="0,2">
+                                                        <Border x:Name="Bar" Height="4"
+                                                                Background="{DynamicResource Brush.TextMuted}"
+                                                                Opacity="0.28" CornerRadius="2" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bar" Property="Opacity" Value="0.55" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsDragging" Value="True">
+                                                            <Setter TargetName="Bar" Property="Opacity" Value="0.75" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Trigger>
         </Style.Triggers>
     </Style>

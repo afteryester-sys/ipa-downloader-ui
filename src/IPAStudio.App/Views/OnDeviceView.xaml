@@ -285,6 +285,30 @@
                                                Margin="0,4,0,0"
                                                Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}" />
 
+                                    <!-- Catalog apps whose name resembles this one, offered after
+                                         the store refuses the device's bundle id. Each carries
+                                         its own store id, which is the only identifier that
+                                         still works for an app pulled from sale. The store id is
+                                         shown because several of these names differ only by a
+                                         suffix. -->
+                                    <ItemsControl ItemsSource="{Binding Candidates}" Margin="0,6,0,0"
+                                                  Visibility="{Binding HasCandidates, Converter={StaticResource BoolToVis}}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource Button.Ghost}"
+                                                        HorizontalContentAlignment="Left"
+                                                        Padding="8,5" Margin="0,0,0,3"
+                                                        Command="{Binding Command}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}" />
+                                                        <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
+                                                                   Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
                                     <!-- Progress while saving -->
                                     <Grid Margin="0,8,0,0"
                                           Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}">

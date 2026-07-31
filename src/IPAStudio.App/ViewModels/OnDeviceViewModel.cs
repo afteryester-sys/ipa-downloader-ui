@@ -14,6 +14,31 @@ using Microsoft.Win32;
 namespace IPAStudio.App.ViewModels;
 
 /// <summary>
+/// One catalog app offered as the store counterpart of an installed app, with the command
+/// that downloads the device's app using this entry's store id.
+///
+/// The command is handed in already bound to its row and entry: the alternative is a
+/// two-parameter command in XAML, which needs a converter or a multi-binding to express and
+/// is easy to wire to the wrong row inside an item template.
+/// </summary>
+public sealed class CatalogCandidateViewModel
+{
+    public CatalogCandidateViewModel(AppEntry entry, IRelayCommand command)
+    {
+        Entry = entry;
+        Command = command;
+    }
+
+    public AppEntry Entry { get; }
+    public IRelayCommand Command { get; }
+
+    public string Name => Entry.Name;
+
+    /// <summary>The store id, shown so two similar names can be told apart.</summary>
+    public string Details => Entry.AppStoreId.ToString();
+}
+
+/// <summary>
 /// One app installed on the device, plus its own download state.
 /// </summary>
 public sealed partial class InstalledAppViewModel : ObservableObject
@@ -152,6 +177,28 @@ public sealed partial class InstalledAppViewModel : ObservableObject
 
     /// <summary>True while nothing is happening, so the row can show the button.</summary>
     public bool IsIdle => !IsDownloading;
+
+    /// <summary>
+    /// Catalog apps offered after the store refused this app's bundle id, for the user to
+    /// pick from. Empty at every other time.
+    /// </summary>
+    public ObservableCollection<CatalogCandidateViewModel> Candidates { get; } = new();
+
+    public bool HasCandidates => Candidates.Count > 0;
+
+    public void ShowCandidates(IEnumerable<CatalogCandidateViewModel> candidates)
+    {
+        Candidates.Clear();
+        foreach (var candidate in candidates) Candidates.Add(candidate);
+        OnPropertyChanged(nameof(HasCandidates));
+    }
+
+    public void ClearCandidates()
+    {
+        if (Candidates.Count == 0) return;
+        Candidates.Clear();
+        OnPropertyChanged(nameof(HasCandidates));
+    }
 }
 
 /// <summary>
@@ -646,7 +693,14 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// would break the download for every non-Latin app name.
     /// </summary>
     [RelayCommand]
-    private async Task DownloadAsync(InstalledAppViewModel? item)
+    private Task DownloadAsync(InstalledAppViewModel? item)
+        => DownloadCoreAsync(item, chosen: null);
+
+    /// <summary>
+    /// The download itself. <paramref name="chosen"/> is the catalog entry the user picked
+    /// after the store refused the app's own bundle id; null means resolve it as usual.
+    /// </summary>
+    private async Task DownloadCoreAsync(InstalledAppViewModel? item, AppEntry? chosen)
     {
         if (item is null || item.IsDownloading) return;
 
@@ -664,6 +718,9 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         item.ErrorText = null;
         item.SavedPath = null;
+        // The offer belongs to the failure that produced it; leaving it on screen through the
+        // next attempt would let a stale list be clicked after a success.
+        item.ClearCandidates();
         item.IsDownloading = true;
         item.Progress = 0;
         item.StatusText = Loc.Get("L.Queue.Status.Connecting");
@@ -690,7 +747,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             //
             // So the store really is the only source, and an app Apple no longer serves
             // cannot be fetched at all - which is what the verdict below has to say.
-            var entry = await ResolveEntryAsync(item.App, cts.Token).ConfigureAwait(true);
+            var entry = chosen ?? await ResolveEntryAsync(item.App, cts.Token).ConfigureAwait(true);
             if (entry is null)
             {
                 item.ErrorText = Loc.Get("L.OnDevice.NotInStore");
@@ -740,6 +797,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
                 if (!string.IsNullOrWhiteSpace(result.Detail))
                     AppLog.Warn($"On-device download failed: {result.Detail}");
+
+                // "Not found" from a bundle-id request is the one failure the catalog can still
+                // answer, so the near-name matches are offered instead of stopping here.
+                if (!result.SessionExpired && !result.LicenseRequired && entry.AppStoreId <= 0)
+                    OfferCatalogCandidates(item);
+
                 return;
             }
 
@@ -864,6 +927,41 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Shows the catalog apps whose names resemble this one, each able to start the download
+    /// with its own store id. Does nothing when the catalog has no near match.
+    /// </summary>
+    private void OfferCatalogCandidates(InstalledAppViewModel item)
+    {
+        var candidates = _catalog.FindLocalCandidatesByName(item.Name);
+        if (candidates.Count == 0) return;
+
+        item.ShowCandidates(candidates.Select(entry => new CatalogCandidateViewModel(
+            entry,
+            new AsyncRelayCommand(() => DownloadCoreAsync(item, CatalogEntryFor(item.App, entry))))));
+
+        item.ErrorText = Loc.Get("L.OnDevice.PickCatalogMatch");
+        AppLog.Info($"On-device: offering {candidates.Count} catalog match(es) for \"{item.Name}\" ({item.BundleId})");
+    }
+
+    /// <summary>
+    /// The download request for an installed app addressed by a catalog entry's store id.
+    ///
+    /// The catalog's own name is carried, not the device's, so the log and the queue name the
+    /// app that was actually requested; the saved file is still named after the device's app
+    /// by the caller.
+    /// </summary>
+    private static AppEntry CatalogEntryFor(InstalledApp app, AppEntry catalogEntry) => new()
+    {
+        Name = catalogEntry.Name,
+        AppStoreId = catalogEntry.AppStoreId,
+        // The device's bundle id is deliberately not substituted here: it is the identifier the
+        // store has just refused, and the downloader falls back to the bundle id when an id
+        // request fails, which would resend the request that already failed.
+        BundleId = catalogEntry.BundleId,
+        LatestVersion = catalogEntry.LatestVersion ?? app.Version,
+    };
+
     private async Task<AppEntry?> ResolveEntryAsync(InstalledApp app, CancellationToken ct)
     {
         if (app.StoreItemId is > 0)
@@ -884,6 +982,24 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         var byBundle = await _catalog.SearchByBundleIdAsync(app.BundleId, ct).ConfigureAwait(true);
         if (byBundle.Count > 0) return byBundle[0];
+
+        // The bundled catalog is a "name: id" list with no bundle identifiers in it, so an app
+        // listed there cannot be reached by the only identifier a device provides. That was the
+        // whole of this failure: "Сбербанк Онлайн (Оригинал)" downloads on the other screen from
+        // its catalog id, while this one asked the store for ru.sberbank.onlineiphone, which the
+        // store no longer lists, and reported the app as gone.
+        //
+        // Only an exact name match is taken silently. A looser one is offered to the user after
+        // the attempt fails, because names like "СберБанк" prefix-match nine catalog entries
+        // that are nine different apps.
+        var exact = _catalog.FindLocalExactByName(app.Name);
+        if (exact is not null)
+        {
+            AppLog.Info(
+                $"On-device: {app.BundleId} is not listed; using catalog id {exact.AppStoreId} " +
+                $"for the identically named \"{exact.Name}\"");
+            return CatalogEntryFor(app, exact);
+        }
 
         // Nothing in any storefront and no id from the device. The App Store can still hand
         // over an app the account owns when asked by bundle identifier, so the attempt is

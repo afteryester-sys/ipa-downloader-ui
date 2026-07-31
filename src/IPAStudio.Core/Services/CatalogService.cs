@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Tools;
@@ -436,6 +437,122 @@ public sealed class CatalogService
             // The catalog is an optional courtesy here; a lookup must not fail over it.
             return null;
         }
+    }
+
+    /// <summary>
+    /// Catalog entries whose name looks like <paramref name="name"/>, best first.
+    ///
+    /// This exists because the bundled catalog is a "name: id" list with no bundle
+    /// identifiers in it, so an app can only ever be found there by name. A device reports
+    /// the opposite pair — bundle id and home-screen name — which is why an app sitting in
+    /// the catalog with a perfectly good store id was still reported as missing when the
+    /// request came from the device list.
+    ///
+    /// Matching is deliberately loose in one direction only: either name may be a prefix of
+    /// the other, so the device's "СберБанк" reaches "Сбербанк Онлайн (Оригинал)". It is not
+    /// loose enough to decide anything on its own — that same probe matches nine catalog
+    /// entries, all different apps — so the list is returned for a human to choose from
+    /// rather than resolved to a guess.
+    /// </summary>
+    public IReadOnlyList<AppEntry> FindLocalCandidatesByName(string? name, int limit = 12)
+    {
+        if (limit <= 0) return Array.Empty<AppEntry>();
+
+        var wanted = NormalizeName(name);
+
+        // Two characters match half the catalog; a probe that short says nothing.
+        if (wanted.Length < 3) return Array.Empty<AppEntry>();
+
+        try
+        {
+            var scored = new List<(AppEntry Entry, int Rank)>();
+
+            foreach (var entry in LoadCatalog())
+            {
+                if (entry.AppStoreId <= 0) continue;
+
+                var candidate = NormalizeName(entry.Name);
+                if (candidate.Length == 0) continue;
+
+                // Rank, not filter: an exact hit has to outrank the longer names that merely
+                // start the same way, or "Сбербанк" would lose to "Сбербанк Онлайн …".
+                var rank =
+                    candidate.Equals(wanted, StringComparison.Ordinal) ? 0
+                    : candidate.StartsWith(wanted, StringComparison.Ordinal) ? 1
+                    : wanted.StartsWith(candidate, StringComparison.Ordinal) ? 2
+                    : -1;
+
+                if (rank >= 0) scored.Add((entry, rank));
+            }
+
+            return scored
+                .OrderBy(s => s.Rank)
+                .ThenBy(s => s.Entry.Name.Length)
+                .ThenBy(s => s.Entry.Name, StringComparer.CurrentCultureIgnoreCase)
+                .Select(s => s.Entry)
+                // The catalog ships duplicate ids under different names; one row each.
+                .GroupBy(e => e.AppStoreId)
+                .Select(g => g.First())
+                .Take(limit)
+                .ToList();
+        }
+        catch
+        {
+            // A suggestion list is a courtesy; failing to build it must not fail the caller.
+            return Array.Empty<AppEntry>();
+        }
+    }
+
+    /// <summary>
+    /// The one catalog entry whose name is the same as <paramref name="name"/> once spacing
+    /// and punctuation are ignored, or null when there is none or more than one.
+    ///
+    /// Kept separate from <see cref="FindLocalCandidatesByName"/> because only this degree of
+    /// certainty is safe to act on without asking: a prefix match is frequently several
+    /// unrelated apps, and silently picking one of those would download the wrong app —
+    /// several hundred megabytes of it — under the right name.
+    /// </summary>
+    public AppEntry? FindLocalExactByName(string? name)
+    {
+        var wanted = NormalizeName(name);
+        if (wanted.Length < 3) return null;
+
+        try
+        {
+            var matches = LoadCatalog()
+                .Where(e => e.AppStoreId > 0 && NormalizeName(e.Name).Equals(wanted, StringComparison.Ordinal))
+                .GroupBy(e => e.AppStoreId)
+                .Select(g => g.First())
+                .Take(2)
+                .ToList();
+
+            return matches.Count == 1 ? matches[0] : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// An app name reduced to letters and digits, lower-cased, for comparison only.
+    ///
+    /// Spacing and punctuation carry no meaning here: a device may call an app "СберБанк"
+    /// where the catalog writes "Сбербанк Онлайн (Оригинал)", and "Yandex.Maps" and
+    /// "Yandex Maps" are the same app. ToLowerInvariant is used rather than the current
+    /// culture so the result does not depend on the machine's locale.
+    /// </summary>
+    private static string NormalizeName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+
+        var builder = new StringBuilder(name.Length);
+        foreach (var ch in name)
+        {
+            if (char.IsLetterOrDigit(ch)) builder.Append(char.ToLowerInvariant(ch));
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

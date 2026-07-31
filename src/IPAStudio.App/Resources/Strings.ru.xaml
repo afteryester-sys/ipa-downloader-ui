@@ -576,6 +576,7 @@
     <sys:String x:Key="L.OnDevice.OtherAccount">Куплено другим Apple ID ({0}) — скачать нельзя</sys:String>
     <sys:String x:Key="L.OnDevice.AccountUnverified">Устройство не сообщает, каким Apple ID куплено приложение. Если оно куплено не текущим аккаунтом, App Store откажет в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
