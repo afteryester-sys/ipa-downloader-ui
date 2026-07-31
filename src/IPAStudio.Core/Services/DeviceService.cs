@@ -274,10 +274,17 @@ public sealed class DeviceService : IAsyncDisposable
     ///
     /// Read from the registry rather than through ServiceController: the service registration
     /// is what actually needs checking, and the registry answers it without adding a package
-    /// reference. mDNSResponder is Bonjour's own service name.
+    /// reference. "Bonjour Service" is the registered service name; its executable is
+    /// mDNSResponder.exe.
     /// </summary>
     public static bool IsBonjourInstalled()
     {
+        // The registry is Windows-only, and this project builds Core without a Windows target,
+        // so the call has to be guarded rather than assumed — the same pattern the dependency
+        // checks use. Reporting "present" elsewhere keeps this from inventing a Windows
+        // problem on a platform that has none.
+        if (!OperatingSystem.IsWindows()) return true;
+
         try
         {
             using var key = Microsoft.Win32.Registry.LocalMachine
