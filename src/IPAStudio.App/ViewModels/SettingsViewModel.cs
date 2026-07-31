@@ -116,6 +116,17 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     {
         try
         {
+            // Checked before anything is attempted: without Bonjour the network query returns
+            // an empty list and no error, so a missing mDNS responder would otherwise look
+            // exactly like a successful setup that simply finds no device.
+            if (!DeviceService.IsBonjourInstalled())
+            {
+                WifiStatus = Str("L.Settings.Wifi.NoBonjour",
+                    "Apple Bonjour is not installed or is disabled, and without it devices on the network cannot be found. Reinstall iTunes from apple.com to restore it.");
+                AppLog.Warn("Wi-Fi discovery will find nothing: the Bonjour service is missing or disabled.");
+                return;
+            }
+
             WifiStatus = Str("L.Settings.Wifi.Preparing", "Preparing devices…");
             var count = await _devices.EnableWifiSyncOnConnectedAsync().ConfigureAwait(true);
 

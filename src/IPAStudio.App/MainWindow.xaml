@@ -13,6 +13,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:SubtractConverter x:Key="Subtract" />
         <DataTemplate DataType="{x:Type vm:SetupViewModel}">
             <views:SetupView />
         </DataTemplate>
@@ -149,7 +150,8 @@
                                            Foreground="{StaticResource Brush.Accent}"
                                            VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <StackPanel>
-                                    <TextBlock Text="{DynamicResource L.Contact.Email}"
+                                    <TextBlock x:Name="EmailCaption"
+                                               Text="{DynamicResource L.Contact.Email}"
                                                FontFamily="{StaticResource Font.Body}" FontSize="11"
                                                Foreground="{StaticResource Brush.TextMuted}" />
                                     <TextBlock Text="leq77751@gmail.com"
@@ -237,6 +239,14 @@
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="#000000" />
                     </Border.Effect>
+                    <!-- Capped to the window's height and scrolled past that point. This menu is
+                         taller than a short window, and because a popup is its own top-level
+                         window nothing clipped it: the lower half simply hung off the bottom
+                         edge, out of reach. The reserve covers the gear button's own offset from
+                         the top plus this border's margin and padding. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  MaxHeight="{Binding ActualHeight, ElementName=Root,
+                                              Converter={StaticResource Subtract}, ConverterParameter=110}">
                     <StackPanel>
                         <!-- Menu header -->
                         <Grid Margin="0,0,0,12">
@@ -379,6 +389,7 @@
                                 HorizontalAlignment="Stretch" Command="{Binding ClearCacheCommand}"
                                 IsEnabled="{Binding IsCacheBusy, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
+                    </ScrollViewer>
                 </Border>
             </Popup>
         </Grid>

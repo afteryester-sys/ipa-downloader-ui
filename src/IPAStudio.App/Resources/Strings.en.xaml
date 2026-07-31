@@ -223,6 +223,7 @@
     <sys:String x:Key="L.Cache.DonePartial">Freed {0}. {1} file(s) were in use and were kept.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Downloaded apps (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">App icons</sys:String>
+    <sys:String x:Key="L.Cache.Item.Thumbs">Photo thumbnails</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Catalog cache</sys:String>
     <sys:String x:Key="L.Cache.Item.Temp">Temporary files</sys:String>
     <sys:String x:Key="L.Cache.Item.Logs">Logs from previous days</sys:String>
@@ -269,6 +270,7 @@
     <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi enabled on {0} device(s). You can unplug the cable now.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.NoDevices">No cabled device found. Connect the iPhone by cable and turn this on again, otherwise the device will not respond over the network.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Failed">Could not prepare the device for Wi-Fi. Check that it is unlocked and that you tapped Trust. See the log for details.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoBonjour">The Apple Bonjour service is missing or disabled. Devices cannot be found over the network without it — Bonjour is what reports which iPhones are responding. Reinstall iTunes from apple.com; its installer includes Bonjour.</sys:String>
     <sys:String x:Key="L.Devices.Link.Usb">Cable</sys:String>
     <sys:String x:Key="L.Devices.Link.Wifi">Wi-Fi</sys:String>
 
@@ -324,6 +326,7 @@
     <!-- Install errors -->
     <sys:String x:Key="L.Install.Error.CoordinatedInstall">The device is still holding an unfinished App Store download of this app. Delete the app's icon from the home screen — including a dimmed or half-installed one — then try again.</sys:String>
     <sys:String x:Key="L.Install.Error.NoSpace">Not enough free space on the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.ExtractionFailed">The device could not unpack the app. This is nearly always a space problem: installing needs room for two to three times the app's size, so it fails even while the phone still shows some space free. Free up space in Settings — General — iPhone Storage, then try again.</sys:String>
     <sys:String x:Key="L.Install.Error.Verification">App verification failed: the IPA is damaged or its signature is invalid.</sys:String>
     <sys:String x:Key="L.Install.Error.CertRevoked">The signing certificate has been revoked. Use a different IPA.</sys:String>
     <sys:String x:Key="L.Install.Error.Incompatible">This IPA is not compatible with the iOS version on the device.</sys:String>
@@ -453,7 +456,8 @@
 
     <!-- Contact popup -->
     <sys:String x:Key="L.Contact.Title">Contact the developer</sys:String>
-    <sys:String x:Key="L.Contact.Email">Send an email</sys:String>
+    <sys:String x:Key="L.Contact.Email">Copy the address</sys:String>
+    <sys:String x:Key="L.Contact.Copied">Address copied</sys:String>
     <sys:String x:Key="L.Contact.Telegram">Message on Telegram</sys:String>
 
     <!-- Picker header -->

@@ -64,6 +64,20 @@ public sealed class ToolLocator
     public string CatalogCacheFile => Path.Combine(DataFolder, "catalog-cache.json");
 
     /// <summary>
+    /// Photo thumbnails already fetched from a device, so returning to the library does not
+    /// re-read them.
+    ///
+    /// Thumbnails were previously held in memory only, which meant every visit to an album
+    /// paid the full cost again: each tile is a separate round trip over AFC, and that is
+    /// what made the grid fill slowly even for photos seen a minute earlier. On disk they
+    /// survive both navigation and a restart.
+    ///
+    /// Kept apart from the icon cache so "clear cache" can report and drop the two
+    /// independently — a photo library produces far more files than the app icons do.
+    /// </summary>
+    public string PhotoThumbCacheFolder => Path.Combine(DataFolder, "photo-thumbs");
+
+    /// <summary>
     /// Apps the user added by hand from the download screen. Kept separate from the
     /// bundled list, which is an embedded resource and therefore not writable, and from
     /// the metadata cache, which is disposable — this file is user data and must survive

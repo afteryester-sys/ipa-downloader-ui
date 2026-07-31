@@ -76,6 +76,7 @@ public sealed class CleanupService
             {
                 Measure("L.Cache.Item.Apps",    _tools.AppsFolder,      onGroup, ct),
                 Measure("L.Cache.Item.Icons",   _tools.IconCacheFolder, onGroup, ct),
+                Measure("L.Cache.Item.Thumbs",  _tools.PhotoThumbCacheFolder, onGroup, ct),
                 MeasureFile("L.Cache.Item.Catalog", _tools.CatalogCacheFile, onGroup),
                 Measure("L.Cache.Item.Temp",    _tools.TempFolder,      onGroup, ct),
                 MeasureOldLogs(onGroup, ct),
@@ -148,6 +149,9 @@ public sealed class CleanupService
             // Directories are emptied above; drop the leftover empty shells so a stale
             // folder tree does not accumulate, then put back the ones the app needs.
             PruneEmptyDirectories(_tools.IconCacheFolder);
+            // The thumbnail cache is sharded into up-to-256 sub-folders, so clearing it
+            // leaves that many empty shells behind without this.
+            PruneEmptyDirectories(_tools.PhotoThumbCacheFolder);
             PruneEmptyDirectories(_tools.TempFolder);
             PruneEmptyDirectories(_tools.AppsFolder, keepRoot: true);
             _tools.EnsureFolders();

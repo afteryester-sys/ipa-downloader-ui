@@ -260,6 +260,43 @@ public sealed class DeviceService : IAsyncDisposable
             return enabled;
         }, ct);
 
+    /// <summary>
+    /// Whether Apple's Bonjour service is present on this machine.
+    ///
+    /// A network device is discovered by mDNS and by nothing else: <c>idevice_id -n</c> asks
+    /// Bonjour which devices are advertising themselves, so without it the call returns an
+    /// empty list and reports no error at all. From the caller's side that is
+    /// indistinguishable from "no device on the network", and it is the usual reason an
+    /// unplugged phone never appears even when everything else was set up correctly.
+    ///
+    /// Bonjour arrives with iTunes but is a separate service, and cleanup utilities remove or
+    /// disable it routinely — so its absence is worth reporting rather than guessing at.
+    ///
+    /// Read from the registry rather than through ServiceController: the service registration
+    /// is what actually needs checking, and the registry answers it without adding a package
+    /// reference. mDNSResponder is Bonjour's own service name.
+    /// </summary>
+    public static bool IsBonjourInstalled()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.LocalMachine
+                .OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Bonjour Service");
+
+            if (key is null) return false;
+
+            // Start = 4 is "Disabled". A disabled service will not be running and will not be
+            // started on demand, so for discovery purposes it is the same as missing.
+            return key.GetValue("Start") is not int start || start != 4;
+        }
+        catch
+        {
+            // A locked-down machine can refuse the read. Reporting "present" on an unknown
+            // answer keeps this from raising a false alarm on a working setup.
+            return true;
+        }
+    }
+
     private async Task<Device> ReadDeviceInfoAsync(string udid, CancellationToken ct)
     {
         var device = new Device { Udid = udid };

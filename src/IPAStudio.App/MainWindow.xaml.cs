@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using IPAStudio.App.ViewModels;
 
 namespace IPAStudio.App;
@@ -90,10 +91,56 @@ public partial class MainWindow : Window
     private void CreditButton_Click(object sender, RoutedEventArgs e)
         => ContactPopup.IsOpen = !ContactPopup.IsOpen;
 
+    private const string DeveloperEmail = "leq77751@gmail.com";
+
+    /// <summary>
+    /// Copies the address instead of launching it.
+    ///
+    /// This used to open "mailto:", which hands the address to whatever Windows has
+    /// registered for the scheme. On a machine with no desktop mail client that is the
+    /// browser, so clicking "write an email" appeared to do nothing but open a web page —
+    /// the address itself never made it anywhere useful. Copying is the part the user
+    /// actually wanted and behaves the same on every machine.
+    ///
+    /// The popup deliberately stays open: it is where the confirmation is shown, and
+    /// closing it would hide the only evidence that the click did anything.
+    /// </summary>
     private void ContactEmail_Click(object sender, RoutedEventArgs e)
     {
-        ContactPopup.IsOpen = false;
-        OpenUrl("mailto:leq77751@gmail.com");
+        try
+        {
+            Clipboard.SetText(DeveloperEmail);
+        }
+        catch
+        {
+            // Another process can hold the clipboard open; the address is on screen to be
+            // copied by hand, so there is nothing worth interrupting the user over.
+            return;
+        }
+
+        ShowEmailCopied();
+    }
+
+    /// <summary>Swaps the caption to a confirmation, then puts the original back.</summary>
+    private void ShowEmailCopied()
+    {
+        EmailCaption.SetResourceReference(System.Windows.Controls.TextBlock.TextProperty, "L.Contact.Copied");
+
+        // A single timer instance is reused so that repeated clicks cannot stack several
+        // pending restores, where the last one to fire could revert a newer confirmation.
+        _emailCopiedReset ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _emailCopiedReset.Stop();
+        _emailCopiedReset.Tick -= RestoreEmailCaption;
+        _emailCopiedReset.Tick += RestoreEmailCaption;
+        _emailCopiedReset.Start();
+    }
+
+    private DispatcherTimer? _emailCopiedReset;
+
+    private void RestoreEmailCaption(object? sender, EventArgs e)
+    {
+        _emailCopiedReset?.Stop();
+        EmailCaption.SetResourceReference(System.Windows.Controls.TextBlock.TextProperty, "L.Contact.Email");
     }
 
     private void ContactTelegram_Click(object sender, RoutedEventArgs e)

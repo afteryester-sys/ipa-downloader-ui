@@ -154,6 +154,13 @@ public sealed partial class PhotoAlbumViewModel : ObservableObject
 public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 {
     private readonly PhotoService _photos;
+
+    /// <summary>
+    /// Thumbnails kept on disk between visits, so reopening an album does not pay for the
+    /// device round trips a second time.
+    /// </summary>
+    private readonly PhotoThumbnailCache _thumbCache;
+
     private INavigator? _navigator;
     private Device? _device;
     private CancellationTokenSource? _cts;
@@ -320,9 +327,10 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     private CancellationTokenSource? _thumbCts;
 
-    public PhotosViewModel(PhotoService photos)
+    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache)
     {
         _photos = photos;
+        _thumbCache = thumbCache;
 
         // Built here rather than in a field initializer because the labels come from the
         // active language dictionary, and the filter compares the selection against the
@@ -1159,10 +1167,50 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 if (batch.Count == 0) break;
 
                 var isHeic = batch.Any(p => !p.IsVideo && IsHeicName(p.FileName));
-                if (batch.Count > (isHeic ? HeicBatchSize : JpegBatchSize))
-                    batch = batch.GetRange(0, isHeic ? HeicBatchSize : JpegBatchSize);
 
-                // First ask the device for the thumbnails iOS already rendered. These are a
+                // Captured once: the background work below runs off the UI thread, and reading
+                // the field again there could see a different device — or none — if the user
+                // unplugs mid-batch, which would file thumbnails under the wrong key.
+                var udid = _device.Udid;
+
+                // Local disk before the device. A thumbnail seen once in this album — or in a
+                // previous run of the app — is already stored, and reading it back involves no
+                // USB, no AFC session and no per-file protocol exchange. This is what makes a
+                // revisited album fill immediately instead of rebuilding itself tile by tile.
+                var cachedBytes = await Task.Run(() =>
+                {
+                    var map = new Dictionary<string, byte[]>();
+                    foreach (var item in batch)
+                    {
+                        if (ct.IsCancellationRequested) break;
+
+                        var bytes = _thumbCache.TryRead(udid, item.Item.RemotePath);
+                        if (bytes is not null) map[item.Item.RemotePath] = bytes;
+                    }
+                    return map;
+                }, ct).ConfigureAwait(false);
+
+                // Only the misses are worth asking the device about, and only those are capped.
+                // The batch limits exist to keep the loader responsive while it waits on the
+                // device and to bound peak memory when whole HEIC files are in flight — neither
+                // applies to a local few-KB read, so throttling cache hits to four at a time
+                // would slow a revisited album down for no reason. Cached tiles all appear at
+                // once; the fetched ones stay rationed.
+                var needDevice = batch.Where(p => !cachedBytes.ContainsKey(p.Item.RemotePath)).ToList();
+                var deviceCap = isHeic ? HeicBatchSize : JpegBatchSize;
+                if (needDevice.Count > deviceCap)
+                {
+                    needDevice = needDevice.GetRange(0, deviceCap);
+
+                    // Whatever was dropped stays untouched this pass: it is neither decoded nor
+                    // marked attempted, so the next pass picks it up.
+                    var kept = new HashSet<PhotoItemViewModel>(needDevice);
+                    batch = batch
+                        .Where(p => cachedBytes.ContainsKey(p.Item.RemotePath) || kept.Contains(p))
+                        .ToList();
+                }
+
+                // Then ask the device for the thumbnails iOS already rendered. These are a
                 // few KB each, against multi-MB HEIC and ~25 MB DNG source files, which is
                 // what made a screenful of tiles take many seconds to appear. They also
                 // cover formats Windows cannot decode at all (DNG, or HEIC with no codec),
@@ -1170,9 +1218,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 Dictionary<string, byte[]> thumbMap;
                 try
                 {
-                    thumbMap = await _photos
-                        .ReadIosThumbnailsAsync(_device.Udid, batch.Select(p => p.Item).ToList(), ct)
-                        .ConfigureAwait(false);
+                    thumbMap = needDevice.Count == 0
+                        ? new Dictionary<string, byte[]>()
+                        : await _photos
+                            .ReadIosThumbnailsAsync(_device.Udid, needDevice.Select(p => p.Item).ToList(), ct)
+                            .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { return; }
                 catch { thumbMap = new Dictionary<string, byte[]>(); }
@@ -1181,7 +1231,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 // excluded: WPF cannot decode MOV/MP4, so pulling those bytes could never
                 // produce a picture. It only cost time and left the tile blank anyway; the
                 // tile now shows a film icon instead.
-                var needSource = batch
+                var needSource = needDevice
                     .Where(p => !thumbMap.ContainsKey(p.Item.RemotePath) && !p.IsVideo)
                     .ToList();
 
@@ -1209,6 +1259,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                     {
                         if (ct.IsCancellationRequested) break;
 
+                        // Previously cached on disk: already a small JPEG, so this is one
+                        // cheap decode with nothing fetched.
+                        if (cachedBytes.TryGetValue(item.Item.RemotePath, out var diskBytes))
+                        {
+                            var fromDisk = TryDecodeThumbnail(diskBytes, ThumbnailWidth);
+                            if (fromDisk is not null)
+                            {
+                                result.Add((item, fromDisk));
+                                continue;
+                            }
+                        }
+
                         // Device thumbnail: a small JPEG, so one cheap decode and done.
                         if (thumbMap.TryGetValue(item.Item.RemotePath, out var thumbBytes)
                             && thumbBytes is { Length: > 0 })
@@ -1216,6 +1278,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                             var fromDevice = TryDecodeThumbnail(thumbBytes, ThumbnailWidth);
                             if (fromDevice is not null)
                             {
+                                // Stored as handed over: it is already a compact JPEG, so
+                                // re-encoding it would only lose quality for no saving.
+                                _thumbCache.Write(udid, item.Item.RemotePath, thumbBytes);
                                 result.Add((item, fromDevice));
                                 continue;
                             }
@@ -1233,7 +1298,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                             ? TryDecodeThumbnail(bytes, ThumbnailWidth)
                             : TryExtractExifThumbnailAsBitmapImage(bytes)
                               ?? TryDecodeThumbnail(bytes, ThumbnailWidth);
-                        if (thumb is not null) result.Add((item, thumb));
+                        if (thumb is null) continue;
+
+                        // Re-encoded rather than storing the source bytes. These are the
+                        // expensive cases — a HEIC needed the whole multi-MB file read and a
+                        // codec pass to get here — so keeping the result is worth most: the
+                        // stored tile is a few KB, and next time it costs neither the read nor
+                        // the decode.
+                        var encoded = TryEncodeThumbnailJpeg(thumb);
+                        if (encoded is not null)
+                            _thumbCache.Write(udid, item.Item.RemotePath, encoded);
+
+                        result.Add((item, thumb));
                     }
                     return result;
                 }, ct).ConfigureAwait(false);
@@ -1265,8 +1341,13 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                         // Videos count as attempted either way: there is no second thing
                         // to try for them, and leaving them unmarked would make the loader
                         // hand back the same batch forever and never idle.
+                        // A cache hit counts as attempted even when it failed to decode. Those
+                        // items are excluded from the device fetch, so without this a single
+                        // corrupt cache file would be handed back by every pass and the loader
+                        // would never go idle.
                         foreach (var item in batch)
                             if (item.IsVideo
+                                || cachedBytes.ContainsKey(item.Item.RemotePath)
                                 || rawMap.ContainsKey(item.Item.RemotePath)
                                 || thumbMap.ContainsKey(item.Item.RemotePath))
                                 item.ThumbnailAttempted = true;
@@ -1477,6 +1558,31 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             img.EndInit();
             img.Freeze();
             return img;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Encodes an already-decoded thumbnail as JPEG for the disk cache.
+    ///
+    /// JPEG rather than PNG because these are photographs, where PNG would be several times
+    /// larger for no visible gain across a library-sized cache. Quality is set below the
+    /// default: the image is a thumbnail that will never be enlarged, so artefacts at this
+    /// size are not visible, and the file stays a few KB.
+    ///
+    /// Returns null on failure so the caller simply skips caching; the tile itself is already
+    /// decoded and is shown either way.
+    /// </summary>
+    private static byte[]? TryEncodeThumbnailJpeg(BitmapImage image)
+    {
+        try
+        {
+            var encoder = new JpegBitmapEncoder { QualityLevel = 80 };
+            encoder.Frames.Add(BitmapFrame.Create(image));
+
+            using var ms = new MemoryStream();
+            encoder.Save(ms);
+            return ms.ToArray();
         }
         catch { return null; }
     }

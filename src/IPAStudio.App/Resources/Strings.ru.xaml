@@ -223,6 +223,7 @@
     <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
+    <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
     <sys:String x:Key="L.Cache.Item.Temp">Временные файлы</sys:String>
     <sys:String x:Key="L.Cache.Item.Logs">Журналы за прошлые дни</sys:String>
@@ -269,6 +270,7 @@
     <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoBonjour">Служба Apple Bonjour не установлена или отключена. Без неё устройства по сети найти невозможно: именно она сообщает, какие iPhone откликаются. Переустановите iTunes с apple.com — Bonjour входит в состав установщика.</sys:String>
     <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
     <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
 
@@ -324,6 +326,7 @@
     <!-- Ошибки установки -->
     <sys:String x:Key="L.Install.Error.CoordinatedInstall">На устройстве осталась незавершённая загрузка этого приложения из App Store. Удалите значок приложения с экрана «Домой» — в том числе тусклый или наполовину установленный — и повторите попытку.</sys:String>
     <sys:String x:Key="L.Install.Error.NoSpace">На устройстве недостаточно свободного места.</sys:String>
+    <sys:String x:Key="L.Install.Error.ExtractionFailed">Устройству не удалось распаковать приложение. Почти всегда причина — нехватка места: при установке нужен запас в 2–3 размера приложения, поэтому ошибка появляется, даже когда немного свободного места ещё показано. Освободите место в «Настройки — Основные — Хранилище iPhone» и повторите.</sys:String>
     <sys:String x:Key="L.Install.Error.Verification">Проверка приложения не пройдена: IPA повреждён или его подпись недействительна.</sys:String>
     <sys:String x:Key="L.Install.Error.CertRevoked">Сертификат подписи отозван. Используйте другой IPA.</sys:String>
     <sys:String x:Key="L.Install.Error.Incompatible">IPA несовместим с версией iOS на устройстве.</sys:String>
@@ -453,7 +456,8 @@
 
     <!-- Всплывающее окно контактов -->
     <sys:String x:Key="L.Contact.Title">Связаться с разработчиком</sys:String>
-    <sys:String x:Key="L.Contact.Email">Написать письмо</sys:String>
+    <sys:String x:Key="L.Contact.Email">Скопировать адрес</sys:String>
+    <sys:String x:Key="L.Contact.Copied">Адрес скопирован</sys:String>
     <sys:String x:Key="L.Contact.Telegram">Написать в Telegram</sys:String>
 
     <!-- Заголовок выбора приложений -->

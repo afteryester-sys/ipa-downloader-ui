@@ -229,3 +229,34 @@ public sealed class BatteryToBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// A length minus the pixels named in the parameter, never below a usable floor.
+///
+/// Used to cap a popup at the height of the window it belongs to. A WPF popup is its own
+/// top-level window, so the main window does not clip it and a menu taller than the window
+/// simply hung past the bottom edge. Subtracting the popup's own offset and shadow margin
+/// from the window height gives the room actually available to it.
+///
+/// The floor matters on a very short window, where the difference would otherwise reach zero
+/// or go negative and collapse the menu to nothing.
+/// </summary>
+public sealed class SubtractConverter : IValueConverter
+{
+    private const double MinimumUsableHeight = 180;
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not double available || double.IsNaN(available)) return double.PositiveInfinity;
+
+        var reserve = parameter is string text
+            && double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : 0;
+
+        return Math.Max(MinimumUsableHeight, available - reserve);
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

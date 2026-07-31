@@ -72,6 +72,7 @@ public partial class App : Application
         services.AddSingleton<CatalogService>();
         services.AddSingleton<DeviceService>();
         services.AddSingleton<PhotoService>();
+        services.AddSingleton<PhotoThumbnailCache>();
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
         services.AddSingleton<QueueService>();

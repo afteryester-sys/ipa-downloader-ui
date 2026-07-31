@@ -535,6 +535,16 @@ public sealed class QueueService
         if (lower.Contains("notenoughdiskspace") || lower.Contains("insufficient space"))
             return Loc.Get("L.Install.Error.NoSpace");
 
+        // installd unpacks the .ipa into a staging area on the device before it installs
+        // anything, and when that unpack cannot complete it reports only
+        // "PackageExtractionFailed" — it does not say why. In practice the cause is almost
+        // always a full device: the archive needs room for both itself and its expanded
+        // contents, so extraction fails while the phone still shows a little space free.
+        // Previously this fell through to "unknown error", which sent people looking at the
+        // IPA and the cable instead of at their storage.
+        if (lower.Contains("packageextractionfailed") || lower.Contains("failed to extract"))
+            return Loc.Get("L.Install.Error.ExtractionFailed");
+
         if (lower.Contains("applicationverificationfailed") || lower.Contains("verification failed"))
             return Loc.Get("L.Install.Error.Verification");
 
