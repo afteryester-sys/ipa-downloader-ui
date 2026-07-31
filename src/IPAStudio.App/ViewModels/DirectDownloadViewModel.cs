@@ -70,7 +70,14 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private bool _isInCatalog;
 
     /// <summary>An app was found and is not in the catalog yet.</summary>
-    public bool CanAddToCatalog => FoundApp is not null && !IsInCatalog;
+    /// <summary>
+    /// Provisional entries are excluded: the catalog is keyed by store id and holds the
+    /// metadata shown in the app list, so saving one would add a permanent row with a bundle
+    /// id for a name, no icon and an id of zero — which would then collide with every other
+    /// such row.
+    /// </summary>
+    public bool CanAddToCatalog =>
+        FoundApp is { IsProvisional: false, AppStoreId: > 0 } && !IsInCatalog;
 
     partial void OnFoundAppChanged(AppEntry? value) => OnPropertyChanged(nameof(CanAddToCatalog));
 
@@ -212,8 +219,26 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             FoundApp = app;
             FoundIconUrl = app.IconUrl;
             IsInCatalog = _catalog.IsInCatalog(app.AppStoreId);
-            StatusText = null;
-            AppLog.Info($"Direct download: found '{app.Name}' ({app.BundleId}) id={app.AppStoreId}");
+
+            // A provisional entry means the public catalog does not list this app, so there is
+            // no name, size or version to show — only the identifier the user typed. Saying so
+            // explains the bare panel instead of letting it look like a half-failed lookup.
+            //
+            // The two kinds of identifier are not equally hopeful, and it would be misleading
+            // to imply otherwise. A numeric app id goes to ipatool as "-i", which hands it
+            // straight to the store without ever consulting the catalog, so an unlisted app
+            // really can download. A bundle id goes as "-b", which makes ipatool resolve it
+            // through the same public catalog that just came up empty — and it queries only
+            // the account's own storefront, where this app is searched already. That is very
+            // likely to fail, so the user is told to find the numeric id instead of being
+            // sent to retry hopefully.
+            StatusText = app.IsProvisional
+                ? Str(app.AppStoreId > 0 ? "L.Direct.Unlisted" : "L.Direct.UnlistedBundle")
+                : null;
+
+            AppLog.Info(app.IsProvisional
+                ? $"Direct download: '{BundleId.Trim()}' is not in the public catalog; will try the store directly"
+                : $"Direct download: found '{app.Name}' ({app.BundleId}) id={app.AppStoreId}");
         }
         catch (Exception ex)
         {
@@ -356,6 +381,9 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 // instead of leaving a dead-end error on screen.
                 if (result.SessionExpired)
                 {
+                    // Cleared first, or the login screen would find a cached account still
+                    // present, decide there is nothing to do and skip straight past itself.
+                    _auth.InvalidateSession();
                     OnPropertyChanged(nameof(IsSignedIn));
                     _navigator?.GoTo(Page.Login);
                 }

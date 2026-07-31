@@ -333,13 +333,56 @@ public sealed class CatalogService
     /// Resolves whatever the user typed (bundle id, numeric id or store link) into
     /// catalog entries. Unrecognized input yields an empty list rather than a network call.
     /// </summary>
-    public Task<IReadOnlyList<AppEntry>> FindAsync(AppQuery query, CancellationToken ct = default)
-        => query.Kind switch
+    public async Task<IReadOnlyList<AppEntry>> FindAsync(AppQuery query, CancellationToken ct = default)
+    {
+        // Typed explicitly: the arms are IReadOnlyList and AppEntry[], and leaving the
+        // compiler to reconcile them is a needless way to break the build.
+        IReadOnlyList<AppEntry> found = query.Kind switch
         {
-            AppQueryKind.BundleId   => SearchByBundleIdAsync(query.BundleId!, ct),
-            AppQueryKind.AppStoreId => LookupByAppStoreIdAsync(query.AppStoreId, ct),
-            _                       => Task.FromResult<IReadOnlyList<AppEntry>>(Array.Empty<AppEntry>()),
+            AppQueryKind.BundleId   => await SearchByBundleIdAsync(query.BundleId!, ct).ConfigureAwait(false),
+            AppQueryKind.AppStoreId => await LookupByAppStoreIdAsync(query.AppStoreId, ct).ConfigureAwait(false),
+            _                       => Array.Empty<AppEntry>(),
         };
+
+        if (found.Count > 0) return found;
+
+        // Nothing in any storefront. That is not the same as "no such app": the lookup API
+        // lists only what is currently on sale, so an app pulled from sale, limited to a
+        // storefront, or never listed publicly comes back empty here while the App Store
+        // still serves it to an Apple ID that owns it. Reporting it as non-existent was
+        // wrong for exactly the apps a user is most likely to be rescuing.
+        //
+        // So the identifier the user gave is carried forward as a provisional entry and the
+        // download is allowed to be the judge — it talks to the authenticated store, which
+        // is the only thing that actually knows. A numeric id is enough on its own; a bundle
+        // id makes ipatool resolve it through the store, which may still fail, but failing
+        // at the download says something true instead of guessing beforehand.
+        var provisional = ProvisionalEntry(query);
+        return provisional is null ? found : new[] { provisional };
+    }
+
+    /// <summary>
+    /// An entry standing in for an app the public catalog does not list, built only from
+    /// what the user typed. Null when the query names nothing identifiable.
+    /// </summary>
+    private static AppEntry? ProvisionalEntry(AppQuery query) => query.Kind switch
+    {
+        AppQueryKind.BundleId => new AppEntry
+        {
+            // No name is known, so the identifier is shown rather than inventing one.
+            Name = query.BundleId!,
+            AppStoreId = 0,
+            BundleId = query.BundleId,
+            IsProvisional = true,
+        },
+        AppQueryKind.AppStoreId => new AppEntry
+        {
+            Name = query.AppStoreId.ToString(),
+            AppStoreId = query.AppStoreId,
+            IsProvisional = true,
+        },
+        _ => null,
+    };
 
     /// <summary>
     /// Shared iTunes Lookup call. <paramref name="queryParam"/> is the already-escaped

@@ -20,8 +20,13 @@ public sealed partial class InstalledAppViewModel : ObservableObject
 {
     public InstalledApp App { get; }
 
-    /// <summary>Apple ID currently signed in, or null when nobody is.</summary>
-    private readonly string? _account;
+    /// <summary>
+    /// Apple ID currently signed in, or null when nobody is.
+    ///
+    /// Not readonly: a download can discover mid-session that Apple has rejected the token,
+    /// and every row's button state is derived from this.
+    /// </summary>
+    private string? _account;
 
     /// <summary>
     /// False when the device listing carried no store metadata at all (the plain-text
@@ -86,6 +91,23 @@ public sealed partial class InstalledAppViewModel : ObservableObject
 
     /// <summary>True when the account is unverifiable, so the UI can say so plainly.</summary>
     public bool IsAccountUnverified => CanDownload && AccountMatches is null;
+
+    /// <summary>
+    /// Re-reads the signed-in account after it changed underneath the row, so the button and
+    /// the reason beside it stop describing a session that is gone.
+    /// </summary>
+    public void OnSignInStateChanged(string? account)
+    {
+        _account = account;
+        OnPropertyChanged(nameof(AccountMatches));
+        OnPropertyChanged(nameof(CanDownload));
+        OnPropertyChanged(nameof(BlockedReason));
+        OnPropertyChanged(nameof(IsAccountUnverified));
+
+        // A row that can no longer be downloaded must not stay ticked, or the batch button
+        // would keep counting it and refuse to run with nothing it is allowed to fetch.
+        if (!CanDownload) IsSelected = false;
+    }
 
     /// <summary>
     /// Ticked for a batch download.
@@ -378,6 +400,16 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
                 done++;
 
+                // The download just found the session dead, so every app still queued would
+                // fail the same way. Stopping keeps the run from printing "sign in" once per
+                // app and from making that many pointless round trips to Apple. The rows
+                // untick themselves, since none of them can be downloaded until a new sign-in.
+                if (!_auth.IsAuthenticated)
+                {
+                    BatchStatus = Loc.Get("L.OnDevice.NeedLogin");
+                    return;
+                }
+
                 // A cancelled row means the user pressed Cancel: stopping the batch there is
                 // the only reading of that click that does not fight the user.
                 if (app.SavedPath is null && app.ErrorText is null) break;
@@ -544,6 +576,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
                         ? Loc.Get("L.OnDevice.NotOwned")
                         : result.Error ?? Loc.Get("L.Error.DownloadFailed");
 
+                // Apple has rejected the stored token, so the account shown in the header is
+                // no longer real. Dropping it makes the page agree with the message it just
+                // printed: asking someone to sign in while their address sits at the top of
+                // the same window reads as a bug, and they retry instead of signing in.
+                if (result.SessionExpired) HandleSessionExpired();
+
                 if (!string.IsNullOrWhiteSpace(result.Detail))
                     AppLog.Warn($"On-device download failed: {result.Detail}");
                 return;
@@ -588,6 +626,28 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         {
             // The download finished between the click and the cancel: nothing left to stop.
         }
+    }
+
+    /// <summary>
+    /// Clears the session the store just rejected and brings the whole page in line with it.
+    ///
+    /// Without this the header kept naming a signed-in Apple ID while each row asked the user
+    /// to sign in — a contradiction that reads as a bug, so the natural response is to retry
+    /// rather than to sign in, and every retry fails the same way.
+    /// </summary>
+    private void HandleSessionExpired()
+    {
+        if (!_auth.IsAuthenticated) return;
+
+        _auth.InvalidateSession();
+
+        OnPropertyChanged(nameof(IsSignedIn));
+        OnPropertyChanged(nameof(AccountEmail));
+
+        foreach (var row in Apps)
+            row.OnSignInStateChanged(null);
+
+        RefreshSelectionState();
     }
 
     /// <summary>Stops every transfer in flight, used when the page is left.</summary>
