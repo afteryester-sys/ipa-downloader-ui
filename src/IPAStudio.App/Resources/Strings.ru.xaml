@@ -321,6 +321,8 @@
     <sys:String x:Key="L.Error.ToolFailure">Не удалось запустить служебную утилиту. Переустановите утилиты в настройках.</sys:String>
 
     <!-- Ошибки установки -->
+    <sys:String x:Key="L.Install.Error.CoordinatedInstall">На устройстве осталась незавершённая загрузка этого приложения из App Store. Удалите значок приложения с экрана «Домой» — в том числе тусклый или наполовину установленный — и повторите попытку.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoSpace">На устройстве недостаточно свободного места.</sys:String>
     <sys:String x:Key="L.Install.Error.Verification">Проверка приложения не пройдена: IPA повреждён или его подпись недействительна.</sys:String>
     <sys:String x:Key="L.Install.Error.CertRevoked">Сертификат подписи отозван. Используйте другой IPA.</sys:String>
     <sys:String x:Key="L.Install.Error.Incompatible">IPA несовместим с версией iOS на устройстве.</sys:String>

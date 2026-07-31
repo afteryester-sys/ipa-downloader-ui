@@ -95,6 +95,8 @@ public static class Loc
         ["L.Error.ToolFailure"] = "The helper utility could not be started. Reinstall the utilities from Settings.",
 
         // Install failures (translated ideviceinstaller output)
+        ["L.Install.Error.CoordinatedInstall"] = "The device is still holding an unfinished App Store download of this app. Delete the app's icon from the home screen — including a dimmed or half-installed one — then try again.",
+        ["L.Install.Error.NoSpace"] = "Not enough free space on the device.",
         ["L.Install.Error.Verification"] = "App verification failed: the IPA is damaged or its signature is invalid.",
         ["L.Install.Error.CertRevoked"] = "The signing certificate has been revoked. Use a different IPA.",
         ["L.Install.Error.Incompatible"] = "This IPA is not compatible with the iOS version on the device.",

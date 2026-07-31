@@ -522,6 +522,19 @@ public sealed class QueueService
 
         var lower = raw.ToLowerInvariant();
 
+        // Checked first: installd wraps this one as a generic "APIInternalError", and the
+        // broad substring tests further down would otherwise claim it. The device is holding
+        // a reservation for this bundle id made by AirTraffic — the App Store's own installer
+        // — from a download that never finished, usually the dimmed icon left on the home
+        // screen. No second installer may touch a reserved bundle id, so every retry over the
+        // cable fails identically until that icon is deleted.
+        if (lower.Contains("coordinated app install already exists") ||
+            lower.Contains("ixcoordinatorscope"))
+            return Loc.Get("L.Install.Error.CoordinatedInstall");
+
+        if (lower.Contains("notenoughdiskspace") || lower.Contains("insufficient space"))
+            return Loc.Get("L.Install.Error.NoSpace");
+
         if (lower.Contains("applicationverificationfailed") || lower.Contains("verification failed"))
             return Loc.Get("L.Install.Error.Verification");
 

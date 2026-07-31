@@ -14,8 +14,13 @@ namespace IPAStudio.Core.Tools;
 /// </param>
 /// <param name="SinfCount">How many <c>.sinf</c> licence blobs the archive contains.</param>
 /// <param name="RequiredSinfPaths">
-/// Bundle-relative paths the app's own <c>SC_Info/Manifest.plist</c> says need a blob — one
-/// per encrypted binary, so an app with extensions or a watch app needs several.
+/// The main executable's blob path, taken from the app's own <c>SC_Info/Manifest.plist</c>.
+///
+/// Only the main binary is counted. The manifest also lists a replication path for every
+/// framework and extension in the bundle, but the store issues a single blob for the app and
+/// those nested paths are where the device copies it to, not separate licences that were
+/// meant to be in the archive. Counting them made every normal IPA look nine tenths
+/// unlicensed — 1/11, 1/41, 1/123 — and buried the one case that is genuinely broken.
 /// </param>
 /// <param name="MissingSinfPaths">
 /// Those of <paramref name="RequiredSinfPaths"/> that are absent from the archive. Advisory
@@ -41,7 +46,10 @@ public sealed record IpaLicenseReport(
     /// </summary>
     public bool IsDefinitelyUnlicensed => ReadError is null && (!HasMetadata || SinfCount == 0);
 
-    /// <summary>True when some binaries have a blob and others do not.</summary>
+    /// <summary>
+    /// True when the archive carries blobs but not the one the manifest names for the main
+    /// executable. Rare, and unlike the framework paths this genuinely should stop it running.
+    /// </summary>
     public bool IsPartiallyLicensed => ReadError is null && SinfCount > 0 && MissingSinfPaths.Count > 0;
 
     /// <summary>One log line describing what was found.</summary>
@@ -211,7 +219,14 @@ public static partial class IpaLicense
             var text = Encoding.Latin1.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
 
             return SinfPathRegex().Matches(text)
-                .Select(m => bundleRoot + m.Value.TrimStart('/'))
+                .Select(m => m.Value.TrimStart('/'))
+                // Keep only the main executable's own blob: "SC_Info/<App>.sinf" sits at the
+                // bundle root, whereas a replication path always descends through a nested
+                // bundle first ("Frameworks/X.framework/SC_Info/X.sinf"). Matching on that
+                // shape works for both plist encodings, unlike scoping the scan to the
+                // SinfPaths array, whose key is not adjacent to its values in a binary plist.
+                .Where(p => p.StartsWith("SC_Info/", StringComparison.OrdinalIgnoreCase))
+                .Select(p => bundleRoot + p)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
         }
