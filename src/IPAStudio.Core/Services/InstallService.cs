@@ -119,12 +119,12 @@ public sealed partial class InstallService
 
         if (license.IsPartiallyLicensed)
         {
-            // Some binaries have a blob and others do not, which is what an app with
-            // extensions or a watch app looks like when only the legacy main-binary path was
-            // written. The main executable may well still launch, so this is allowed through
-            // with the detail recorded: refusing an app that works would be the worse call.
-            AppLog.Warn("IPA licence is incomplete; the app may launch but its extensions " +
-                        $"may not: {license.Describe()}");
+            // The archive has blobs but not the one the manifest names for the main
+            // executable. That should stop it launching, yet it is only logged: the previous
+            // version of this check was itself too eager, and refusing an app that turns out
+            // to run is worse than a line in the log.
+            AppLog.Warn("IPA is missing the blob its manifest names for the main binary; " +
+                        $"it may not launch: {license.Describe()}");
         }
 
         await _deviceLock.WaitAsync(ct).ConfigureAwait(false);

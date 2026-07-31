@@ -912,7 +912,8 @@ public sealed partial class DownloadService
                 AppLog.Warn($"Downloaded {app.Name} WITHOUT a FairPlay licence — " +
                             $"it will install but not launch: {license.Describe()}");
             else if (license.IsPartiallyLicensed)
-                AppLog.Warn($"Downloaded {app.Name} with an incomplete licence: {license.Describe()}");
+                AppLog.Warn($"Downloaded {app.Name} without the blob its manifest names for " +
+                            $"the main binary: {license.Describe()}");
             else
                 AppLog.Info($"Licence check for {app.Name}: {license.Describe()}");
 

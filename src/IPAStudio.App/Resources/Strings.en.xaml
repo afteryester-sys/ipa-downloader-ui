@@ -321,6 +321,8 @@
     <sys:String x:Key="L.Error.ToolFailure">The helper utility could not be started. Reinstall the utilities from Settings.</sys:String>
 
     <!-- Install errors -->
+    <sys:String x:Key="L.Install.Error.CoordinatedInstall">The device is still holding an unfinished App Store download of this app. Delete the app's icon from the home screen — including a dimmed or half-installed one — then try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoSpace">Not enough free space on the device.</sys:String>
     <sys:String x:Key="L.Install.Error.Verification">App verification failed: the IPA is damaged or its signature is invalid.</sys:String>
     <sys:String x:Key="L.Install.Error.CertRevoked">The signing certificate has been revoked. Use a different IPA.</sys:String>
     <sys:String x:Key="L.Install.Error.Incompatible">This IPA is not compatible with the iOS version on the device.</sys:String>
