@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -309,6 +309,7 @@
     <sys:String x:Key="L.Install.Error.MissingEntitlement">The IPA requires entitlements that need a paid Apple Developer account.</sys:String>
     <sys:String x:Key="L.Install.Error.NotPurchased">This app was not purchased with the signed-in Apple ID. Try “Install IPA from file” instead.</sys:String>
     <sys:String x:Key="L.Install.Error.Authenticate">Authentication failed. Unlock the device and check the connection.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>
 
     <!-- Sign-in errors -->

@@ -87,8 +87,27 @@ public static class NativeDevice
 
                 using (client)
                 {
-                    using var value = plist.plist_new_bool(enabled ? (char)1 : (char)0);
+                    // lockdownd_set_value TAKES OWNERSHIP of the value node: it hands it to
+                    // plist_dict_set_item(dict, "Value", value) and then frees that dict, which
+                    // frees the value along with it. Wrapping the handle in `using` as well
+                    // released the same native node a second time.
+                    //
+                    // A double free corrupts the native heap; it is not an exception, so the
+                    // catch below never saw it and never could have. That is what took the whole
+                    // process down when this setting was switched on. Corruption also tends to
+                    // surface at some later, unrelated allocation rather than at this line, which
+                    // is why the symptom was "the app quits after enabling Wi-Fi" with nothing
+                    // useful in the log.
+                    var value = plist.plist_new_bool(enabled ? (char)1 : (char)0);
                     var set = lockdown.lockdownd_set_value(client, WirelessDomain, WifiConnectionsKey, value);
+
+                    // The one path that does not consume the value is the argument check at the
+                    // top of the native function, where it is still ours to release. On every
+                    // other outcome the node is already gone, so the handle is abandoned without
+                    // running its release.
+                    if (set == LockdownError.InvalidArg) value.Dispose();
+                    else value.SetHandleAsInvalid();
+
                     if (set != LockdownError.Success)
                     {
                         error = $"lockdownd_set_value: {set}";
