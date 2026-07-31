@@ -32,8 +32,21 @@ public sealed class InstallResult
 {
     public bool Success { get; init; }
     public string? Error { get; init; }
+
+    /// <summary>
+    /// Set when the attempt was refused because the IPA carries no FairPlay licence, or when
+    /// the installer reported that it could not pass one on. Kept apart from an ordinary
+    /// failure because the remedy differs: nothing is wrong with the device or the cable, the
+    /// file itself is incomplete and has to be fetched again.
+    /// </summary>
+    public bool LicenseMissing { get; init; }
+
     public static InstallResult Ok() => new() { Success = true };
     public static InstallResult Fail(string error) => new() { Error = error };
+
+    /// <summary>An IPA that would install cleanly and then refuse to launch.</summary>
+    public static InstallResult NoLicense(string detail) =>
+        new() { Error = detail, LicenseMissing = true };
 }
 
 /// <summary>
@@ -84,6 +97,36 @@ public sealed partial class InstallService
         long totalBytes = 0;
         try { totalBytes = new FileInfo(ipaPath).Length; } catch { /* size is cosmetic */ }
 
+        // ---- Phase 0: is this archive even licensed? --------------------------------
+        // An App Store IPA is FairPlay-encrypted, and the key material travels beside the
+        // bundle rather than inside it (iTunesMetadata.plist plus one SC_Info/*.sinf per
+        // encrypted binary). installd verifies only Apple's signature, which is intact
+        // either way, so an archive with no licence installs successfully and the app then
+        // dies the instant it is launched — the exact "installs fine, will not open"
+        // complaint. Reading the zip directory costs milliseconds, so it is checked before
+        // several hundred megabytes are pushed over the cable rather than after.
+        var license = IpaLicense.Inspect(ipaPath);
+        AppLog.Info($"Install licence check: {license.Describe()}");
+
+        if (license.IsDefinitelyUnlicensed)
+        {
+            // Refused rather than attempted. Installing it would report success and leave an
+            // app on the home screen that cannot start, which is a worse outcome than a clear
+            // message: the user would have no way to tell that from a broken phone.
+            return InstallResult.NoLicense(
+                $"IPA has no FairPlay licence ({license.Describe()})");
+        }
+
+        if (license.IsPartiallyLicensed)
+        {
+            // Some binaries have a blob and others do not, which is what an app with
+            // extensions or a watch app looks like when only the legacy main-binary path was
+            // written. The main executable may well still launch, so this is allowed through
+            // with the detail recorded: refusing an app that works would be the worse call.
+            AppLog.Warn("IPA licence is incomplete; the app may launch but its extensions " +
+                        $"may not: {license.Describe()}");
+        }
+
         await _deviceLock.WaitAsync(ct).ConfigureAwait(false);
 
         string installPath = ipaPath;
@@ -96,6 +139,7 @@ public sealed partial class InstallService
 
             var failed = false;
             string? errorLine = null;
+            string? licenseWarning = null;
             var copying = true;
             var phaseStart = DateTimeOffset.UtcNow;
 
@@ -131,6 +175,25 @@ public sealed partial class InstallService
                 {
                     copying = false;
                     progress?.Report(new InstallProgress(100, "Complete", totalBytes));
+                }
+
+                // ideviceinstaller announces a missing licence as a WARNING and then carries
+                // on to install the app anyway and exit 0:
+                //
+                //     WARNING: could not locate iTunesMetadata.plist in archive!
+                //     WARNING: could not locate Payload/X.app/SC_Info/X.sinf in archive!
+                //
+                // Only ERROR and "failed" were examined before, so these lines were dropped on
+                // the floor and the install was reported as a success. The app on the phone
+                // then would not open, and nothing anywhere said why — the tool had in fact
+                // said so all along.
+                if (line.Contains("WARNING", StringComparison.OrdinalIgnoreCase) &&
+                    (line.Contains("sinf", StringComparison.OrdinalIgnoreCase) ||
+                     line.Contains("iTunesMetadata", StringComparison.OrdinalIgnoreCase)))
+                {
+                    licenseWarning = line;
+                    AppLog.Warn($"ideviceinstaller: {line}");
+                    return;
                 }
 
                 if (line.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
@@ -177,7 +240,16 @@ public sealed partial class InstallService
             try { await heartbeat.ConfigureAwait(false); } catch { /* nothing to salvage */ }
 
             if (result.Success && !failed)
+            {
+                // The install itself worked, but the installer told us it had no licence to
+                // hand over, so the app on the home screen will not start. Reporting this as
+                // a success is what made the failure invisible; it is surfaced as a licence
+                // problem instead, which is what it is.
+                if (licenseWarning is not null)
+                    return InstallResult.NoLicense(licenseWarning);
+
                 return InstallResult.Ok();
+            }
 
             return InstallResult.Fail(errorLine ?? Truncate(result.CombinedOutput) ?? "Installation failed");
         }

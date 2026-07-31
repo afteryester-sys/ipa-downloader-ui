@@ -244,7 +244,7 @@
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Preparing">Настраиваю устройства…</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
-    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключи��е iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
     <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
@@ -309,6 +309,7 @@
     <sys:String x:Key="L.Install.Error.MissingEntitlement">IPA требует прав, для которых нужен платный аккаунт Apple Developer.</sys:String>
     <sys:String x:Key="L.Install.Error.NotPurchased">Это приложение не куплено текущим Apple ID. Попробуйте «Установить IPA из файла».</sys:String>
     <sys:String x:Key="L.Install.Error.Authenticate">Не удалось пройти проверку. Разблокируйте устройство и проверьте подключение.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoLicense">У этого IPA нет лицензии App Store — приложение установится, но не запустится. Скачайте его заново под тем Apple ID, которому оно принадлежит, и убедитесь, что этот же Apple ID выполнил вход на устройстве в «Настройки › App Store».</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">Не удалось установить приложение. Подробности в журнале.</sys:String>
 
     <!-- Ошибки входа -->

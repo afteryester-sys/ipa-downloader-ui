@@ -901,6 +901,21 @@ public sealed partial class DownloadService
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
             TryCleanStaging(stagingDir);
+
+            // The repackaging step that puts the FairPlay licence into the archive belongs to
+            // ipatool, and a download that exits 0 without it is indistinguishable from a good
+            // one by size or exit code alone. Record what actually landed on disk: an archive
+            // missing its licence installs cleanly and then will not launch, and this log line
+            // is what tells that apart from a device fault later on.
+            var license = IpaLicense.Inspect(finalPath);
+            if (license.IsDefinitelyUnlicensed)
+                AppLog.Warn($"Downloaded {app.Name} WITHOUT a FairPlay licence — " +
+                            $"it will install but not launch: {license.Describe()}");
+            else if (license.IsPartiallyLicensed)
+                AppLog.Warn($"Downloaded {app.Name} with an incomplete licence: {license.Describe()}");
+            else
+                AppLog.Info($"Licence check for {app.Name}: {license.Describe()}");
+
             return (DownloadResult.Ok(finalPath), false);
         }
 

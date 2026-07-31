@@ -483,7 +483,13 @@ public sealed class QueueService
         {
             if (!string.IsNullOrWhiteSpace(installResult.Error))
                 AppLog.Warn($"Install of '{item.App.Name}' failed: {installResult.Error}");
-            Fail(item, DescribeInstallError(installResult.Error));
+
+            // A missing FairPlay licence is not a device problem, and the generic advice
+            // ("unlock the phone", "reconnect the cable") would send the user chasing the
+            // wrong thing entirely: the app installs perfectly and simply cannot start.
+            Fail(item, installResult.LicenseMissing
+                ? Loc.Get("L.Install.Error.NoLicense")
+                : DescribeInstallError(installResult.Error));
             return;
         }
 
