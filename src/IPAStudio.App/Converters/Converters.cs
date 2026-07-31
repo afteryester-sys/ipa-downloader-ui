@@ -195,6 +195,27 @@ public sealed class IntEqualsToVisibilityConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>
+/// Device log severity -> brush. Failures are red and background chatter is muted, so the
+/// handful of lines that actually name a cause stand out at a glance.
+/// </summary>
+public sealed class SyslogSeverityToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value switch
+        {
+            Core.Services.SyslogSeverity.Critical => "Brush.Danger",
+            Core.Services.SyslogSeverity.Notable => "Brush.Text",
+            _ => "Brush.TextMuted",
+        };
+        return Application.Current.TryFindResource(key) as Brush ?? Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Battery percent (int) -> brush: green > 20, yellow > 10, red otherwise.</summary>
 public sealed class BatteryToBrushConverter : IValueConverter
 {

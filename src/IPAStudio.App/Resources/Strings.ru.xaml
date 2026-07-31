@@ -121,7 +121,7 @@
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
-    <sys:String x:Key="L.Queue.SessionExpiredHint">Файл авторизации повреждён или создан без шифрования. Войдите снова, чтобы продолжить.</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Файл авториз��ции повреждён или создан без шифрования. Войдите снова, чтобы продолжить.</sys:String>
     <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
     <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
     <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
@@ -234,6 +234,28 @@
     <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
     <sys:String x:Key="L.Logs.Clear">Очистить</sys:String>
     <sys:String x:Key="L.Logs.File">Файл журнала:</sys:String>
+
+    <!-- Журнал устройства (живой syslog с iPhone) -->
+    <sys:String x:Key="L.DeviceLogs.Title">Журнал устройства</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint">Живой журнал с самого iPhone. Нужен, когда приложение установилось, но не открывается: причину сообщает устройство, и в журнале программы её нет.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Open">Открыть журнал устройства</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его значок. После этого сохраните журнал и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Start">Начать запись</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stop">Остановить</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterInstall">Только установка и запуск</sys:String>
+    <sys:String x:Key="L.DeviceLogs.AutoScroll">Следить за новыми строками</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stopped">Остановлено</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
+    <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Saved">Журнал сохранён</sys:String>
+    <sys:String x:Key="L.DeviceLogs.SaveFailed">Не удалось сохранить журнал</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterChanged">Фильтр действует на новые строки; уже собранные остаются как есть.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint.Reproduce">Теперь воспроизведите проблему на телефоне: установите приложение и нажмите на его значок.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Footer">Красные строки прямо называют сбой. Если причина не очевидна — сохраните файл и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Title">Устройство отклонило лицензию FairPlay</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
@@ -442,7 +464,7 @@
     <sys:String x:Key="L.Conflict.Replace">Заменить</sys:String>
     <sys:String x:Key="L.Conflict.KeepBoth">Сохранить оба</sys:String>
 
-    <!-- Режимы просмотра фото -->
+    <!-- Режи��ы просмотра фото -->
     <sys:String x:Key="L.Photos.ViewList">Список</sys:String>
     <sys:String x:Key="L.Photos.ViewGrid">Плитка</sys:String>
 

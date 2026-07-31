@@ -135,6 +135,34 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private static string Str(string key, string fallback)
         => Application.Current?.TryFindResource(key) as string ?? fallback;
 
+    /// <summary>
+    /// Opens the live device log.
+    ///
+    /// Separate from the application log because it answers a different question: the app
+    /// log ends at "install returned success", while a failure to launch is only ever
+    /// explained on the phone itself.
+    /// </summary>
+    [RelayCommand]
+    private void ShowDeviceLog()
+    {
+        // Reuse an open window rather than stacking duplicates, each of which would hold
+        // its own syslog connection to the same device.
+        foreach (var w in Application.Current.Windows)
+        {
+            if (w is Views.DeviceLogWindow existing)
+            {
+                existing.Activate();
+                return;
+            }
+        }
+
+        var win = new Views.DeviceLogWindow(_devices)
+        {
+            Owner = Application.Current.MainWindow,
+        };
+        win.Show();
+    }
+
     // Install mode: three RadioButtons bound via bool helpers below.
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ModeIsDownloadAndInstall))]

@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses�����</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -234,6 +234,28 @@
     <sys:String x:Key="L.Logs.OpenFile">Open file</sys:String>
     <sys:String x:Key="L.Logs.Clear">Clear</sys:String>
     <sys:String x:Key="L.Logs.File">Log file:</sys:String>
+
+    <!-- Device log (live syslog off the iPhone) -->
+    <sys:String x:Key="L.DeviceLogs.Title">Device log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint">Live log from the iPhone itself. Use it when an app installs but will not open: the reason is reported by the device and appears nowhere in the application log.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Open">Open device log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Start the capture, then reproduce the problem on the phone — install the app and tap its icon. Save the log afterwards and send it over.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Start">Start capture</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stop">Stop</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Save">Save to file</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterInstall">Install and launch only</sys:String>
+    <sys:String x:Key="L.DeviceLogs.AutoScroll">Follow new lines</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Capturing…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stopped">Stopped</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Idle">Ready</sys:String>
+    <sys:String x:Key="L.DeviceLogs.NoDevice">No device connected</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Saved">Log saved</sys:String>
+    <sys:String x:Key="L.DeviceLogs.SaveFailed">Could not save the log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterChanged">The filter applies to new lines; lines already collected are unchanged.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint.Reproduce">Now reproduce the problem on the phone: install the app and tap its icon.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Footer">Red lines name a failure outright. Save the file and send it over if the cause is not obvious.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Title">The device rejected the app's FairPlay licence</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">This is why the app shows a white screen and closes: it installed correctly, but the device cannot decrypt it. Open the App Store on the phone, sign in with the same Apple ID the app was downloaded with, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
 
     <!-- Diagnostics (logging settings) -->
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>

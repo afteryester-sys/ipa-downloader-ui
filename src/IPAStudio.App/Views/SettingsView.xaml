@@ -140,6 +140,16 @@
                               IsChecked="{Binding VerboseLogging}" />
                     <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                Text="{DynamicResource L.Settings.VerboseLogging.Hint}" />
+
+                    <!-- Live log from the phone: the only place a failure to launch is
+                         actually explained. -->
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
+
+                    <Button Content="{DynamicResource L.DeviceLogs.Open}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Command="{Binding ShowDeviceLogCommand}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.DeviceLogs.OpenHint}" />
                 </StackPanel>
             </Border>
 
