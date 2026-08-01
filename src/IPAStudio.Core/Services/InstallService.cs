@@ -540,7 +540,7 @@ public sealed partial class InstallService
     public async Task<IReadOnlyList<InstalledApp>> GetInstalledAppsAsync(
         string udid, CancellationToken ct = default)
     {
-        var result = await BrowseAsync(udid, Array.Empty<string>(), ct).ConfigureAwait(false);
+        var result = await BrowseAsync(udid, ct).ConfigureAwait(false);
         var xml = ExtractPlist(result.StdOut);
 
         if (xml is null)
@@ -563,15 +563,12 @@ public sealed partial class InstallService
             return ParsePlainListing(result.StdOut).ToList();
         }
 
-        // A browse without an attribute filter returns only what the device volunteers, and
-        // that set leaves the iTunes metadata out. Naming it explicitly is the one way to
-        // learn an app's numeric store id, and that id is what makes a delisted app
-        // downloadable at all - ipatool asked by bundle identifier resolves through the
-        // store catalog, which no longer lists such an app. So a second call is worth it
-        // whenever the first found no ids; when it did, this is skipped entirely.
-        if (apps.Count > 0 && !apps.Any(a => a.StoreItemId is > 0))
-            apps = await MergeStoreMetadataAsync(udid, apps, ct).ConfigureAwait(false);
-
+        // No second, attribute-filtered browse is attempted for the missing store ids.
+        // ideviceinstaller has no option for requesting attributes: its "-a" is the archive
+        // mode, so asking added "-a iTunesMetadata" to a listing command and the tool exited
+        // with "A mode has already been supplied", printing its whole usage into our log on
+        // every device that disclosed no ids - which is every modern one. It never once
+        // returned an id. The catalog lookup by name is what recovers those apps instead.
         var withId = apps.Count(a => a.StoreItemId is > 0);
         AppLog.Info($"Device {udid}: {apps.Count} user apps, {withId} with a store id, " +
                     $"{apps.Count(a => a.StoreAccount is not null)} with a purchase account");
@@ -590,18 +587,14 @@ public sealed partial class InstallService
     }
 
     /// <summary>
-    /// One installation_proxy browse. Naming attributes restricts the reply to those fields;
-    /// passing none asks for whatever the device reports by default.
+    /// One installation_proxy browse, returning whatever the device reports by default.
+    ///
+    /// There is no attribute filter to pass: ideviceinstaller exposes no such option, and the
+    /// letter that looks like one ("-a") selects the archive mode instead.
     /// </summary>
-    private Task<ProcessResult> BrowseAsync(string udid, string[] attributes, CancellationToken ct)
+    private Task<ProcessResult> BrowseAsync(string udid, CancellationToken ct)
     {
-        var args = new List<string>(DeviceTransport.TargetArgs(udid, "-l", "-o", "list_user", "-o", "xml"));
-        foreach (var attribute in attributes)
-        {
-            args.Add("-a");
-            args.Add(attribute);
-        }
-
+        var args = DeviceTransport.TargetArgs(udid, "-l", "-o", "list_user", "-o", "xml");
         return _runner.RunAsync(_tools.IdeviceInstallerPath, args, closeStdin: true, ct: ct);
     }
 
@@ -749,62 +742,6 @@ public sealed partial class InstallService
             // Everything else (string, real, date) is only ever read as text here.
             default:
                 return node.Value.Trim();
-        }
-    }
-
-    /// <summary>
-    /// The listing again, this time asking the device for its iTunes metadata by name, with
-    /// the store ids merged into the apps we already have.
-    ///
-    /// Attribute names are only a request: a device that does not know one simply leaves it
-    /// out, and an older ideviceinstaller that does not support asking at all fails the call
-    /// outright. Both cases end up returning the original list untouched.
-    /// </summary>
-    private async Task<List<InstalledApp>> MergeStoreMetadataAsync(
-        string udid, List<InstalledApp> apps, CancellationToken ct)
-    {
-        try
-        {
-            var result = await BrowseAsync(
-                udid,
-                new[] { "CFBundleIdentifier", "iTunesMetadata" },
-                ct).ConfigureAwait(false);
-
-            var xml = ExtractPlist(result.StdOut);
-            if (xml is null) return apps;
-
-            var detailed = ParseListing(xml)
-                .Where(a => a.StoreItemId is > 0 || a.StoreAccount is not null)
-                .GroupBy(a => a.BundleId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-            if (detailed.Count == 0) return apps;
-
-            AppLog.Info($"Device {udid}: iTunes metadata supplied ids for {detailed.Count} apps");
-
-            // Names and versions stay as the first listing reported them: this second pass
-            // asked for two fields only, so everything else in it is blank by construction.
-            return apps
-                .Select(app => detailed.TryGetValue(app.BundleId, out var extra)
-                    ? new InstalledApp
-                    {
-                        BundleId = app.BundleId,
-                        Name = app.Name,
-                        Version = app.Version,
-                        StoreItemId = app.StoreItemId ?? extra.StoreItemId,
-                        StoreAccount = app.StoreAccount ?? extra.StoreAccount,
-                    }
-                    : app)
-                .ToList();
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            AppLog.Warn($"Could not read iTunes metadata from the device: {ex.Message}");
-            return apps;
         }
     }
 

@@ -549,6 +549,28 @@ public sealed class CatalogService
     }
 
     /// <summary>
+    /// The one app this name can mean, or null when the catalog offers a choice.
+    ///
+    /// An exact name is preferred, but a looser match is equally safe to act on when the whole
+    /// catalog yields a single app: "Апгрейд" appears only as
+    /// "Альфа-Банк (Апгрейд - Умный помощник)", so it matches nothing exactly while still being
+    /// unambiguous. Requiring an exact match here is what left those apps failing: the name the
+    /// device shows is the short one, and the catalog spells it out in full.
+    ///
+    /// Ambiguity is still refused rather than guessed - "Альфа-Банк" alone is 13 different apps,
+    /// and downloading the wrong one of those is several hundred megabytes under the right name.
+    /// </summary>
+    public AppEntry? FindLocalUniqueByName(string? name)
+    {
+        var exact = FindLocalExactByName(name);
+        if (exact is not null) return exact;
+
+        // Two is enough to know it is ambiguous, and stops the scan early.
+        var candidates = FindLocalCandidatesByName(name, limit: 2);
+        return candidates.Count == 1 ? candidates[0] : null;
+    }
+
+    /// <summary>
     /// The single app among <paramref name="matches"/>, or null when there is none or when the
     /// matches are genuinely different apps. Entries repeating one id under different names are
     /// one app, and the catalog does ship those.

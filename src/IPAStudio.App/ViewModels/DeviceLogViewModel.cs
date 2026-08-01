@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
@@ -25,10 +26,16 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
     private readonly DeviceSyslogService _syslog = new();
 
     /// <summary>
-    /// Coalesces UI refreshes. A busy device can emit hundreds of lines a second, and
-    /// rebuilding the list per line would starve the dispatcher and lock up the window.
+    /// Coalesces UI refreshes onto a fixed cadence. A busy device emits hundreds of lines a
+    /// second and each refresh rebuilds up to 4000 rows, so refreshing per batch of arrivals
+    /// left the dispatcher rebuilding the list continuously and the window stopped responding.
+    /// Queueing work per arrival cannot fix that on its own: the arrivals never stop, so the
+    /// queue is never empty. A timer bounds the work instead, at four rebuilds a second.
     /// </summary>
-    private bool _refreshQueued;
+    private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+
+    /// <summary>Lines arrived since the last rebuild.</summary>
+    private bool _dirty;
 
     public ObservableCollection<Device> Devices { get; } = new();
     public ObservableCollection<SyslogLine> Lines { get; } = new();
@@ -75,6 +82,11 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
 
         _syslog.LinesAdded += OnLinesAdded;
         _syslog.StatusChanged += OnStatusChanged;
+
+        // Runs for the window's lifetime: a tick with nothing new costs a single flag check,
+        // and starting it per capture would need the same stopping logic on every exit path.
+        _refreshTimer.Tick += OnRefreshTick;
+        _refreshTimer.Start();
 
         StatusText = Devices.Count == 0
             ? Loc.Get("L.DeviceLogs.NoDevice")
@@ -191,15 +203,15 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
         });
     }
 
-    private void OnLinesAdded()
+    private void OnLinesAdded() => _dirty = true;
+
+    private void OnRefreshTick(object? sender, EventArgs e)
     {
-        if (_refreshQueued) return;
-        _refreshQueued = true;
+        if (!_dirty) return;
+        _dirty = false;
 
         Dispatch(() =>
         {
-            _refreshQueued = false;
-
             var snapshot = _syslog.Snapshot();
 
             // Rebuilt wholesale rather than appending deltas: the service keeps a bounded

@@ -396,7 +396,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// existing error handling apply unchanged.
     /// </summary>
     [RelayCommand]
-    private void TransferSelected(Device? destination)
+    private async Task TransferSelectedAsync(Device? destination)
     {
         if (destination is null) return;
 
@@ -413,16 +413,33 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             return;
         }
 
-        var entries = selected.Select(row => new AppEntry
+        // Resolved the same way a single download is, instead of handing the queue the bare
+        // bundle id the device reported. That shortcut was the whole of this failure: iOS
+        // discloses no store ids any more, so every transferred app arrived with id 0 and the
+        // queue could only ask the store by bundle id - the one identifier a delisted app is
+        // no longer findable by. The very same apps download from the catalog screen, which
+        // asks by catalog id, which is why "it works there but not here".
+        var entries = new List<AppEntry>(selected.Count);
+
+        foreach (var row in selected)
         {
-            Name = row.Name,
-            AppStoreId = row.App.StoreItemId ?? 0,
-            BundleId = row.BundleId,
-            LatestVersion = row.Version,
-        }).ToList();
+            var entry = await ResolveEntryAsync(row.App, CancellationToken.None).ConfigureAwait(true);
+
+            // ResolveEntryAsync falls back to a bundle-id entry, so a null is not expected;
+            // keeping the app in the queue under its own name is still better than dropping it
+            // silently, and the queue reports the failure per item.
+            entries.Add(entry ?? new AppEntry
+            {
+                Name = row.Name,
+                AppStoreId = row.App.StoreItemId ?? 0,
+                BundleId = row.BundleId,
+                LatestVersion = row.Version,
+            });
+        }
 
         AppLog.Info(
-            $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}");
+            $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}; " +
+            $"{entries.Count(e => e.AppStoreId > 0)} resolved to a store id");
 
         _queue.Build(entries, destination);
         _navigator?.GoTo(Page.Queue);
@@ -989,16 +1006,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // its catalog id, while this one asked the store for ru.sberbank.onlineiphone, which the
         // store no longer lists, and reported the app as gone.
         //
-        // Only an exact name match is taken silently. A looser one is offered to the user after
-        // the attempt fails, because names like "СберБанк" prefix-match nine catalog entries
-        // that are nine different apps.
-        var exact = _catalog.FindLocalExactByName(app.Name);
-        if (exact is not null)
+        // Any match the catalog can only read one way is taken silently, exact or not: the
+        // device shows "Апгрейд" while the catalog says "Альфа-Банк (Апгрейд - Умный помощник)",
+        // which is one app either way. A name that fits several entries is offered to the user
+        // after the attempt fails instead, because "СберБанк" alone is nine different apps.
+        var unique = _catalog.FindLocalUniqueByName(app.Name);
+        if (unique is not null)
         {
             AppLog.Info(
-                $"On-device: {app.BundleId} is not listed; using catalog id {exact.AppStoreId} " +
-                $"for the identically named \"{exact.Name}\"");
-            return CatalogEntryFor(app, exact);
+                $"On-device: {app.BundleId} is not listed; using catalog id {unique.AppStoreId} " +
+                $"for \"{unique.Name}\", the only catalog app named like \"{app.Name}\"");
+            return CatalogEntryFor(app, unique);
         }
 
         // Nothing in any storefront and no id from the device. The App Store can still hand

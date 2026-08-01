@@ -357,11 +357,13 @@ public sealed class DeviceSyslogService : IDisposable
             }
         }
 
+        // Coming from a watched process is not on its own enough to survive the filter.
+        // backboardd and SpringBoard are on that list because they report launches, but they
+        // also narrate every brightness change - hundreds of lines a second, all of which used
+        // to be kept as "install and launch" and flood the window until it stopped responding.
+        // The severity below is unaffected: with the filter off these lines still show.
         interesting = fromRelevantSubsystem && notable;
-        if (notable && fromRelevantSubsystem) return SyslogSeverity.Notable;
-
-        interesting = interesting || fromRelevantSubsystem;
-        return SyslogSeverity.Normal;
+        return interesting ? SyslogSeverity.Notable : SyslogSeverity.Normal;
     }
 
     private static bool IsFairPlay(string line) =>
