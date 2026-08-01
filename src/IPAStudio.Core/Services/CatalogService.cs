@@ -471,16 +471,25 @@ public sealed class CatalogService
             {
                 if (entry.AppStoreId <= 0) continue;
 
-                var candidate = NormalizeName(entry.Name);
-                if (candidate.Length == 0) continue;
+                // Each alias is tried, not just the full name: "Альфото" reaches
+                // "Альфа-Банк (Альфото - Умная Камера)" only through the bracketed alias, and
+                // then only by prefix, the catalog spelling it out in full.
+                var rank = -1;
 
-                // Rank, not filter: an exact hit has to outrank the longer names that merely
-                // start the same way, or "Сбербанк" would lose to "Сбербанк Онлайн …".
-                var rank =
-                    candidate.Equals(wanted, StringComparison.Ordinal) ? 0
-                    : candidate.StartsWith(wanted, StringComparison.Ordinal) ? 1
-                    : wanted.StartsWith(candidate, StringComparison.Ordinal) ? 2
-                    : -1;
+                foreach (var candidate in NameAliases(entry.Name))
+                {
+                    // Rank, not filter: an exact hit has to outrank the longer names that merely
+                    // start the same way, or "Сбербанк" would lose to "Сбербанк Онлайн …".
+                    var aliasRank =
+                        candidate.Equals(wanted, StringComparison.Ordinal) ? 0
+                        : candidate.StartsWith(wanted, StringComparison.Ordinal) ? 1
+                        : wanted.StartsWith(candidate, StringComparison.Ordinal) ? 2
+                        : -1;
+
+                    // The best alias represents the entry, so one weak alias cannot bury an
+                    // entry that also matches exactly.
+                    if (aliasRank >= 0 && (rank < 0 || aliasRank < rank)) rank = aliasRank;
+                }
 
                 if (rank >= 0) scored.Add((entry, rank));
             }
@@ -519,19 +528,40 @@ public sealed class CatalogService
 
         try
         {
-            var matches = LoadCatalog()
-                .Where(e => e.AppStoreId > 0 && NormalizeName(e.Name).Equals(wanted, StringComparison.Ordinal))
-                .GroupBy(e => e.AppStoreId)
-                .Select(g => g.First())
-                .Take(2)
-                .ToList();
+            var catalog = LoadCatalog().Where(e => e.AppStoreId > 0).ToList();
 
-            return matches.Count == 1 ? matches[0] : null;
+            // The whole name comes first: when one entry is named exactly this, a second entry
+            // that merely carries the name inside its brackets must not make it ambiguous.
+            var byFullName = SingleById(
+                catalog.Where(e => NormalizeName(e.Name).Equals(wanted, StringComparison.Ordinal)));
+            if (byFullName is not null) return byFullName;
+
+            // "АгроСкан" is in the catalog only as "Россельхозбанк (АгроСкан)". Acting on that
+            // still requires the alias to lead to a single id, because the vendor half of the
+            // same pattern is shared by a dozen unrelated apps.
+            return SingleById(
+                catalog.Where(e => NameAliases(e.Name).Contains(wanted)));
         }
         catch
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The single app among <paramref name="matches"/>, or null when there is none or when the
+    /// matches are genuinely different apps. Entries repeating one id under different names are
+    /// one app, and the catalog does ship those.
+    /// </summary>
+    private static AppEntry? SingleById(IEnumerable<AppEntry> matches)
+    {
+        var distinct = matches
+            .GroupBy(e => e.AppStoreId)
+            .Select(g => g.First())
+            .Take(2)
+            .ToList();
+
+        return distinct.Count == 1 ? distinct[0] : null;
     }
 
     /// <summary>
@@ -553,6 +583,67 @@ public sealed class CatalogService
         }
 
         return builder.ToString();
+    }
+
+    /// <summary>
+    /// Every normalized form a catalog name may reasonably be recognised by: the whole name,
+    /// whatever stands inside each pair of brackets, and the name with the bracketed parts
+    /// removed.
+    ///
+    /// This exists because 249 of the catalog's 569 entries are written "Vendor (App)" —
+    /// "Россельхозбанк (АгроСкан)", "Альфа-Банк (Альфото - Умная Камера)" — while the device
+    /// reports only the app: "АгроСкан", "Альфото". Neither string is a prefix of the other,
+    /// the app name being at the end, so comparing whole names or prefixes misses close to
+    /// half the catalog. Both of those apps resolve to exactly one entry through the bracketed
+    /// alias.
+    ///
+    /// The vendor alias this also produces is the ambiguous one — "альфабанк" is 13 different
+    /// apps, "совкомбанк" 14 — which is why the caller demands a single matching id before
+    /// acting on an alias, instead of trusting the match.
+    /// </summary>
+    private static IReadOnlyCollection<string> NameAliases(string? name)
+    {
+        var aliases = new HashSet<string>(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(name)) return aliases;
+
+        void Add(string? value)
+        {
+            var normalized = NormalizeName(value);
+            // Two characters match half the catalog; a probe that short says nothing.
+            if (normalized.Length >= 3) aliases.Add(normalized);
+        }
+
+        Add(name);
+
+        var outside = new StringBuilder(name.Length);
+        var inside = new StringBuilder();
+        var depth = 0;
+
+        foreach (var ch in name)
+        {
+            if (ch is '(' or '[')
+            {
+                // Nested brackets are treated as one region: splitting them would yield
+                // fragments that are not names in their own right.
+                if (depth++ == 0) inside.Clear();
+                continue;
+            }
+
+            if (ch is ')' or ']')
+            {
+                if (depth > 0 && --depth == 0) Add(inside.ToString());
+                continue;
+            }
+
+            if (depth > 0) inside.Append(ch);
+            else outside.Append(ch);
+        }
+
+        // An unclosed bracket still carries a usable name after it.
+        if (depth > 0) Add(inside.ToString());
+
+        Add(outside.ToString());
+        return aliases;
     }
 
     /// <summary>
