@@ -154,7 +154,7 @@
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл����вать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл������вать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
@@ -261,6 +261,10 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
     <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- Восстановление повторяется без успеха: ждать бессмысленно. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь под той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
+    <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
     <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
     <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
@@ -269,7 +273,7 @@
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
-    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяютс�� постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Toggle">Искать устройства по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
@@ -384,7 +388,7 @@
     <sys:String x:Key="L.DeviceInfo.ModelIdentifier">Идентификатор модели</sys:String>
     <sys:String x:Key="L.DeviceInfo.OsVersion">Версия iOS</sys:String>
     <sys:String x:Key="L.DeviceInfo.Build">Сборка</sys:String>
-    <sys:String x:Key="L.DeviceInfo.DeviceClass">Тип устройства</sys:String>
+    <sys:String x:Key="L.DeviceInfo.DeviceClass">Ти�� устройства</sys:String>
     <sys:String x:Key="L.DeviceInfo.SerialNumber">Серийный номер</sys:String>
     <sys:String x:Key="L.DeviceInfo.PhoneNumber">Номер телефона</sys:String>
     <sys:String x:Key="L.DeviceInfo.Region">Регион</sys:String>
@@ -550,7 +554,7 @@
     <sys:String x:Key="L.ICloud.Smart.Panoramas">Панорамы</sys:String>
     <sys:String x:Key="L.ICloud.Smart.SloMo">Замедленно</sys:String>
     <sys:String x:Key="L.ICloud.Smart.TimeLapse">Таймлапс</sys:String>
-    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud не�� фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
     <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone и Android (*.vcf)|*.vcf|CSV — Google Контакты, Excel (*.csv)|*.csv</sys:String>

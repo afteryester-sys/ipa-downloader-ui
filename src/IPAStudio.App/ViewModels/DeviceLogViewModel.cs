@@ -22,6 +22,13 @@ namespace IPAStudio.App.ViewModels;
 /// </summary>
 public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
 {
+    /// <summary>
+    /// Recovery attempts past which the store is clearly refusing rather than working on it.
+    /// Three, because a genuine grant arrives on the first or second try, and each refused
+    /// attempt in the reported log followed the previous one within seconds.
+    /// </summary>
+    private const int RecoveryAttemptsMeaningRefused = 3;
+
     private readonly DeviceService _devices;
     private readonly AuthService _auth;
     private readonly DeviceSyslogService _syslog = new();
@@ -230,16 +237,24 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
             foreach (var line in snapshot) Lines.Add(line);
 
             // Recovery on its own is enough to raise this: it only happens because a launch
-            // was refused, and it carries the one instruction worth giving.
-            if ((_syslog.SawFairPlayFailure || _syslog.SawLicenceRecovery) && !FairPlayDetected)
+            // was refused. A rejection logged during the install counts too, and arrives
+            // before the app has even been tapped.
+            if (_syslog.SawFairPlayFailure || _syslog.SawLicenceRecovery || _syslog.SawSinfRejectedAtInstall)
             {
+                var first = !FairPlayDetected;
                 FairPlayDetected = true;
+
+                // Recomputed on every refresh rather than once: the advice depends on how
+                // many times recovery has been tried, and that only becomes clear with time.
                 FairPlayDetail = BuildFairPlayDetail();
-                AppLog.Warn(
-                    "Device log reported a FairPlay decrypt failure — the device holds no usable " +
-                    $"licence for the app (device account: {_syslog.DeviceAccount ?? "not stated"}, " +
-                    $"downloaded as: {_auth.CurrentAccount?.Email ?? "not signed in"}, " +
-                    $"device requested the licence itself: {(_syslog.SawLicenceRecovery ? "yes" : "no")})");
+
+                if (first)
+                    AppLog.Warn(
+                        "Device log reported a FairPlay licence rejection — the device holds no usable " +
+                        $"licence for the app (device account: {_syslog.DeviceAccount ?? "not stated"}, " +
+                        $"downloaded as: {_auth.CurrentAccount?.Email ?? "not signed in"}, " +
+                        $"rejected during install: {(_syslog.SawSinfRejectedAtInstall ? "yes" : "no")}, " +
+                        $"recovery attempts: {_syslog.LicenceRecoveryAttempts})");
             }
         });
     }
@@ -263,6 +278,14 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
         // licence does not belong to, so telling someone to wait would be a lie.
         if (accountsDiffer)
             return string.Format(Loc.Get("L.DeviceLogs.FairPlay.OtherAccount"), downloadedAs, onDevice);
+
+        // Recovery asks the store for a licence for the account the phone is signed in to, so
+        // a run of attempts means the store keeps saying no and waiting will not change that.
+        // Named separately from a single attempt, which is still worth waiting for.
+        if (_syslog.LicenceRecoveryAttempts >= RecoveryAttemptsMeaningRefused)
+            return string.IsNullOrEmpty(onDevice)
+                ? Loc.Get("L.DeviceLogs.FairPlay.RecoveryRefused")
+                : string.Format(Loc.Get("L.DeviceLogs.FairPlay.RecoveryRefusedFor"), onDevice);
 
         // The phone is already fetching the licence, so the App Store detour is unnecessary.
         if (_syslog.SawLicenceRecovery)

@@ -101,6 +101,21 @@ public sealed class DeviceSyslogService : IDisposable
     /// </summary>
     public bool SawLicenceRecovery { get; private set; }
 
+    /// <summary>
+    /// How many times recovery has been started. One attempt means it is in progress and
+    /// worth waiting for; a run of them means the store keeps refusing, and telling anyone
+    /// to wait longer would be wrong - recovery asks for a licence for the account the phone
+    /// is signed in to, so it can never produce one that belongs to a different account.
+    /// </summary>
+    public int LicenceRecoveryAttempts { get; private set; }
+
+    /// <summary>
+    /// Set when installd rejected the licence while installing, before the app was ever
+    /// launched ("FairPlay check for SINF validity ... returned error"). The install still
+    /// reports success, so this is the earliest honest warning available.
+    /// </summary>
+    public bool SawSinfRejectedAtInstall { get; private set; }
+
     /// <summary>Starts following a device. Stops any previous session first.</summary>
     public void Start(string udid)
     {
@@ -109,6 +124,8 @@ public sealed class DeviceSyslogService : IDisposable
         Udid = udid;
         SawFairPlayFailure = false;
         SawLicenceRecovery = false;
+        LicenceRecoveryAttempts = 0;
+        SawSinfRejectedAtInstall = false;
         DeviceAccount = null;
 
         _cts = new CancellationTokenSource();
@@ -148,6 +165,8 @@ public sealed class DeviceSyslogService : IDisposable
         lock (_sync) _lines.Clear();
         SawFairPlayFailure = false;
         SawLicenceRecovery = false;
+        LicenceRecoveryAttempts = 0;
+        SawSinfRejectedAtInstall = false;
         DeviceAccount = null;
     }
 
@@ -291,18 +310,29 @@ public sealed class DeviceSyslogService : IDisposable
                 if (account.Success) DeviceAccount = account.Groups[1].Value;
             }
 
-            if (Filter == SyslogFilter.InstallAndLaunch && !interesting) continue;
-
-            // "Will start fairplay recovery" mentions fairplay and quotes the failing status,
-            // so it used to be counted as another failure. It is the opposite: the phone
-            // announcing that it is fetching the licence itself.
-            if (severity == SyslogSeverity.Critical && IsFairPlay(line))
+            // Licence outcomes are read before the filter too: installd announces its verdict
+            // during the install, and that line is worth acting on whether or not it is shown.
+            if (IsFairPlay(line))
             {
+                // "Will start fairplay recovery" mentions fairplay and quotes the failing
+                // status, so it used to be counted as another failure. It is the opposite:
+                // the phone announcing that it is fetching the licence itself.
                 if (line.Contains("fairplay recovery", StringComparison.OrdinalIgnoreCase))
+                {
                     SawLicenceRecovery = true;
-                else
+                    LicenceRecoveryAttempts++;
+                }
+                else if (line.Contains("SINF validity", StringComparison.OrdinalIgnoreCase))
+                {
+                    SawSinfRejectedAtInstall = true;
+                }
+                else if (severity == SyslogSeverity.Critical)
+                {
                     SawFairPlayFailure = true;
+                }
             }
+
+            if (Filter == SyslogFilter.InstallAndLaunch && !interesting) continue;
 
             added.Add(new SyslogLine(DateTimeOffset.UtcNow, line, severity));
         }
