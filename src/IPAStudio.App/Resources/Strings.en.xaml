@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -261,6 +261,8 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">This is why the app shows a white screen and closes: it installed correctly, but the device cannot decrypt it. Open the App Store on the phone, sign in with the same Apple ID the app was downloaded with, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
     <!-- {0} is the Apple ID. Accounts match, so the licence just has not been issued yet. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">The app installed correctly but the device cannot decrypt it. The Apple ID matches ({0}), so the account is not the problem: the phone has not yet been issued a licence by the App Store. Open the App Store on the phone, confirm it is signed in as {0}, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
+    <!-- The phone asked for the licence itself, so the manual App Store trip is unnecessary. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">The app installed correctly, but the phone had no licence for it yet at that first launch. There is no need to open the App Store: the device has already requested one by itself — the log shows "fairplay recovery". Wait 10-20 seconds with the phone online, then tap the app on the home screen again. If it is still a white screen after two or three tries the request did not get through, and that is when starting any free App Store download helps.</sys:String>
     <!-- {0} is the download account, {1} the account on the phone. Nothing on the phone fixes this. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">The app was downloaded under Apple ID {0}, but the phone is signed in as {1}. A FairPlay licence is issued to one account, so this copy will not launch on this phone whatever you do in the App Store. Either sign the phone in as {0}, or download the app again here under {1} and reinstall it.</sys:String>
 

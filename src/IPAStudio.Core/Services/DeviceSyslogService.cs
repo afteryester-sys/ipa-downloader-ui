@@ -92,6 +92,15 @@ public sealed class DeviceSyslogService : IDisposable
     /// </summary>
     public string? DeviceAccount { get; private set; }
 
+    /// <summary>
+    /// Whether appstored started fetching the licence by itself ("Will start fairplay
+    /// recovery"). It does this within a second of a refused launch, which means the phone
+    /// asks the store for the licence on its own - the App Store download people are told to
+    /// perform by hand is only one way of prompting the very same request. When this is set,
+    /// launching the app again is usually all that is left to do.
+    /// </summary>
+    public bool SawLicenceRecovery { get; private set; }
+
     /// <summary>Starts following a device. Stops any previous session first.</summary>
     public void Start(string udid)
     {
@@ -99,7 +108,9 @@ public sealed class DeviceSyslogService : IDisposable
 
         Udid = udid;
         SawFairPlayFailure = false;
+        SawLicenceRecovery = false;
         DeviceAccount = null;
+
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
@@ -136,8 +147,8 @@ public sealed class DeviceSyslogService : IDisposable
     {
         lock (_sync) _lines.Clear();
         SawFairPlayFailure = false;
+        SawLicenceRecovery = false;
         DeviceAccount = null;
-        LinesAdded?.Invoke();
     }
 
     /// <summary>Snapshot of the buffer, oldest first.</summary>
@@ -282,8 +293,16 @@ public sealed class DeviceSyslogService : IDisposable
 
             if (Filter == SyslogFilter.InstallAndLaunch && !interesting) continue;
 
+            // "Will start fairplay recovery" mentions fairplay and quotes the failing status,
+            // so it used to be counted as another failure. It is the opposite: the phone
+            // announcing that it is fetching the licence itself.
             if (severity == SyslogSeverity.Critical && IsFairPlay(line))
-                SawFairPlayFailure = true;
+            {
+                if (line.Contains("fairplay recovery", StringComparison.OrdinalIgnoreCase))
+                    SawLicenceRecovery = true;
+                else
+                    SawFairPlayFailure = true;
+            }
 
             added.Add(new SyslogLine(DateTimeOffset.UtcNow, line, severity));
         }

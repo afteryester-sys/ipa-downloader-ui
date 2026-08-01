@@ -154,7 +154,7 @@
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл��вать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл����вать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
@@ -221,7 +221,7 @@
     <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
-    <sys:String x:Key="L.Cache.DonePartial">Освобожд��но {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобо��д��но {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
@@ -242,7 +242,7 @@
     <sys:String x:Key="L.DeviceLogs.Title">Журнал устройства</sys:String>
     <sys:String x:Key="L.DeviceLogs.Hint">Живой журнал с самого iPhone. Нужен, когда приложение установилось, но не открывается: причину сообщает устройство, и в журнале программы её нет.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Open">Открыть журнал устройства</sys:String>
-    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его значок. После этого сохраните журнал и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его значок. Посл�� этого сохраните журнал и пришлите его.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Start">Начать запись</sys:String>
     <sys:String x:Key="L.DeviceLogs.Stop">Остановить</sys:String>
     <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
@@ -261,6 +261,8 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
     <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
     <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
@@ -437,7 +439,7 @@
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В Медиатеке файлы пока не появились</sys:String>
-    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопированы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопирова��ы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
     <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
     <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
     <sys:String x:Key="L.Photos.RestartConfirm">Перезагрузить устройство сейчас? Несохранённые данные в приложениях на iPhone могут быть потеряны.</sys:String>
@@ -480,7 +482,7 @@
     <sys:String x:Key="L.Photos.ViewList">Список</sys:String>
     <sys:String x:Key="L.Photos.ViewGrid">Плитка</sys:String>
 
-    <!-- Общие элементы -->
+    <!-- Общие элеме��ты -->
     <sys:String x:Key="L.Common.Close">Закрыть</sys:String>
     <sys:String x:Key="L.Common.Copy">Копировать</sys:String>
     <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>

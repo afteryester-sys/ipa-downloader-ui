@@ -229,14 +229,17 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
             Lines.Clear();
             foreach (var line in snapshot) Lines.Add(line);
 
-            if (_syslog.SawFairPlayFailure && !FairPlayDetected)
+            // Recovery on its own is enough to raise this: it only happens because a launch
+            // was refused, and it carries the one instruction worth giving.
+            if ((_syslog.SawFairPlayFailure || _syslog.SawLicenceRecovery) && !FairPlayDetected)
             {
                 FairPlayDetected = true;
                 FairPlayDetail = BuildFairPlayDetail();
                 AppLog.Warn(
                     "Device log reported a FairPlay decrypt failure — the device holds no usable " +
                     $"licence for the app (device account: {_syslog.DeviceAccount ?? "not stated"}, " +
-                    $"downloaded as: {_auth.CurrentAccount?.Email ?? "not signed in"})");
+                    $"downloaded as: {_auth.CurrentAccount?.Email ?? "not signed in"}, " +
+                    $"device requested the licence itself: {(_syslog.SawLicenceRecovery ? "yes" : "no")})");
             }
         });
     }
@@ -252,12 +255,23 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
         var onDevice = _syslog.DeviceAccount;
         var downloadedAs = _auth.CurrentAccount?.Email;
 
+        var accountsDiffer = !string.IsNullOrEmpty(onDevice)
+                          && !string.IsNullOrEmpty(downloadedAs)
+                          && !string.Equals(onDevice, downloadedAs, StringComparison.OrdinalIgnoreCase);
+
+        // A mismatch outranks everything else: recovery cannot succeed for an account the
+        // licence does not belong to, so telling someone to wait would be a lie.
+        if (accountsDiffer)
+            return string.Format(Loc.Get("L.DeviceLogs.FairPlay.OtherAccount"), downloadedAs, onDevice);
+
+        // The phone is already fetching the licence, so the App Store detour is unnecessary.
+        if (_syslog.SawLicenceRecovery)
+            return Loc.Get("L.DeviceLogs.FairPlay.Recovering");
+
         if (string.IsNullOrEmpty(onDevice) || string.IsNullOrEmpty(downloadedAs))
             return Loc.Get("L.DeviceLogs.FairPlay.Detail");
 
-        return string.Equals(onDevice, downloadedAs, StringComparison.OrdinalIgnoreCase)
-            ? string.Format(Loc.Get("L.DeviceLogs.FairPlay.SameAccount"), onDevice)
-            : string.Format(Loc.Get("L.DeviceLogs.FairPlay.OtherAccount"), downloadedAs, onDevice);
+        return string.Format(Loc.Get("L.DeviceLogs.FairPlay.SameAccount"), onDevice);
     }
 
     private void OnDeviceConnected(object? sender, Device device)
