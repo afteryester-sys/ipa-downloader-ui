@@ -10,10 +10,10 @@ public partial class DeviceLogWindow : Window
 {
     private readonly DeviceLogViewModel _vm;
 
-    public DeviceLogWindow(DeviceService devices)
+    public DeviceLogWindow(DeviceService devices, AuthService auth)
     {
         InitializeComponent();
-        _vm = new DeviceLogViewModel(devices);
+        _vm = new DeviceLogViewModel(devices, auth);
         DataContext = _vm;
 
         // Follow the tail as lines stream in. Bound to the collection rather than a

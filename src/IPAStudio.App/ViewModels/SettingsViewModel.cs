@@ -167,7 +167,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             }
         }
 
-        var win = new Views.DeviceLogWindow(_devices)
+        var win = new Views.DeviceLogWindow(_devices, _auth)
         {
             Owner = Application.Current.MainWindow,
         };

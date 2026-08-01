@@ -154,7 +154,7 @@
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл��вать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
@@ -221,7 +221,7 @@
     <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
-    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобожд��но {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
@@ -259,6 +259,10 @@
     <sys:String x:Key="L.DeviceLogs.Footer">Красные строки прямо называют сбой. Если причина не очевидна — сохраните файл и пришлите его.</sys:String>
     <sys:String x:Key="L.DeviceLogs.FairPlay.Title">Устройство отклонило лицензию FairPlay</sys:String>
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
@@ -449,7 +453,7 @@
 
     <!-- Общее -->
     <sys:String x:Key="L.Common.Copied">Скопировано</sys:String>
-    <sys:String x:Key="L.Common.CopyFailed">Не удалось скопировать</sys:String>
+    <sys:String x:Key="L.Common.CopyFailed">Не удалось скопироват��</sys:String>
     <sys:String x:Key="L.Logs.Copied">Скопировано в буфер обмена</sys:String>
     <sys:String x:Key="L.Crash.Recovered">Произошла ошибка, но приложение продолжит работу.</sys:String>
     <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>

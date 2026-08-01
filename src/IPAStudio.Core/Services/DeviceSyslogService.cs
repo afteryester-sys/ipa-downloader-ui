@@ -84,6 +84,14 @@ public sealed class DeviceSyslogService : IDisposable
     /// </summary>
     public bool SawFairPlayFailure { get; private set; }
 
+    /// <summary>
+    /// Apple ID the device used the last time it asked the store to authorise something, as
+    /// the device itself named it. A licence is issued to one account, so this is the account
+    /// the app has to have been downloaded under - and it is not necessarily the account
+    /// signed in here. Null when the device has not said.
+    /// </summary>
+    public string? DeviceAccount { get; private set; }
+
     /// <summary>Starts following a device. Stops any previous session first.</summary>
     public void Start(string udid)
     {
@@ -91,6 +99,7 @@ public sealed class DeviceSyslogService : IDisposable
 
         Udid = udid;
         SawFairPlayFailure = false;
+        DeviceAccount = null;
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
@@ -127,6 +136,7 @@ public sealed class DeviceSyslogService : IDisposable
     {
         lock (_sync) _lines.Clear();
         SawFairPlayFailure = false;
+        DeviceAccount = null;
         LinesAdded?.Invoke();
     }
 
@@ -261,6 +271,15 @@ public sealed class DeviceSyslogService : IDisposable
             if (line.Length == 0) continue;
 
             var severity = Classify(line, out var interesting);
+
+            // Read before the filter, so which account the device uses is learnt even when
+            // the line announcing it would not have been kept.
+            if (DeviceAccount is null)
+            {
+                var account = AccountName.Match(line);
+                if (account.Success) DeviceAccount = account.Groups[1].Value;
+            }
+
             if (Filter == SyslogFilter.InstallAndLaunch && !interesting) continue;
 
             if (severity == SyslogSeverity.Critical && IsFairPlay(line))
@@ -309,6 +328,11 @@ public sealed class DeviceSyslogService : IDisposable
         "install", "Install", "launch", "Launch", "entitlement",
         "provision", "account", "Account", "purchase", "download",
     };
+
+    // appstored says "Performing authorization for account: name@example.com (UUID)" when it
+    // asks the store to authorise an app. The trailing UUID and any brackets are excluded.
+    private static readonly Regex AccountName =
+        new(@"for account:\s*([^\s()]+@[^\s()]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex ProcessPrefix =
         new(@"^\w{3}\s+\d+\s[\d:]+\s+\S+\s+([A-Za-z0-9_.\-]+)", RegexOptions.Compiled);

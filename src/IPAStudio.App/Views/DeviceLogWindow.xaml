@@ -89,7 +89,9 @@
                     <TextBlock Text="{DynamicResource L.DeviceLogs.FairPlay.Title}"
                                Style="{StaticResource Text.Body}" FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" />
-                    <TextBlock Text="{DynamicResource L.DeviceLogs.FairPlay.Detail}"
+                    <!-- Names the accounts involved when the device disclosed one, so the
+                         advice is specific rather than "use the right Apple ID". -->
+                    <TextBlock Text="{Binding FairPlayDetail}"
                                Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                 </StackPanel>
             </Border>

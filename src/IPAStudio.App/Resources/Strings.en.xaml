@@ -259,6 +259,10 @@
     <sys:String x:Key="L.DeviceLogs.Footer">Red lines name a failure outright. Save the file and send it over if the cause is not obvious.</sys:String>
     <sys:String x:Key="L.DeviceLogs.FairPlay.Title">The device rejected the app's FairPlay licence</sys:String>
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">This is why the app shows a white screen and closes: it installed correctly, but the device cannot decrypt it. Open the App Store on the phone, sign in with the same Apple ID the app was downloaded with, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
+    <!-- {0} is the Apple ID. Accounts match, so the licence just has not been issued yet. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">The app installed correctly but the device cannot decrypt it. The Apple ID matches ({0}), so the account is not the problem: the phone has not yet been issued a licence by the App Store. Open the App Store on the phone, confirm it is signed in as {0}, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
+    <!-- {0} is the download account, {1} the account on the phone. Nothing on the phone fixes this. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">The app was downloaded under Apple ID {0}, but the phone is signed in as {1}. A FairPlay licence is issued to one account, so this copy will not launch on this phone whatever you do in the App Store. Either sign the phone in as {0}, or download the app again here under {1} and reinstall it.</sys:String>
 
     <!-- Diagnostics (logging settings) -->
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>

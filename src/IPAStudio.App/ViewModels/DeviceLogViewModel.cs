@@ -23,6 +23,7 @@ namespace IPAStudio.App.ViewModels;
 public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
 {
     private readonly DeviceService _devices;
+    private readonly AuthService _auth;
     private readonly DeviceSyslogService _syslog = new();
 
     /// <summary>
@@ -67,12 +68,20 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _fairPlayDetected;
 
+    /// <summary>
+    /// Advice shown in that banner. Held as text rather than bound to a fixed string, because
+    /// what is worth saying depends on which accounts turn out to be involved.
+    /// </summary>
+    [ObservableProperty]
+    private string _fairPlayDetail = "";
+
     [ObservableProperty]
     private string _hintText = "";
 
-    public DeviceLogViewModel(DeviceService devices)
+    public DeviceLogViewModel(DeviceService devices, AuthService auth)
     {
         _devices = devices;
+        _auth = auth;
 
         foreach (var d in _devices.ConnectedDevices) Devices.Add(d);
         SelectedDevice = Devices.FirstOrDefault();
@@ -223,9 +232,32 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
             if (_syslog.SawFairPlayFailure && !FairPlayDetected)
             {
                 FairPlayDetected = true;
-                AppLog.Warn("Device log reported a FairPlay decrypt failure — the device holds no usable licence for the app");
+                FairPlayDetail = BuildFairPlayDetail();
+                AppLog.Warn(
+                    "Device log reported a FairPlay decrypt failure — the device holds no usable " +
+                    $"licence for the app (device account: {_syslog.DeviceAccount ?? "not stated"}, " +
+                    $"downloaded as: {_auth.CurrentAccount?.Email ?? "not signed in"})");
             }
         });
+    }
+
+    /// <summary>
+    /// What to advise about the rejected licence. The generic advice is to sign in with the
+    /// account the app was downloaded under, which is useless to someone who believes they
+    /// already have - so when both accounts are known they are named instead, and the two
+    /// cases get different instructions because only one of them is fixable on the phone.
+    /// </summary>
+    private string BuildFairPlayDetail()
+    {
+        var onDevice = _syslog.DeviceAccount;
+        var downloadedAs = _auth.CurrentAccount?.Email;
+
+        if (string.IsNullOrEmpty(onDevice) || string.IsNullOrEmpty(downloadedAs))
+            return Loc.Get("L.DeviceLogs.FairPlay.Detail");
+
+        return string.Equals(onDevice, downloadedAs, StringComparison.OrdinalIgnoreCase)
+            ? string.Format(Loc.Get("L.DeviceLogs.FairPlay.SameAccount"), onDevice)
+            : string.Format(Loc.Get("L.DeviceLogs.FairPlay.OtherAccount"), downloadedAs, onDevice);
     }
 
     private void OnDeviceConnected(object? sender, Device device)
