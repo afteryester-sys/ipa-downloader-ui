@@ -41,12 +41,36 @@ public sealed class InstallResult
     /// </summary>
     public bool LicenseMissing { get; init; }
 
+    /// <summary>
+    /// Set when the archive is licensed, but to a different Apple ID than the one the target
+    /// device uses. Separate from a missing licence because the file is not damaged and
+    /// fetching it again changes nothing: it has to be fetched again <em>as the other
+    /// account</em>. Carries both addresses so the message can name them.
+    /// </summary>
+    public bool AccountMismatch { get; init; }
+
+    /// <summary>Apple ID the archive is licensed to. Only set with <see cref="AccountMismatch"/>.</summary>
+    public string? IpaAccount { get; init; }
+
+    /// <summary>Apple ID the device uses. Only set with <see cref="AccountMismatch"/>.</summary>
+    public string? DeviceAccount { get; init; }
+
     public static InstallResult Ok() => new() { Success = true };
     public static InstallResult Fail(string error) => new() { Error = error };
 
     /// <summary>An IPA that would install cleanly and then refuse to launch.</summary>
     public static InstallResult NoLicense(string detail) =>
         new() { Error = detail, LicenseMissing = true };
+
+    /// <summary>An IPA licensed to somebody else, which this device can never decrypt.</summary>
+    public static InstallResult WrongAccount(string ipaAccount, string deviceAccount) =>
+        new()
+        {
+            Error = $"IPA is licensed to {ipaAccount}, but the device uses {deviceAccount}",
+            AccountMismatch = true,
+            IpaAccount = ipaAccount,
+            DeviceAccount = deviceAccount,
+        };
 }
 
 /// <summary>
@@ -85,11 +109,17 @@ public sealed partial class InstallService
     ///
     /// Serialized per process: only one install runs at a time.
     /// </summary>
+    /// <param name="deviceAppleId">
+    /// Apple ID the target device is signed in to, when it is known. Used to refuse an archive
+    /// licensed to somebody else before it is pushed. Optional because modern iOS usually hides
+    /// this, and a check that cannot be made must not become a check that guesses.
+    /// </param>
     public async Task<InstallResult> InstallAsync(
         string udid,
         string ipaPath,
         IProgress<InstallProgress>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? deviceAppleId = null)
     {
         if (!File.Exists(ipaPath))
             return InstallResult.Fail($"IPA file not found: {ipaPath}");
@@ -115,6 +145,20 @@ public sealed partial class InstallService
             // message: the user would have no way to tell that from a broken phone.
             return InstallResult.NoLicense(
                 $"IPA has no FairPlay licence ({license.Describe()})");
+        }
+
+        // A licence is issued to one Apple ID. An archive fetched as somebody else installs
+        // just as cleanly, and then the kernel refuses to decrypt it, the launch dies as an
+        // authentication error, and the phone spends minutes asking the store for a licence
+        // it will never be given — because it can only ask on behalf of its own account.
+        // Refused here rather than diagnosed afterwards from a log.
+        if (!string.IsNullOrWhiteSpace(deviceAppleId)
+            && !string.IsNullOrWhiteSpace(license.AppleId)
+            && !string.Equals(license.AppleId, deviceAppleId, StringComparison.OrdinalIgnoreCase))
+        {
+            AppLog.Warn($"Install refused: IPA is licensed to {license.AppleId}, " +
+                        $"device is signed in as {deviceAppleId}");
+            return InstallResult.WrongAccount(license.AppleId!, deviceAppleId!);
         }
 
         if (license.IsPartiallyLicensed)

@@ -236,6 +236,12 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
             Lines.Clear();
             foreach (var line in snapshot) Lines.Add(line);
 
+            // Hand the account back to the device service. On current iOS the log is usually
+            // the only place it appears, and once it is known the next install can be refused
+            // up front instead of ending in a blank screen.
+            if (!string.IsNullOrEmpty(_syslog.DeviceAccount) && !string.IsNullOrEmpty(_syslog.Udid))
+                _devices.RememberAppleId(_syslog.Udid, _syslog.DeviceAccount);
+
             // Recovery on its own is enough to raise this: it only happens because a launch
             // was refused. A rejection logged during the install counts too, and arrives
             // before the app has even been tapped.

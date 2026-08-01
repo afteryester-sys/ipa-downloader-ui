@@ -522,6 +522,29 @@ public sealed class DeviceService : IAsyncDisposable
     }
 
     /// <summary>
+    /// Records the Apple ID a device turned out to be using, for devices that refuse to
+    /// disclose it over lockdown. The syslog names it whenever the store authorises anything
+    /// ("Performing authorization for account: ..."), which is often the only way to learn it
+    /// on current iOS - and knowing it is what lets an install be refused before it is pushed
+    /// rather than diagnosed afterwards. Ignores an unknown device and never overwrites a
+    /// value already read from the device itself.
+    /// </summary>
+    public void RememberAppleId(string udid, string appleId)
+    {
+        if (string.IsNullOrWhiteSpace(udid) || !IsValidEmail(appleId)) return;
+
+        Device? device;
+        lock (_devices)
+        {
+            if (!_devices.TryGetValue(udid, out device)) return;
+            if (!string.IsNullOrEmpty(device.AppleId)) return;
+            device.AppleId = appleId;
+        }
+
+        AppLog.Info($"Learnt from the device log that {udid} is signed in as {appleId}");
+    }
+
+    /// <summary>
     /// Reads battery health (remaining capacity vs. design capacity) and cycle count
     /// from the device's live IORegistry via idevicediagnostics. This mirrors the
     /// "Maximum Capacity" figure shown in iOS Settings → Battery → Battery Health.

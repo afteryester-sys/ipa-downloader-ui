@@ -477,19 +477,28 @@ public sealed class QueueService
         });
 
         var installResult = await _install.InstallAsync(
-            item.TargetDevice.Udid, ipaPath, installProgress, ct).ConfigureAwait(false);
+            item.TargetDevice.Udid, ipaPath, installProgress, ct,
+            item.TargetDevice.AppleId).ConfigureAwait(false);
 
         if (!installResult.Success)
         {
             if (!string.IsNullOrWhiteSpace(installResult.Error))
                 AppLog.Warn($"Install of '{item.App.Name}' failed: {installResult.Error}");
 
-            // A missing FairPlay licence is not a device problem, and the generic advice
+            // Three different remedies, so three different messages. The generic advice
             // ("unlock the phone", "reconnect the cable") would send the user chasing the
-            // wrong thing entirely: the app installs perfectly and simply cannot start.
-            Fail(item, installResult.LicenseMissing
-                ? Loc.Get("L.Install.Error.NoLicense")
-                : DescribeInstallError(installResult.Error));
+            // wrong thing entirely in the first two cases: the app installs perfectly and
+            // simply cannot start.
+            string reason;
+            if (installResult.AccountMismatch)
+                reason = string.Format(Loc.Get("L.Install.Error.WrongAccount"),
+                                       installResult.IpaAccount, installResult.DeviceAccount);
+            else if (installResult.LicenseMissing)
+                reason = Loc.Get("L.Install.Error.NoLicense");
+            else
+                reason = DescribeInstallError(installResult.Error);
+
+            Fail(item, reason);
             return;
         }
 
