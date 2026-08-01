@@ -154,7 +154,7 @@
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл��������вать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
@@ -221,7 +221,7 @@
     <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
-    <sys:String x:Key="L.Cache.DonePartial">��свобо��д��но {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
@@ -242,7 +242,7 @@
     <sys:String x:Key="L.DeviceLogs.Title">Журнал устройства</sys:String>
     <sys:String x:Key="L.DeviceLogs.Hint">Живой журнал с самого iPhone. Нужен, когда приложение установилось, но не открывается: причину сообщает устройство, и в журнале программы её нет.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Open">Открыть журнал устройства</sys:String>
-    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его зна��ок. Посл�� этого сохраните журнал и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его значок. После этого сохраните журнал и пришлите его.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Start">Начать запись</sys:String>
     <sys:String x:Key="L.DeviceLogs.Stop">Остановить</sys:String>
     <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
@@ -266,14 +266,14 @@
     <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
     <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
-    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установило��ь верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
     <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
-    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяютс�� постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Toggle">Искать устройства по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
@@ -376,7 +376,7 @@
     <sys:String x:Key="L.Tuning.Defender.Title">Defender сканирует папку загрузок</sys:String>
     <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
-    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного пе��еименования.</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
@@ -390,7 +390,7 @@
     <sys:String x:Key="L.DeviceInfo.ModelIdentifier">Идентификатор модели</sys:String>
     <sys:String x:Key="L.DeviceInfo.OsVersion">Версия iOS</sys:String>
     <sys:String x:Key="L.DeviceInfo.Build">Сборка</sys:String>
-    <sys:String x:Key="L.DeviceInfo.DeviceClass">Ти�� устройства</sys:String>
+    <sys:String x:Key="L.DeviceInfo.DeviceClass">Тип устройства</sys:String>
     <sys:String x:Key="L.DeviceInfo.SerialNumber">Серийный номер</sys:String>
     <sys:String x:Key="L.DeviceInfo.PhoneNumber">Номер телефона</sys:String>
     <sys:String x:Key="L.DeviceInfo.Region">Регион</sys:String>
@@ -445,7 +445,7 @@
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В Медиатеке файлы пока не появились</sys:String>
-    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопирова��ы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопированы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
     <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
     <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
     <sys:String x:Key="L.Photos.RestartConfirm">Перезагрузить устройство сейчас? Несохранённые данные в приложениях на iPhone могут быть потеряны.</sys:String>
@@ -461,7 +461,7 @@
 
     <!-- Общее -->
     <sys:String x:Key="L.Common.Copied">Скопировано</sys:String>
-    <sys:String x:Key="L.Common.CopyFailed">Не удалось скопироват��</sys:String>
+    <sys:String x:Key="L.Common.CopyFailed">Не удалось скопировать</sys:String>
     <sys:String x:Key="L.Logs.Copied">Скопировано в буфер обмена</sys:String>
     <sys:String x:Key="L.Crash.Recovered">Произошла ошибка, но приложение продолжит работу.</sys:String>
     <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>
@@ -488,7 +488,7 @@
     <sys:String x:Key="L.Photos.ViewList">Список</sys:String>
     <sys:String x:Key="L.Photos.ViewGrid">Плитка</sys:String>
 
-    <!-- Общие элеме��ты -->
+    <!-- Общие элементы -->
     <sys:String x:Key="L.Common.Close">Закрыть</sys:String>
     <sys:String x:Key="L.Common.Copy">Копировать</sys:String>
     <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>
@@ -535,7 +535,7 @@
     <sys:String x:Key="L.ICloud.CodeSentCall">Код продиктуют звонком на номер {0}.</sys:String>
     <sys:String x:Key="L.ICloud.CodeSentPhone">Код отправлен на доверенный номер телефона.</sys:String>
     <sys:String x:Key="L.ICloud.BadCredentials">Неверный Apple ID или пароль.</sys:String>
-    <sys:String x:Key="L.ICloud.SignInFailed">Apple отклонила вход. Попр��буйте позже или проверьте аккаунт на icloud.com.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInFailed">Apple отклонила вход. Попробуйте позже или проверьте аккаунт на icloud.com.</sys:String>
     <sys:String x:Key="L.ICloud.SignOut">Выйти</sys:String>
     <sys:String x:Key="L.ICloud.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.ICloud.TabContacts">Контакты</sys:String>
@@ -556,7 +556,7 @@
     <sys:String x:Key="L.ICloud.Smart.Panoramas">Панорамы</sys:String>
     <sys:String x:Key="L.ICloud.Smart.SloMo">Замедленно</sys:String>
     <sys:String x:Key="L.ICloud.Smart.TimeLapse">Таймлапс</sys:String>
-    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud не�� фото.</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
     <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone и Android (*.vcf)|*.vcf|CSV — Google Контакты, Excel (*.csv)|*.csv</sys:String>
