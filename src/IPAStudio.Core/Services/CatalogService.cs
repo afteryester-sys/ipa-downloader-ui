@@ -21,11 +21,13 @@ public sealed class CatalogService
 
     private readonly ToolLocator _tools;
     private readonly HttpClient _http;
+    private readonly AuthService _auth;
 
-    public CatalogService(ToolLocator tools, HttpClient http)
+    public CatalogService(ToolLocator tools, HttpClient http, AuthService auth)
     {
         _tools = tools;
         _http = http;
+        _auth = auth;
     }
 
     /// <summary>Raised for each batch of apps whose metadata was refreshed.</summary>
@@ -739,17 +741,30 @@ public sealed class CatalogService
         _tools.EnsureFolders();
         var files = Directory.EnumerateFiles(_tools.AppsFolder, "*.ipa").ToList();
 
+        var signedInAs = _auth.CurrentAccount?.Email;
+
         foreach (var entry in entries)
         {
             // Keeping both copies of a re-download means one app can now own several
             // files ("App_123_1.0.ipa", "App_123_1.0 (2).ipa", …). Enumeration order is
             // not defined, so picking the first match could hand the installer an older
             // build; always take the most recently written one.
-            var match = files
+            var candidates = files
                 .Where(f => Path.GetFileNameWithoutExtension(f)
                     .Contains($"_{entry.AppStoreId}", StringComparison.Ordinal))
                 .OrderByDescending(SafeLastWriteUtc)
-                .FirstOrDefault();
+                .ToList();
+
+            // Several copies of one app can belong to different Apple IDs, and the file
+            // name records only the store id, so it cannot tell them apart. Newest-first
+            // alone would therefore hand this account whichever copy was downloaded last
+            // — quite possibly the previous account's, which this device cannot decrypt.
+            // Prefer a copy this account can actually install, and fall back to newest
+            // when none of them names an owner.
+            var match = candidates.FirstOrDefault(f =>
+                            !IpaLicense.BelongsToAnotherAccount(f, signedInAs, out _))
+                        ?? candidates.FirstOrDefault();
+
             entry.IsDownloaded = match is not null;
             entry.LocalIpaPath = match;
         }

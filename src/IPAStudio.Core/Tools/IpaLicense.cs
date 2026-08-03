@@ -113,6 +113,35 @@ public static partial class IpaLicense
     private static partial Regex MetadataFieldRegex();
 
     /// <summary>
+    /// True when the archive on disk was fetched by a different Apple ID than
+    /// <paramref name="signedInEmail"/>, with the account it does belong to reported in
+    /// <paramref name="licensedTo"/>.
+    ///
+    /// A FairPlay licence is issued to exactly one account, so such a file is worthless to
+    /// the account signed in now — it cannot be decrypted on that phone. The archives on
+    /// disk are matched by store id alone, which is blind to who downloaded them, so this
+    /// is what keeps one account's file from standing in for another's.
+    ///
+    /// Deliberately answers false whenever either side is unknown: no signed-in account,
+    /// no account recorded in the archive, or an archive that cannot be read. Only a
+    /// readable, genuine disagreement counts, so files that predate this check and files
+    /// on a broken disk keep working exactly as before.
+    /// </summary>
+    public static bool BelongsToAnotherAccount(string ipaPath, string? signedInEmail, out string? licensedTo)
+    {
+        licensedTo = null;
+        if (string.IsNullOrWhiteSpace(signedInEmail)) return false;
+
+        // Inspect never throws, so there is nothing to catch here.
+        var report = Inspect(ipaPath);
+        if (string.IsNullOrWhiteSpace(report.AppleId)) return false;
+        if (string.Equals(report.AppleId, signedInEmail, StringComparison.OrdinalIgnoreCase)) return false;
+
+        licensedTo = report.AppleId;
+        return true;
+    }
+
+    /// <summary>
     /// Examines an IPA. Never throws: an unreadable archive yields a report with
     /// <see cref="IpaLicenseReport.ReadError"/> set, because a failed licence check must not
     /// be able to stop a download or an install that would otherwise have worked.

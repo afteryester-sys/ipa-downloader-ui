@@ -114,6 +114,7 @@ public sealed partial class DownloadService
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
     private readonly HttpClient _http;
+    private readonly AuthService _auth;
 
     // ---- Progress-bar parsing (ipatool v2 and v3 both render a CR progress bar) ----
 
@@ -197,11 +198,12 @@ public sealed partial class DownloadService
     /// </summary>
     public void ResetFileConflictScope() => _stickyConflictDecision = null;
 
-    public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http)
+    public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http, AuthService auth)
     {
         _tools = tools;
         _runner = runner;
         _http = http;
+        _auth = auth;
     }
 
     /// <summary>True when the output indicates the Apple ID has no license for the app.</summary>
@@ -378,7 +380,19 @@ public sealed partial class DownloadService
         // then the transfer runs to a fresh, unique file first and only swaps at the
         // very end, so a failed download can never take the old file with it.
         string? replaceTarget = null;
-        if (File.Exists(outputPath))
+        if (File.Exists(outputPath)
+            && IpaLicense.BelongsToAnotherAccount(outputPath, _auth.CurrentAccount?.Email, out var otherAccount))
+        {
+            // The file in the way belongs to a different Apple ID, which is precisely why a
+            // download was started for it in the first place. Asking "this file already
+            // exists, replace it?" would be a question about a file the user is not
+            // replacing, once per app, in the middle of a queue run. Keep both silently: the
+            // other account's copy is still theirs to install, so it is not ours to delete.
+            AppLog.Info($"'{Path.GetFileName(outputPath)}' is licensed to {otherAccount}; " +
+                        "keeping it and downloading a separate copy for this account.");
+            outputPath = MakeUniquePath(outputPath);
+        }
+        else if (File.Exists(outputPath))
         {
             var decision = await ResolveConflictAsync(app, outputPath, ct).ConfigureAwait(false);
             switch (decision)

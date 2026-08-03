@@ -2,6 +2,7 @@ using System.IO;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
+using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
 
@@ -56,15 +57,18 @@ public sealed class QueueService
     private readonly InstallService _install;
     private readonly CatalogService _catalog;
     private readonly SettingsService _settings;
+    private readonly AuthService _auth;
     private readonly List<QueueItem> _items = new();
     private CancellationTokenSource? _cts;
 
-    public QueueService(DownloadService download, InstallService install, CatalogService catalog, SettingsService settings)
+    public QueueService(DownloadService download, InstallService install, CatalogService catalog,
+        SettingsService settings, AuthService auth)
     {
         _download = download;
         _install = install;
         _catalog = catalog;
         _settings = settings;
+        _auth = auth;
     }
 
     public IReadOnlyList<QueueItem> Items
@@ -254,8 +258,19 @@ public sealed class QueueService
             Notify(item);
 
             // ---- Stage 2: Downloading (skipped when IPA is already local or mode = install-only) ----
-            var skipDownload = _settings.InstallMode == InstallMode.InstallExistingOnly
-                || item.App.IsDownloaded && item.App.LocalIpaPath is not null;
+            // A local file is only a valid substitute for downloading if it was fetched by
+            // the account that is signed in now. The folder is matched on store id alone, so
+            // after switching accounts the previous account's archive is still found here —
+            // and reusing it both skips the download the user asked for and hands the device
+            // an archive licensed to somebody else, which cannot be decrypted on this phone.
+            var reusable = item.App.IsDownloaded
+                && item.App.LocalIpaPath is not null
+                && !IsLicensedToAnotherAccount(item.App.LocalIpaPath!);
+
+            // Install-existing-only is the user's explicit instruction to use the file on
+            // disk, so it is honoured even when the licence belongs elsewhere; the install
+            // stage already refuses that archive with a message naming both accounts.
+            var skipDownload = _settings.InstallMode == InstallMode.InstallExistingOnly || reusable;
 
             if (!skipDownload)
             {
@@ -290,6 +305,26 @@ public sealed class QueueService
             AppLog.Error($"Queue item '{item.App.Name}' threw.", ex);
             Fail(item, Loc.Get("L.Error.Unknown"));
         }
+    }
+
+    /// <summary>
+    /// True when the archive on disk carries another Apple ID's licence, so it must not
+    /// stand in for a fresh download.
+    ///
+    /// Deliberately conservative: it answers false whenever either side is unknown — an
+    /// unreadable archive, an archive with no account recorded, or no signed-in account
+    /// yet. Only a genuine, readable disagreement counts. Guessing the other way would
+    /// re-download working files for anyone whose archives predate this check.
+    /// </summary>
+    private bool IsLicensedToAnotherAccount(string ipaPath)
+    {
+        var signedInAs = _auth.CurrentAccount?.Email;
+        if (!IpaLicense.BelongsToAnotherAccount(ipaPath, signedInAs, out var licensedTo))
+            return false;
+
+        AppLog.Info($"Ignoring the local copy of '{Path.GetFileName(ipaPath)}': it is licensed " +
+                    $"to {licensedTo}, signed in as {signedInAs}. Downloading it again.");
+        return true;
     }
 
     /// <summary>

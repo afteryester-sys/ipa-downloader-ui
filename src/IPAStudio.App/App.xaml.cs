@@ -103,6 +103,23 @@ public partial class App : Application
         var settings = Services.GetRequiredService<SettingsService>();
         settings.Load();
 
+        // The "apps this account owns" cache is stamped with the Apple ID it belongs to,
+        // and BindOwnedCacheToAccount exists to drop it when that changes — but nothing
+        // ever called it. So signing in as somebody else left the previous account's list
+        // in force, and apps it had bought kept showing as owned under an account that
+        // had never bought them. Binding here covers sign-in and session restore alike,
+        // since both raise this event.
+        //
+        // Sign-out (a null account) is deliberately ignored: it would throw the cache away
+        // and make signing back into the same account re-verify every app for no reason.
+        // A different account still clears it on the way in.
+        var auth = Services.GetRequiredService<AuthService>();
+        auth.AccountChanged += (_, account) =>
+        {
+            if (!string.IsNullOrWhiteSpace(account?.Email))
+                settings.BindOwnedCacheToAccount(account!.Email);
+        };
+
         // Apply the saved color theme BEFORE any window is created. The palette
         // (Palette.Dark/Light) must be merged ahead of the styles dictionary so the
         // StaticResource brush references inside Theme.xaml resolve against it.
