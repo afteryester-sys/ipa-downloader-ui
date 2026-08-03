@@ -149,12 +149,14 @@
     <sys:String x:Key="L.Settings.Throughput.Fix">Исправить</sys:String>
     <sys:String x:Key="L.Settings.Throughput.Fixing">Применение…</sys:String>
     <sys:String x:Key="L.Settings.Throughput.Dismiss">Скрыть</sys:String>
-    <sys:String x:Key="L.Settings.Throughput.FixFailed">Не удалось применить. Нужны права администратора, либо настройка заблокирована политикой.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Не удалось применить. Попробуйте ещё раз.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixCancelled">Запрос прав администратора отклонён. Нажмите «Исправить» и подтвердите запрос Windows.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixBlocked">Defender отклонил изменение: скорее всего, исключения заблокированы политикой или защитой от подделки. Добавьте папку в исключения вручную в «Безопасность Windows».</sys:String>
     <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл��вать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 

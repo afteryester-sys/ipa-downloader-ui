@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -149,7 +149,9 @@
     <sys:String x:Key="L.Settings.Throughput.Fix">Fix</sys:String>
     <sys:String x:Key="L.Settings.Throughput.Fixing">Applying…</sys:String>
     <sys:String x:Key="L.Settings.Throughput.Dismiss">Hide</sys:String>
-    <sys:String x:Key="L.Settings.Throughput.FixFailed">Could not apply. Administrator rights are required, or the setting is locked by policy.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Could not apply. Please try again.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixCancelled">The administrator prompt was dismissed. Click Fix and approve the Windows prompt.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixBlocked">Defender rejected the change: exclusions are most likely locked by policy or tamper protection. Add the folder manually in Windows Security.</sys:String>
     <sys:String x:Key="L.Settings.Account">Account</sys:String>
     <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Install Mode</sys:String>

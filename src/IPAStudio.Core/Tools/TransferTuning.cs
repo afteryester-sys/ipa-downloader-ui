@@ -17,6 +17,26 @@ public sealed record ThroughputFinding(
     bool CanAutoFix);
 
 /// <summary>
+/// Result of applying a finding's fix. Distinguishing these matters because the
+/// remedy differs: a dismissed UAC prompt is retryable, a policy-managed Defender
+/// is not, and both used to be reported with the same misleading message.
+/// </summary>
+public enum ThroughputFixOutcome
+{
+    /// <summary>The change was made and confirmed by an elevated read-back.</summary>
+    Applied,
+
+    /// <summary>The user dismissed the elevation prompt. Retryable.</summary>
+    Cancelled,
+
+    /// <summary>Defender refused or silently discarded the change (group policy, tamper protection).</summary>
+    Blocked,
+
+    /// <summary>The attempt could not be carried out or verified at all.</summary>
+    Failed,
+}
+
+/// <summary>
 /// Local (non-network) throughput diagnostics and fixes.
 ///
 /// Context: the IPA bytes are transferred by the bundled ipatool process, which this
@@ -57,8 +77,15 @@ public static class TransferTuning
     /// Inspects the download and staging folders and returns whatever is measurably
     /// hurting throughput. An empty list means nothing local to improve.
     /// </summary>
+    /// <param name="verifiedExclusions">
+    /// Folders a previous elevated run confirmed as excluded. Used only when Defender
+    /// hides its exclusion list from this unelevated process, so that a fix which
+    /// already succeeded is not reported as an outstanding problem on every rescan.
+    /// </param>
     public static async Task<IReadOnlyList<ThroughputFinding>> AnalyzeAsync(
-        string appsFolder, string stagingFolder, CancellationToken ct = default)
+        string appsFolder, string stagingFolder,
+        IReadOnlyCollection<string>? verifiedExclusions = null,
+        CancellationToken ct = default)
     {
         var findings = new List<ThroughputFinding>();
 
@@ -72,7 +99,7 @@ public static class TransferTuning
             if (realtimeOn == true)
             {
                 var excluded = await AreFoldersExcludedAsync(
-                    new[] { appsFolder, stagingFolder }, ct).ConfigureAwait(false);
+                    new[] { appsFolder, stagingFolder }, verifiedExclusions, ct).ConfigureAwait(false);
 
                 if (excluded == false)
                 {
@@ -150,15 +177,30 @@ public static class TransferTuning
     /// Applies the fix for a finding. Currently only the Defender exclusion is
     /// automatable, and it triggers a UAC prompt.
     /// </summary>
-    /// <returns>True when the fix was applied and verified.</returns>
-    public static async Task<bool> TryAutoFixAsync(
+    /// <returns>What actually happened, so the UI can say something true.</returns>
+    public static async Task<ThroughputFixOutcome> TryAutoFixAsync(
         string kind, string appsFolder, string stagingFolder, CancellationToken ct = default)
     {
         if (kind != KindDefender || !OperatingSystem.IsWindows())
-            return false;
+            return ThroughputFixOutcome.Failed;
 
-        return await TryAddDefenderExclusionsAsync(
+        return await AddDefenderExclusionsAsync(
             new[] { appsFolder, stagingFolder }, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The folders <see cref="TryAutoFixAsync"/> would exclude, so a caller can persist
+    /// them once the fix is confirmed.
+    /// </summary>
+    public static IReadOnlyList<string> DefenderExclusionTargets(
+        string appsFolder, string stagingFolder)
+    {
+        return new[] { appsFolder, stagingFolder }
+            .Where(f => !string.IsNullOrWhiteSpace(f))
+            .Select(NormalizeForCompare)
+            .Where(f => f.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     /// <summary>
@@ -204,7 +246,7 @@ public static class TransferTuning
     private static async Task<bool?> IsDefenderRealtimeEnabledAsync(CancellationToken ct)
     {
         var output = await RunPowerShellAsync(
-            "(Get-MpPreference).DisableRealtimeMonitoring", elevated: false, ProbeTimeout, ct)
+            "(Get-MpPreference).DisableRealtimeMonitoring", ProbeTimeout, ct)
             .ConfigureAwait(false);
 
         if (output is null) return null;
@@ -220,10 +262,11 @@ public static class TransferTuning
     /// null when it could not be determined.
     /// </summary>
     private static async Task<bool?> AreFoldersExcludedAsync(
-        IEnumerable<string> folders, CancellationToken ct)
+        IEnumerable<string> folders, IReadOnlyCollection<string>? verifiedExclusions,
+        CancellationToken ct)
     {
         var output = await RunPowerShellAsync(
-            "(Get-MpPreference).ExclusionPath -join \"`n\"", elevated: false, ProbeTimeout, ct)
+            "(Get-MpPreference).ExclusionPath -join \"`n\"", ProbeTimeout, ct)
             .ConfigureAwait(false);
 
         if (output is null) return null;
@@ -233,6 +276,18 @@ public static class TransferTuning
             .Select(NormalizeForCompare)
             .Where(p => p.Length > 0)
             .ToList();
+
+        // Defender reveals its exclusion list only to an administrator, so an empty
+        // list here usually means "not allowed to look" rather than "nothing excluded".
+        // In that blind case fall back to what an earlier elevated run confirmed;
+        // when the list *is* visible it is authoritative and the fallback is ignored.
+        if (existing.Count == 0 && verifiedExclusions is { Count: > 0 })
+        {
+            existing = verifiedExclusions
+                .Select(NormalizeForCompare)
+                .Where(p => p.Length > 0)
+                .ToList();
+        }
 
         foreach (var folder in folders.Where(f => !string.IsNullOrWhiteSpace(f)))
         {
@@ -251,10 +306,17 @@ public static class TransferTuning
     }
 
     /// <summary>
-    /// Adds the folders to Defender's exclusion list via an elevated PowerShell,
-    /// then verifies the change actually took effect.
+    /// Adds the folders to Defender's exclusion list via an elevated PowerShell and
+    /// verifies the result inside that same elevated process.
+    ///
+    /// The read-back has to happen there rather than here: Defender only discloses its
+    /// exclusion list to an administrator, so verifying from this (unelevated) process
+    /// sees an empty list and reports every successful fix as a failure — which is
+    /// exactly what users saw. An elevated process cannot have its stdout redirected
+    /// (elevation requires UseShellExecute), so it reports back through a file in our
+    /// own temp directory, which it can write to and we can read.
     /// </summary>
-    private static async Task<bool> TryAddDefenderExclusionsAsync(
+    private static async Task<ThroughputFixOutcome> AddDefenderExclusionsAsync(
         IEnumerable<string> folders, CancellationToken ct)
     {
         var paths = folders
@@ -263,62 +325,111 @@ public static class TransferTuning
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (paths.Count == 0) return false;
+        if (paths.Count == 0) return ThroughputFixOutcome.Failed;
 
-        // Single-quoted PowerShell literals; ' is escaped by doubling.
-        var literals = string.Join(
-            ",", paths.Select(p => "'" + p.Replace("'", "''") + "'"));
+        var literals = string.Join(",", paths.Select(PsLiteral));
+        var report = Path.Combine(
+            Path.GetTempPath(), $"ipastudio-defender-{Guid.NewGuid():N}.txt");
 
-        var script = $"Add-MpPreference -ExclusionPath {literals} -ErrorAction Stop";
+        var script =
+            "$ErrorActionPreference='Stop'; " +
+            $"$out={PsLiteral(report)}; " +
+            "try { " +
+            $"Add-MpPreference -ExclusionPath {literals}; " +
+            "$list=@(@((Get-MpPreference).ExclusionPath) | Where-Object { $_ }); " +
+            "Set-Content -LiteralPath $out -Encoding UTF8 -Value (@('OK') + $list); " +
+            "} catch { " +
+            "Set-Content -LiteralPath $out -Encoding UTF8 -Value @('ERROR'); " +
+            "exit 1; }";
 
-        var ok = await RunPowerShellAsync(script, elevated: true, FixTimeout, ct)
-            .ConfigureAwait(false) is not null;
+        var run = await RunElevatedPowerShellAsync(script, FixTimeout, ct).ConfigureAwait(false);
 
-        if (!ok) return false;
+        var lines = Array.Empty<string>();
+        try
+        {
+            if (File.Exists(report))
+                lines = await File.ReadAllLinesAsync(report, ct).ConfigureAwait(false);
+        }
+        catch { /* unreadable report is handled as "no report" below */ }
+        finally
+        {
+            try { File.Delete(report); } catch { /* best effort */ }
+        }
 
-        // Trust the observed state, not the exit code: policy can silently discard
-        // the request even when the cmdlet reports success.
-        return await AreFoldersExcludedAsync(paths, ct).ConfigureAwait(false) == true;
+        if (run == ElevatedRun.Cancelled) return ThroughputFixOutcome.Cancelled;
+
+        var head = lines.Length > 0 ? lines[0].Trim() : "";
+
+        // Add-MpPreference itself threw: managed by policy, or tamper protection.
+        if (head == "ERROR") return ThroughputFixOutcome.Blocked;
+
+        if (head != "OK") return ThroughputFixOutcome.Failed;
+
+        var visible = lines.Skip(1)
+            .Select(NormalizeForCompare)
+            .Where(p => p.Length > 0)
+            .ToList();
+
+        // An entirely empty list after a cmdlet that reported success means the list is
+        // withheld (HideExclusionsFromLocalAdmins) rather than that our paths were
+        // dropped, so the cmdlet's own success is the best evidence available.
+        if (visible.Count == 0) return ThroughputFixOutcome.Applied;
+
+        var allCovered = paths.All(p =>
+        {
+            var target = NormalizeForCompare(p);
+            return visible.Any(e =>
+                target.Equals(e, StringComparison.OrdinalIgnoreCase) ||
+                target.StartsWith(e + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+        });
+
+        // The list is visible and our paths are not in it: silently discarded.
+        return allCovered ? ThroughputFixOutcome.Applied : ThroughputFixOutcome.Blocked;
     }
 
-    /// <summary>
-    /// Runs a PowerShell snippet.
-    /// </summary>
-    /// <param name="elevated">
-    /// When true the process is launched through the shell verb "runas", which shows
-    /// a UAC prompt. Elevated launches require UseShellExecute, so their stdout
-    /// cannot be captured — success is reported as an empty string and must be
-    /// verified separately by the caller.
-    /// </param>
-    /// <returns>Captured stdout, an empty string for a successful elevated run, or null on failure.</returns>
-    private static async Task<string?> RunPowerShellAsync(
-        string script, bool elevated, TimeSpan timeout, CancellationToken ct)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            CreateNoWindow = true,
-        };
+    /// <summary>Single-quoted PowerShell literal; an embedded ' is escaped by doubling.</summary>
+    private static string PsLiteral(string value) => "'" + value.Replace("'", "''") + "'";
 
+    /// <summary>Outcome of an elevated launch.</summary>
+    private enum ElevatedRun
+    {
+        /// <summary>The process ran to completion and exited zero.</summary>
+        Ok,
+
+        /// <summary>The user dismissed the UAC prompt.</summary>
+        Cancelled,
+
+        /// <summary>It could not be started, timed out, or exited non-zero.</summary>
+        Failed,
+    }
+
+    private static void AddCommonArguments(ProcessStartInfo psi, string script)
+    {
         psi.ArgumentList.Add("-NoProfile");
         psi.ArgumentList.Add("-NonInteractive");
         psi.ArgumentList.Add("-ExecutionPolicy");
         psi.ArgumentList.Add("Bypass");
         psi.ArgumentList.Add("-Command");
         psi.ArgumentList.Add(script);
+    }
 
-        if (elevated)
+    /// <summary>
+    /// Runs an unelevated PowerShell snippet and captures its stdout.
+    /// </summary>
+    /// <returns>Captured stdout, or null when it failed or exited non-zero.</returns>
+    private static async Task<string?> RunPowerShellAsync(
+        string script, TimeSpan timeout, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo
         {
-            psi.UseShellExecute = true;
-            psi.Verb = "runas";
-            psi.WindowStyle = ProcessWindowStyle.Hidden;
-        }
-        else
-        {
-            psi.UseShellExecute = false;
-            psi.RedirectStandardOutput = true;
-            psi.RedirectStandardError = true;
-        }
+            FileName = "powershell.exe",
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+
+        AddCommonArguments(psi, script);
 
         try
         {
@@ -328,34 +439,63 @@ public static class TransferTuning
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(timeout);
 
-            string captured = "";
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
 
-            if (!elevated)
-            {
-                var stdoutTask = process.StandardOutput.ReadToEndAsync();
-                var stderrTask = process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
 
-                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-
-                captured = await stdoutTask.ConfigureAwait(false);
-                _ = await stderrTask.ConfigureAwait(false);
-            }
-            else
-            {
-                await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
-            }
+            var captured = await stdoutTask.ConfigureAwait(false);
+            _ = await stderrTask.ConfigureAwait(false);
 
             return process.ExitCode == 0 ? captured : null;
         }
-        catch (OperationCanceledException)
+        catch
         {
+            // Missing powershell.exe, a timeout, or cancellation.
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Runs a PowerShell snippet through the shell verb "runas", which shows a UAC
+    /// prompt. Elevation requires UseShellExecute, so stdout cannot be redirected —
+    /// callers that need output must have the script write it to a file.
+    /// </summary>
+    private static async Task<ElevatedRun> RunElevatedPowerShellAsync(
+        string script, TimeSpan timeout, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            CreateNoWindow = true,
+            UseShellExecute = true,
+            Verb = "runas",
+            WindowStyle = ProcessWindowStyle.Hidden,
+        };
+
+        AddCommonArguments(psi, script);
+
+        try
+        {
+            using var process = Process.Start(psi);
+            if (process is null) return ElevatedRun.Failed;
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(timeout);
+
+            await process.WaitForExitAsync(timeoutCts.Token).ConfigureAwait(false);
+
+            return process.ExitCode == 0 ? ElevatedRun.Ok : ElevatedRun.Failed;
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            // ERROR_CANCELLED: the elevation prompt was dismissed. Worth telling apart,
+            // since the user only has to accept it next time.
+            return ElevatedRun.Cancelled;
         }
         catch
         {
-            // Missing powershell.exe, or the user dismissed the UAC prompt
-            // (which surfaces as a Win32Exception).
-            return null;
+            return ElevatedRun.Failed;
         }
     }
 

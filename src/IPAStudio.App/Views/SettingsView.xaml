@@ -226,7 +226,7 @@
                                         <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Caption}"
                                                    TextWrapping="Wrap" Margin="0,4,0,0" />
 
-                                        <TextBlock Text="{DynamicResource L.Settings.Throughput.FixFailed}"
+                                        <TextBlock Text="{Binding FixMessage}"
                                                    Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
                                                    Foreground="{DynamicResource Brush.Danger}" Margin="0,6,0,0"
                                                    Visibility="{Binding FixFailed, Converter={StaticResource BoolToVis}}" />

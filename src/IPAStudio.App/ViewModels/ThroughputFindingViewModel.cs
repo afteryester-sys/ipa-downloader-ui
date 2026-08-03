@@ -30,9 +30,15 @@ public sealed partial class ThroughputFindingViewModel : ObservableObject
     private bool _isFixing;
 
     /// <summary>
-    /// Set when a fix attempt did not take effect — most often because the user
-    /// dismissed the UAC prompt, or because Defender is managed by group policy.
+    /// Set when a fix attempt did not take effect. The reason varies — a dismissed
+    /// elevation prompt, or a Defender managed by policy — and each needs different
+    /// action from the user, so the wording lives in <see cref="FixMessage"/> instead
+    /// of being one fixed string.
     /// </summary>
     [ObservableProperty]
     private bool _fixFailed;
+
+    /// <summary>Why the last fix attempt did not take effect, and what to do about it.</summary>
+    [ObservableProperty]
+    private string _fixMessage = "";
 }

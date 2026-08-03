@@ -294,7 +294,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
             var staging = System.IO.Path.Combine(apps, ".staging");
 
-            var findings = await TransferTuning.AnalyzeAsync(apps, staging);
+            var findings = await TransferTuning.AnalyzeAsync(
+                apps, staging, _settings.GetVerifiedDefenderExclusions());
 
             ThroughputFindings.Clear();
             foreach (var f in findings)
@@ -328,24 +329,41 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         if (finding is null || !finding.CanAutoFix || finding.IsFixing) return;
 
         finding.IsFixing = true;
+        finding.FixFailed = false;
         try
         {
             var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
             var staging = System.IO.Path.Combine(apps, ".staging");
 
-            var ok = await TransferTuning.TryAutoFixAsync(finding.Kind, apps, staging);
-            if (ok)
+            var outcome = await TransferTuning.TryAutoFixAsync(finding.Kind, apps, staging);
+
+            if (outcome == ThroughputFixOutcome.Applied)
             {
+                // Remember it: Defender will not show its exclusion list to this
+                // unelevated process, so the next scan has no other way to know.
+                if (finding.Kind == TransferTuning.KindDefender)
+                {
+                    _settings.RememberDefenderExclusions(
+                        TransferTuning.DefenderExclusionTargets(apps, staging));
+                }
+
                 ThroughputFindings.Remove(finding);
                 OnPropertyChanged(nameof(HasThroughputFindings));
             }
             else
             {
+                finding.FixMessage = Str(outcome switch
+                {
+                    ThroughputFixOutcome.Cancelled => "L.Settings.Throughput.FixCancelled",
+                    ThroughputFixOutcome.Blocked => "L.Settings.Throughput.FixBlocked",
+                    _ => "L.Settings.Throughput.FixFailed",
+                });
                 finding.FixFailed = true;
             }
         }
         catch
         {
+            finding.FixMessage = Str("L.Settings.Throughput.FixFailed");
             finding.FixFailed = true;
         }
         finally

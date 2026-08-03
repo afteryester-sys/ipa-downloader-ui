@@ -56,6 +56,13 @@ public sealed class AppSettings
     /// </summary>
     public List<string> DismissedThroughputFindings { get; set; } = new();
 
+    /// <summary>
+    /// Folders an elevated run confirmed as excluded from Defender. Remembered because
+    /// Defender does not disclose its exclusion list to an unelevated process, so
+    /// without this the app cannot tell a fix it already applied from one still needed.
+    /// </summary>
+    public List<string> VerifiedDefenderExclusions { get; set; } = new();
+
     /// <summary>Last Apple ID used to sign in; pre-filled on the login screen.</summary>
     public string? LastAppleId { get; set; }
 
@@ -216,6 +223,32 @@ public sealed class SettingsService
             Current.DismissedThroughputFindings.Add(kind);
         }
         TrySave();
+    }
+
+    /// <summary>Folders a previous elevated run confirmed as excluded from Defender.</summary>
+    public IReadOnlyCollection<string> GetVerifiedDefenderExclusions()
+    {
+        lock (_ownedLock)
+            return Current.VerifiedDefenderExclusions.ToList();
+    }
+
+    /// <summary>Records folders whose Defender exclusion was confirmed while elevated.</summary>
+    public void RememberDefenderExclusions(IEnumerable<string> folders)
+    {
+        var added = false;
+
+        lock (_ownedLock)
+        {
+            foreach (var folder in folders.Where(f => !string.IsNullOrWhiteSpace(f)))
+            {
+                if (Current.VerifiedDefenderExclusions.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                    continue;
+                Current.VerifiedDefenderExclusions.Add(folder);
+                added = true;
+            }
+        }
+
+        if (added) TrySave();
     }
 
     /// <summary>
