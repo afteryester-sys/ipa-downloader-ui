@@ -60,10 +60,19 @@
                         </Border>
                     </StackPanel>
                 </StackPanel>
-                <Button Grid.Column="1" Content="{DynamicResource L.Queue.CancelAll}" Style="{StaticResource Button.Danger}"
-                        VerticalAlignment="Top" Margin="16,0,0,0"
-                        Command="{Binding CancelCommand}"
-                        Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                    <!-- Only offered while multitasking is on: with it off there is one slot,
+                         so a minimised operation would have nothing to run alongside it and
+                         would just be work the user can no longer see. -->
+                    <Button Content="{DynamicResource L.Ops.Minimize}" Style="{StaticResource Button.Secondary}"
+                            Margin="16,0,0,0"
+                            Command="{Binding MinimizeCommand}"
+                            Visibility="{Binding CanMinimize, Converter={StaticResource BoolToVis}}" />
+                    <Button Content="{DynamicResource L.Queue.CancelAll}" Style="{StaticResource Button.Danger}"
+                            Margin="8,0,0,0"
+                            Command="{Binding CancelCommand}"
+                            Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
             </Grid>
         </Border>
 

@@ -260,3 +260,28 @@ public sealed class SubtractConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Turns a 0-100 percentage into a pixel height, for the operations circle that fills up as
+/// the work completes. The parameter is the height at 100%.
+///
+/// A rising fill rather than a swept arc: an arc needs its geometry rebuilt on every progress
+/// tick, while this is a clipped rectangle the layout system sizes for free.
+/// </summary>
+public sealed class PercentToHeightConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not double percent || double.IsNaN(percent)) return 0d;
+
+        var full = parameter is string text
+            && double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : 0;
+
+        return Math.Clamp(percent, 0, 100) / 100 * full;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

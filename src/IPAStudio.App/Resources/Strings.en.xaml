@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses�����</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���������</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -128,6 +128,29 @@
     <sys:String x:Key="L.Stage.Licensing">License</sys:String>
     <sys:String x:Key="L.Stage.Downloading">Download</sys:String>
     <sys:String x:Key="L.Stage.Installing">Install</sys:String>
+
+    <!-- Operations (multitasking mode) -->
+    <sys:String x:Key="L.Ops.Minimize">Send to background</sys:String>
+    <sys:String x:Key="L.Ops.Title">Current operations</sys:String>
+    <sys:String x:Key="L.Ops.Empty">No active operations.</sys:String>
+    <sys:String x:Key="L.Ops.Return">Return</sys:String>
+    <sys:String x:Key="L.Ops.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Ops.ClearFinished">Clear finished</sys:String>
+    <sys:String x:Key="L.Ops.State.Running">Running</sys:String>
+    <sys:String x:Key="L.Ops.State.Done">Done</sys:String>
+    <sys:String x:Key="L.Ops.State.Failed">Failed</sys:String>
+    <sys:String x:Key="L.Ops.State.Cancelled">Cancelled</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Install">Installing apps</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Transfer">Transferring apps</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Download">Downloading IPA</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Export">Saving photos to computer</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Delete">Deleting photos from device</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Importing photos to device</sys:String>
+    <sys:String x:Key="L.Ops.ExitTitle">Operations still running</sys:String>
+    <sys:String x:Key="L.Ops.ExitBody">These operations have not finished. Closing now interrupts them — an install onto a device is a particularly bad moment to cut off.</sys:String>
+    <sys:String x:Key="L.Ops.ExitConfirm">Close anyway</sys:String>
+    <sys:String x:Key="L.Ops.ExitCancel">Keep open</sys:String>
 
     <!-- Settings -->
     <sys:String x:Key="L.Settings.Title">Settings</sys:String>
@@ -162,6 +185,11 @@
     <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Start over (previous behaviour)</sys:String>
     <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Keep what was downloaded</sys:String>
     <sys:String x:Key="L.Settings.Resume.Hint">With "Keep what was downloaded", finished files are not fetched twice: close the program mid-queue and the apps already downloaded are reused. Size and licence are verified first, so an incomplete file is still downloaded again.</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking">Multitasking mode</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Toggle">Enable multitasking</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Hint">Each action becomes a separate operation: send it to the background and start the next one without waiting for the first to finish. Background operations collect in a circle in the corner of the window, and you can return to any of them from there. With the mode off everything works as before — one operation at a time.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls">Simultaneous installs per device</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Different devices always install in parallel; this only caps a single device. Above 2 rarely helps: the limit is the USB link, not the phone.</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
 
     <!-- Updates -->
@@ -317,6 +345,7 @@
     <sys:String x:Key="L.Queue.Status.Downloaded">Downloaded {0}</sys:String>
     <sys:String x:Key="L.Queue.Status.TotalUnknown">total unknown</sys:String>
     <sys:String x:Key="L.Queue.Status.WaitingDevice">Waiting for the device…</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingSlot">Waiting for a free download slot…</sys:String>
     <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Downloaded (install skipped)</sys:String>
 
     <!-- Install progress -->
