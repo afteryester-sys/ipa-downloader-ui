@@ -139,15 +139,21 @@ public partial class App : Application
         };
         window.Show();
 
+        var downloads = Services.GetRequiredService<DownloadService>();
+
         // Downloads run on background threads, so the prompt has to be marshalled onto
         // the UI thread. Core owns no WPF types; it just calls this callback.
-        Services.GetRequiredService<DownloadService>().FileConflictResolver =
+        downloads.FileConflictResolver =
             (request, _) => window.Dispatcher.InvokeAsync(() =>
             {
                 var dialog = new Views.FileConflictDialog(request) { Owner = window };
                 dialog.ShowDialog();
                 return new FileConflictResponse(dialog.Decision, dialog.ApplyToAll);
             }).Task;
+
+        // Read on demand rather than captured once, so switching the setting applies to
+        // the next attempt instead of needing a restart.
+        downloads.ResumeModeProvider = () => settings.ResumeMode;
     }
 
     /// <summary>

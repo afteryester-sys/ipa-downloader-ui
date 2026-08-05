@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 
 namespace IPAStudio.Core.Tools;
@@ -182,7 +183,11 @@ public static class TransferTuning
         string kind, string appsFolder, string stagingFolder, CancellationToken ct = default)
     {
         if (kind != KindDefender || !OperatingSystem.IsWindows())
+        {
+            AppLog.Warn($"Throughput fix: nothing automatable for '{kind}' " +
+                        $"(Windows: {OperatingSystem.IsWindows()}).");
             return ThroughputFixOutcome.Failed;
+        }
 
         return await AddDefenderExclusionsAsync(
             new[] { appsFolder, stagingFolder }, ct).ConfigureAwait(false);
@@ -325,7 +330,17 @@ public static class TransferTuning
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (paths.Count == 0) return ThroughputFixOutcome.Failed;
+        // Logged at every outcome below. Without this the button was undebuggable: the log
+        // held not one line about Defender, so "it still does not work" could not be told
+        // apart from a dismissed UAC prompt, a policy-managed Defender, or a fix that had
+        // in fact been applied.
+        if (paths.Count == 0)
+        {
+            AppLog.Warn("Defender fix: no folders to exclude (apps/staging folder unset).");
+            return ThroughputFixOutcome.Failed;
+        }
+
+        AppLog.Info($"Defender fix: requesting exclusions for {string.Join(", ", paths)}");
 
         var literals = string.Join(",", paths.Select(PsLiteral));
         var report = Path.Combine(
@@ -356,14 +371,28 @@ public static class TransferTuning
             try { File.Delete(report); } catch { /* best effort */ }
         }
 
-        if (run == ElevatedRun.Cancelled) return ThroughputFixOutcome.Cancelled;
+        if (run == ElevatedRun.Cancelled)
+        {
+            AppLog.Info("Defender fix: the UAC prompt was dismissed, nothing was changed.");
+            return ThroughputFixOutcome.Cancelled;
+        }
 
         var head = lines.Length > 0 ? lines[0].Trim() : "";
 
         // Add-MpPreference itself threw: managed by policy, or tamper protection.
-        if (head == "ERROR") return ThroughputFixOutcome.Blocked;
+        if (head == "ERROR")
+        {
+            AppLog.Warn("Defender fix: Add-MpPreference failed. Defender is most likely " +
+                        "managed by group policy or protected by tamper protection.");
+            return ThroughputFixOutcome.Blocked;
+        }
 
-        if (head != "OK") return ThroughputFixOutcome.Failed;
+        if (head != "OK")
+        {
+            AppLog.Warn($"Defender fix: no usable report from the elevated process " +
+                        $"(run={run}, report lines={lines.Length}).");
+            return ThroughputFixOutcome.Failed;
+        }
 
         var visible = lines.Skip(1)
             .Select(NormalizeForCompare)
@@ -373,7 +402,12 @@ public static class TransferTuning
         // An entirely empty list after a cmdlet that reported success means the list is
         // withheld (HideExclusionsFromLocalAdmins) rather than that our paths were
         // dropped, so the cmdlet's own success is the best evidence available.
-        if (visible.Count == 0) return ThroughputFixOutcome.Applied;
+        if (visible.Count == 0)
+        {
+            AppLog.Info("Defender fix: applied. The exclusion list is hidden from local " +
+                        "admins, so it could not be read back for confirmation.");
+            return ThroughputFixOutcome.Applied;
+        }
 
         var allCovered = paths.All(p =>
         {
@@ -384,7 +418,16 @@ public static class TransferTuning
         });
 
         // The list is visible and our paths are not in it: silently discarded.
-        return allCovered ? ThroughputFixOutcome.Applied : ThroughputFixOutcome.Blocked;
+        if (allCovered)
+        {
+            AppLog.Info("Defender fix: applied and confirmed in Defender's exclusion list.");
+            return ThroughputFixOutcome.Applied;
+        }
+
+        AppLog.Warn($"Defender fix: the cmdlet reported success but the paths are absent from " +
+                    $"the exclusion list ({visible.Count} entries read back), so they were " +
+                    "discarded — Defender is being managed centrally.");
+        return ThroughputFixOutcome.Blocked;
     }
 
     /// <summary>Single-quoted PowerShell literal; an embedded ' is escaped by doubling.</summary>

@@ -130,6 +130,22 @@
                 </StackPanel>
             </Border>
 
+            <!-- Interrupted downloads: keep or discard what already made it to disk -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.ResumeMode}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <RadioButton Content="{DynamicResource L.Settings.Resume.RestartFromScratch}"
+                                 GroupName="ResumeMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ResumeIsRestartFromScratch}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Resume.KeepPartialFiles}"
+                                 GroupName="ResumeMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ResumeIsKeepPartialFiles}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Resume.Hint}" />
+                </StackPanel>
+            </Border>
+
             <!-- Diagnostics / logging -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

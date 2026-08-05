@@ -125,6 +125,14 @@ public sealed partial class AuthService
             if (string.IsNullOrEmpty(acc.Email))
                 acc = new AccountInfo { Email = email, Name = acc.Name };
             CurrentAccount = acc;
+            SignedInAtUtc = DateTime.UtcNow;
+
+            // Remember the credentials for silent re-authentication (see
+            // TryReauthenticateAsync). Kept in memory only, for this process: a token that
+            // Apple expires mid-queue can then be renewed without stopping to ask, while
+            // closing the app still forgets the password.
+            _reauth = new ReauthCredentials(email, password);
+
             AccountChanged?.Invoke(this, acc);
             return AuthResult.Ok(acc);
         }
@@ -207,6 +215,12 @@ public sealed partial class AuthService
         finally
         {
             CurrentAccount = null;
+            SignedInAtUtc = null;
+
+            // Signing out must also forget the password, or a later expiry would silently
+            // sign the user back into the account they just left.
+            _reauth = null;
+
             AccountChanged?.Invoke(this, null);
         }
     }
@@ -293,9 +307,86 @@ public sealed partial class AuthService
     {
         if (CurrentAccount is null) return;
 
-        AppLog.Warn($"Session for '{CurrentAccount.Email}' rejected by Apple; clearing the cached account.");
+        // Log how long the token actually survived. "Sometimes I have to sign in again"
+        // is impossible to act on without this: a token dying after minutes points at the
+        // keychain passphrase or anisette, whereas one dying after hours or days is simply
+        // Apple's normal expiry and argues for re-authenticating silently instead.
+        var age = SignedInAtUtc is { } since
+            ? $" after {(DateTime.UtcNow - since).TotalMinutes:F0} min"
+            : "";
+
+        AppLog.Warn($"Session for '{CurrentAccount.Email}' rejected by Apple{age}; " +
+                    "clearing the cached account.");
         CurrentAccount = null;
         AccountChanged?.Invoke(this, null);
+    }
+
+    /// <summary>
+    /// When the current session was established, used to report how long a token lasted
+    /// before Apple rejected it. Null after a restore from the keychain, where the
+    /// original sign-in time is not recorded anywhere.
+    /// </summary>
+    public DateTime? SignedInAtUtc { get; private set; }
+
+    /// <summary>
+    /// Credentials for silent re-authentication, held for the lifetime of the process only.
+    ///
+    /// Deliberately not persisted. Writing the password to disk (even DPAPI-encrypted)
+    /// would make an Apple ID password recoverable by anything running as this user, which
+    /// is a poor trade for saving one prompt; ipatool's own keychain already covers the
+    /// across-restarts case. This exists for the case the user actually hits: a token that
+    /// dies in the middle of a session, where the password is still known because they
+    /// typed it minutes ago.
+    /// </summary>
+    private sealed record ReauthCredentials(string Email, string Password);
+
+    private ReauthCredentials? _reauth;
+
+    /// <summary>
+    /// True when a silent re-login can be attempted without asking the user anything.
+    /// </summary>
+    public bool CanReauthenticate => _reauth is not null;
+
+    /// <summary>
+    /// Signs in again with the credentials from this session's sign-in, for use when Apple
+    /// expired the token while the app was running.
+    ///
+    /// Returns true only on a clean success. Anything that needs the user — a 2FA code, a
+    /// changed password — returns false, and the caller falls back to the normal
+    /// "please sign in again" path: no <c>twoFactorProvider</c> is passed, precisely so
+    /// that this can never put a dialog on screen behind the user's back.
+    /// </summary>
+    public async Task<bool> TryReauthenticateAsync(CancellationToken ct = default)
+    {
+        var creds = _reauth;
+        if (creds is null) return false;
+
+        AppLog.Info($"Session for '{creds.Email}' expired; signing in again silently.");
+
+        try
+        {
+            var result = await LoginAsync(creds.Email, creds.Password, twoFactorProvider: null, ct)
+                .ConfigureAwait(false);
+
+            if (result.Success)
+            {
+                AppLog.Info("Silent re-authentication succeeded; continuing.");
+                return true;
+            }
+
+            // Apple wants a code (or the password no longer works): that needs the user, so
+            // stop trying and drop the stored credentials rather than retrying in a loop.
+            AppLog.Warn($"Silent re-authentication did not succeed ({result.Reason}); " +
+                        "the user will be asked to sign in.");
+            _reauth = null;
+            return false;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Error("Silent re-authentication threw.", ex);
+            return false;
+        }
     }
 
     /// <summary>

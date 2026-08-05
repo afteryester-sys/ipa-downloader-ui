@@ -116,6 +116,30 @@ public sealed class QueueService
     }
 
     /// <summary>
+    /// Adds one app to the existing queue, leaving what is already there alone.
+    ///
+    /// Exists because <see cref="Build"/> clears the queue: an app resolved late — such as one
+    /// whose catalog match the user had to pick by hand — has to join its batch rather than
+    /// replace it.
+    /// </summary>
+    public void Add(AppEntry app, Device device)
+    {
+        lock (_items)
+        {
+            // Re-queueing the same app for the same device would install it twice over.
+            var already = _items.Any(i =>
+                i.TargetDevice?.Udid == device.Udid
+                && (i.App.AppStoreId == app.AppStoreId && app.AppStoreId > 0
+                    || !string.IsNullOrEmpty(app.BundleId)
+                       && string.Equals(i.App.BundleId, app.BundleId, StringComparison.OrdinalIgnoreCase)));
+
+            if (already) return;
+
+            _items.Add(new QueueItem { App = app, TargetDevice = device });
+        }
+    }
+
+    /// <summary>
     /// Builds a queue from IPA files already on disk (Direct IPA install mode).
     /// These items skip Checking/Licensing/Downloading and go straight to Installing.
     /// The install is independent of the signed-in Apple ID.
@@ -165,10 +189,34 @@ public sealed class QueueService
 
             // Downloads run in parallel; the install step inside ProcessItemAsync is
             // serialized by InstallService's device lock.
+            //
+            // Each item is isolated here. Parallel.ForEachAsync stops handing out work as
+            // soon as one body throws, so a single app that failed in a way ProcessItemAsync
+            // could not swallow (an IO error, a disposed device handle) used to abandon every
+            // app still queued behind it — the user saw a 30-app batch quit after four, with
+            // the rest left sitting at "Pending" and no error against them.
             await Parallel.ForEachAsync(
                 pending,
                 new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, MaxParallelDownloads), CancellationToken = ct },
-                async (item, token) => await ProcessItemAsync(item, token).ConfigureAwait(false)
+                async (item, token) =>
+                {
+                    try
+                    {
+                        await ProcessItemAsync(item, token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // The user cancelled: let this one out so the loop unwinds and the
+                        // outer handler marks the remaining items Cancelled.
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Anything else belongs to this item alone.
+                        AppLog.Error($"Queue item '{item.App.Name}' failed outside the pipeline.", ex);
+                        Fail(item, Loc.Get("L.Error.Unknown"));
+                    }
+                }
             ).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -191,8 +239,30 @@ public sealed class QueueService
         }
     }
 
-    /// <summary>Requests cancellation of all in-flight work.</summary>
-    public void Cancel() => _cts?.Cancel();
+    /// <summary>
+    /// Requests cancellation of all in-flight work, including single-item retries
+    /// started after the queue run itself had finished.
+    /// </summary>
+    public void Cancel()
+    {
+        // Snapshot both sources before cancelling: Cancel() runs callbacks inline, and
+        // a callback that reaches back into this object must not see a half-torn state.
+        var queueCts = _cts;
+        var retryCts = _retryCts;
+
+        try { queueCts?.Cancel(); } catch (ObjectDisposedException) { /* run already ended */ }
+        try { retryCts?.Cancel(); } catch (ObjectDisposedException) { /* retry already ended */ }
+    }
+
+    /// <summary>
+    /// Cancellation source for retries that run outside <see cref="RunAsync"/>.
+    ///
+    /// A retry used to fall back to <see cref="CancellationToken.None"/> whenever the
+    /// queue run had already completed, which made it genuinely uncancellable: "Cancel
+    /// all" had nothing to signal, and the item downloaded to the end no matter what
+    /// the user pressed.
+    /// </summary>
+    private CancellationTokenSource? _retryCts;
 
     /// <summary>Retries a single failed item (used by the per-item "Retry" button).</summary>
     public async Task RetryAsync(QueueItem item)
@@ -203,8 +273,31 @@ public sealed class QueueService
         item.ErrorMessage = null;
         item.StageProgress = 0;
         Notify(item);
-        await ProcessItemAsync(item, _cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
-        QueueCompleted?.Invoke(this, EventArgs.Empty);
+
+        // Prefer the live queue token when a run is in flight; otherwise stand up a
+        // dedicated source so this retry stays cancellable.
+        var standalone = _cts is null ? new CancellationTokenSource() : null;
+        if (standalone is not null) _retryCts = standalone;
+
+        try
+        {
+            var token = _cts?.Token ?? standalone!.Token;
+            await ProcessItemAsync(item, token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // ProcessItemAsync has already marked the item Cancelled and notified the UI.
+            // Rethrowing here would surface a cancellation the user asked for as a crash.
+        }
+        finally
+        {
+            if (standalone is not null)
+            {
+                if (ReferenceEquals(_retryCts, standalone)) _retryCts = null;
+                standalone.Dispose();
+            }
+            QueueCompleted?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>
@@ -513,7 +606,7 @@ public sealed class QueueService
 
         var installResult = await _install.InstallAsync(
             item.TargetDevice.Udid, ipaPath, installProgress, ct,
-            item.TargetDevice.AppleId).ConfigureAwait(false);
+            item.TargetDevice.AppleId, item.App.BundleId).ConfigureAwait(false);
 
         if (!installResult.Success)
         {

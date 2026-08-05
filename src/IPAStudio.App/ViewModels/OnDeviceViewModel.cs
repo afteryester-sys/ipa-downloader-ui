@@ -420,10 +420,24 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // no longer findable by. The very same apps download from the catalog screen, which
         // asks by catalog id, which is why "it works there but not here".
         var entries = new List<AppEntry>(selected.Count);
+        var needChoosing = new List<InstalledAppViewModel>();
 
         foreach (var row in selected)
         {
             var entry = await ResolveEntryAsync(row.App, CancellationToken.None).ConfigureAwait(true);
+
+            // A store id of 0 means the app could only be addressed by bundle id, which is
+            // exactly the request the store refuses for anything delisted. Queueing it anyway
+            // is what produced a screenful of errors on apps that download perfectly from the
+            // catalog screen — so when the catalog does offer look-alikes, ask first rather
+            // than failing first and offering the choice afterwards.
+            if ((entry?.AppStoreId ?? 0) <= 0
+                && _catalog.FindLocalCandidatesByName(row.Name).Count > 0)
+            {
+                OfferCatalogCandidates(row, transferTo: destination);
+                needChoosing.Add(row);
+                continue;
+            }
 
             // ResolveEntryAsync falls back to a bundle-id entry, so a null is not expected;
             // keeping the app in the queue under its own name is still better than dropping it
@@ -437,12 +451,29 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             });
         }
 
+        // Nothing could be resolved: stay on this screen with the choices visible, because
+        // navigating to an empty queue would look like the button had done nothing.
+        if (entries.Count == 0)
+        {
+            AppLog.Info($"Transfer: all {needChoosing.Count} app(s) need a catalog match chosen first");
+            ErrorText = Loc.Get("L.OnDevice.PickCatalogMatch");
+            return;
+        }
+
+        if (needChoosing.Count > 0)
+        {
+            AppLog.Info($"Transfer: {needChoosing.Count} app(s) left for the user to match, " +
+                        $"{entries.Count} queued");
+        }
+
         AppLog.Info(
             $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}; " +
             $"{entries.Count(e => e.AppStoreId > 0)} resolved to a store id");
 
         _queue.Build(entries, destination);
-        _navigator?.GoTo(Page.Queue);
+
+        // Only leave for the queue once nothing is waiting on the user here.
+        if (needChoosing.Count == 0) _navigator?.GoTo(Page.Queue);
     }
 
     public bool IsSignedIn => _auth.IsAuthenticated;
@@ -945,17 +976,32 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Shows the catalog apps whose names resemble this one, each able to start the download
-    /// with its own store id. Does nothing when the catalog has no near match.
+    /// Shows the catalog apps whose names resemble this one, each able to proceed with its own
+    /// store id. Does nothing when the catalog has no near match.
     /// </summary>
-    private void OfferCatalogCandidates(InstalledAppViewModel item)
+    /// <param name="transferTo">
+    /// When set, picking a candidate queues a transfer to that device; otherwise it downloads
+    /// the app to a folder. Without this the chips offered during a transfer would quietly do
+    /// something else — save a file — instead of the install the user asked for.
+    /// </param>
+    private void OfferCatalogCandidates(InstalledAppViewModel item, Device? transferTo = null)
     {
         var candidates = _catalog.FindLocalCandidatesByName(item.Name);
         if (candidates.Count == 0) return;
 
         item.ShowCandidates(candidates.Select(entry => new CatalogCandidateViewModel(
             entry,
-            new AsyncRelayCommand(() => DownloadCoreAsync(item, CatalogEntryFor(item.App, entry))))));
+            new AsyncRelayCommand(() =>
+            {
+                if (transferTo is null)
+                    return DownloadCoreAsync(item, CatalogEntryFor(item.App, entry));
+
+                item.ClearCandidates();
+                item.ErrorText = null;
+                _queue.Add(CatalogEntryFor(item.App, entry), transferTo);
+                _navigator?.GoTo(Page.Queue);
+                return Task.CompletedTask;
+            }))));
 
         item.ErrorText = Loc.Get("L.OnDevice.PickCatalogMatch");
         AppLog.Info($"On-device: offering {candidates.Count} catalog match(es) for \"{item.Name}\" ({item.BundleId})");

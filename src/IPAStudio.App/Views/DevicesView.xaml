@@ -5,6 +5,9 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:BatteryToBrushConverter x:Key="BatteryBrush" />
+        <!-- Declared here rather than relying on MainWindow's copy: this view is also
+             loaded on its own, and a StaticResource must resolve within this file. -->
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
@@ -140,6 +143,29 @@
                                     </EventTrigger>
                                 </Border.Triggers>
 
+                                <!-- The wallpaper sits behind the content as a faint wash: enough to
+                                     tell two same-model phones apart, far too faint to fight the
+                                     text for attention. Collapsed until one arrives, so a device
+                                     that will not share it looks no different from before. -->
+                                <Grid>
+                                    <!-- Faded out downward with an OpacityMask rather than by layering a
+                                         surface-coloured gradient on top: a mask is theme-independent, so
+                                         switching between light and dark cannot leave a wrong-coloured
+                                         wash frozen over the card. -->
+                                    <Border CornerRadius="14" ClipToBounds="True"
+                                            Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
+                                        <Border.OpacityMask>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                <GradientStop Color="#FF000000" Offset="0" />
+                                                <GradientStop Color="#00000000" Offset="0.75" />
+                                            </LinearGradientBrush>
+                                        </Border.OpacityMask>
+                                        <Border.Background>
+                                            <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill"
+                                                        Opacity="0.16" />
+                                        </Border.Background>
+                                    </Border>
+
                                 <StackPanel>
                                     <Grid Margin="0,0,0,12">
                                         <Border Width="44" Height="44" CornerRadius="12"
@@ -248,6 +274,7 @@
                                             Command="{Binding DataContext.OpenOnDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}" />
                                 </StackPanel>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

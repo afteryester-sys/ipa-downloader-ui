@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses�����</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -158,6 +158,10 @@
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Download and install (default)</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadOnly">Download IPA only (do not install)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Install existing IPA only (skip download)</sys:String>
+    <sys:String x:Key="L.Settings.ResumeMode">When a download is interrupted</sys:String>
+    <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Start over (previous behaviour)</sys:String>
+    <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Keep what was downloaded</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">With "Keep what was downloaded", finished files are not fetched twice: close the program mid-queue and the apps already downloaded are reused. Size and licence are verified first, so an incomplete file is still downloaded again.</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
 
     <!-- Updates -->

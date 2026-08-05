@@ -197,6 +197,25 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         set { if (value) InstallMode = InstallExistingOnly; }
     }
 
+    // Interrupted-download behaviour: two RadioButtons bound via the bool helpers below.
+    // Written out as ResumeMode.X rather than relying on a static import, because the
+    // `using static InstallMode` at the top of the file already owns the bare names.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumeIsRestartFromScratch))]
+    [NotifyPropertyChangedFor(nameof(ResumeIsKeepPartialFiles))]
+    private ResumeMode _resumeMode = ResumeMode.KeepPartialFiles;
+
+    public bool ResumeIsRestartFromScratch
+    {
+        get => ResumeMode == ResumeMode.RestartFromScratch;
+        set { if (value) ResumeMode = ResumeMode.RestartFromScratch; }
+    }
+    public bool ResumeIsKeepPartialFiles
+    {
+        get => ResumeMode == ResumeMode.KeepPartialFiles;
+        set { if (value) ResumeMode = ResumeMode.KeepPartialFiles; }
+    }
+
     [ObservableProperty]
     private string _accountEmail = "";
 
@@ -267,6 +286,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
         ToolsFolder = _tools.ToolsRoot;
         InstallMode = _settings.Current.InstallMode;
+        ResumeMode = _settings.Current.ResumeMode;
         VerboseLogging = _settings.Current.VerboseLogging;
         WifiDeviceConnection = _settings.Current.WifiDeviceConnection;
 
@@ -335,7 +355,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
             var staging = System.IO.Path.Combine(apps, ".staging");
 
+            AppLog.Info($"Throughput fix '{finding.Kind}' requested for {apps}");
+
             var outcome = await TransferTuning.TryAutoFixAsync(finding.Kind, apps, staging);
+
+            AppLog.Info($"Throughput fix '{finding.Kind}' outcome: {outcome}");
 
             if (outcome == ThroughputFixOutcome.Applied)
             {
@@ -361,8 +385,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
                 finding.FixFailed = true;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            // Was swallowed silently, which is why the log had nothing to say about a button
+            // the user reported as doing nothing at all.
+            AppLog.Error($"Throughput fix '{finding.Kind}' threw.", ex);
+
             finding.FixMessage = Str("L.Settings.Throughput.FixFailed");
             finding.FixFailed = true;
         }
@@ -476,6 +504,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.InstallMode = InstallMode;
+        _settings.Current.ResumeMode = ResumeMode;
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();
