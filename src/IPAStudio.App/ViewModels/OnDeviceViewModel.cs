@@ -754,14 +754,18 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// <see cref="DownloadService"/>, which both screens go through. So the one thing the
     /// serial loop actually achieved was making this page the slow way to fetch a batch.
     ///
-    /// How many run at once is the user's "parallel downloads" setting, enforced through the
-    /// application-wide <see cref="DownloadThrottle"/> as well, so a batch here and an install
-    /// queue running beside it share one limit rather than each claiming it in full.
+    /// How many run at once is the user's "parallel downloads" setting, enforced by the
+    /// application-wide <see cref="DownloadThrottle"/> inside <see cref="DownloadCoreAsync"/>,
+    /// so a batch here and an install queue beside it share one limit rather than each claiming
+    /// it in full. Every row is started at once and the throttle decides which may move bytes;
+    /// there is deliberately no second gate here, because a local semaphore fixes its capacity
+    /// when constructed, and the point of the throttle is that the setting still takes effect
+    /// while downloads are already in flight.
     ///
-    /// Every await inside stays on the UI thread (<c>ConfigureAwait(true)</c>, and the gate is
-    /// awaited without configuring it away) - deliberately, because each row's progress handler
-    /// writes to bound properties. Handing the bodies to <c>Parallel.ForEachAsync</c> instead
-    /// would run them on the thread pool and those writes would come off the UI thread.
+    /// Every await inside stays on the UI thread (<c>ConfigureAwait(true)</c>) - deliberately,
+    /// because each row's progress handler writes to bound properties. Handing the bodies to
+    /// <c>Parallel.ForEachAsync</c> instead would run them on the thread pool and those writes
+    /// would come off the UI thread.
     /// </summary>
     [RelayCommand]
     private async Task DownloadSelectedAsync()
@@ -798,47 +802,31 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             Loc.Format("L.OnDevice.BatchSubtitle", queue.Count, DeviceName),
             cts);
 
-        var limit = Math.Max(1, _settings.Current.MaxParallelDownloads);
-        var gate = new SemaphoreSlim(limit, limit);
         var done = 0;
 
         try
         {
             var runs = queue.Select(async app =>
             {
-                try
-                {
-                    await gate.WaitAsync(cts.Token);
-                }
-                catch (OperationCanceledException)
-                {
-                    return;
-                }
+                // Said out loud: a row that is ticked, has no progress bar and no button is
+                // otherwise indistinguishable from one the batch forgot about. Most rows sit
+                // here for a while, since the throttle only lets a few move bytes at a time.
+                app.StatusText = Loc.Get("L.OnDevice.Queued");
 
-                try
-                {
-                    // Said out loud: a row that is ticked, has no progress bar and no button is
-                    // otherwise indistinguishable from one the batch forgot about.
-                    app.StatusText = Loc.Get("L.OnDevice.Queued");
-                    await DownloadCoreAsync(app, chosen: null, ct: cts.Token).ConfigureAwait(true);
+                await DownloadCoreAsync(app, chosen: null, ct: cts.Token).ConfigureAwait(true);
 
-                    // Ticks are cleared only for what succeeded, so a second click retries the
-                    // failures instead of downloading everything again.
-                    if (app.ErrorText is null && app.SavedPath is not null) app.IsSelected = false;
+                // Ticks are cleared only for what succeeded, so a second click retries the
+                // failures instead of downloading everything again.
+                if (app.ErrorText is null && app.SavedPath is not null) app.IsSelected = false;
 
-                    done++;
-                    BatchStatus = Loc.Format("L.OnDevice.BatchRunning", done, queue.Count);
+                done++;
+                BatchStatus = Loc.Format("L.OnDevice.BatchRunning", done, queue.Count);
 
-                    // The session is dead, so every app still waiting would fail the same way.
-                    // Cancelling the rest keeps the run from printing "sign in" once per app and
-                    // from making that many pointless round trips to Apple. The rows untick
-                    // themselves, since none can be downloaded until a new sign-in.
-                    if (!_auth.IsAuthenticated) cts.Cancel();
-                }
-                finally
-                {
-                    gate.Release();
-                }
+                // The session is dead, so every app still waiting would fail the same way.
+                // Cancelling the rest keeps the run from printing "sign in" once per app and
+                // from making that many pointless round trips to Apple. The rows untick
+                // themselves, since none can be downloaded until a new sign-in.
+                if (!_auth.IsAuthenticated) cts.Cancel();
             }).ToList();
 
             await Task.WhenAll(runs).ConfigureAwait(true);
@@ -868,7 +856,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             _batchCts = null;
             _batchRows = new List<InstalledAppViewModel>();
             cts.Dispose();
-            gate.Dispose();
             RefreshSelectionState();
             OnPropertyChanged(nameof(CanMinimize));
         }
