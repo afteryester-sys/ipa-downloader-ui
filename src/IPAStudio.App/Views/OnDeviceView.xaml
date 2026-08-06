@@ -1,12 +1,23 @@
 <UserControl x:Class="IPAStudio.App.Views.OnDeviceView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:ctrl="clr-namespace:IPAStudio.App.Controls">
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:InitialConverter x:Key="Initial" />
+
+        <!-- List / tile toggle, matching the photo gallery's so the two screens are switched
+             the same way. -->
+        <Style x:Key="ViewToggle" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
@@ -171,6 +182,29 @@
 
                 <Button Content="{DynamicResource L.OnDevice.ChooseFolder}"
                         Style="{StaticResource Button.Secondary}" Command="{Binding BrowseFolderCommand}" />
+
+                <!-- Leaves the downloads running and goes back. Only appears while there is
+                     something to background, so it never sits there as a dead control. -->
+                <Button Content="{DynamicResource L.Ops.Minimize}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding MinimizeCommand}" Margin="8,0,0,0"
+                        Visibility="{Binding CanMinimize, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Tile size. Only meaningful in tile mode, so it is shown with it. -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"
+                            Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{DynamicResource L.OnDevice.TileSize}" Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <Slider Width="110" VerticalAlignment="Center"
+                            Minimum="104" Maximum="208" TickFrequency="26" IsSnapToTickEnabled="True"
+                            Value="{Binding TileSize}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewList}"
+                            Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
+                    <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewTiles}"
+                            Content="&#xF0E2;" Command="{Binding SetTileViewCommand}" Margin="4,0,0,0" />
+                </StackPanel>
             </StackPanel>
         </Grid>
 
@@ -204,7 +238,7 @@
                 <ListBox ItemsSource="{Binding VisibleApps}" Background="Transparent" BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                         Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                         Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -364,6 +398,153 @@
                                             Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}" />
                                 </StackPanel>
                             </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- ===== Tile mode =====
+                     The same apps as a grid of home-screen icons, which is how they are
+                     recognised on the phone: at a glance the artwork is faster to find than a
+                     name in a column of rows.
+
+                     Sizes come from the view model rather than being written here, because the
+                     panel needs the tile's outer height as a number - it lays out a uniform grid
+                     and cannot ask a template how tall it will turn out. -->
+                <ListBox ItemsSource="{Binding VisibleApps}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                         Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <!-- TileSize is bound so the panel drops its cached measurement when
+                                 the slider moves; without it the grid would keep the old spacing. -->
+                            <ctrl:VirtualizingWrapPanel TileSize="{Binding DataContext.TileSize,
+                                                        RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bg" Background="Transparent" CornerRadius="12" Margin="5">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bg" Property="Background"
+                                                        Value="{StaticResource Brush.SurfaceHover}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Width="{Binding DataContext.TileSize,
+                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Height="{Binding DataContext.TileHeight,
+                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Margin="6,8,6,6">
+                                <Grid HorizontalAlignment="Center">
+                                    <!-- The artwork, with the app's initial showing through until
+                                         SpringBoard hands it over, as in list mode. -->
+                                    <Border Width="{Binding DataContext.TileIconSize,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Height="{Binding DataContext.TileIconSize,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CornerRadius="{Binding DataContext.TileIconRadius,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Background="{StaticResource Brush.SurfaceHover}">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       FontSize="24" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.TextMuted}" />
+                                            <Border CornerRadius="{Binding DataContext.TileIconRadius,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Visibility="{Binding Icon, Converter={StaticResource NullToCollapsed}}">
+                                                <Border.Background>
+                                                    <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                                                </Border.Background>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Over the icon's corner rather than beside it: the row
+                                         layout's leading column would cost a tile most of its
+                                         width. Backed so it stays visible on light artwork. -->
+                                    <Border CornerRadius="6" Padding="2" Margin="0,-2,-4,0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Background="{StaticResource Brush.Surface}"
+                                            Visibility="{Binding CanDownload, Converter={StaticResource BoolToVis}}">
+                                        <CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding IsIdle}" />
+                                    </Border>
+                                </Grid>
+
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold" TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
+                                <TextBlock Text="{Binding Version}" Style="{StaticResource Text.Caption}"
+                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                                <!-- Progress and status only; the reasons an app cannot be
+                                     fetched are long prose that no tile has room for, so tile
+                                     mode leaves those to the list. -->
+                                <ProgressBar Style="{StaticResource Progress.Slim}" Height="4" Margin="0,8,0,0"
+                                             Maximum="100" Value="{Binding Progress, Mode=OneWay}"
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                             Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
+
+                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                                           TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,4,0,0"
+                                           Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
+
+                                <TextBlock Text="{Binding ErrorText}" Style="{StaticResource Text.Caption}"
+                                           Foreground="{StaticResource Brush.Danger}" TextAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                           Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}" />
+
+                                <Button Content="{DynamicResource L.OnDevice.Download}" Padding="10,6" Margin="0,8,0,0"
+                                        Command="{Binding DataContext.DownloadCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding CanDownload}" Value="True" />
+                                                        <Condition Binding="{Binding IsIdle}" Value="True" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <Button Content="{DynamicResource L.Cancel}" Style="{StaticResource Button.Ghost}"
+                                        Padding="10,6" Margin="0,8,0,0"
+                                        Command="{Binding DataContext.CancelCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
+
+                                <Button Content="{DynamicResource L.OnDevice.Reveal}" Style="{StaticResource Button.Ghost}"
+                                        Padding="10,6" Margin="0,8,0,0"
+                                        Command="{Binding DataContext.OpenSavedFolderCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}"
+                                        Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}" />
+                            </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

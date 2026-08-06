@@ -25,6 +25,39 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     /// <summary>Uniform tile size including margins; measured from the first container.</summary>
     private Size _itemSize = Size.Empty;
 
+    /// <summary>
+    /// Anything whose change resizes the tiles - bind it to whatever the item template's size
+    /// comes from.
+    ///
+    /// The measured size is cached, deliberately: measuring one container per layout pass is what
+    /// keeps this panel cheap. That cache is also why a resizable tile needs this. Without it the
+    /// panel would keep laying out a grid of the old size while the tiles drew at the new one,
+    /// overlapping them or leaving gaps, and only a fresh navigation would put it right.
+    /// </summary>
+    public static readonly DependencyProperty TileSizeProperty = DependencyProperty.Register(
+        nameof(TileSize), typeof(double), typeof(VirtualizingWrapPanel),
+        new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsMeasure, OnTileSizeChanged));
+
+    public double TileSize
+    {
+        get => (double)GetValue(TileSizeProperty);
+        set => SetValue(TileSizeProperty, value);
+    }
+
+    private static void OnTileSizeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not VirtualizingWrapPanel panel) return;
+
+        panel._itemSize = Size.Empty;
+
+        // The containers are recycled, so they carry the previous measurement with them; without
+        // invalidating each one the re-measure below would be handed the old desired size back.
+        foreach (UIElement child in panel.InternalChildren)
+            child.InvalidateMeasure();
+
+        panel.InvalidateMeasure();
+    }
+
     private int _columns = 1;
     private Size _extent;
     private Size _viewport;

@@ -136,6 +136,19 @@ public sealed class AppSettings
     public string? LastOnDeviceFolder { get; set; }
 
     /// <summary>
+    /// Whether the "on the device" app list is shown as tiles rather than rows. Remembered
+    /// because it is a preference about how the user likes to look at their apps, and having to
+    /// set it again on every visit would make the tile mode not worth switching to.
+    /// </summary>
+    public bool OnDeviceTileView { get; set; }
+
+    /// <summary>
+    /// Tile edge, in device-independent pixels, for that tile mode. Clamped on load rather than
+    /// trusted, so a hand-edited settings file cannot produce a grid of invisible or absurd tiles.
+    /// </summary>
+    public double OnDeviceTileSize { get; set; } = 132;
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.

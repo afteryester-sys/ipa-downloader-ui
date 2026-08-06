@@ -43,15 +43,6 @@ public sealed partial class DeviceViewModel : ObservableObject
     private BitmapImage? _wallpaper;
 
     /// <summary>
-    /// Icons of apps installed on this device, laid over the wallpaper to make the frame read as
-    /// this phone's home screen. Deliberately not a screen capture: capturing the real screen
-    /// needs the Developer Disk Image mounted, which is a per-iOS-version download that fails on
-    /// a locked phone, whereas the wallpaper and icons come from the SpringBoard service that any
-    /// paired device already answers. The order is therefore ours, not the phone's.
-    /// </summary>
-    public ObservableCollection<BitmapImage> HomeIcons { get; } = new();
-
-    /// <summary>
     /// Why the home screen preview is missing, for the tile to show. Without this the failure is
     /// indistinguishable from a device that simply has a plain wallpaper, which left no way to
     /// tell a broken fetch from a working one without reading the log.
@@ -63,9 +54,6 @@ public sealed partial class DeviceViewModel : ObservableObject
     public bool HasPreviewNote => !string.IsNullOrEmpty(PreviewNote);
 
     partial void OnPreviewNoteChanged(string? value) => OnPropertyChanged(nameof(HasPreviewNote));
-
-    /// <summary>How many icons the frame has room for.</summary>
-    private const int HomeIconCount = 12;
 
     public string Name => Device.Name;
     public string Model => Device.Model;
@@ -80,7 +68,7 @@ public sealed partial class DeviceViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Fetches the home screen preview - wallpaper plus app icons - in the background.
+    /// Fetches the device's wallpaper in the background, which is the whole of the preview.
     /// Fire-and-forget by design: decoration must never delay a device appearing in the list,
     /// and any failure just leaves the card plain with a short note saying why.
     /// </summary>
@@ -107,40 +95,11 @@ public sealed partial class DeviceViewModel : ObservableObject
             }
 
             Wallpaper = DecodeCard(png, 320);
-            await LoadHomeIconsAsync(install).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
             PreviewNote = Loc.Get("L.Devices.Preview.Failed");
             AppLog.Info($"devices: no wallpaper for {Device.Name} ({ex.Message})");
-        }
-    }
-
-    /// <summary>
-    /// Fills <see cref="HomeIcons"/> with a page of installed-app icons. Best effort: a device
-    /// that lists no apps, or gives up no artwork, just leaves the frame showing bare wallpaper.
-    /// </summary>
-    private async Task LoadHomeIconsAsync(InstallService install)
-    {
-        try
-        {
-            var bundleIds = await install.GetInstalledBundleIdsAsync(Device.Udid).ConfigureAwait(true);
-            if (bundleIds.Count == 0) return;
-
-            var page = bundleIds.Take(HomeIconCount).ToList();
-            var icons = await install.GetAppIconsAsync(Device.Udid, page).ConfigureAwait(true);
-
-            // Preserve the request order so the grid is stable between reads rather than
-            // reshuffling with the dictionary's ordering each time.
-            foreach (var id in page)
-            {
-                if (!icons.TryGetValue(id, out var bytes) || bytes.Length == 0) continue;
-                HomeIcons.Add(DecodeCard(bytes, 96));
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLog.Info($"devices: no home icons for {Device.Name} ({ex.Message})");
         }
     }
 

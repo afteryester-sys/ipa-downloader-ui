@@ -664,7 +664,12 @@
     <sys:String x:Key="L.OnDevice.SelectAll">Select all</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Clear selection</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Download selected ({0})</sys:String>
-    <sys:String x:Key="L.OnDevice.BatchProgress">Downloading {0} of {1}…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchRunning">Downloading: {0} of {1} done…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchSubtitle">{0} app(s) · {1}</sys:String>
+    <sys:String x:Key="L.OnDevice.Queued">Queued…</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewList">Show as a list</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewTiles">Show as tiles</sys:String>
+    <sys:String x:Key="L.OnDevice.TileSize">Tile size</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDone">Saved {0} IPA file(s).</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Saved {0}, failed {1}.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferSelected">Transfer to another iPhone ({0})</sys:String>

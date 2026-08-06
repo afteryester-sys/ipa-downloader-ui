@@ -218,6 +218,16 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     private readonly AuthService _auth;
     private readonly SettingsService _settings;
 
+    /// <summary>
+    /// The application-wide cap on concurrent downloads.
+    ///
+    /// This screen has to hold it too, not just the queue: several downloads started here now
+    /// run side by side, and with the cap enforced only inside <see cref="QueueService"/> a
+    /// batch from this page plus a running install queue would open twice the number of
+    /// connections the slider promises, which Apple answers by shaping all of them.
+    /// </summary>
+    private readonly DownloadThrottle _throttle;
+
     /// <summary>Other attached devices, offered as transfer destinations.</summary>
     private readonly DeviceService _devices;
 
@@ -252,6 +262,26 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     public ObservableCollection<InstalledAppViewModel> Apps { get; } = new();
 
+    /// <summary>
+    /// The download run registered with <see cref="OperationService"/>, so saving IPAs from this
+    /// page can be sent to the background and counted in the corner circle like every other kind
+    /// of work.
+    ///
+    /// This page used to run its downloads entirely by itself, which is why it was the one place
+    /// multitasking did nothing: with no operation registered there was nothing to minimise, no
+    /// entry in the operations list, and leaving the page cancelled the transfer outright.
+    /// </summary>
+    private Operation? _operation;
+
+    /// <summary>
+    /// Cancellation for a whole batch, so "cancel" on the operation stops the run rather than
+    /// only the row that happens to be transferring.
+    /// </summary>
+    private CancellationTokenSource? _batchCts;
+
+    /// <summary>Rows in the current batch, for the operation's overall percentage.</summary>
+    private List<InstalledAppViewModel> _batchRows = new();
+
     public OnDeviceViewModel(
         InstallService install,
         DownloadService download,
@@ -259,7 +289,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         AuthService auth,
         SettingsService settings,
         DeviceService devices,
-        OperationService operations)
+        OperationService operations,
+        DownloadThrottle throttle)
     {
         _install = install;
         _download = download;
@@ -268,10 +299,14 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _settings = settings;
         _devices = devices;
         _operations = operations;
+        _throttle = throttle;
 
         DestinationFolder = settings.Current.LastOnDeviceFolder
                             ?? settings.Current.LastDirectDownloadFolder
                             ?? "";
+
+        _isTileView = settings.Current.OnDeviceTileView;
+        _tileSize = Math.Clamp(settings.Current.OnDeviceTileSize, MinTileSize, MaxTileSize);
     }
 
     [ObservableProperty]
@@ -288,6 +323,73 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private string _searchText = "";
+
+    // ─────────────────────── list / tile layout ───────────────────────
+
+    /// <summary>Narrowest tile that still fits an icon, a name and the button under it.</summary>
+    public const double MinTileSize = 104;
+
+    /// <summary>Widest tile worth offering; past this the grid is just a list with gaps.</summary>
+    public const double MaxTileSize = 208;
+
+    /// <summary>
+    /// Whether the apps are shown as tiles instead of rows. Persisted, because this is a
+    /// preference about how the user likes to look at their apps, not a per-visit choice.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isTileView;
+
+    /// <summary>Tile edge in device-independent pixels, driven by the size slider.</summary>
+    [ObservableProperty]
+    private double _tileSize = 132;
+
+    public bool IsListView => !IsTileView;
+
+    /// <summary>
+    /// Tile height: the icon square plus a fixed block for the name, the version line and the
+    /// button. Fixed rather than measured because <see cref="Controls.VirtualizingWrapPanel"/>
+    /// lays out a uniform grid, and a tile that grew with its text would misplace every row
+    /// after the first long name.
+    /// </summary>
+    public double TileHeight => TileSize + 118;
+
+    /// <summary>Artwork size inside a tile, leaving a margin the tile does not look cramped in.</summary>
+    public double TileIconSize => Math.Max(48, TileSize - 56);
+
+    /// <summary>Corner radius scaled with the icon, so it keeps iOS's proportions.</summary>
+    public double TileIconRadius => TileIconSize * 0.225;
+
+    partial void OnIsTileViewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsListView));
+        _settings.Current.OnDeviceTileView = value;
+        SaveViewPreferences();
+    }
+
+    partial void OnTileSizeChanged(double value)
+    {
+        OnPropertyChanged(nameof(TileHeight));
+        OnPropertyChanged(nameof(TileIconSize));
+        OnPropertyChanged(nameof(TileIconRadius));
+
+        // Kept in the settings object on every tick but written to disk only when the page is
+        // left: a slider drag raises this a few dozen times, and saving each one would rewrite
+        // the settings file that often for a value that is still moving.
+        _settings.Current.OnDeviceTileSize = value;
+    }
+
+    [RelayCommand]
+    private void SetListView() => IsTileView = false;
+
+    [RelayCommand]
+    private void SetTileView() => IsTileView = true;
+
+    /// <summary>Writes the layout preferences out, tolerating a settings file that will not save.</summary>
+    private void SaveViewPreferences()
+    {
+        try { _settings.Save(); }
+        catch (Exception ex) { AppLog.Warn($"Could not save the on-device view preference: {ex.Message}"); }
+    }
 
     /// <summary>Apps left after the search filter; the list binds to this.</summary>
     public ObservableCollection<InstalledAppViewModel> VisibleApps { get; } = new();
@@ -534,6 +636,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _navigator = navigator;
         OnPropertyChanged(nameof(IsSignedIn));
         OnPropertyChanged(nameof(AccountEmail));
+        OnPropertyChanged(nameof(CanMinimize));
+
+        // Coming back to a run that is still going must not re-read the device: LoadAsync
+        // replaces every row, which would drop the progress bars and the cancel buttons of
+        // downloads that are still writing files, and leave their rows unreachable.
+        if (IsBatchRunning || Apps.Any(a => a.IsDownloading))
+        {
+            AppLog.Info("On-device: reopened with downloads in flight; keeping the current list");
+            return;
+        }
+
         _ = LoadAsync();
     }
 
@@ -632,11 +745,23 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Downloads the ticked apps one after another.
+    /// Downloads the ticked apps, several at a time, as one background operation.
     ///
-    /// Sequential on purpose: ipatool drives one App Store session, and parallel downloads
-    /// on the same account get throttled or refused outright, which would look like random
-    /// failures across the batch.
+    /// Parallel now, where this used to await one app before starting the next. The serial
+    /// version was justified by ipatool driving a single App Store session, but the queue
+    /// screen has been downloading in parallel over the same session all along - only its
+    /// authentication handshakes are serialized, and that happens inside
+    /// <see cref="DownloadService"/>, which both screens go through. So the one thing the
+    /// serial loop actually achieved was making this page the slow way to fetch a batch.
+    ///
+    /// How many run at once is the user's "parallel downloads" setting, enforced through the
+    /// application-wide <see cref="DownloadThrottle"/> as well, so a batch here and an install
+    /// queue running beside it share one limit rather than each claiming it in full.
+    ///
+    /// Every await inside stays on the UI thread (<c>ConfigureAwait(true)</c>, and the gate is
+    /// awaited without configuring it away) - deliberately, because each row's progress handler
+    /// writes to bound properties. Handing the bodies to <c>Parallel.ForEachAsync</c> instead
+    /// would run them on the thread pool and those writes would come off the UI thread.
     /// </summary>
     [RelayCommand]
     private async Task DownloadSelectedAsync()
@@ -660,47 +785,164 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             if (string.IsNullOrWhiteSpace(DestinationFolder)) return;
         }
 
+        var cts = new CancellationTokenSource();
+        _batchCts = cts;
+        _batchRows = queue;
+
         IsBatchRunning = true;
+        BatchStatus = Loc.Format("L.OnDevice.BatchRunning", 0, queue.Count);
+
+        // Registered before the first byte moves, so the corner circle counts this run from the
+        // start and "send to background" is available for the whole of it.
+        var operation = StartOperation(
+            Loc.Format("L.OnDevice.BatchSubtitle", queue.Count, DeviceName),
+            cts);
+
+        var limit = Math.Max(1, _settings.Current.MaxParallelDownloads);
+        var gate = new SemaphoreSlim(limit, limit);
+        var done = 0;
+
         try
         {
-            var done = 0;
-            foreach (var app in queue)
+            var runs = queue.Select(async app =>
             {
-                BatchStatus = Loc.Format("L.OnDevice.BatchProgress", done + 1, queue.Count);
-
-                await DownloadAsync(app).ConfigureAwait(true);
-
-                // Ticks are cleared only for what succeeded, so a second click retries the
-                // failures instead of downloading everything again.
-                if (app.ErrorText is null) app.IsSelected = false;
-
-                done++;
-
-                // The download just found the session dead, so every app still queued would
-                // fail the same way. Stopping keeps the run from printing "sign in" once per
-                // app and from making that many pointless round trips to Apple. The rows
-                // untick themselves, since none of them can be downloaded until a new sign-in.
-                if (!_auth.IsAuthenticated)
+                try
                 {
-                    BatchStatus = Loc.Get("L.OnDevice.NeedLogin");
+                    await gate.WaitAsync(cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
                     return;
                 }
 
-                // A cancelled row means the user pressed Cancel: stopping the batch there is
-                // the only reading of that click that does not fight the user.
-                if (app.SavedPath is null && app.ErrorText is null) break;
-            }
+                try
+                {
+                    // Said out loud: a row that is ticked, has no progress bar and no button is
+                    // otherwise indistinguishable from one the batch forgot about.
+                    app.StatusText = Loc.Get("L.OnDevice.Queued");
+                    await DownloadCoreAsync(app, chosen: null, ct: cts.Token).ConfigureAwait(true);
 
+                    // Ticks are cleared only for what succeeded, so a second click retries the
+                    // failures instead of downloading everything again.
+                    if (app.ErrorText is null && app.SavedPath is not null) app.IsSelected = false;
+
+                    done++;
+                    BatchStatus = Loc.Format("L.OnDevice.BatchRunning", done, queue.Count);
+
+                    // The session is dead, so every app still waiting would fail the same way.
+                    // Cancelling the rest keeps the run from printing "sign in" once per app and
+                    // from making that many pointless round trips to Apple. The rows untick
+                    // themselves, since none can be downloaded until a new sign-in.
+                    if (!_auth.IsAuthenticated) cts.Cancel();
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            }).ToList();
+
+            await Task.WhenAll(runs).ConfigureAwait(true);
+
+            var saved = queue.Count(a => a.SavedPath is not null);
             var failed = queue.Count(a => a.ErrorText is not null);
-            BatchStatus = failed == 0
-                ? Loc.Format("L.OnDevice.BatchDone", queue.Count - failed)
-                : Loc.Format("L.OnDevice.BatchDoneWithErrors", queue.Count - failed, failed);
+
+            BatchStatus = !_auth.IsAuthenticated
+                ? Loc.Get("L.OnDevice.NeedLogin")
+                : failed == 0
+                    ? Loc.Format("L.OnDevice.BatchDone", saved)
+                    : Loc.Format("L.OnDevice.BatchDoneWithErrors", saved, failed);
+
+            operation?.Finish(
+                cts.IsCancellationRequested ? OperationState.Cancelled
+                : failed == 0 ? OperationState.Done
+                : OperationState.Failed,
+                BatchStatus);
+        }
+        catch (OperationCanceledException)
+        {
+            operation?.Finish(OperationState.Cancelled);
         }
         finally
         {
             IsBatchRunning = false;
+            _batchCts = null;
+            _batchRows = new List<InstalledAppViewModel>();
+            cts.Dispose();
+            gate.Dispose();
             RefreshSelectionState();
+            OnPropertyChanged(nameof(CanMinimize));
         }
+    }
+
+    // ─────────────────── background operation plumbing ───────────────────
+
+    /// <summary>
+    /// Registers this page's work with the operations list and remembers it, so the "send to
+    /// background" button has something to hand over.
+    ///
+    /// Finished operations are left in place rather than cleared here: the list keeps a short
+    /// history on purpose, and the user should still find the run they just completed.
+    /// </summary>
+    private Operation? StartOperation(string subtitle, CancellationTokenSource cts)
+    {
+        // Only in multitasking mode. With it off OperationService keeps a single slot per kind
+        // and cancels whatever held it, so registering here would make a second download on
+        // this page kill the first - two rows fetched at once work fine today, and nothing in
+        // the off mode has any UI to show an operation in.
+        if (!_operations.MultitaskingEnabled) return null;
+
+        _operation = _operations.Start(new Operation(
+            OperationKind.Download,
+            Page.OnDevice,
+            Loc.Get("L.Ops.Kind.Download"),
+            subtitle,
+            returnDevice: TargetDevice,
+            cancel: () =>
+            {
+                try { cts.Cancel(); }
+                catch (ObjectDisposedException) { /* already finished */ }
+            }));
+
+        OnPropertyChanged(nameof(CanMinimize));
+        return _operation;
+    }
+
+    /// <summary>
+    /// True when there is something to send to the background: work in flight, an operation
+    /// registered for it, and multitasking on. With multitasking off nothing can be backgrounded,
+    /// so offering the button would be offering a control that does nothing.
+    /// </summary>
+    public bool CanMinimize =>
+        _operations.MultitaskingEnabled
+        && _operation is { IsRunning: true }
+        && (IsBatchRunning || Apps.Any(a => a.IsDownloading));
+
+    /// <summary>
+    /// Leaves the downloads running and returns to where this page was opened from. The shell
+    /// does the navigating; the work is untouched.
+    /// </summary>
+    [RelayCommand]
+    private void Minimize()
+    {
+        if (_operation is not { IsRunning: true } operation) return;
+        _operations.RequestMinimize(operation);
+    }
+
+    /// <summary>Republishes the operation's percentage from the rows it covers.</summary>
+    private void PublishOperationProgress()
+    {
+        if (_operation is not { IsRunning: true } operation) return;
+
+        var rows = _batchRows.Count > 0
+            ? _batchRows
+            : Apps.Where(a => a.IsDownloading || a.SavedPath is not null).ToList();
+
+        if (rows.Count == 0) return;
+
+        // Averaged over the whole batch, with a finished row counting as 100: percentages are
+        // all the rows report, and file sizes are not known until each download starts.
+        operation.Progress = rows.Sum(r => r.SavedPath is not null ? 100 : r.Progress) / rows.Count;
+        operation.Detail = BatchStatus ?? rows.FirstOrDefault(r => r.IsDownloading)?.StatusText ?? "";
     }
 
     private void ApplyFilter()
@@ -728,20 +970,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void GoBack()
     {
-        // Leaving the page hides the only progress and cancel UI, so anything still running
-        // would be invisible and unstoppable.
-        CancelAll();
+        LeavePage();
         _navigator?.GoBack();
     }
 
-    /// <summary>
-    /// Straight to the device list. Cancels like <see cref="GoBack"/> does, and for the same
-    /// reason: this page owns the only progress and cancel UI the work has.
-    /// </summary>
+    /// <summary>Straight to the device list, leaving the page the same way <see cref="GoBack"/> does.</summary>
     [RelayCommand]
     private void GoHome()
     {
-        CancelAll();
+        LeavePage();
         _navigator?.GoHome();
     }
 
@@ -795,7 +1032,13 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// The download itself. <paramref name="chosen"/> is the catalog entry the user picked
     /// after the store refused the app's own bundle id; null means resolve it as usual.
     /// </summary>
-    private async Task DownloadCoreAsync(InstalledAppViewModel? item, AppEntry? chosen)
+    /// <param name="ct">
+    /// The batch's token, when this row is part of one. Null for a single download, which gets
+    /// its own source below - a row started on its own must not be stoppable by a batch it is
+    /// not in, and vice versa.
+    /// </param>
+    private async Task DownloadCoreAsync(
+        InstalledAppViewModel? item, AppEntry? chosen, CancellationToken? ct = null)
     {
         if (item is null || item.IsDownloading) return;
 
@@ -819,9 +1062,20 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         item.IsDownloading = true;
         item.Progress = 0;
         item.StatusText = Loc.Get("L.Queue.Status.Connecting");
+        OnPropertyChanged(nameof(CanMinimize));
 
-        var cts = new CancellationTokenSource();
+        // Linked to the batch when there is one, so cancelling the operation stops this row
+        // too, while the row's own Cancel button still stops only this row.
+        var cts = ct is null
+            ? new CancellationTokenSource()
+            : CancellationTokenSource.CreateLinkedTokenSource(ct.Value);
         item.Cancellation = cts;
+
+        // A row downloading on its own is an operation in its own right, so it can be
+        // backgrounded exactly like a batch. Inside a batch the batch already is the operation.
+        var ownOperation = ct is null && !IsBatchRunning
+            ? StartOperation(item.Name, cts)
+            : null;
 
         try
         {
@@ -855,6 +1109,10 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
                 item.StatusText = p.TotalBytes > 0
                     ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}"
                     : Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes));
+
+                // The corner circle is driven from here for this page's operations: they have no
+                // QueueService for OperationService's timer to read progress off.
+                PublishOperationProgress();
             });
 
             // autoPurchase, like every other download path in the app. This screen was the
@@ -868,6 +1126,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             // Nothing is bought silently by this: --purchase only ever obtains a free
             // licence, and Apple refuses it outright for a paid app, which surfaces as the
             // same "not purchased" message as before.
+            // Only the byte transfer is inside the throttle. The lookups above are cheap and
+            // holding a slot across them would idle a download slot on an HTTP round trip.
+            using var slot = await _throttle.AcquireAsync(cts.Token).ConfigureAwait(true);
+
+            item.StatusText = Loc.Get("L.Queue.Status.Connecting");
+
             var result = await _download.DownloadAsync(
                 entry,
                 autoPurchase: true,
@@ -925,6 +1189,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         {
             item.IsDownloading = false;
             item.Cancellation = null;
+
+            ownOperation?.Finish(
+                item.SavedPath is not null ? OperationState.Done
+                : item.ErrorText is not null ? OperationState.Failed
+                : OperationState.Cancelled,
+                item.ErrorText ?? item.StatusText ?? "");
+
+            PublishOperationProgress();
+            OnPropertyChanged(nameof(CanMinimize));
             cts.Dispose();
         }
     }
@@ -964,9 +1237,36 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         RefreshSelectionState();
     }
 
-    /// <summary>Stops every transfer in flight, used when the page is left.</summary>
+    /// <summary>
+    /// What happens to work in flight when the user navigates away.
+    ///
+    /// With multitasking on the downloads are left running: they are registered as an operation,
+    /// so the corner circle keeps showing them and "return" comes back to this page - the whole
+    /// point of the mode. Cancelling here was what made this screen the exception, where walking
+    /// away silently threw a half-finished download away.
+    ///
+    /// With multitasking off there is no corner circle, so a download left running would be
+    /// invisible and unstoppable, and cancelling is still the honest thing to do.
+    /// </summary>
+    private void LeavePage()
+    {
+        SaveViewPreferences();
+
+        if (_operations.MultitaskingEnabled && _operation is { IsRunning: true })
+        {
+            AppLog.Info("On-device: left the page with downloads still running in the background");
+            return;
+        }
+
+        CancelAll();
+    }
+
+    /// <summary>Stops every transfer in flight, including the batch that started them.</summary>
     private void CancelAll()
     {
+        try { _batchCts?.Cancel(); }
+        catch (ObjectDisposedException) { /* the batch finished on its own */ }
+
         foreach (var app in Apps)
             Cancel(app);
     }

@@ -146,53 +146,49 @@
                                 <Grid>
                                 <StackPanel>
                                     <Grid Margin="0,0,0,12">
-                                        <!-- This phone's own home screen, in a phone-shaped frame: its
-                                             wallpaper with a few real app icons over it. Two devices of
-                                             the same model are told apart here at a glance, which a
-                                             generic outline icon could never do.
+                                        <!-- The device, drawn as a phone: a body in the card's own
+                                             colours with this phone's wallpaper as its screen. The
+                                             wallpaper is what tells two devices of the same model apart,
+                                             which a generic outline icon could never do.
+
+                                             Deliberately the wallpaper alone. A mosaic of real app icons
+                                             used to be laid over it, and at eight pixels a square they
+                                             read as a smear of colour rather than as a home screen - the
+                                             frame looked broken instead of recognisable, and it cost a
+                                             SpringBoard round-trip per icon on every connect. The
+                                             wallpaper carries the same "this is my phone" signal on its
+                                             own, for one request.
 
                                              Not a screen capture - that needs the Developer Disk Image
                                              mounted per iOS version and fails on a locked phone, whereas
-                                             wallpaper and icons come from SpringBoard, which any paired
-                                             device answers. So the icon order is ours, not the phone's. -->
-                                        <Border Width="44" Height="62" CornerRadius="9"
-                                                Background="{StaticResource Brush.AccentSoft}"
+                                             the wallpaper comes from SpringBoard, which any paired
+                                             device answers. -->
+                                        <Border Width="46" Height="76" CornerRadius="11" Padding="3"
+                                                Background="{StaticResource Brush.SurfaceHover}"
                                                 BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
-                                                HorizontalAlignment="Left" ClipToBounds="True">
-                                            <Grid>
-                                                <!-- Fallback outline, covered once the wallpaper loads. -->
-                                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
-                                                           Foreground="{StaticResource Brush.Accent}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                HorizontalAlignment="Left">
+                                            <!-- The screen, inset so the body around it reads as a bezel. -->
+                                            <Border CornerRadius="8" ClipToBounds="True"
+                                                    Background="{StaticResource Brush.AccentSoft}">
+                                                <Grid>
+                                                    <!-- Fallback outline, covered once the wallpaper loads. -->
+                                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                                               Foreground="{StaticResource Brush.Accent}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                                                <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
-                                                    <Border.Background>
-                                                        <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
-                                                    </Border.Background>
-                                                </Border>
+                                                    <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
+                                                        <Border.Background>
+                                                            <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
+                                                        </Border.Background>
+                                                    </Border>
 
-                                                <!-- Icons at full opacity so they read as icons; the wallpaper
-                                                     behind them is the part that varies between devices. -->
-                                                <ItemsControl ItemsSource="{Binding HomeIcons}"
-                                                              Margin="4,7,4,4" VerticalAlignment="Top"
-                                                              IsHitTestVisible="False">
-                                                    <ItemsControl.ItemsPanel>
-                                                        <ItemsPanelTemplate>
-                                                            <WrapPanel />
-                                                        </ItemsPanelTemplate>
-                                                    </ItemsControl.ItemsPanel>
-                                                    <ItemsControl.ItemTemplate>
-                                                        <DataTemplate>
-                                                            <Border Width="8" Height="8" CornerRadius="2"
-                                                                    Margin="1" ClipToBounds="True">
-                                                                <Border.Background>
-                                                                    <ImageBrush ImageSource="{Binding}" Stretch="UniformToFill" />
-                                                                </Border.Background>
-                                                            </Border>
-                                                        </DataTemplate>
-                                                    </ItemsControl.ItemTemplate>
-                                                </ItemsControl>
-                                            </Grid>
+                                                    <!-- Dynamic-island pill: the one detail that makes the
+                                                         shape read as a phone and not a rounded box. -->
+                                                    <Border Width="14" Height="4" CornerRadius="2" Margin="0,3,0,0"
+                                                            Background="{StaticResource Brush.Text}" Opacity="0.5"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Top" />
+                                                </Grid>
+                                            </Border>
                                         </Border>
                                         <!-- Connection state and transport, side by side in one row so the
                                              two badges cannot overlap as either label changes length between
