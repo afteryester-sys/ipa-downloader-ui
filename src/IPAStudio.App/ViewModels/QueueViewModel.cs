@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
@@ -183,6 +184,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
         SessionExpired = false;
         Rebuild();
+        StartFlushing();
     }
 
     /// <summary>
@@ -198,6 +200,11 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         _queue.QueueCompleted -= OnQueueCompleted;
         _queue.SessionExpired -= OnSessionExpired;
 
+        // The timer belongs to the attached queue: left running while the page shows nothing
+        // it would tick forever, and its pending set would refer to a queue nobody displays.
+        StopFlushing();
+        lock (_dirtyLock) _dirty.Clear();
+
         _queue = null;
         _operation = null;
     }
@@ -205,10 +212,15 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     private void Rebuild()
     {
         Items.Clear();
+        _rows.Clear();
         if (_queue is null) return;
 
         foreach (var item in _queue.Items)
-            Items.Add(new QueueItemViewModel(item));
+        {
+            var row = new QueueItemViewModel(item);
+            Items.Add(row);
+            _rows[item] = row;
+        }
 
         DeviceName = _queue.Items.FirstOrDefault()?.TargetDevice.Name ?? "";
         IsRunning = _queue.IsRunning;
@@ -222,6 +234,10 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         if (_queue is null) return;
 
         Rebuild();
+
+        // Returning to an operation already on screen skips Attach (same instance), so the
+        // tick has to be (re)started here too or the rows would sit still.
+        StartFlushing();
 
         if (!_queue.IsRunning && Items.Any(i => i.IsPending))
         {
@@ -262,13 +278,78 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Items whose state changed since the last repaint, waiting to be pushed into the UI.
+    ///
+    /// A set, so a hundred progress ticks on one app collapse into a single refresh of that row.
+    /// </summary>
+    private readonly HashSet<QueueItem> _dirty = new();
+
+    /// <summary>Guards <see cref="_dirty"/>: install progress arrives on many threads at once.</summary>
+    private readonly object _dirtyLock = new();
+
+    /// <summary>
+    /// Pushes accumulated changes to the UI a few times a second.
+    ///
+    /// This exists because the obvious approach — marshalling every progress event with
+    /// BeginInvoke as it arrived — is what froze the window during parallel installs.
+    /// Those callbacks queue at Normal priority, which outranks Render, so with several
+    /// installs each reporting percentages the dispatcher never got idle enough to paint:
+    /// the window stopped redrawing entirely while the installs themselves, running on
+    /// background threads, carried on and finished. Hence a fixed, slow tick instead of a
+    /// callback per event.
+    /// </summary>
+    private DispatcherTimer? _flushTimer;
+
+    /// <summary>Row lookup by queue item, so a flush does not scan the list per item.</summary>
+    private readonly Dictionary<QueueItem, QueueItemViewModel> _rows = new();
+
+    /// <summary>Four repaints a second: smooth to the eye, negligible to the dispatcher.</summary>
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(250);
+
     private void OnItemChanged(object? sender, QueueItem item)
     {
-        Application.Current?.Dispatcher.BeginInvoke(() =>
+        // Deliberately does no dispatcher work: this runs on install threads and is the
+        // hot path that used to flood the UI queue.
+        lock (_dirtyLock) _dirty.Add(item);
+    }
+
+    /// <summary>Starts the repaint tick. Must be called on the UI thread.</summary>
+    private void StartFlushing()
+    {
+        if (_flushTimer is not null) return;
+
+        // Background priority so painting always wins over these updates, which is the
+        // whole point of routing them through a timer.
+        _flushTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = FlushInterval };
+        _flushTimer.Tick += (_, _) => Flush();
+        _flushTimer.Start();
+    }
+
+    private void StopFlushing()
+    {
+        _flushTimer?.Stop();
+        _flushTimer = null;
+    }
+
+    /// <summary>Applies pending changes to the visible rows.</summary>
+    private void Flush()
+    {
+        QueueItem[] pending;
+        lock (_dirtyLock)
         {
-            Items.FirstOrDefault(vm => ReferenceEquals(vm.Item, item))?.Sync();
-            RecountAndProgress();
-        });
+            if (_dirty.Count == 0) return;
+
+            pending = _dirty.ToArray();
+            _dirty.Clear();
+        }
+
+        foreach (var item in pending)
+        {
+            if (_rows.TryGetValue(item, out var row)) row.Sync();
+        }
+
+        RecountAndProgress();
     }
 
     private void OnQueueCompleted(object? sender, EventArgs e)
@@ -276,7 +357,12 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         Application.Current?.Dispatcher.BeginInvoke(() =>
         {
             IsRunning = false;
+
+            // Flush by hand: the last progress events may still be sitting in the set, and
+            // the timer stops below, so without this the final rows would stay mid-progress.
+            Flush();
             RecountAndProgress();
+            StopFlushing();
         });
     }
 
@@ -302,9 +388,9 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         DoneCount = Items.Count(i => i.IsDone);
         FailedCount = Items.Count(i => i.IsFailed);
 
-        // Feeds the corner circle. Kept in sync here rather than polled, so a minimised
-        // operation's ring keeps moving while its page is off screen.
-        if (_operation is not null) _operation.Progress = OverallProgress;
+        // The corner circle is fed by OperationService, which polls the queue directly.
+        // Setting Operation.Progress from here as well left a minimised operation's ring
+        // stuck, because this page unsubscribes the moment it is minimised.
     }
 
     private bool CanCancel() => IsRunning;

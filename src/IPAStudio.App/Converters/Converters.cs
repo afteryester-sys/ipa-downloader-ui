@@ -262,24 +262,66 @@ public sealed class SubtractConverter : IValueConverter
 }
 
 /// <summary>
-/// Turns a 0-100 percentage into a pixel height, for the operations circle that fills up as
-/// the work completes. The parameter is the height at 100%.
+/// Turns a 0-100 percentage into a ring arc for the operations circle, so it fills round the
+/// way a progress ring is expected to. The parameter is the diameter of the control.
 ///
-/// A rising fill rather than a swept arc: an arc needs its geometry rebuilt on every progress
-/// tick, while this is a clipped rectangle the layout system sizes for free.
+/// Rebuilding the geometry per update is affordable only because progress is published on a
+/// slow timer by the operations service. Driven straight off install events — which is what
+/// the earlier version did — this much work per tick is exactly what stopped the window
+/// repainting during parallel installs.
 /// </summary>
-public sealed class PercentToHeightConverter : IValueConverter
+public sealed class PercentToArcConverter : IValueConverter
 {
+    /// <summary>Matches the Path's StrokeThickness, so the ring is not clipped by its bounds.</summary>
+    private const double Stroke = 3;
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not double percent || double.IsNaN(percent)) return 0d;
+        var percent = value is double d && !double.IsNaN(d) ? Math.Clamp(d, 0, 100) : 0;
 
-        var full = parameter is string text
+        var diameter = parameter is string text
             && double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
                 ? parsed
-                : 0;
+                : 34;
 
-        return Math.Clamp(percent, 0, 100) / 100 * full;
+        var radius = (diameter - Stroke) / 2;
+        var centre = diameter / 2;
+        var geometry = new StreamGeometry();
+
+        // Zero progress still has to produce a valid geometry: the ring is bound before the
+        // first operation reports anything, and a null would fault the binding.
+        if (percent <= 0 || radius <= 0)
+        {
+            geometry.Freeze();
+            return geometry;
+        }
+
+        // Clockwise from twelve o'clock, hence the -90 degree origin.
+        var sweep = percent / 100 * 360;
+
+        // A 360 degree arc has its start and end at the same point, and WPF draws nothing at
+        // all for it. Stopping just short keeps a completed ring looking closed.
+        if (sweep > 359.9) sweep = 359.9;
+
+        var radians = (sweep - 90) * Math.PI / 180;
+        var start = new Point(centre, centre - radius);
+        var end = new Point(centre + radius * Math.Cos(radians), centre + radius * Math.Sin(radians));
+
+        using (var context = geometry.Open())
+        {
+            context.BeginFigure(start, isFilled: false, isClosed: false);
+            context.ArcTo(
+                end,
+                new Size(radius, radius),
+                rotationAngle: 0,
+                isLargeArc: sweep > 180,
+                SweepDirection.Clockwise,
+                isStroked: true,
+                isSmoothJoin: false);
+        }
+
+        geometry.Freeze();
+        return geometry;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

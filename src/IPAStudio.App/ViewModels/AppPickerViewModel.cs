@@ -461,6 +461,10 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void GoBack() => _navigator?.GoBack();
 
+    /// <summary>Straight to the device list, skipping the whole path taken to get here.</summary>
+    [RelayCommand]
+    private void GoHome() => _navigator?.GoHome();
+
     /// <summary>
     /// Opens the list of apps already installed on the target device.
     ///

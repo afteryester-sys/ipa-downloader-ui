@@ -139,6 +139,10 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void Back() => _navigator?.GoBack();
 
+    /// <summary>Straight to the device list, skipping the whole path taken to get here.</summary>
+    [RelayCommand]
+    private void GoHome() => _navigator?.GoHome();
+
     /// <summary>
     /// Attempts to pick up a stored session so a returning user goes straight to their
     /// data without retyping anything.

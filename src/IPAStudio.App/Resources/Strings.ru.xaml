@@ -6,6 +6,7 @@
     <!-- Общее -->
     <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
     <sys:String x:Key="L.Back">Назад</sys:String>
+    <sys:String x:Key="L.Home">На главную</sys:String>
     <sys:String x:Key="L.Cancel">Отмена</sys:String>
     <sys:String x:Key="L.Retry">Повторить</sys:String>
     <sys:String x:Key="L.Settings">Настройки</sys:String>
@@ -73,7 +74,7 @@
     <sys:String x:Key="L.Devices.Photos">Фото</sys:String>
     <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
-    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают ег�� в целях конфиденциальности.</sys:String>
     <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
     <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
@@ -230,7 +231,7 @@
     <sys:String x:Key="L.Direct.Downloading">Подготовка загрузки…</sys:String>
     <sys:String x:Key="L.Direct.Done">Сохранено:</sys:String>
     <sys:String x:Key="L.Direct.NotFound">Приложение по такому Bundle ID, ID или ссылке не найдено. Проверьте написание.</sys:String>
-    <sys:String x:Key="L.Direct.NeedFolder">Выберите папку для сохранения.</sys:String>
+    <sys:String x:Key="L.Direct.NeedFolder">Выберите папку для сохран��ния.</sys:String>
     <sys:String x:Key="L.Direct.NeedLogin">Нужен вход в Apple ID</sys:String>
     <sys:String x:Key="L.Direct.NeedLoginHint">IPA скачивается и подписывается вашим Apple ID, поэтому без входа загрузка невозможна.</sys:String>
 
@@ -283,8 +284,8 @@
     <sys:String x:Key="L.DeviceLogs.FilterInstall">Только установка и запуск</sys:String>
     <sys:String x:Key="L.DeviceLogs.AutoScroll">Следить за новыми строками</sys:String>
     <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись…</sys:String>
-    <sys:String x:Key="L.DeviceLogs.Stopped">Остановлено</sys:String>
-    <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stopped">Останов��ено</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Idle">��отово к записи</sys:String>
     <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
     <sys:String x:Key="L.DeviceLogs.Saved">Журнал сохранён</sys:String>
     <sys:String x:Key="L.DeviceLogs.SaveFailed">Не удалось сохранить жур��ал</sys:String>
@@ -313,7 +314,7 @@
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Preparing">Настраиваю устройства…</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
-    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. П��дключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Settings.Wifi.NoBonjour">Служба Apple Bonjour не установлена или отключена. Без неё устройства по сети найти невозможно: именно она сообщает, какие iPhone откликаются. Переустановите iTunes с apple.com — Bonjour входит в состав установщика.</sys:String>
     <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
@@ -378,7 +379,7 @@
     <sys:String x:Key="L.Install.Error.Incompatible">IPA несовместим с версией iOS на устройстве.</sys:String>
     <sys:String x:Key="L.Install.Error.AlreadyInstalled">Это приложение уже установлено на устройстве.</sys:String>
     <sys:String x:Key="L.Install.Error.BundleIdInUse">Bundle ID уже занят другим приложением на устройстве.</sys:String>
-    <sys:String x:Key="L.Install.Error.DeviceDisconnected">Устройство отключилось во время установки. Подключите его и повторите.</sys:String>
+    <sys:String x:Key="L.Install.Error.DeviceDisconnected">Устройство отключило��ь во время установки. Подключите его и повторите.</sys:String>
     <sys:String x:Key="L.Install.Error.InstallDaemon">Служба установки на устройстве не отвечает. Перезагрузите устройство.</sys:String>
     <sys:String x:Key="L.Install.Error.MissingEntitlement">IPA требует прав, для которых нужен платный аккаунт Apple Developer.</sys:String>
     <sys:String x:Key="L.Install.Error.NotPurchased">Это приложение не куплено текущим Apple ID. Попробуйте «Установить IPA из файла».</sys:String>
@@ -403,7 +404,7 @@
     <sys:String x:Key="L.Direct.NeedQuery">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
     <sys:String x:Key="L.Direct.LookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdEmpty">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
-    <sys:String x:Key="L.Picker.BundleIdNotFound">Приложение для «{0}» не найдено в App Store.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdNotFound">Прил��жение для «{0}» не найдено в App Store.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
 
 
@@ -435,7 +436,7 @@
     <sys:String x:Key="L.DeviceInfo.StorageSummary">Занято {0} из {1} · свободно {2}</sys:String>
     <sys:String x:Key="L.Unit.TB">ТБ</sys:String>
 
-    <!-- Ёмкость аккумулятора -->
+    <!-- Ё��кость аккумулятора -->
     <sys:String x:Key="L.Battery.Unavailable">Недоступно — разблокируйте устройство и разрешите доступ</sys:String>
     <sys:String x:Key="L.Battery.UnavailableReason">Недоступно — {0}</sys:String>
     <sys:String x:Key="L.Battery.Error.ToolMissing">инструмент диагностики не установлен</sys:String>
@@ -512,7 +513,7 @@
     <sys:String x:Key="L.Picker.AccountLabel">Аккаунт: </sys:String>
     <sys:String x:Key="L.Picker.DeviceLabel">   |   Устройство: </sys:String>
 
-    <!-- Диалог конфликта файлов -->
+    <!-- Диал��г конфликта файлов -->
     <sys:String x:Key="L.Conflict.Title">Файл уже существует</sys:String>
     <sys:String x:Key="L.Conflict.ApplyToAll">Применить ко всем остальным файлам в этой очереди</sys:String>
     <sys:String x:Key="L.Conflict.Skip">Проп��стить</sys:String>
@@ -594,7 +595,7 @@
     <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
-    <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone и Android (*.vcf)|*.vcf|CSV — Google Контакты, Excel (*.csv)|*.csv</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone и Android (*.vcf)|*.vcf|CSV — Google Конта��ты, Excel (*.csv)|*.csv</sys:String>
     <sys:String x:Key="L.ICloud.ContactsExported">Сохранено контактов: {0}.</sys:String>
     <sys:String x:Key="L.ICloud.ExportFailed">Не удалось сохранить файл.</sys:String>
     <sys:String x:Key="L.ICloud.SelectAll">Выбрать все</sys:String>
@@ -625,6 +626,8 @@
     <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
+    <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>

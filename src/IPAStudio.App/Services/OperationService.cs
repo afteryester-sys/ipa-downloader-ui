@@ -24,6 +24,23 @@ public sealed partial class OperationService : ObservableObject
     private readonly SettingsService _settings;
     private readonly IServiceProvider _services;
 
+    /// <summary>
+    /// Reads progress off every running queue and republishes it on the operations.
+    ///
+    /// Polling rather than subscribing to queue events on purpose. The queues raise an event
+    /// per progress tick from every parallel install at once, and turning each one into a UI
+    /// update is what stopped the window repainting. One slow timer collapses all of that
+    /// into a bounded amount of work no matter how many operations run.
+    ///
+    /// It also has to live here rather than on the queue page: the page detaches when an
+    /// operation is minimised, so anything driven from there left the corner circle frozen
+    /// for exactly the operations the circle exists to show.
+    /// </summary>
+    private readonly System.Windows.Threading.DispatcherTimer _progressTimer;
+
+    /// <summary>Four updates a second — smooth enough for a progress ring.</summary>
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
+
     /// <summary>Newest first, because that is the one the user just minimised.</summary>
     public ObservableCollection<Operation> Operations { get; } = new();
 
@@ -80,6 +97,37 @@ public sealed partial class OperationService : ObservableObject
             OnPropertyChanged(nameof(HasOperations));
             Recalculate();
         };
+
+        // Background priority: the ring must never compete with painting the window.
+        _progressTimer = new System.Windows.Threading.DispatcherTimer(
+            System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = ProgressInterval,
+        };
+        _progressTimer.Tick += (_, _) => PublishProgress();
+        _progressTimer.Start();
+    }
+
+    /// <summary>Copies each running queue's progress onto its operation.</summary>
+    private void PublishProgress()
+    {
+        var changed = false;
+
+        foreach (var operation in Operations)
+        {
+            if (operation.Queue is null || !operation.IsRunning) continue;
+
+            var progress = operation.Queue.OverallProgress;
+
+            // Compared before assigning so an idle queue does not raise a change notification
+            // every quarter second for a value nobody moved.
+            if (Math.Abs(operation.Progress - progress) < 0.01) continue;
+
+            operation.Progress = progress;
+            changed = true;
+        }
+
+        if (changed) Recalculate();
     }
 
     /// <summary>

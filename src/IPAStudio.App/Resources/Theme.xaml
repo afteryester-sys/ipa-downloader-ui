@@ -472,6 +472,54 @@
         </Setter>
     </Style>
 
+    <!--
+        Home button, sitting beside Back on every page that has one.
+
+        Icon-only and square: Back already carries a word, and a second labelled button next
+        to it crowded the header rows on the narrower pages. Shares Back's outline and hover
+        so the pair reads as one control group rather than two unrelated buttons.
+    -->
+    <Style x:Key="Button.Home" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="ToolTip" Value="{DynamicResource L.Home}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Radius.Control}">
+                        <!-- House glyph: understandable without the tooltip, and unaffected by
+                             the interface language. -->
+                        <!-- Foreground bound explicitly: a TextBlock placed directly in a
+                             template does not inherit the button's Foreground the way a
+                             ContentPresenter's content does, and the glyph would keep the
+                             default black through a theme switch. -->
+                        <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                            <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ Card ============ -->
     <!--
         Deliberately no DropShadowEffect. Most cards in this app wrap a ListBox or a photo

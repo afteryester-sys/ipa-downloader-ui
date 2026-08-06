@@ -14,7 +14,7 @@
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:SubtractConverter x:Key="Subtract" />
-        <conv:PercentToHeightConverter x:Key="PercentToHeight" />
+        <conv:PercentToArcConverter x:Key="PercentToArc" />
         <DataTemplate DataType="{x:Type vm:SetupViewModel}">
             <views:SetupView />
         </DataTemplate>
@@ -396,44 +396,43 @@
         </Grid>
 
         <!-- ===== Background operations circle + list ===== -->
-        <!-- Bottom-right, opposite corner from the gear menu so the two never fight for the
-             same space. Hidden entirely until there is an operation to show, which keeps the
-             window unchanged for anyone who leaves multitasking off. -->
-        <Grid x:Name="OpsCorner" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-              Margin="0,0,20,20" Panel.ZIndex="20"
+        <!-- Top-right, immediately left of the gear, so running work sits in the window's
+             chrome rather than floating over page content at the bottom. Hidden entirely
+             until there is an operation, keeping the window unchanged for anyone who leaves
+             multitasking off. -->
+        <Grid x:Name="OpsCorner" HorizontalAlignment="Right" VerticalAlignment="Top"
+              Margin="0,8,50,0" Panel.ZIndex="20"
               DataContext="{Binding Operations}"
               Visibility="{Binding HasOperations, Converter={StaticResource BoolToVis}}">
             <Grid.RenderTransform>
-                <ScaleTransform x:Name="OpsCircleScale" CenterX="24" CenterY="24" />
+                <ScaleTransform x:Name="OpsCircleScale" CenterX="17" CenterY="17" />
             </Grid.RenderTransform>
 
-            <Button x:Name="OpsButton" Width="48" Height="48" Padding="0" Cursor="Hand"
+            <!-- 34px to match the gear button beside it. -->
+            <Button x:Name="OpsButton" Width="34" Height="34" Padding="0" Cursor="Hand"
                     Command="{Binding ToggleListCommand}"
                     ToolTip="{DynamicResource L.Ops.Title}"
                     Background="Transparent" BorderThickness="0">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Grid>
-                            <!-- The fill rises from the bottom as the work completes. Clipped
-                                 by the round border, so a plain rectangle reads as a circle
-                                 filling up without any geometry maths per progress tick. -->
-                            <Border CornerRadius="24" ClipToBounds="True"
-                                    Background="{StaticResource Brush.Surface}"
-                                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
-                                <Rectangle VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
-                                           Fill="{StaticResource Brush.Accent}" Opacity="0.28"
-                                           Height="{Binding OverallProgress,
-                                                    Converter={StaticResource PercentToHeight},
-                                                    ConverterParameter=48}" />
-                            </Border>
+                            <!-- Track, then the arc that sweeps round it clockwise from the
+                                 top as the work completes. -->
+                            <Ellipse Stroke="{StaticResource Brush.Border}" StrokeThickness="3"
+                                     Fill="{StaticResource Brush.Surface}" Margin="1.5" />
+                            <Path Stroke="{StaticResource Brush.Accent}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="{Binding OverallProgress,
+                                         Converter={StaticResource PercentToArc},
+                                         ConverterParameter=34}" />
 
                             <!-- Number of operations still working; the glyph stands in once
                                  they have all finished so the circle never reads as "0". -->
                             <TextBlock Text="{Binding RunningCount}" Style="{StaticResource Text.Body}"
-                                       FontWeight="SemiBold" FontSize="15"
+                                       FontWeight="SemiBold" FontSize="13"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding HasRunning, Converter={StaticResource BoolToVis}}" />
-                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                                        Foreground="{StaticResource Brush.TextMuted}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <TextBlock.Style>
@@ -452,8 +451,10 @@
                 </Button.Template>
             </Button>
 
+            <!-- Drops below the button now that it lives in the top chrome; offset left so the
+                 310px panel stays inside the window instead of hanging off the right edge. -->
             <Popup IsOpen="{Binding IsListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=OpsButton}"
-                   Placement="Top" HorizontalOffset="-262" VerticalOffset="-6"
+                   Placement="Bottom" HorizontalOffset="-268" VerticalOffset="6"
                    StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                 <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
                         BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"

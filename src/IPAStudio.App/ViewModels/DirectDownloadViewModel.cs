@@ -189,6 +189,17 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         _navigator?.GoBack();
     }
 
+    /// <summary>
+    /// Straight to the device list. Cancels like <see cref="GoBack"/> does, and for the same
+    /// reason: this page owns the only progress and cancel UI a download has.
+    /// </summary>
+    [RelayCommand]
+    private void GoHome()
+    {
+        CancelDownload();
+        _navigator?.GoHome();
+    }
+
     [RelayCommand]
     private void SignIn() => _navigator?.GoTo(Page.Login);
 

@@ -238,6 +238,16 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     private Operation? _pendingTransfer;
 
+    /// <summary>
+    /// The device <see cref="_pendingTransfer"/> is sending to.
+    ///
+    /// Kept so a late-resolved app only joins that batch when it is going to the same place.
+    /// The candidate chips capture their destination when they are offered, so without this
+    /// check a pick left over from an earlier transfer would land in an operation titled for
+    /// a different device.
+    /// </summary>
+    private Device? _pendingTransferTo;
+
     public Device? TargetDevice { get; private set; }
 
     public ObservableCollection<InstalledAppViewModel> Apps { get; } = new();
@@ -474,6 +484,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         {
             AppLog.Info($"Transfer: {needChoosing.Count} app(s) left for the user to match, " +
                         $"{entries.Count} queued");
+
+            // Said out loud, because this is the case that looked like the button had half
+            // worked: the transfer starts but the page deliberately stays here, so without a
+            // line at the top the only clue was a candidate list somewhere down the list.
+            ErrorText = string.Format(
+                Loc.Get("L.OnDevice.PartialTransfer"), entries.Count, needChoosing.Count);
         }
 
         AppLog.Info(
@@ -489,6 +505,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             $"{DeviceName} → {destination.Name}",
             TargetDevice,
             q => q.Build(entries, destination));
+
+        _pendingTransferTo = destination;
 
         // Only leave for the queue once nothing is waiting on the user here.
         if (needChoosing.Count == 0) _navigator?.GoToOperation(_pendingTransfer);
@@ -714,6 +732,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // would be invisible and unstoppable.
         CancelAll();
         _navigator?.GoBack();
+    }
+
+    /// <summary>
+    /// Straight to the device list. Cancels like <see cref="GoBack"/> does, and for the same
+    /// reason: this page owns the only progress and cancel UI the work has.
+    /// </summary>
+    [RelayCommand]
+    private void GoHome()
+    {
+        CancelAll();
+        _navigator?.GoHome();
     }
 
     [RelayCommand]
@@ -1003,9 +1032,25 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     private void QueueTransfer(AppEntry entry, Device destination)
     {
-        if (_pendingTransfer is { IsRunning: true, Queue: not null } pending)
+        // The "pick a match" notice has been acted on, so it goes now. ErrorText is otherwise
+        // only cleared by a reload, which would leave the banner asking for matches that have
+        // already been chosen.
+        if (Apps.All(a => !a.HasCandidates)) ErrorText = null;
+
+        // The destination check is what stops apps landing in the wrong batch.
+        //
+        // When every selected app needs a catalog match, TransferSelected returns before
+        // starting an operation, so _pendingTransfer still points at whatever ran last — which
+        // may be a transfer to a different device that is still going. The candidate chips
+        // captured their own destination when they were offered, so the old test appended to
+        // that unrelated batch: the item did go to the right device, but it was filed under an
+        // operation titled for another one, where the user had no reason to look for it.
+        if (_pendingTransfer is { IsRunning: true, Queue: not null } pending
+            && _pendingTransferTo?.Udid == destination.Udid)
         {
             pending.Queue.Add(entry, destination);
+            AppLog.Info($"Transfer: appended \"{entry.Name}\" to the pending batch " +
+                        $"({pending.Queue.Items.Count} app(s) queued)");
             _navigator?.GoToOperation(pending);
             return;
         }
@@ -1017,6 +1062,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             $"{DeviceName} → {destination.Name}",
             TargetDevice,
             q => q.Add(entry, destination));
+
+        _pendingTransferTo = destination;
 
         _navigator?.GoToOperation(_pendingTransfer);
     }

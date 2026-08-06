@@ -65,6 +65,15 @@ public interface INavigator
     /// dump the user somewhere they never came from.
     /// </summary>
     void GoBack();
+
+    /// <summary>
+    /// Jumps straight to the device list, the app's home screen.
+    ///
+    /// Distinct from <see cref="GoBack"/>, which walks the history one step at a time: after a
+    /// few hops through albums, app lists and queues, getting out meant pressing Back
+    /// repeatedly and watching each intermediate screen reload on the way.
+    /// </summary>
+    void GoHome();
 }
 
 /// <summary>
@@ -285,6 +294,23 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Resolve<AppPickerViewModel>().TargetDevice = device;
 
         Navigate(page, recordHistory: false);
+    }
+
+    public void GoHome()
+    {
+        // Leaving the queue page detaches it, exactly as minimising does: the operation keeps
+        // running in the background, but its events must stop arriving at a page that is now
+        // showing the device list.
+        if (CurrentPage == Page.Queue)
+            Resolve<QueueViewModel>().Detach();
+
+        // History is dropped rather than appended to: Home is the way out of a deep path, so
+        // keeping those screens would leave Back walking back into the maze that was just left.
+        _history.Clear();
+        _currentDevice = null;
+        _pendingDevice = null;
+
+        Navigate(Page.Devices, recordHistory: false);
     }
 
     private static T Resolve<T>() where T : ObservableObject

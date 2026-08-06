@@ -6,6 +6,7 @@
     <!-- Common -->
     <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
     <sys:String x:Key="L.Back">Back</sys:String>
+    <sys:String x:Key="L.Home">Home</sys:String>
     <sys:String x:Key="L.Cancel">Cancel</sys:String>
     <sys:String x:Key="L.Retry">Retry</sys:String>
     <sys:String x:Key="L.Settings">Settings</sys:String>
@@ -625,6 +626,8 @@
     <sys:String x:Key="L.OnDevice.NotOwned">The current Apple ID does not own this app, so the App Store refused the download.</sys:String>
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">The App Store would not serve this app by its bundle id. The catalog holds similar names — pick the right one and the download will use its id:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">This app is not on the App Store, so it cannot be downloaded.</sys:String>
+    <!-- {0} is how many apps are already transferring, {1} how many await a chosen match. -->
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Transfer started with {0} app(s). {1} more could not be identified by bundle id — pick a catalog match on the apps marked below and they will join the same transfer.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Select all</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Clear selection</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Download selected ({0})</sys:String>
