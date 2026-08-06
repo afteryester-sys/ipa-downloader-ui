@@ -7,6 +7,21 @@
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:InitialConverter x:Key="Initial" />
+
+        <!-- Library name. Turns accent-coloured for the selected row: the tinted background
+             alone is faint, and this panel is the only thing telling the user which library the
+             list on the right belongs to. Text.Body pins Foreground outright, so the colour
+             cannot simply be inherited from the row and is switched here instead. -->
+        <Style x:Key="CatalogName" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Value="True"
+                             Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
@@ -79,7 +94,8 @@
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2">
+                                            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2"
+                                                    BorderThickness="1" BorderBrush="Transparent">
                                                 <ContentPresenter />
                                             </Border>
                                             <ControlTemplate.Triggers>
@@ -87,9 +103,18 @@
                                                     <Setter TargetName="Bg" Property="Background"
                                                             Value="{StaticResource Brush.SurfaceHover}" />
                                                 </Trigger>
+                                                <!-- Selection used to paint the same grey as hover, so the
+                                                     library actually being shown on the right was
+                                                     indistinguishable from whichever row the pointer
+                                                     happened to rest on. Accent tint plus an accent edge,
+                                                     matching how the Photos page marks a chosen album.
+                                                     Declared after the hover trigger so selection still
+                                                     reads as selected while hovered. -->
                                                 <Trigger Property="IsSelected" Value="True">
                                                     <Setter TargetName="Bg" Property="Background"
-                                                            Value="{StaticResource Brush.SurfaceHover}" />
+                                                            Value="{StaticResource Brush.AccentSoft}" />
+                                                    <Setter TargetName="Bg" Property="BorderBrush"
+                                                            Value="{StaticResource Brush.Accent}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -100,8 +125,7 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Margin="12,9">
-                                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
-                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource CatalogName}" />
                                     <!-- Count, or why the folder cannot be read -->
                                     <TextBlock Text="{Binding Summary}" Style="{StaticResource Text.Caption}"
                                                Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
