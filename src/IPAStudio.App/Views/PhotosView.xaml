@@ -369,6 +369,23 @@
                 </StackPanel>
             </Border>
 
+            <!-- The album names come from a database that has to be copied off the device,
+                 which on a large library is a transfer of hundreds of megabytes. Without
+                 this row it ran silently: the derived albums were already listed, so the
+                 screen looked finished while the real albums were still minutes away. -->
+            <Border Margin="0,0,0,12"
+                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
+                    Visibility="{Binding IsLoadingAlbumNames, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               MaxWidth="720"
+                               Text="{DynamicResource L.Photos.LoadingAlbums}" />
+                    <ProgressBar Height="4" Margin="0,8,0,0"
+                                 Minimum="0" Maximum="1"
+                                 Value="{Binding AlbumNamesProgress}" />
+                </StackPanel>
+            </Border>
+
             <!-- Shown when files reached DCIM but Photos has not ingested them. On firmware
                  that ignores the sync notifications a reboot is the only way in, so it is
                  offered here instead of leaving the user with files they cannot find. -->

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -28,6 +30,10 @@ namespace IPAStudio.Core.Services;
 /// </summary>
 public sealed class PhotoService
 {
+    private readonly ToolLocator _tools;
+
+    public PhotoService(ToolLocator tools) => _tools = tools;
+
     private static readonly string[] VideoExtensions = { ".mov", ".mp4", ".m4v", ".avi" };
 
     /// <summary>
@@ -516,7 +522,8 @@ public sealed class PhotoService
     {
         // Freshly pulled every time: this is asked precisely because the caller is waiting
         // for the library to catch up with files just written, and a cached copy predates them.
-        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh: true, ct).ConfigureAwait(false);
+        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh: true, progress: null, ct)
+            .ConfigureAwait(false);
         if (localDb is null) return null;
 
         try
@@ -797,9 +804,11 @@ public sealed class PhotoService
     /// </summary>
     public async Task<Dictionary<string, string>?> TryReadAlbumNamesAsync(
         string udid,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IProgress<PhotoTransferProgress>? progress = null,
+        bool forceRefresh = false)
     {
-        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh: false, ct).ConfigureAwait(false);
+        var localDb = await GetLibraryDatabaseAsync(udid, forceRefresh, progress, ct).ConfigureAwait(false);
         if (localDb is null) return null;
 
         return await Task.Run<Dictionary<string, string>?>(() =>
@@ -840,7 +849,11 @@ public sealed class PhotoService
     /// Returns null when the path is restricted, which is the expected outcome on current
     /// iOS rather than an error; callers fall back to folder-derived names.
     /// </summary>
-    private async Task<string?> GetLibraryDatabaseAsync(string udid, bool forceRefresh, CancellationToken ct)
+    private async Task<string?> GetLibraryDatabaseAsync(
+        string udid,
+        bool forceRefresh,
+        IProgress<PhotoTransferProgress>? progress,
+        CancellationToken ct)
     {
         await _libraryDbLock.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -855,32 +868,57 @@ public sealed class PhotoService
                 return cached.Path;
             }
 
-            var tempDir = Path.Combine(Path.GetTempPath(), "IPAStudio", "photodb", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tempDir);
-            var localDb = Path.Combine(tempDir, "Photos.sqlite");
+            // A copy kept by an earlier run of the app. Reused on sight, without asking the
+            // device how old it is: finding that out costs an AFC stat, and the answer would
+            // not change what happens next — album names are stable enough that showing them
+            // instantly and refreshing in the background beats a minutes-long wait. The
+            // caller triggers that refresh through forceRefresh.
+            var persisted = PersistentLibraryDbPath(udid);
+            if (!forceRefresh && File.Exists(persisted))
+            {
+                AppLog.Info("photos: using the stored library database copy");
+                _libraryDb = (udid, persisted, DateTime.UtcNow);
+                return persisted;
+            }
 
+            var folder = Path.GetDirectoryName(persisted)!;
+            Directory.CreateDirectory(folder);
+
+            // Written under a temporary name and moved into place once whole, so a transfer
+            // cut short by an unplugged cable cannot leave a half-copied database behind for
+            // the next run to read as if it were complete.
+            var staging = persisted + ".part";
             var pulled = await Task.Run(() =>
             {
-                if (!TryPullFile(udid, "/PhotoData/Photos.sqlite", localDb, ct)) return false;
+                if (!TryPullFile(udid, "/PhotoData/Photos.sqlite", staging, ct, progress)) return false;
 
                 // Best-effort: absence is fine, the main file is still usable.
-                TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", localDb + "-wal", ct);
-                TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", localDb + "-shm", ct);
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-wal", persisted + "-wal", ct);
+                TryPullFile(udid, "/PhotoData/Photos.sqlite-shm", persisted + "-shm", ct);
                 return true;
             }, ct).ConfigureAwait(false);
 
             if (!pulled)
             {
-                TryDeleteDirectory(tempDir);
+                TryDeleteFile(staging);
                 return null;
             }
 
-            // Dropped only now: the previous copy stays usable until the new one is in hand,
-            // so a failed pull does not leave the caller with nothing.
-            if (_libraryDb is { } previous) TryDeleteDirectory(Path.GetDirectoryName(previous.Path));
+            try
+            {
+                File.Move(staging, persisted, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                // The bytes are on disk but not where the next run will look. Usable now,
+                // so the screen still gets its names; only the caching is lost.
+                AppLog.Warn($"photos: could not store the library database copy ({ex.Message})");
+                _libraryDb = (udid, staging, DateTime.UtcNow);
+                return staging;
+            }
 
-            _libraryDb = (udid, localDb, DateTime.UtcNow);
-            return localDb;
+            _libraryDb = (udid, persisted, DateTime.UtcNow);
+            return persisted;
         }
         finally
         {
@@ -888,21 +926,43 @@ public sealed class PhotoService
         }
     }
 
-    /// <summary>Removes a temporary copy, ignoring the usual "still in use" failures.</summary>
-    private static void TryDeleteDirectory(string? path)
+    /// <summary>
+    /// Where this device's library database copy is kept between runs.
+    ///
+    /// Keyed by UDID so two phones never overwrite each other's copy — the device path is
+    /// identical on every iPhone, so the name alone would collide.
+    /// </summary>
+    private string PersistentLibraryDbPath(string udid)
     {
-        if (string.IsNullOrEmpty(path)) return;
-        try { Directory.Delete(path, recursive: true); } catch { /* temp cleanup */ }
+        var safe = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(udid)))[..16];
+        return Path.Combine(_tools.PhotoLibraryDbCacheFolder, safe, "Photos.sqlite");
+    }
+
+    /// <summary>Removes one file, ignoring the usual "still in use" failures.</summary>
+    private static void TryDeleteFile(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* cache cleanup */ }
     }
 
     /// <summary>Copies one device file to a local path. Returns false if unavailable.</summary>
-    private static bool TryPullFile(string udid, string remotePath, string localPath, CancellationToken ct)
+    private static bool TryPullFile(
+        string udid,
+        string remotePath,
+        string localPath,
+        CancellationToken ct,
+        IProgress<PhotoTransferProgress>? progress = null)
     {
         try
         {
             using var session = OpenSession(udid);
             var afc = session.Afc;
             var client = session.Client;
+
+            // Read up front so the progress report has a total to divide by. One stat against
+            // a transfer of hundreds of megabytes is not worth optimising away, and without it
+            // the wait can only be reported as a spinner with no idea how far along it is.
+            var totalBytes = progress is null ? 0 : ReadFileInfo(afc, client, remotePath).Size;
 
             ulong handle = 0;
             if (afc.afc_file_open(client, remotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
@@ -926,6 +986,14 @@ public sealed class PhotoService
                     read = 0;
                     if (afc.afc_file_read(client, handle, buffer, bulkChunk, ref read) != AfcError.Success) break;
                     if (read > 0) fs.Write(buffer, 0, (int)read);
+
+                    // Reported per chunk, which at 4 MiB a time is a manageable number of UI
+                    // updates even for a database of several hundred megabytes.
+                    if (progress is not null && totalBytes > 0)
+                    {
+                        progress.Report(new PhotoTransferProgress(
+                            (int)(fs.Length / 1024), (int)(totalBytes / 1024), ""));
+                    }
                 }
                 while (read > 0);
                 return fs.Length > 0;
@@ -1359,9 +1427,20 @@ public sealed class PhotoService
         foreach (var sub in subFolders)
             jpegs.AddRange(LargestJpegsFirst(afc, client, sub, depth - 1));
 
-        return jpegs
-            .OrderByDescending(path => ReadFileInfo(afc, client, path).Size)
-            .ToList();
+        // A single entry needs no ordering, and ordering is what costs: the sort below stats
+        // every candidate, one AFC round trip each, to pick the one file that then gets read.
+        // On the common layout — one rendered size per photo — that doubled the protocol
+        // traffic behind every tile for no change in the result.
+        if (jpegs.Count <= 1) return jpegs;
+
+        // iOS names the rendered sizes by size class (5003.JPG, 5005.JPG, …) and the larger
+        // class always sorts later, so descending by name puts the biggest first without
+        // asking the device anything. The previous pass sorted by real byte size; that is
+        // marginally more accurate on an unrecognised layout, but not worth one round trip
+        // per candidate on every layout. Only the sort order is at stake — a mis-ordered
+        // guess still yields a usable thumbnail, just occasionally a softer one.
+        jpegs.Sort(static (a, b) => string.Compare(b, a, StringComparison.OrdinalIgnoreCase));
+        return jpegs;
     }
 
     /// <summary>

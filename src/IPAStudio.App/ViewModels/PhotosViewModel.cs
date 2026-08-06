@@ -301,6 +301,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _albumNamesUnavailable;
 
+    /// <summary>
+    /// True while the album names are being read off the device.
+    ///
+    /// This work is what the user experiences as the albums "taking minutes to appear", and
+    /// it used to run with nothing on screen to say so: the synthetic albums were already
+    /// listed, so the window looked finished while a multi-hundred-megabyte transfer was
+    /// still running, and the real albums simply materialised later with no warning. The
+    /// grid stays usable throughout — this only drives a caption and a bar.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isLoadingAlbumNames;
+
+    /// <summary>How far the album-name transfer has got, 0-1. Meaningless unless the above is true.</summary>
+    [ObservableProperty]
+    private double _albumNamesProgress;
+
     public bool IsGridView => !IsListView;
 
     /// <summary>True while the photos are shown, i.e. an album is open.</summary>
@@ -555,15 +571,44 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         var pending = MediaAlbums.Where(a => a.Cover is null && a.CoverItem is not null).ToList();
         if (pending.Count == 0) return;
 
+        // Captured once: the work below runs off the UI thread, and re-reading the field
+        // there could see a different device — or none — if the cable is pulled meanwhile.
+        var udid = _device.Udid;
+
+        // Local disk first, exactly as the photo grid does. Album covers used to go straight
+        // to the device every time the tiles were built, so the same handful of thumbnails
+        // was re-fetched over AFC on each visit — one round trip per album — even though the
+        // grid had already stored those very bytes. This is what left the album screen
+        // filling in slowly seconds after it opened.
+        var cachedBytes = await Task.Run(() =>
+        {
+            var map = new Dictionary<string, byte[]>();
+            foreach (var album in pending)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                var path = album.CoverItem!.Item.RemotePath;
+                var bytes = _thumbCache.TryRead(udid, path);
+                if (bytes is not null) map[path] = bytes;
+            }
+            return map;
+        }, ct).ConfigureAwait(false);
+
+        var needDevice = pending
+            .Where(a => !cachedBytes.ContainsKey(a.CoverItem!.Item.RemotePath))
+            .ToList();
+
         Dictionary<string, byte[]> thumbMap;
         try
         {
-            thumbMap = await _photos
-                .ReadIosThumbnailsAsync(_device.Udid, pending.Select(a => a.CoverItem!.Item).ToList(), ct)
-                .ConfigureAwait(false);
+            thumbMap = needDevice.Count == 0
+                ? new Dictionary<string, byte[]>()
+                : await _photos
+                    .ReadIosThumbnailsAsync(udid, needDevice.Select(a => a.CoverItem!.Item).ToList(), ct)
+                    .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return; }
-        catch { return; } // device went away; tiles keep their placeholder glyph
+        catch { thumbMap = new Dictionary<string, byte[]>(); } // device went away; use what disk gave us
 
         var decoded = await Task.Run(() =>
         {
@@ -571,10 +616,20 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             foreach (var album in pending)
             {
                 if (ct.IsCancellationRequested) break;
-                if (!thumbMap.TryGetValue(album.CoverItem!.Item.RemotePath, out var bytes)) continue;
+
+                var path = album.CoverItem!.Item.RemotePath;
+                if (!cachedBytes.TryGetValue(path, out var bytes)
+                    && !thumbMap.TryGetValue(path, out bytes)) continue;
 
                 var cover = TryDecodeThumbnail(bytes, AlbumCoverWidth);
-                if (cover is not null) result.Add((album, cover));
+                if (cover is null) continue;
+
+                // Stored so the next visit — and the next run of the app — reads it from
+                // disk. Only device-fetched bytes are written back; a cache hit is already
+                // there, and rewriting it would just churn the file.
+                if (thumbMap.ContainsKey(path)) _thumbCache.Write(udid, path, bytes);
+
+                result.Add((album, cover));
             }
             return result;
         }, ct).ConfigureAwait(false);
@@ -608,17 +663,36 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// device Photos library. Silent no-op when the database can't be read, which is the
     /// normal outcome on current iOS — the folder-based names simply stay.
     /// </summary>
-    private async Task ApplyRealAlbumNamesAsync(CancellationToken ct)
+    private async Task ApplyRealAlbumNamesAsync(CancellationToken ct, bool forceRefresh = false)
     {
         if (_device is null) return;
+
+        // Constructed on the UI thread so Report() marshals back to it. Reported in KiB
+        // because a large library exceeds what an int can hold in bytes.
+        var progress = new Progress<PhotoTransferProgress>(p =>
+        {
+            if (p.Total > 0) AlbumNamesProgress = (double)p.Completed / p.Total;
+        });
+
+        IsLoadingAlbumNames = true;
+        AlbumNamesProgress = 0;
 
         Dictionary<string, string>? map;
         try
         {
-            map = await _photos.TryReadAlbumNamesAsync(_device.Udid, ct).ConfigureAwait(false);
+            map = await _photos
+                .TryReadAlbumNamesAsync(_device.Udid, ct, progress, forceRefresh)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return; }
         catch { return; }
+        finally
+        {
+            // Cleared through the dispatcher: a cancelled or failed attempt lands here on a
+            // background thread, and leaving the flag set would strand the caption on screen.
+            await System.Windows.Application.Current.Dispatcher
+                .InvokeAsync(() => IsLoadingAlbumNames = false).Task.ConfigureAwait(false);
+        }
 
         if (ct.IsCancellationRequested) return;
 
@@ -658,7 +732,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }).Task.ConfigureAwait(false);
     }
 
-    private async Task LoadAsync()
+    /// <param name="forceRefresh">
+    /// True when the user asked for this explicitly. The stored copy of the library database
+    /// is then re-fetched instead of reused: it is the only way a newly created album can
+    /// ever show up, since a cached copy is otherwise trusted without asking the device.
+    /// </param>
+    private async Task LoadAsync(bool forceRefresh = false)
     {
         if (_device is null) return;
 
@@ -726,7 +805,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             // Real album names need the Photos library database copied off the device,
             // which is slow and often blocked. Run it in the background: the folder-based
             // names are already showing, and the picker is relabelled only if it succeeds.
-            _ = ApplyRealAlbumNamesAsync(_metaCts.Token);
+            _ = ApplyRealAlbumNamesAsync(_metaCts.Token, forceRefresh);
         }
         catch (Exception ex)
         {
@@ -864,7 +943,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private async Task Refresh() => await LoadAsync();
+    private async Task Refresh() => await LoadAsync(forceRefresh: true);
 
     private bool CanExport() => SelectedCount > 0 && !IsTransferring;
 

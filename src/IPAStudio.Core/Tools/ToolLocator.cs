@@ -97,6 +97,21 @@ public sealed class ToolLocator
     public string PhotoThumbCacheFolder => Path.Combine(DataFolder, "photo-thumbs");
 
     /// <summary>
+    /// Copies of the device Photos library database, one per device.
+    ///
+    /// The real album names come from /PhotoData/Photos.sqlite, which runs to hundreds of
+    /// megabytes on a full library and has to be copied off the device before SQLite can
+    /// read it. That copy used to be staged in the system temp folder under a random name,
+    /// so a later run could not find it and every visit to the screen paid for the whole
+    /// transfer again — minutes of waiting for names the app had already read once.
+    ///
+    /// Keeping it here means a later visit reads a local file instead. It stays a cache and
+    /// never user data: dropping it only costs one more transfer, so "clear cache" reports
+    /// and clears it like the rest.
+    /// </summary>
+    public string PhotoLibraryDbCacheFolder => Path.Combine(DataFolder, "photo-library-db");
+
+    /// <summary>
     /// Apps the user added by hand from the download screen. Kept separate from the
     /// bundled list, which is an embedded resource and therefore not writable, and from
     /// the metadata cache, which is disposable — this file is user data and must survive

@@ -77,6 +77,11 @@ public sealed class CleanupService
                 Measure("L.Cache.Item.Apps",    _tools.AppsFolder,      onGroup, ct),
                 Measure("L.Cache.Item.Icons",   _tools.IconCacheFolder, onGroup, ct),
                 Measure("L.Cache.Item.Thumbs",  _tools.PhotoThumbCacheFolder, onGroup, ct),
+                // The largest single item here by far: one copy of the device Photos library
+                // runs to hundreds of megabytes. It is kept deliberately (re-fetching it is
+                // what made the album list take minutes), so it has to be reportable and
+                // clearable — otherwise it would be invisible disk usage the user cannot find.
+                Measure("L.Cache.Item.PhotoDb", _tools.PhotoLibraryDbCacheFolder, onGroup, ct),
                 MeasureFile("L.Cache.Item.Catalog", _tools.CatalogCacheFile, onGroup),
                 Measure("L.Cache.Item.Temp",    _tools.TempFolder,      onGroup, ct),
                 MeasureOldLogs(onGroup, ct),

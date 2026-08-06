@@ -285,8 +285,9 @@
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
     <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
-    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений�</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
+    <sys:String x:Key="L.Cache.Item.PhotoDb">База медиатеки (названия альбомов)</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
     <sys:String x:Key="L.Cache.Item.Temp">Временные файлы</sys:String>
     <sys:String x:Key="L.Cache.Item.Logs">Журналы за прошлые дни</sys:String>
@@ -477,6 +478,7 @@
     <sys:String x:Key="L.Photos.Hidden">Скрытые</sys:String>
     <sys:String x:Key="L.Photos.NoAlbum">Без альбома</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>
+    <sys:String x:Key="L.Photos.LoadingAlbums">Читаем названия альбомов с устройства. Медленно только в первый раз — дальше они берутся из кэша. Фото уже можно смотреть.</sys:String>
     <sys:String x:Key="L.Photos.Albums.All">Все фото</sys:String>
     <sys:String x:Key="L.Photos.Albums.Videos">Видео</sys:String>
     <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Недавно удалённые</sys:String>
