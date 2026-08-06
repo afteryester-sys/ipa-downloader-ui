@@ -279,8 +279,27 @@
                                         </Border>
 
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
-                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <!-- App name, then the name on disk in grey. The two
+                                                 often differ, so the file is named here to tie the
+                                                 row to what Explorer shows. The app name keeps its
+                                                 natural width and the file name takes what is left,
+                                                 so a long file name can never squeeze out the title
+                                                 it belongs to. -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                           Style="{StaticResource Text.Body}"
+                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding FileName}"
+                                                           Style="{StaticResource Text.Caption}"
+                                                           Margin="8,0,0,0" VerticalAlignment="Bottom"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Path}"
+                                                           Visibility="{Binding ShowFileName, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
                                             <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
                                                        Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>

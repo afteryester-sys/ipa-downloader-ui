@@ -40,6 +40,22 @@ public sealed partial class CatalogIpaViewModel : ObservableObject
     private ImageSource? _icon;
 
     /// <summary>
+    /// The name on disk. Shown beside the app name and searched alongside it, because archives
+    /// are often saved under something quite different from the app's own title - a bundle id,
+    /// or a name the downloader chose - and searching for what is visible in Explorer has to
+    /// find the row. Note this deliberately keeps the extension: it is what the folder shows.
+    /// </summary>
+    public string FileName => System.IO.Path.GetFileName(Item.Path);
+
+    /// <summary>
+    /// Hidden when the file is merely the app name plus ".ipa", where repeating it would add a
+    /// second copy of the same words and only make the row noisier.
+    /// </summary>
+    public bool ShowFileName =>
+        !string.Equals(System.IO.Path.GetFileNameWithoutExtension(Item.Path), Name,
+            StringComparison.CurrentCultureIgnoreCase);
+
+    /// <summary>
     /// True when the archive could not be read. Such a file is still listed — it is visibly
     /// there in the folder — but it cannot be selected, because installing it is a guaranteed
     /// failure and the reason is clearer stated here than in a failed operation.
@@ -304,8 +320,13 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         Items.Clear();
         foreach (var row in _allItems)
         {
+            // The file name is searched too: an archive is frequently stored under a name that
+            // has nothing to do with the app's title, and typing what the folder shows must
+            // find it. CurrentCulture for the two human-readable names so Russian matches
+            // case-insensitively; Ordinal for the bundle id, which is ASCII by definition.
             if (query.Length > 0 &&
                 !row.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
+                !row.FileName.Contains(query, StringComparison.CurrentCultureIgnoreCase) &&
                 !row.Item.BundleId.Contains(query, StringComparison.OrdinalIgnoreCase))
                 continue;
 

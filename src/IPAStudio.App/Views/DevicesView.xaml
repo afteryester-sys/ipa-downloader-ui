@@ -143,37 +143,56 @@
                                     </EventTrigger>
                                 </Border.Triggers>
 
-                                <!-- The wallpaper sits behind the content as a faint wash: enough to
-                                     tell two same-model phones apart, far too faint to fight the
-                                     text for attention. Collapsed until one arrives, so a device
-                                     that will not share it looks no different from before. -->
                                 <Grid>
-                                    <!-- Faded out downward with an OpacityMask rather than by layering a
-                                         surface-coloured gradient on top: a mask is theme-independent, so
-                                         switching between light and dark cannot leave a wrong-coloured
-                                         wash frozen over the card. -->
-                                    <Border CornerRadius="14" ClipToBounds="True"
-                                            Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
-                                        <Border.OpacityMask>
-                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                <GradientStop Color="#FF000000" Offset="0" />
-                                                <GradientStop Color="#00000000" Offset="0.75" />
-                                            </LinearGradientBrush>
-                                        </Border.OpacityMask>
-                                        <Border.Background>
-                                            <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill"
-                                                        Opacity="0.16" />
-                                        </Border.Background>
-                                    </Border>
-
                                 <StackPanel>
                                     <Grid Margin="0,0,0,12">
-                                        <Border Width="44" Height="44" CornerRadius="12"
+                                        <!-- This phone's own home screen, in a phone-shaped frame: its
+                                             wallpaper with a few real app icons over it. Two devices of
+                                             the same model are told apart here at a glance, which a
+                                             generic outline icon could never do.
+
+                                             Not a screen capture - that needs the Developer Disk Image
+                                             mounted per iOS version and fails on a locked phone, whereas
+                                             wallpaper and icons come from SpringBoard, which any paired
+                                             device answers. So the icon order is ours, not the phone's. -->
+                                        <Border Width="44" Height="62" CornerRadius="9"
                                                 Background="{StaticResource Brush.AccentSoft}"
-                                                HorizontalAlignment="Left">
-                                            <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
-                                                       Foreground="{StaticResource Brush.Accent}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                                HorizontalAlignment="Left" ClipToBounds="True">
+                                            <Grid>
+                                                <!-- Fallback outline, covered once the wallpaper loads. -->
+                                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                                           Foreground="{StaticResource Brush.Accent}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
+                                                    </Border.Background>
+                                                </Border>
+
+                                                <!-- Icons at full opacity so they read as icons; the wallpaper
+                                                     behind them is the part that varies between devices. -->
+                                                <ItemsControl ItemsSource="{Binding HomeIcons}"
+                                                              Margin="4,7,4,4" VerticalAlignment="Top"
+                                                              IsHitTestVisible="False">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Width="8" Height="8" CornerRadius="2"
+                                                                    Margin="1" ClipToBounds="True">
+                                                                <Border.Background>
+                                                                    <ImageBrush ImageSource="{Binding}" Stretch="UniformToFill" />
+                                                                </Border.Background>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
                                         </Border>
                                         <!-- Connection state and transport, side by side in one row so the
                                              two badges cannot overlap as either label changes length between
@@ -222,6 +241,14 @@
                                     <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
                                         <Run Text="{Binding Model, Mode=OneWay}" /> · iOS <Run Text="{Binding OsVersion, Mode=OneWay}" />
                                     </TextBlock>
+
+                                    <!-- Why the home screen preview is missing, stated on the card. Without
+                                         it a failed fetch looks exactly like a device with a plain
+                                         wallpaper, and the difference could only be found in the log. -->
+                                    <TextBlock Text="{Binding PreviewNote}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Margin="0,6,0,0" TextWrapping="Wrap"
+                                               Visibility="{Binding HasPreviewNote, Converter={StaticResource BoolToVis}}" />
 
                                     <!-- Battery -->
                                     <Grid Margin="0,14,0,0">

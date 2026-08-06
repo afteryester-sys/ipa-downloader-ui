@@ -140,6 +140,10 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     [NotifyPropertyChangedFor(nameof(CanMinimize))]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     [NotifyCanExecuteChangedFor(nameof(BackToAppsCommand))]
+    // "Finish" is BackToDevices, and it is gated on !IsRunning just like Back. Without this it
+    // was never told the run had ended: the button appeared when the queue finished but kept the
+    // CanExecute answer from while work was still going, so clicking it did nothing.
+    [NotifyCanExecuteChangedFor(nameof(BackToDevicesCommand))]
     private bool _isRunning;
 
     [ObservableProperty]

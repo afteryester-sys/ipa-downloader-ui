@@ -64,6 +64,8 @@
     <sys:String x:Key="L.Devices.Battery">Battery</sys:String>
     <sys:String x:Key="L.Devices.Select">Select</sys:String>
     <sys:String x:Key="L.Devices.Connected">Connected</sys:String>
+    <sys:String x:Key="L.Devices.Preview.Locked">Unlock the screen to see the home screen</sys:String>
+    <sys:String x:Key="L.Devices.Preview.Failed">Could not read the home screen</sys:String>
     <sys:String x:Key="L.Devices.Catalog">App Catalog</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">apps in catalog</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Sign Out</sys:String>

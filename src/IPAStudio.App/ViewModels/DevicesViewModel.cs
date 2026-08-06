@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -33,13 +34,38 @@ public sealed partial class DeviceViewModel : ObservableObject
     private bool _isNetworkLink;
 
     /// <summary>
-    /// The device's own home screen wallpaper, shown faintly behind the card so two phones
-    /// of the same model are distinguishable at a glance instead of being two identical
-    /// tiles. Null until it has been fetched, and stays null when the device will not give
-    /// it up — the card is designed to look finished either way.
+    /// The device's own home screen wallpaper, shown inside a phone-shaped frame on the card so
+    /// two phones of the same model are told apart at a glance instead of being two identical
+    /// tiles. Null until it has been fetched, and stays null when the device will not give it up
+    /// — the card is designed to look finished either way.
     /// </summary>
     [ObservableProperty]
     private BitmapImage? _wallpaper;
+
+    /// <summary>
+    /// Icons of apps installed on this device, laid over the wallpaper to make the frame read as
+    /// this phone's home screen. Deliberately not a screen capture: capturing the real screen
+    /// needs the Developer Disk Image mounted, which is a per-iOS-version download that fails on
+    /// a locked phone, whereas the wallpaper and icons come from the SpringBoard service that any
+    /// paired device already answers. The order is therefore ours, not the phone's.
+    /// </summary>
+    public ObservableCollection<BitmapImage> HomeIcons { get; } = new();
+
+    /// <summary>
+    /// Why the home screen preview is missing, for the tile to show. Without this the failure is
+    /// indistinguishable from a device that simply has a plain wallpaper, which left no way to
+    /// tell a broken fetch from a working one without reading the log.
+    /// </summary>
+    [ObservableProperty]
+    private string? _previewNote;
+
+    /// <summary>True once a preview attempt has finished and produced no wallpaper.</summary>
+    public bool HasPreviewNote => !string.IsNullOrEmpty(PreviewNote);
+
+    partial void OnPreviewNoteChanged(string? value) => OnPropertyChanged(nameof(HasPreviewNote));
+
+    /// <summary>How many icons the frame has room for.</summary>
+    private const int HomeIconCount = 12;
 
     public string Name => Device.Name;
     public string Model => Device.Model;
@@ -54,34 +80,86 @@ public sealed partial class DeviceViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Fetches the wallpaper in the background. Fire-and-forget by design: decoration must
-    /// never delay a device appearing in the list, and any failure just leaves the card plain.
+    /// Fetches the home screen preview - wallpaper plus app icons - in the background.
+    /// Fire-and-forget by design: decoration must never delay a device appearing in the list,
+    /// and any failure just leaves the card plain with a short note saying why.
     /// </summary>
     public async Task LoadWallpaperAsync(InstallService install)
     {
         try
         {
-            var png = await install.GetHomeScreenWallpaperAsync(Device.Udid).ConfigureAwait(true);
-            if (png is null || png.Length == 0) return;
+            // SpringBoard often refuses the very first connection right after attach, while it is
+            // still bringing services up. A couple of spaced retries turn the common "no image on
+            // a freshly plugged phone" into a preview that simply arrives a moment later. This was
+            // the reason the wallpaper looked like it never loaded.
+            byte[]? png = null;
+            for (var attempt = 0; attempt < 3 && (png is null || png.Length == 0); attempt++)
+            {
+                if (attempt > 0) await Task.Delay(1200).ConfigureAwait(true);
+                png = await install.GetHomeScreenWallpaperAsync(Device.Udid).ConfigureAwait(true);
+            }
 
-            using var stream = new MemoryStream(png, writable: false);
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.CacheOption = BitmapCacheOption.OnLoad;
+            if (png is null || png.Length == 0)
+            {
+                PreviewNote = Loc.Get("L.Devices.Preview.Locked");
+                AppLog.Info($"devices: no wallpaper for {Device.Name} after retries");
+                return;
+            }
 
-            // Cards are 300 wide; decoding at roughly that size keeps a full-resolution
-            // phone wallpaper from costing several megabytes of bitmap per device.
-            image.DecodePixelWidth = 320;
-            image.StreamSource = stream;
-            image.EndInit();
-            image.Freeze();
-
-            Wallpaper = image;
+            Wallpaper = DecodeCard(png, 320);
+            await LoadHomeIconsAsync(install).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
+            PreviewNote = Loc.Get("L.Devices.Preview.Failed");
             AppLog.Info($"devices: no wallpaper for {Device.Name} ({ex.Message})");
         }
+    }
+
+    /// <summary>
+    /// Fills <see cref="HomeIcons"/> with a page of installed-app icons. Best effort: a device
+    /// that lists no apps, or gives up no artwork, just leaves the frame showing bare wallpaper.
+    /// </summary>
+    private async Task LoadHomeIconsAsync(InstallService install)
+    {
+        try
+        {
+            var bundleIds = await install.GetInstalledBundleIdsAsync(Device.Udid).ConfigureAwait(true);
+            if (bundleIds.Count == 0) return;
+
+            var page = bundleIds.Take(HomeIconCount).ToList();
+            var icons = await install.GetAppIconsAsync(Device.Udid, page).ConfigureAwait(true);
+
+            // Preserve the request order so the grid is stable between reads rather than
+            // reshuffling with the dictionary's ordering each time.
+            foreach (var id in page)
+            {
+                if (!icons.TryGetValue(id, out var bytes) || bytes.Length == 0) continue;
+                HomeIcons.Add(DecodeCard(bytes, 96));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Info($"devices: no home icons for {Device.Name} ({ex.Message})");
+        }
+    }
+
+    /// <summary>
+    /// Decodes PNG bytes to a frozen bitmap at roughly its on-card size, so a full-resolution
+    /// wallpaper does not cost several megabytes of bitmap per device. Frozen so it can be
+    /// handed to the UI thread from here.
+    /// </summary>
+    private static BitmapImage DecodeCard(byte[] png, int width)
+    {
+        using var stream = new MemoryStream(png, writable: false);
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.DecodePixelWidth = width;
+        image.StreamSource = stream;
+        image.EndInit();
+        image.Freeze();
+        return image;
     }
 
     public void Refresh()

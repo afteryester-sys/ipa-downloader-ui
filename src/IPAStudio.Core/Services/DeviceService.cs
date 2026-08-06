@@ -342,9 +342,14 @@ public sealed class DeviceService : IAsyncDisposable
         // keyed reads (-k) still succeed — which is why battery (a keyed read) works
         // but the model/iOS/serial rows come back blank. Fill any core field that is
         // still missing with per-key queries so the info screen always populates.
+        // Battery is a separate tool and depends on none of the fields above, so it is started
+        // here and collected after: waiting for it in sequence added its full round-trip to the
+        // time before the device could be shown.
+        var battery = ReadBatteryAsync(udid, ct);
+
         await FillMissingCoreFieldsAsync(device, ct).ConfigureAwait(false);
 
-        device.BatteryLevel = await ReadBatteryAsync(udid, ct).ConfigureAwait(false);
+        device.BatteryLevel = await battery.ConfigureAwait(false);
         return device;
     }
 
@@ -381,79 +386,88 @@ public sealed class DeviceService : IAsyncDisposable
     }
 
     /// <summary>
+    /// How many keyed reads may be in flight at once. Each one is a separate process talking
+    /// to usbmuxd, so this is a compromise: sequentially the reads were the reason device
+    /// details took seconds to appear, while firing all thirteen at once puts far more load on
+    /// usbmuxd than it handles gracefully and starts producing empty reads.
+    /// </summary>
+    private const int MaxParallelKeyReads = 4;
+
+    /// <summary>
     /// Fills any core field left empty by the full dump using individual `-k` key
     /// reads (these keep working on newer iOS where the whole-domain dump fails).
+    ///
+    /// The reads are independent of one another, so they run concurrently. This is what makes
+    /// the info appear quickly on the devices that need it most: where the full dump fails
+    /// outright - notably iPhone 15 and recent iOS - every field falls through to a keyed read,
+    /// and one process spawn after another was the entire delay.
     /// </summary>
     private async Task FillMissingCoreFieldsAsync(Device device, CancellationToken ct)
     {
         var udid = device.Udid;
         var dumpIncomplete = string.IsNullOrEmpty(device.ProductType) || string.IsNullOrEmpty(device.OsVersion);
 
-        if (string.IsNullOrEmpty(device.ProductType))
+        // Only the fields the dump actually left blank are queried, exactly as before.
+        var reads = new List<(string Key, Action<string> Apply)>();
+
+        void NeedIfEmpty(string? current, string key, Action<string> apply)
         {
-            var pt = await ReadKeyAsync(udid, null, "ProductType", ct).ConfigureAwait(false);
-            if (pt.Length > 0) { device.ProductType = pt; device.Model = MapProductType(pt); }
+            if (string.IsNullOrEmpty(current)) reads.Add((key, apply));
         }
-        if (string.IsNullOrEmpty(device.OsVersion))
-        {
-            var v = await ReadKeyAsync(udid, null, "ProductVersion", ct).ConfigureAwait(false);
-            if (v.Length > 0) device.OsVersion = v;
-        }
-        if (string.IsNullOrEmpty(device.BuildVersion))
-        {
-            var b = await ReadKeyAsync(udid, null, "BuildVersion", ct).ConfigureAwait(false);
-            if (b.Length > 0) device.BuildVersion = b;
-        }
-        if (string.IsNullOrEmpty(device.SerialNumber))
-        {
-            var s = await ReadKeyAsync(udid, null, "SerialNumber", ct).ConfigureAwait(false);
-            if (s.Length > 0) device.SerialNumber = s;
-        }
-        if (string.IsNullOrEmpty(device.Imei))
-        {
-            var i = await ReadKeyAsync(udid, null, "InternationalMobileEquipmentIdentity", ct).ConfigureAwait(false);
-            if (i.Length > 0) device.Imei = i;
-        }
-        if (string.IsNullOrEmpty(device.Imei2))
-        {
-            var i2 = await ReadKeyAsync(udid, null, "InternationalMobileEquipmentIdentity2", ct).ConfigureAwait(false);
-            if (i2.Length > 0) device.Imei2 = i2;
-        }
-        if (string.IsNullOrEmpty(device.Meid))
-        {
-            var m = await ReadKeyAsync(udid, null, "MobileEquipmentIdentifier", ct).ConfigureAwait(false);
-            if (m.Length > 0) device.Meid = m;
-        }
-        if (string.IsNullOrEmpty(device.RegionInfo))
-        {
-            var r = await ReadKeyAsync(udid, null, "RegionInfo", ct).ConfigureAwait(false);
-            if (r.Length > 0) device.RegionInfo = r;
-        }
-        if (string.IsNullOrEmpty(device.WifiAddress))
-        {
-            var w = await ReadKeyAsync(udid, null, "WiFiAddress", ct).ConfigureAwait(false);
-            if (w.Length > 0) device.WifiAddress = w;
-        }
-        if (string.IsNullOrEmpty(device.BluetoothAddress))
-        {
-            var bt = await ReadKeyAsync(udid, null, "BluetoothAddress", ct).ConfigureAwait(false);
-            if (bt.Length > 0) device.BluetoothAddress = bt;
-        }
-        if (string.IsNullOrEmpty(device.PhoneNumber))
-        {
-            var ph = await ReadKeyAsync(udid, null, "PhoneNumber", ct).ConfigureAwait(false);
-            if (ph.Length > 0) device.PhoneNumber = ph;
-        }
+
+        NeedIfEmpty(device.ProductType, "ProductType",
+            v => { device.ProductType = v; device.Model = MapProductType(v); });
+        NeedIfEmpty(device.OsVersion, "ProductVersion", v => device.OsVersion = v);
+        NeedIfEmpty(device.BuildVersion, "BuildVersion", v => device.BuildVersion = v);
+        NeedIfEmpty(device.SerialNumber, "SerialNumber", v => device.SerialNumber = v);
+        NeedIfEmpty(device.Imei, "InternationalMobileEquipmentIdentity", v => device.Imei = v);
+        NeedIfEmpty(device.Imei2, "InternationalMobileEquipmentIdentity2", v => device.Imei2 = v);
+        NeedIfEmpty(device.Meid, "MobileEquipmentIdentifier", v => device.Meid = v);
+        NeedIfEmpty(device.RegionInfo, "RegionInfo", v => device.RegionInfo = v);
+        NeedIfEmpty(device.WifiAddress, "WiFiAddress", v => device.WifiAddress = v);
+        NeedIfEmpty(device.BluetoothAddress, "BluetoothAddress", v => device.BluetoothAddress = v);
+        NeedIfEmpty(device.PhoneNumber, "PhoneNumber", v => device.PhoneNumber = v);
 
         // Name and DeviceClass have non-empty defaults ("iPhone"), so only override
         // them with a real keyed read when we know the dump was incomplete.
         if (dumpIncomplete)
         {
-            var name = await ReadKeyAsync(udid, null, "DeviceName", ct).ConfigureAwait(false);
-            if (name.Length > 0) device.Name = name;
+            reads.Add(("DeviceName", v => device.Name = v));
+            reads.Add(("DeviceClass", v => device.DeviceClass = v));
+        }
 
-            var dc = await ReadKeyAsync(udid, null, "DeviceClass", ct).ConfigureAwait(false);
-            if (dc.Length > 0) device.DeviceClass = dc;
+        if (reads.Count == 0) return;
+
+        var values = new string[reads.Count];
+        using var gate = new SemaphoreSlim(MaxParallelKeyReads);
+
+        var tasks = new Task[reads.Count];
+        for (var i = 0; i < reads.Count; i++)
+        {
+            var index = i;
+            tasks[index] = ReadOneAsync(index);
+        }
+
+        async Task ReadOneAsync(int index)
+        {
+            await gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                values[index] = await ReadKeyAsync(udid, null, reads[index].Key, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        // Applied afterwards on one thread: the setters write to a shared Device, and doing that
+        // from the concurrent reads would be a data race for the sake of nothing.
+        for (var i = 0; i < reads.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(values[i])) reads[i].Apply(values[i]);
         }
     }
 
