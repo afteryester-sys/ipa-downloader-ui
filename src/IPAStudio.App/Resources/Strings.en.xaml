@@ -100,7 +100,7 @@
     <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
     <sys:String x:Key="L.Picker.All">All</sys:String>
-    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses���������</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
     <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
     <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
     <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
@@ -112,6 +112,31 @@
     <sys:String x:Key="L.Status.Licensed">Licensed</sys:String>
     <sys:String x:Key="L.Status.NotLicensed">No License</sys:String>
     <sys:String x:Key="L.Status.Installed">Installed</sys:String>
+
+    <!-- IPA libraries: folders of local .ipa files the user named themselves -->
+    <sys:String x:Key="L.Catalogs.Title">Install from File</sys:String>
+    <sys:String x:Key="L.Catalogs.Subtitle">Pick an .ipa directly, or add a folder as a library</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFiles">Pick .ipa file</sys:String>
+    <sys:String x:Key="L.Catalogs.Add">Add library</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFolder">Choose a folder containing .ipa files</sys:String>
+    <sys:String x:Key="L.Catalogs.Rename">Rename</sys:String>
+    <sys:String x:Key="L.Catalogs.Save">Save</sys:String>
+    <sys:String x:Key="L.Catalogs.Remove">Remove</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveTitle">Remove library</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveBody">Remove the library “{0}” from the list? The folder itself and the .ipa files in it stay on disk.</sys:String>
+    <sys:String x:Key="L.Catalogs.OpenFolder">Open folder</sys:String>
+    <sys:String x:Key="L.Catalogs.Rescan">Refresh</sys:String>
+    <sys:String x:Key="L.Catalogs.Scanning">Scanning…</sys:String>
+    <sys:String x:Key="L.Catalogs.NoCatalogs">No libraries yet. Add a folder of .ipa files — their names and icons are read from the archives.</sys:String>
+    <sys:String x:Key="L.Catalogs.EmptyFolder">No .ipa files in this folder</sys:String>
+    <sys:String x:Key="L.Catalogs.Unreadable">File cannot be read — damaged, or not an .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.FolderMissing">Folder unavailable — it may have been moved, or it is on a removable drive</sys:String>
+    <sys:String x:Key="L.Catalogs.NeverScanned">Not scanned yet</sys:String>
+    <sys:String x:Key="L.Catalogs.ScannedAt">Refreshed: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.Count">Apps: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallTo">Install to:</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallSelected">Install selected ({0})</sys:String>
 
     <!-- Queue -->
     <sys:String x:Key="L.Queue.Title">Installing Apps</sys:String>
@@ -387,6 +412,7 @@
     <!-- {0} is the account the file belongs to, {1} the account on the device. Refused up front. -->
     <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device — the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
     <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotOnDevice">The installer reported success, but the app is not on the device — and a second attempt did not change that. This happens when the device drops one of several concurrent installs. Set “Concurrent installs per device” to 1 in Settings and try again.</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>
 
     <!-- Sign-in errors -->

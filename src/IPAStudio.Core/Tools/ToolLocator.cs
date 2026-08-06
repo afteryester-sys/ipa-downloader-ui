@@ -64,6 +64,25 @@ public sealed class ToolLocator
     public string CatalogCacheFile => Path.Combine(DataFolder, "catalog-cache.json");
 
     /// <summary>
+    /// Artwork lifted out of local .ipa files, for the folders the user added on the
+    /// install-from-file screen.
+    ///
+    /// Kept apart from <see cref="IconCacheFolder"/>, which holds store artwork fetched by URL
+    /// and keyed by App Store id. These are keyed by archive path and timestamp instead, and
+    /// go stale for an entirely different reason — the file on disk being replaced.
+    /// </summary>
+    public string LocalIpaIconCacheFolder => Path.Combine(DataFolder, "ipa-icons");
+
+    /// <summary>
+    /// Folders the user named and added as IPA libraries ("Денис", "Рабочие"), so the
+    /// install-from-file screen can offer them instead of a bare file picker.
+    ///
+    /// User data, not a cache: it holds names that exist nowhere else and must survive a
+    /// cache clear, which is why it does not live beside the disposable files above.
+    /// </summary>
+    public string IpaCatalogsFile => Path.Combine(DataFolder, "ipa-catalogs.json");
+
+    /// <summary>
     /// Photo thumbnails already fetched from a device, so returning to the library does not
     /// re-read them.
     ///

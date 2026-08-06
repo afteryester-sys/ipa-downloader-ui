@@ -33,6 +33,12 @@ public enum Page
     /// option to save one owned by the signed-in Apple ID as an IPA.
     /// </summary>
     OnDevice,
+
+    /// <summary>
+    /// IPA libraries: folders of local .ipa files the user named and keeps, listed with the
+    /// app names read out of the archives and installable without an Apple ID.
+    /// </summary>
+    IpaCatalogs,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -52,6 +58,9 @@ public interface INavigator
 
     /// <summary>Opens the list of apps installed on a device.</summary>
     void GoToOnDevice(Device device);
+
+    /// <summary>Opens the install-from-file page (IPA libraries) for a device.</summary>
+    void GoToIpaCatalogs(Device device);
 
     /// <summary>
     /// Opens the queue page for a specific operation. Needed because the queue page no
@@ -218,6 +227,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.DirectDownload => Resolve<DirectDownloadViewModel>(),
             Page.ICloud => Resolve<ICloudViewModel>(),
             Page.OnDevice => Resolve<OnDeviceViewModel>(),
+            Page.IpaCatalogs => Resolve<IpaCatalogsViewModel>(),
             _ => CurrentViewModel,
         };
 
@@ -228,6 +238,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             case DeviceInfoViewModel info when _pendingDevice is not null: info.SetDevice(_pendingDevice); break;
             case PhotosViewModel photos when _pendingDevice is not null: photos.SetDevice(_pendingDevice); break;
             case OnDeviceViewModel onDevice when _pendingDevice is not null: onDevice.SetDevice(_pendingDevice); break;
+            case IpaCatalogsViewModel catalogs when _pendingDevice is not null: catalogs.SetDevice(_pendingDevice); break;
         }
 
         if (CurrentViewModel is IPageAware aware)
@@ -272,6 +283,12 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     {
         _pendingDevice = device;
         GoTo(Page.OnDevice);
+    }
+
+    public void GoToIpaCatalogs(Device device)
+    {
+        _pendingDevice = device;
+        GoTo(Page.IpaCatalogs);
     }
 
     public void GoBack()

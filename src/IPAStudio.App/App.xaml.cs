@@ -89,6 +89,7 @@ public partial class App : Application
         services.AddSingleton<UpdateService>();
         services.AddSingleton<ICloudService>();
         services.AddSingleton<CleanupService>();
+        services.AddSingleton<IpaCatalogService>();
 
         // App
         services.AddSingleton<LocalizationManager>();
@@ -106,6 +107,7 @@ public partial class App : Application
         services.AddSingleton<DirectDownloadViewModel>();
         services.AddSingleton<OnDeviceViewModel>();
         services.AddSingleton<ICloudViewModel>();
+        services.AddSingleton<IpaCatalogsViewModel>();
 
         Services = services.BuildServiceProvider();
 

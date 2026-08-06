@@ -56,8 +56,22 @@ public sealed class InstallResult
     /// <summary>Apple ID the device uses. Only set with <see cref="AccountMismatch"/>.</summary>
     public string? DeviceAccount { get; init; }
 
+    /// <summary>
+    /// Set when the installer claimed success but the app is not on the device afterwards,
+    /// even after a second attempt.
+    ///
+    /// Kept apart because it says something different from every other failure: the tool
+    /// reported nothing wrong at all. installd accepts concurrent sessions and occasionally
+    /// drops one of them without a word, so this is the only evidence such an install leaves.
+    /// </summary>
+    public bool NotOnDevice { get; init; }
+
     public static InstallResult Ok() => new() { Success = true };
     public static InstallResult Fail(string error) => new() { Error = error };
+
+    /// <summary>Installer exited cleanly, yet the device does not list the bundle.</summary>
+    public static InstallResult Missing(string detail) =>
+        new() { Error = detail, NotOnDevice = true };
 
     /// <summary>An IPA that would install cleanly and then refuse to launch.</summary>
     public static InstallResult NoLicense(string detail) =>
@@ -268,6 +282,117 @@ public sealed partial class InstallService
             (installPath, stagedCopy) = await PrepareLocalPathAsync(
                 ipaPath, totalBytes, progress, ct).ConfigureAwait(false);
 
+            // ---- Phases 2-4: install, then confirm it is actually there ---------------
+            //
+            // A clean exit from ideviceinstaller is not proof. installd accepts concurrent
+            // sessions, and with two installs in flight on one device it sometimes drops one
+            // silently — the tool prints its usual "Complete" and exits 0, and the app is
+            // simply absent from the phone. That is why this reports "Done" for apps that
+            // were never installed, and why the only reliable test is to ask the device.
+            //
+            // Both attempts run while the locks are held, so the retry cannot collide with
+            // whatever else the queue is installing.
+            for (var attempt = 1; ; attempt++)
+            {
+                var outcome = await RunInstallerAsync(
+                    udid, installPath, totalBytes, progress, ct).ConfigureAwait(false);
+
+                // A reported failure is already conclusive, and a missing licence means the
+                // app may be installed yet unable to launch — neither is worth re-checking.
+                if (!outcome.Success) return outcome;
+
+                var confirmed = await ConfirmInstalledAsync(udid, bundleId, ct).ConfigureAwait(false);
+
+                // true, or "could not tell" — the listing is a cross-check, so when it cannot
+                // be read the installer's own verdict stands rather than inventing a failure.
+                if (confirmed != false) return outcome;
+
+                if (attempt >= InstallAttempts)
+                {
+                    AppLog.Warn($"Install of '{bundleId}' reported success {InstallAttempts} time(s) " +
+                                "but the device does not list it");
+                    return InstallResult.Missing(
+                        $"installer reported success, but {bundleId} is not on the device");
+                }
+
+                AppLog.Warn($"Install of '{bundleId}' reported success but the device does not " +
+                            "list it; installing once more");
+            }
+        }
+        finally
+        {
+            deviceLock.Release();
+            bundleLock.Release();
+
+            // Remove the temporary copy / link (if we made one).
+            if (stagedCopy is not null)
+            {
+                try { File.Delete(stagedCopy); } catch { /* best effort */ }
+            }
+        }
+    }
+
+    /// <summary>
+    /// How many times an install is attempted when the device keeps not listing the app.
+    ///
+    /// Two, not more: one retry clears the occasional dropped concurrent session, while a
+    /// bundle that is still missing after that is failing for a reason repetition will not fix,
+    /// and each attempt pushes the whole archive over the cable again.
+    /// </summary>
+    private const int InstallAttempts = 2;
+
+    /// <summary>
+    /// Whether the device lists <paramref name="bundleId"/>: true present, false absent,
+    /// null when no useful answer could be had (unknown bundle id, or the listing failed).
+    ///
+    /// Null and false are deliberately different. <see cref="GetInstalledBundleIdsAsync"/>
+    /// swallows its errors and returns an empty set, so treating "nothing came back" as
+    /// "not installed" would fail perfectly good installs whenever the cable hiccupped.
+    /// </summary>
+    private async Task<bool?> ConfirmInstalledAsync(
+        string udid, string? bundleId, CancellationToken ct)
+    {
+        // The fallback for an unknown bundle id is the archive path, which the device will
+        // never report; the dot test keeps that from being read as a missing app.
+        if (string.IsNullOrWhiteSpace(bundleId) || !bundleId.Contains('.')) return null;
+
+        var sawUsableListing = false;
+
+        // Polled rather than asked once: installd finishes registering the bundle shortly
+        // after ideviceinstaller exits, so an immediate listing can legitimately miss an app
+        // that is on its way in.
+        for (var probe = 0; probe < ConfirmProbes; probe++)
+        {
+            await Task.Delay(ConfirmProbeDelay, ct).ConfigureAwait(false);
+
+            var installed = await GetInstalledBundleIdsAsync(udid, ct).ConfigureAwait(false);
+            if (installed.Count == 0) continue;
+
+            sawUsableListing = true;
+            if (installed.Contains(bundleId)) return true;
+        }
+
+        return sawUsableListing ? false : null;
+    }
+
+    /// <summary>How many times the installed-apps listing is consulted before giving up.</summary>
+    private const int ConfirmProbes = 3;
+
+    /// <summary>Pause before each listing, to let installd register the new bundle.</summary>
+    private static readonly TimeSpan ConfirmProbeDelay = TimeSpan.FromMilliseconds(1200);
+
+    /// <summary>
+    /// Runs ideviceinstaller once and reports what it said. Knows nothing about retries or
+    /// about whether the app really arrived — see <see cref="ConfirmInstalledAsync"/> for that.
+    /// </summary>
+    private async Task<InstallResult> RunInstallerAsync(
+        string udid,
+        string installPath,
+        long totalBytes,
+        IProgress<InstallProgress>? progress,
+        CancellationToken ct)
+    {
+        {
             var failed = false;
             string? errorLine = null;
             string? licenseWarning = null;
@@ -383,17 +508,6 @@ public sealed partial class InstallService
             }
 
             return InstallResult.Fail(errorLine ?? Truncate(result.CombinedOutput) ?? "Installation failed");
-        }
-        finally
-        {
-            deviceLock.Release();
-            bundleLock.Release();
-
-            // Remove the temporary copy / link (if we made one).
-            if (stagedCopy is not null)
-            {
-                try { File.Delete(stagedCopy); } catch { /* best effort */ }
-            }
         }
     }
 

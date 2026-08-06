@@ -340,24 +340,19 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// IPA install mode: open a Windows file picker, select one or more .ipa files
-    /// and install them directly onto the device without touching the App Store.
-    /// Works regardless of which Apple ID is signed in (or whether one is signed in at all).
+    /// IPA install mode: opens the install-from-file page, where .ipa files can be picked
+    /// directly or chosen from a named library folder. Works regardless of which Apple ID is
+    /// signed in, or whether one is signed in at all.
+    ///
+    /// A page rather than the file picker it used to open: picking files by hand meant
+    /// recognising apps by file name, which for App Store archives is usually the bundle id.
+    /// The page reads the real names and icons out of the archives instead.
     /// </summary>
     [RelayCommand]
     private void InstallFromIpa()
     {
         if (TargetDevice is null) return;
-
-        var dialog = new Microsoft.Win32.OpenFileDialog
-        {
-            Title = Loc.Get("L.Dialog.PickIpaTitle"),
-            Filter = Loc.Get("L.Dialog.IpaFilter"),
-            Multiselect = true,
-        };
-        if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
-
-        StartInstall(q => q.BuildFromIpaFiles(dialog.FileNames, TargetDevice));
+        _navigator?.GoToIpaCatalogs(TargetDevice);
     }
 
     // ---- Install by Bundle ID ----

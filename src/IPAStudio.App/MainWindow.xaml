@@ -49,11 +49,33 @@
         <DataTemplate DataType="{x:Type vm:DirectDownloadViewModel}">
             <views:DirectDownloadView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:IpaCatalogsViewModel}">
+            <views:IpaCatalogsView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
         <!-- Page host; code-behind plays a fade+slide transition on navigation. -->
         <ContentControl x:Name="PageHost" Content="{Binding CurrentViewModel}">
+            <!-- The gear and the operations circle are both drawn on top of the page, and pages
+                 reserve 56px on their right so their own header buttons clear the gear (which
+                 ends 42px in). The circle sits beside the gear, spanning 50-84px from the right
+                 edge, so 28px of it reached past that reserve and sat on those page headers.
+
+                 Widening the reserve on all eight pages would leave the space empty whenever no
+                 operation is running, so the page is inset only while the circle is on screen:
+                 28px of overlap plus an 8px gap. Each page's own 56px still clears the gear, so
+                 nothing changes for anyone who never starts a background operation. -->
+            <ContentControl.Style>
+                <Style TargetType="ContentControl">
+                    <Setter Property="Margin" Value="0" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Operations.HasOperations}" Value="True">
+                            <Setter Property="Margin" Value="0,0,36,0" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ContentControl.Style>
             <ContentControl.RenderTransform>
                 <TranslateTransform x:Name="PageTranslate" />
             </ContentControl.RenderTransform>

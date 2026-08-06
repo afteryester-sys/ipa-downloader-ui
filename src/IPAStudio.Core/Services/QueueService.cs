@@ -62,8 +62,10 @@ public sealed class QueueService
     private readonly List<QueueItem> _items = new();
     private CancellationTokenSource? _cts;
 
+    private readonly ToolLocator _tools;
+
     public QueueService(DownloadService download, InstallService install, CatalogService catalog,
-        SettingsService settings, AuthService auth, DownloadThrottle throttle)
+        SettingsService settings, AuthService auth, DownloadThrottle throttle, ToolLocator tools)
     {
         _download = download;
         _install = install;
@@ -71,6 +73,7 @@ public sealed class QueueService
         _settings = settings;
         _auth = auth;
         _throttle = throttle;
+        _tools = tools;
     }
 
     public IReadOnlyList<QueueItem> Items
@@ -153,11 +156,19 @@ public sealed class QueueService
             _items.Clear();
             foreach (var path in ipaPaths)
             {
-                var name = Path.GetFileNameWithoutExtension(path);
+                // Read from the archive rather than from its file name. The name is cosmetic,
+                // but the bundle id is not: it is what lets the install be checked against the
+                // device afterwards, and a file-name-derived entry had none — so installs from
+                // a file were the one path that could never be verified.
+                var meta = IpaMetadata.Read(path, _tools.LocalIpaIconCacheFolder);
+
                 var app = new AppEntry
                 {
-                    Name = name,
+                    Name = meta.Name,
                     AppStoreId = 0,
+                    BundleId = meta.BundleId,
+                    LatestVersion = meta.Version,
+                    CachedIconPath = meta.IconPath,
                     LocalIpaPath = path,
                     IsDownloaded = true,
                 };
@@ -645,6 +656,8 @@ public sealed class QueueService
                                        installResult.IpaAccount, installResult.DeviceAccount);
             else if (installResult.LicenseMissing)
                 reason = Loc.Get("L.Install.Error.NoLicense");
+            else if (installResult.NotOnDevice)
+                reason = Loc.Get("L.Install.Error.NotOnDevice");
             else
                 reason = DescribeInstallError(installResult.Error);
 
