@@ -129,6 +129,29 @@
     <sys:String x:Key="L.Stage.Downloading">Загрузка</sys:String>
     <sys:String x:Key="L.Stage.Installing">Установка</sys:String>
 
+    <!-- Операции (режим многозадачности) -->
+    <sys:String x:Key="L.Ops.Minimize">Свернуть в фон</sys:String>
+    <sys:String x:Key="L.Ops.Title">Текущие операции</sys:String>
+    <sys:String x:Key="L.Ops.Empty">Нет активных операций.</sys:String>
+    <sys:String x:Key="L.Ops.Return">Вернуться</sys:String>
+    <sys:String x:Key="L.Ops.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Ops.ClearFinished">Убрать завершённые</sys:String>
+    <sys:String x:Key="L.Ops.State.Running">Выполняется</sys:String>
+    <sys:String x:Key="L.Ops.State.Done">Готово</sys:String>
+    <sys:String x:Key="L.Ops.State.Failed">Ошибка</sys:String>
+    <sys:String x:Key="L.Ops.State.Cancelled">Отменено</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Install">Установка приложений</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Transfer">Перенос приложений</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Download">Загрузка IPA</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Photos">Фотографии</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Export">Сохранение фото на компьютер</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Delete">Удаление фото с устройства</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Загрузка фото на устройство</sys:String>
+    <sys:String x:Key="L.Ops.ExitTitle">Есть незавершённые операции</sys:String>
+    <sys:String x:Key="L.Ops.ExitBody">Эти операции ещё не закончились. Если закрыть программу сейчас, они будут прерваны — установка на устройство прерывается особенно неудачно.</sys:String>
+    <sys:String x:Key="L.Ops.ExitConfirm">Всё равно закрыть</sys:String>
+    <sys:String x:Key="L.Ops.ExitCancel">Не закрывать</sys:String>
+
     <!-- Настройки -->
     <sys:String x:Key="L.Settings.Title">Настройки</sys:String>
     <sys:String x:Key="L.Settings.Language">Язык интерфейса</sys:String>
@@ -156,8 +179,17 @@
     <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
     <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
     <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
-    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавл��вать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
     <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
+    <sys:String x:Key="L.Settings.ResumeMode">При обрыве загрузки</sys:String>
+    <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Начинать заново (как раньше)</sys:String>
+    <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Сохранять скачанное</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный файл будет скачан заново.</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls">Одновременных установок на устройство</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Разные устройства всегда устанавливают приложения параллельно; эта настройка ограничивает только одно устройство. Больше 2 обычно не ускоряет: предел задаёт не телефон, а USB-соединение.</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
 
     <!-- Обновления -->
@@ -255,7 +287,7 @@
     <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
     <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
     <sys:String x:Key="L.DeviceLogs.Saved">Журнал сохранён</sys:String>
-    <sys:String x:Key="L.DeviceLogs.SaveFailed">Не удалось сохранить журнал</sys:String>
+    <sys:String x:Key="L.DeviceLogs.SaveFailed">Не удалось сохранить жур��ал</sys:String>
     <sys:String x:Key="L.DeviceLogs.FilterChanged">Фильтр действует на новые строки; уже собранные остаются как есть.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Hint.Reproduce">Теперь воспроизведите проблему на телефоне: установите приложение и нажмите на его значок.</sys:String>
     <sys:String x:Key="L.DeviceLogs.Footer">Красные строки прямо называют сбой. Если причина не очевидна — сохраните файл и пришлите его.</sys:String>
@@ -264,9 +296,9 @@
     <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
     <!-- Восстановление повторяется без успеха: ждать бессмысленно. -->
-    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь под той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
-    <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
-    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь по�� той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
+    <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной з��писи. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте эт�� приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
     <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
     <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
@@ -313,6 +345,7 @@
     <sys:String x:Key="L.Queue.Status.Downloaded">Скачано {0}</sys:String>
     <sys:String x:Key="L.Queue.Status.TotalUnknown">всего неизвестно</sys:String>
     <sys:String x:Key="L.Queue.Status.WaitingDevice">Ожидание устройства…</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingSlot">Ожидание свободной загрузки…</sys:String>
     <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Загружено (установка пропущена)</sys:String>
 
     <!-- Прогресс установки -->
@@ -363,7 +396,7 @@
     <sys:String x:Key="L.Login.Error.RateLimited">Слишком много попыток. Подождите несколько минут и попробуйте снова.</sys:String>
     <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
-    <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
+    <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановит�� утилиты в настройках.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
 
     <!-- Поиск приложения (Bundle ID, ID из App Store или ссылка) -->
@@ -482,7 +515,7 @@
     <!-- Диалог конфликта файлов -->
     <sys:String x:Key="L.Conflict.Title">Файл уже существует</sys:String>
     <sys:String x:Key="L.Conflict.ApplyToAll">Применить ко всем остальным файлам в этой очереди</sys:String>
-    <sys:String x:Key="L.Conflict.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Conflict.Skip">Проп��стить</sys:String>
     <sys:String x:Key="L.Conflict.Replace">Заменить</sys:String>
     <sys:String x:Key="L.Conflict.KeepBoth">Сохранить оба</sys:String>
 
@@ -506,7 +539,7 @@
 
     <!-- ===== iCloud page ===== -->
     <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
-    <sys:String x:Key="L.ICloud.Subtitle">Войдите в Apple ID, чтобы посмотреть контакты, фото и заметки из iCloud.</sys:String>
+    <sys:String x:Key="L.ICloud.Subtitle">Войдите в Apple ID, ч��обы посмотреть контакты, фото и заметки из iCloud.</sys:String>
     <sys:String x:Key="L.ICloud.SignInHeader">Вход в iCloud</sys:String>
     <sys:String x:Key="L.ICloud.SignInHint">Укажите Apple ID, данные которого нужно открыть.</sys:String>
     <sys:String x:Key="L.ICloud.AppleId">Apple ID</sys:String>

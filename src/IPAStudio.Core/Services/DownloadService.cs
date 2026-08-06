@@ -198,6 +198,26 @@ public sealed partial class DownloadService
     /// </summary>
     public void ResetFileConflictScope() => _stickyConflictDecision = null;
 
+    /// <summary>
+    /// How an interrupted transfer treats work already on disk. Supplied as a callback
+    /// rather than by taking a <c>SettingsService</c> dependency, matching
+    /// <see cref="FileConflictResolver"/> above: the setting is read at the moment it
+    /// matters, so toggling it takes effect on the next attempt without a restart.
+    ///
+    /// Defaults to <see cref="ResumeMode.RestartFromScratch"/> — the historical
+    /// behaviour — so any caller that does not wire this up is unaffected.
+    /// </summary>
+    public Func<ResumeMode>? ResumeModeProvider { get; set; }
+
+    private ResumeMode CurrentResumeMode
+    {
+        get
+        {
+            try { return ResumeModeProvider?.Invoke() ?? ResumeMode.RestartFromScratch; }
+            catch { return ResumeMode.RestartFromScratch; }
+        }
+    }
+
     public DownloadService(ToolLocator tools, ProcessRunner runner, HttpClient http, AuthService auth)
     {
         _tools = tools;
@@ -379,6 +399,19 @@ public sealed partial class DownloadService
         // replaceTarget != null means "the user agreed to overwrite this path". Even
         // then the transfer runs to a fresh, unique file first and only swaps at the
         // very end, so a failed download can never take the old file with it.
+        // In "keep partial files" mode, a complete and correctly licensed archive that is
+        // already sitting at the destination is the finished job — hand it straight back.
+        // This is what makes an interrupted batch cheap to resume: apps that made it to
+        // disk before the program was closed are not downloaded a second time, and no
+        // conflict prompt appears for a file the user is not really replacing.
+        if (CurrentResumeMode == ResumeMode.KeepPartialFiles
+            && TryReuseExistingArchive(app, outputPath) is { } reused)
+        {
+            progress?.Report(new DownloadProgress(
+                100, reused.Length, reused.Length, 0, DownloadPhase.Transferring, TimeSpan.Zero, 1));
+            return DownloadResult.Ok(reused.FullName);
+        }
+
         string? replaceTarget = null;
         if (File.Exists(outputPath)
             && IpaLicense.BelongsToAnotherAccount(outputPath, _auth.CurrentAccount?.Email, out var otherAccount))
@@ -464,6 +497,9 @@ public sealed partial class DownloadService
         // Guards the bundle-id fallback below so it is attempted once, not on every retry.
         var triedBundleId = false;
 
+        // Guards the silent re-login below, likewise once per download.
+        var sessionRenewed = false;
+
         for (var attempt = 1; attempt <= attempts; attempt++)
         {
             ct.ThrowIfCancellationRequested();
@@ -506,6 +542,27 @@ public sealed partial class DownloadService
                 // verdict says why the download failed. The bundle-id attempt can only ever
                 // add "not found", which would bury the real reason.
                 return result;
+            }
+
+            // Apple expired the token mid-session. When the credentials from this session's
+            // sign-in are still in memory, renew it and carry on rather than failing the app
+            // and sending the user to the login screen — that interruption is what makes a
+            // long queue need babysitting. Guarded by CanReauthenticate, and attempted once
+            // (sessionRenewed) so a genuinely dead password cannot spin here.
+            if (result.SessionExpired && !sessionRenewed && _auth.CanReauthenticate)
+            {
+                sessionRenewed = true;
+
+                progress?.Report(new DownloadProgress(
+                    0, 0, Volatile.Read(ref sizeHint[0]), 0, DownloadPhase.Connecting, TimeSpan.Zero, attempt));
+
+                if (await _auth.TryReauthenticateAsync(ct).ConfigureAwait(false))
+                {
+                    // Retry the same attempt number: the renewal is not the app's fault and
+                    // should not consume one of its tries.
+                    attempt--;
+                    continue;
+                }
             }
 
             // Auth, license, disk and "app not available" errors will not fix themselves.
@@ -611,7 +668,11 @@ public sealed partial class DownloadService
             // Any output at all means the process is alive.
             state.TouchOutput();
 
+            // "We understood this frame" and "the transfer actually advanced" are two
+            // different things, and conflating them is what disabled the stall watchdog.
+            // sawNumbers drives the diagnostics below; movedForward drives the watchdog.
             var sawNumbers = false;
+            var movedForward = false;
 
             var pair = BytesPairRegex().Match(segment);
             if (pair.Success &&
@@ -631,7 +692,7 @@ public sealed partial class DownloadService
                 // tens of percent after app thinning, which is what made the bar
                 // stall at ~80% or slam into the 99% clamp.
                 if (total > 0) Volatile.Write(ref sizeHint[0], total);
-                if (done >= 0) state.SetDownloaded(done);
+                if (done >= 0 && state.SetDownloaded(done)) movedForward = true;
                 sawNumbers = true;
             }
             else
@@ -646,7 +707,7 @@ public sealed partial class DownloadService
                     var done = ToBytes(oneVal, single.Groups[2].Value);
                     if (done > 0)
                     {
-                        state.SetDownloaded(done);
+                        if (state.SetDownloaded(done)) movedForward = true;
                         sawNumbers = true;
                     }
                 }
@@ -655,6 +716,9 @@ public sealed partial class DownloadService
             var speed = SpeedRegex().Match(segment);
             if (speed.Success && TryParseNumber(speed.Groups[1].Value, out var speedVal))
             {
+                // Note: a reported speed is NOT proof of life. A stalled ipatool keeps
+                // printing its last frame, and "0 B/s" is the clearest evidence the
+                // transfer is dead — it must never refresh the watchdog.
                 state.ReportedSpeed = ToBytes(speedVal, speed.Groups[2].Value);
                 sawNumbers = true;
             }
@@ -662,13 +726,15 @@ public sealed partial class DownloadService
             var pct = PercentRegex().Match(segment);
             if (pct.Success && TryParseNumber(pct.Groups[1].Value, out var pctVal))
             {
-                state.ReportedPercent = Math.Clamp(pctVal, 0, 100);
+                if (state.AdvancePercent(Math.Clamp(pctVal, 0, 100))) movedForward = true;
                 sawNumbers = true;
             }
 
+            // Only real forward movement resets the stall timer.
+            if (movedForward) state.Touch();
+
             if (sawNumbers)
             {
-                state.Touch();
 
                 // A segment we partly understood but which yielded no total is exactly
                 // the case that leaves the user with "total unknown" — and it used to
@@ -851,6 +917,15 @@ public sealed partial class DownloadService
 
                     if (silentFor > limit)
                     {
+                        // Say why out loud. A stall that is retried silently looks to the
+                        // user exactly like the hang this watchdog exists to prevent.
+                        AppLog.Warn(
+                            $"watchdog: no progress for {silentFor.TotalSeconds:F0}s " +
+                            $"(limit {limit.TotalSeconds:F0}s, phase {phase}, " +
+                            $"attempt {attempt}, {downloaded / 1048576.0:F1}MB" +
+                            (total > 0 ? $"/{total / 1048576.0:F1}MB" : "") +
+                            ") - restarting the transfer");
+
                         watchdogFired = true;
                         try { attemptCts.Cancel(); } catch { }
                         return;
@@ -981,12 +1056,12 @@ public sealed partial class DownloadService
             set => Volatile.Write(ref _speedBps, (long)Math.Max(0, value));
         }
 
-        /// <summary>Percent reported by the tool, 0-100. 0 when unknown.</summary>
-        public double ReportedPercent
-        {
-            get => Volatile.Read(ref _percentX100) / 100.0;
-            set => Volatile.Write(ref _percentX100, (int)Math.Clamp(value * 100, 0, 10000));
-        }
+        /// <summary>
+        /// Percent reported by the tool, 0-100. 0 when unknown. Read-only by design:
+        /// it advances through <see cref="AdvancePercent"/> so a repainted frame can
+        /// neither walk it backwards nor be mistaken for progress.
+        /// </summary>
+        public double ReportedPercent => Volatile.Read(ref _percentX100) / 100.0;
 
         public DateTimeOffset LastActivity =>
             new(Volatile.Read(ref _lastActivityTicks), TimeSpan.Zero);
@@ -1002,11 +1077,41 @@ public sealed partial class DownloadService
         public void TouchOutput() =>
             Volatile.Write(ref _lastOutputTicks, DateTime.UtcNow.Ticks);
 
-        public void SetDownloaded(long value)
+        /// <summary>
+        /// Records the byte count reported by the tool. Returns true only when the
+        /// number actually moved forward.
+        ///
+        /// The return value is what the stall watchdog is judged on, and that is the
+        /// whole point: ipatool keeps repainting "63.7% ... 0 B/s" long after the
+        /// socket is dead. Treating a repaint as progress refreshed LastActivity on
+        /// every frame, so the timeout never elapsed and the transfer hung forever
+        /// instead of being retried.
+        /// </summary>
+        public bool SetDownloaded(long value)
         {
             // Monotonic: a re-rendered bar frame must never walk the number backwards.
             if (value > Volatile.Read(ref _downloaded))
+            {
                 Volatile.Write(ref _downloaded, value);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Records the tool's own percentage, returning true only on a real increase.
+        /// Fallback proof-of-progress for the bar format that prints a percentage but
+        /// no byte totals.
+        /// </summary>
+        public bool AdvancePercent(double value)
+        {
+            var scaled = (int)Math.Clamp(value * 100, 0, 10000);
+            if (scaled > Volatile.Read(ref _percentX100))
+            {
+                Volatile.Write(ref _percentX100, scaled);
+                return true;
+            }
+            return false;
         }
 
         public void Touch() => Volatile.Write(ref _lastActivityTicks, DateTime.UtcNow.Ticks);
@@ -1447,6 +1552,69 @@ public sealed partial class DownloadService
         // Every storefront came back empty (a delisted app has no catalog entry
         // anywhere). The caller falls back to a bytes-only, indeterminate display.
         return 0;
+    }
+
+    /// <summary>
+    /// Decides whether an archive already at the destination can stand in for a fresh
+    /// download, and returns it when so. Only used in <see cref="ResumeMode.KeepPartialFiles"/>.
+    ///
+    /// Deliberately conservative — the failure this must never cause is a half-written or
+    /// wrongly-licensed file being installed and then not launching, which is far worse
+    /// than paying for a download again. An archive qualifies only when it:
+    ///   * opens as a valid zip whose licence blobs are present (the check that catches a
+    ///     truncated file, since a cut-off zip has no readable central directory), and
+    ///   * belongs to the signed-in Apple ID, and
+    ///   * matches the size learned from a previous successful download of this build,
+    ///     when such a size is known.
+    /// Anything else returns null and the normal download path takes over.
+    /// </summary>
+    private FileInfo? TryReuseExistingArchive(AppEntry app, string outputPath)
+    {
+        try
+        {
+            if (!File.Exists(outputPath)) return null;
+
+            var info = new FileInfo(outputPath);
+            if (info.Length <= 0) return null;
+
+            // A known size that disagrees means this is a partial file from an interrupted
+            // attempt (or a different build), so it cannot be handed back as finished.
+            var learned = GetLearnedSize(app);
+            if (learned > 0 && info.Length != learned)
+            {
+                AppLog.Info($"Keeping partial '{info.Name}' ({info.Length / 1048576.0:F1}MB of " +
+                            $"{learned / 1048576.0:F1}MB) but re-downloading: it is incomplete.");
+                return null;
+            }
+
+            if (IpaLicense.BelongsToAnotherAccount(outputPath, _auth.CurrentAccount?.Email, out _))
+                return null;
+
+            var license = IpaLicense.Inspect(outputPath);
+
+            // ReadError means the zip directory could not be read, which is exactly what a
+            // truncated download looks like. Unlike elsewhere — where an unreadable archive
+            // is merely logged — here it must veto reuse: proceeding would install a file
+            // that was never finished.
+            if (license.ReadError is not null
+                || license.IsDefinitelyUnlicensed
+                || license.IsPartiallyLicensed)
+            {
+                AppLog.Info($"Not reusing '{info.Name}': {license.Describe()}");
+                return null;
+            }
+
+            AppLog.Info($"Reusing the copy of {app.Name} already on disk " +
+                        $"({info.Length / 1048576.0:F1}MB) instead of downloading it again.");
+            app.FileSizeBytes = info.Length;
+            return info;
+        }
+        catch (Exception ex)
+        {
+            // Reuse is an optimisation; if anything about the probe fails, download normally.
+            AppLog.Warn($"Could not verify the existing copy of {app.Name}, downloading it again: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>Deletes a stale target file and any leftover partial variants

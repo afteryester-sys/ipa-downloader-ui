@@ -89,6 +89,11 @@ public sealed class DeviceService : IAsyncDisposable
     public async Task PollOnceAsync(CancellationToken ct = default, bool quiet = false)
     {
         var links = await ListDevicesAsync(ct, quiet).ConfigureAwait(false);
+
+        // Could not enumerate: leave the known devices exactly as they are and try again on
+        // the next tick, rather than tearing the list down over one failed call.
+        if (links is null) return;
+
         var currentUdids = links.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Record the transport before anything tries to talk to these devices: every
@@ -167,7 +172,11 @@ public sealed class DeviceService : IAsyncDisposable
     /// <c>(USB)</c> or <c>(Network)</c>, which is the only way to learn a device's transport
     /// without probing it, and probing is exactly what needs the answer.
     /// </summary>
-    private async Task<Dictionary<string, DeviceLink>> ListDevicesAsync(CancellationToken ct, bool quiet)
+    /// <returns>
+    /// The reachable devices, or null when the listing itself failed — which is not the same
+    /// thing as no devices being attached, and must not be treated as one.
+    /// </returns>
+    private async Task<Dictionary<string, DeviceLink>?> ListDevicesAsync(CancellationToken ct, bool quiet)
     {
         var wantNetwork = DeviceTransport.WifiEnabled;
 
@@ -193,6 +202,21 @@ public sealed class DeviceService : IAsyncDisposable
         var usbOnly = await _runner
             .RunAsync(_tools.IdeviceIdPath, new[] { "-l" }, quiet: quiet, ct: ct)
             .ConfigureAwait(false);
+
+        // The exit code used to be ignored here, and that was the bug behind devices that
+        // "randomly drop and have to be re-plugged": when idevice_id failed — usbmuxd busy,
+        // the service restarting, the binary briefly locked by a scanner — StdOut came back
+        // empty, an empty list is indistinguishable from "nothing attached", and so every
+        // device was announced as disconnected and then reconnected on the next tick.
+        //
+        // Null now means "could not tell", which the caller skips over. A genuine absence of
+        // devices still exits successfully with no output and is still reported normally.
+        if (!usbOnly.Success)
+        {
+            AppLog.Warn("idevice_id failed; keeping the current device list until the next poll " +
+                        $"(exit {usbOnly.ExitCode}).");
+            return null;
+        }
 
         return ParseDeviceList(usbOnly.StdOut, annotated: false);
     }

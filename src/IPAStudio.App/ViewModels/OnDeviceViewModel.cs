@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -224,9 +225,18 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// The ordinary install queue. A transfer is built as a normal download-and-install run
     /// against the destination device, so it inherits that pipeline rather than duplicating it.
     /// </summary>
-    private readonly QueueService _queue;
+    private readonly OperationService _operations;
 
     private INavigator? _navigator;
+
+    /// <summary>
+    /// Queue of the transfer being assembled, created when the first app is queued.
+    ///
+    /// Held between calls because a transfer is built app by app: each queued app appends
+    /// to the same operation instead of starting a new one, which is what makes the batch
+    /// a single transfer the user can minimise as a unit.
+    /// </summary>
+    private Operation? _pendingTransfer;
 
     public Device? TargetDevice { get; private set; }
 
@@ -239,7 +249,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         AuthService auth,
         SettingsService settings,
         DeviceService devices,
-        QueueService queue)
+        OperationService operations)
     {
         _install = install;
         _download = download;
@@ -247,7 +257,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _auth = auth;
         _settings = settings;
         _devices = devices;
-        _queue = queue;
+        _operations = operations;
 
         DestinationFolder = settings.Current.LastOnDeviceFolder
                             ?? settings.Current.LastDirectDownloadFolder
@@ -420,10 +430,24 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // no longer findable by. The very same apps download from the catalog screen, which
         // asks by catalog id, which is why "it works there but not here".
         var entries = new List<AppEntry>(selected.Count);
+        var needChoosing = new List<InstalledAppViewModel>();
 
         foreach (var row in selected)
         {
             var entry = await ResolveEntryAsync(row.App, CancellationToken.None).ConfigureAwait(true);
+
+            // A store id of 0 means the app could only be addressed by bundle id, which is
+            // exactly the request the store refuses for anything delisted. Queueing it anyway
+            // is what produced a screenful of errors on apps that download perfectly from the
+            // catalog screen — so when the catalog does offer look-alikes, ask first rather
+            // than failing first and offering the choice afterwards.
+            if ((entry?.AppStoreId ?? 0) <= 0
+                && _catalog.FindLocalCandidatesByName(row.Name).Count > 0)
+            {
+                OfferCatalogCandidates(row, transferTo: destination);
+                needChoosing.Add(row);
+                continue;
+            }
 
             // ResolveEntryAsync falls back to a bundle-id entry, so a null is not expected;
             // keeping the app in the queue under its own name is still better than dropping it
@@ -437,12 +461,37 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             });
         }
 
+        // Nothing could be resolved: stay on this screen with the choices visible, because
+        // navigating to an empty queue would look like the button had done nothing.
+        if (entries.Count == 0)
+        {
+            AppLog.Info($"Transfer: all {needChoosing.Count} app(s) need a catalog match chosen first");
+            ErrorText = Loc.Get("L.OnDevice.PickCatalogMatch");
+            return;
+        }
+
+        if (needChoosing.Count > 0)
+        {
+            AppLog.Info($"Transfer: {needChoosing.Count} app(s) left for the user to match, " +
+                        $"{entries.Count} queued");
+        }
+
         AppLog.Info(
             $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}; " +
             $"{entries.Count(e => e.AppStoreId > 0)} resolved to a store id");
 
-        _queue.Build(entries, destination);
-        _navigator?.GoTo(Page.Queue);
+        // One operation for the whole batch, named after both ends: with several transfers
+        // running at once, "iPhone → iPad" is the only thing that tells them apart.
+        _pendingTransfer = _operations.StartQueueOperation(
+            OperationKind.Transfer,
+            Page.OnDevice,
+            Loc.Get("L.Ops.Kind.Transfer"),
+            $"{DeviceName} → {destination.Name}",
+            TargetDevice,
+            q => q.Build(entries, destination));
+
+        // Only leave for the queue once nothing is waiting on the user here.
+        if (needChoosing.Count == 0) _navigator?.GoToOperation(_pendingTransfer);
     }
 
     public bool IsSignedIn => _auth.IsAuthenticated;
@@ -945,17 +994,59 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Shows the catalog apps whose names resemble this one, each able to start the download
-    /// with its own store id. Does nothing when the catalog has no near match.
+    /// Queues one resolved app onto the transfer being assembled, starting a new operation
+    /// when there is no live one to append to.
+    ///
+    /// Appending matters: the user resolves ambiguous apps one at a time, and a new
+    /// operation per chip would split one transfer into several competing for the same
+    /// device instead of the single batch they asked for.
     /// </summary>
-    private void OfferCatalogCandidates(InstalledAppViewModel item)
+    private void QueueTransfer(AppEntry entry, Device destination)
+    {
+        if (_pendingTransfer is { IsRunning: true, Queue: not null } pending)
+        {
+            pending.Queue.Add(entry, destination);
+            _navigator?.GoToOperation(pending);
+            return;
+        }
+
+        _pendingTransfer = _operations.StartQueueOperation(
+            OperationKind.Transfer,
+            Page.OnDevice,
+            Loc.Get("L.Ops.Kind.Transfer"),
+            $"{DeviceName} → {destination.Name}",
+            TargetDevice,
+            q => q.Add(entry, destination));
+
+        _navigator?.GoToOperation(_pendingTransfer);
+    }
+
+    /// <summary>
+    /// Shows the catalog apps whose names resemble this one, each able to proceed with its own
+    /// store id. Does nothing when the catalog has no near match.
+    /// </summary>
+    /// <param name="transferTo">
+    /// When set, picking a candidate queues a transfer to that device; otherwise it downloads
+    /// the app to a folder. Without this the chips offered during a transfer would quietly do
+    /// something else — save a file — instead of the install the user asked for.
+    /// </param>
+    private void OfferCatalogCandidates(InstalledAppViewModel item, Device? transferTo = null)
     {
         var candidates = _catalog.FindLocalCandidatesByName(item.Name);
         if (candidates.Count == 0) return;
 
         item.ShowCandidates(candidates.Select(entry => new CatalogCandidateViewModel(
             entry,
-            new AsyncRelayCommand(() => DownloadCoreAsync(item, CatalogEntryFor(item.App, entry))))));
+            new AsyncRelayCommand(() =>
+            {
+                if (transferTo is null)
+                    return DownloadCoreAsync(item, CatalogEntryFor(item.App, entry));
+
+                item.ClearCandidates();
+                item.ErrorText = null;
+                QueueTransfer(CatalogEntryFor(item.App, entry), transferTo);
+                return Task.CompletedTask;
+            }))));
 
         item.ErrorText = Loc.Get("L.OnDevice.PickCatalogMatch");
         AppLog.Info($"On-device: offering {candidates.Count} catalog match(es) for \"{item.Name}\" ({item.BundleId})");

@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
@@ -29,6 +32,15 @@ public sealed partial class DeviceViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNetworkLink;
 
+    /// <summary>
+    /// The device's own home screen wallpaper, shown faintly behind the card so two phones
+    /// of the same model are distinguishable at a glance instead of being two identical
+    /// tiles. Null until it has been fetched, and stays null when the device will not give
+    /// it up — the card is designed to look finished either way.
+    /// </summary>
+    [ObservableProperty]
+    private BitmapImage? _wallpaper;
+
     public string Name => Device.Name;
     public string Model => Device.Model;
     public string OsVersion => Device.OsVersion;
@@ -39,6 +51,37 @@ public sealed partial class DeviceViewModel : ObservableObject
         Device = device;
         _batteryLevel = device.BatteryLevel;
         _isNetworkLink = device.IsNetworkLink;
+    }
+
+    /// <summary>
+    /// Fetches the wallpaper in the background. Fire-and-forget by design: decoration must
+    /// never delay a device appearing in the list, and any failure just leaves the card plain.
+    /// </summary>
+    public async Task LoadWallpaperAsync(InstallService install)
+    {
+        try
+        {
+            var png = await install.GetHomeScreenWallpaperAsync(Device.Udid).ConfigureAwait(true);
+            if (png is null || png.Length == 0) return;
+
+            using var stream = new MemoryStream(png, writable: false);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+
+            // Cards are 300 wide; decoding at roughly that size keeps a full-resolution
+            // phone wallpaper from costing several megabytes of bitmap per device.
+            image.DecodePixelWidth = 320;
+            image.StreamSource = stream;
+            image.EndInit();
+            image.Freeze();
+
+            Wallpaper = image;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Info($"devices: no wallpaper for {Device.Name} ({ex.Message})");
+        }
     }
 
     public void Refresh()
@@ -57,6 +100,7 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private readonly DeviceService _devices;
     private readonly CatalogService _catalog;
     private readonly AuthService _auth;
+    private readonly InstallService _install;
     private INavigator? _navigator;
     private bool _initialized;
 
@@ -83,11 +127,13 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _hasDevices;
 
-    public DevicesViewModel(DeviceService devices, CatalogService catalog, AuthService auth)
+    public DevicesViewModel(
+        DeviceService devices, CatalogService catalog, AuthService auth, InstallService install)
     {
         _devices = devices;
         _catalog = catalog;
         _auth = auth;
+        _install = install;
 
         _devices.DeviceConnected += OnDeviceConnected;
         _devices.DeviceDisconnected += OnDeviceDisconnected;
@@ -185,6 +231,10 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
             var vm = new DeviceViewModel(device) { JustConnected = true };
             Devices.Add(vm);
             HasDevices = Devices.Count > 0;
+
+            // Started after the card is already on screen, so the wallpaper fades in late
+            // rather than holding the device back while SpringBoard is asked for it.
+            _ = vm.LoadWallpaperAsync(_install);
 
             // Clear the "just connected" flag after the entry animation window.
             _ = Task.Delay(2500).ContinueWith(_ =>

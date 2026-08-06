@@ -75,7 +75,16 @@ public partial class App : Application
         services.AddSingleton<PhotoThumbnailCache>();
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
-        services.AddSingleton<QueueService>();
+
+        // Shared across every queue: the parallel-download slider is one global budget, so
+        // five simultaneous operations must not each open their own three connections.
+        services.AddSingleton<DownloadThrottle>();
+
+        // Transient, not singleton. A queue owns its item list and its running flag, and the
+        // single shared instance is exactly why two simultaneous runs were impossible: the
+        // second run's Build() cleared the first run's items and RunAsync() returned early
+        // because IsRunning was already true. Each operation now gets its own.
+        services.AddTransient<QueueService>();
         services.AddSingleton<DependencyService>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<ICloudService>();
@@ -83,6 +92,7 @@ public partial class App : Application
 
         // App
         services.AddSingleton<LocalizationManager>();
+        services.AddSingleton<OperationService>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<UpdaterViewModel>();
         services.AddSingleton<SetupViewModel>();
@@ -102,6 +112,14 @@ public partial class App : Application
         // Load settings and apply language before showing the window.
         var settings = Services.GetRequiredService<SettingsService>();
         settings.Load();
+
+        // Push the saved concurrency limits into the services that enforce them. Neither
+        // reads SettingsService itself: the throttle is shared by every queue, and the
+        // install cap used to be a constant. Settings only re-applies these on Save, so
+        // without this a restart would silently fall back to the defaults.
+        Services.GetRequiredService<DownloadThrottle>().Limit = settings.Current.MaxParallelDownloads;
+        Services.GetRequiredService<InstallService>().MaxParallelInstallsPerDevice =
+            settings.Current.MaxParallelInstallsPerDevice;
 
         // The "apps this account owns" cache is stamped with the Apple ID it belongs to,
         // and BindOwnedCacheToAccount exists to drop it when that changes — but nothing
@@ -139,15 +157,21 @@ public partial class App : Application
         };
         window.Show();
 
+        var downloads = Services.GetRequiredService<DownloadService>();
+
         // Downloads run on background threads, so the prompt has to be marshalled onto
         // the UI thread. Core owns no WPF types; it just calls this callback.
-        Services.GetRequiredService<DownloadService>().FileConflictResolver =
+        downloads.FileConflictResolver =
             (request, _) => window.Dispatcher.InvokeAsync(() =>
             {
                 var dialog = new Views.FileConflictDialog(request) { Owner = window };
                 dialog.ShowDialog();
                 return new FileConflictResponse(dialog.Decision, dialog.ApplyToAll);
             }).Task;
+
+        // Read on demand rather than captured once, so switching the setting applies to
+        // the next attempt instead of needing a restart.
+        downloads.ResumeModeProvider = () => settings.ResumeMode;
     }
 
     /// <summary>

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using IPAStudio.App.ViewModels;
+using IPAStudio.Core.Localization;
 
 namespace IPAStudio.App;
 
@@ -28,7 +29,65 @@ public partial class MainWindow : Window
     private void HookShell()
     {
         if (DataContext is not ShellViewModel shell) return;
+
         shell.PropertyChanged += OnShellPropertyChanged;
+        shell.OperationMinimized += (_, _) => PlayMinimizeAnimation();
+    }
+
+    /// <summary>
+    /// Bounces the corner circle when an operation drops into it.
+    ///
+    /// The circle is what the operation collapses into, so drawing attention there is what
+    /// tells the user where the work went — otherwise a minimise looks like the work was
+    /// simply cancelled.
+    /// </summary>
+    private void PlayMinimizeAnimation()
+    {
+        var pop = new DoubleAnimationUsingKeyFrames();
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(0.6, KeyTime.FromTimeSpan(TimeSpan.Zero)));
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.18, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180)),
+            new CubicEase { EasingMode = EasingMode.EaseOut }));
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(320)),
+            new CubicEase { EasingMode = EasingMode.EaseOut }));
+
+        OpsCircleScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, pop);
+        OpsCircleScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, pop);
+    }
+
+    /// <summary>
+    /// Confirms closing while operations are still running.
+    ///
+    /// Worth interrupting for: a minimised operation is out of sight by design, and closing
+    /// the window part-way through an install onto a device is the worst moment to cut the
+    /// work off.
+    /// </summary>
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell)
+        {
+            var unfinished = shell.Operations.Unfinished;
+            if (unfinished.Count > 0)
+            {
+                var list = string.Join("\n", unfinished.Select(o => $"  • {o.Title} — {o.Subtitle}"));
+                var body = $"{Loc.Get("L.Ops.ExitBody")}\n\n{list}";
+
+                var answer = MessageBox.Show(
+                    this, body, Loc.Get("L.Ops.ExitTitle"),
+                    MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
+
+                if (answer != MessageBoxResult.OK)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+
+                // Confirmed: stop the work deliberately instead of letting process exit tear
+                // it down mid-transfer.
+                shell.Operations.CancelAll();
+            }
+        }
+
+        base.OnClosing(e);
     }
 
     private void OnShellPropertyChanged(object? sender, PropertyChangedEventArgs e)

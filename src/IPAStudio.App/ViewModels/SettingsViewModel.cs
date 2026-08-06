@@ -17,7 +17,16 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 {
     private readonly SettingsService _settings;
     private readonly AuthService _auth;
-    private readonly QueueService _queue;
+
+    // The concurrency limits are applied to the services that own them rather than to a
+    // queue: QueueService is per-operation now, so a queue reference here would configure
+    // one arbitrary instance and miss every other running operation.
+    private readonly DownloadThrottle _throttle;
+    private readonly InstallService _install;
+
+    /// <summary>Told about the multitasking switch so the corner circle appears or hides.</summary>
+    private readonly OperationService _operations;
+
     private readonly ToolLocator _tools;
     private readonly LocalizationManager _localization;
     private readonly UpdateService _updates;
@@ -52,6 +61,20 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private int _maxParallelDownloads = 3;
+
+    /// <summary>
+    /// Multitasking: each action becomes an operation that can be minimised and returned to.
+    ///
+    /// Off by default, and off means the old single-queue path rather than the new path
+    /// capped at one operation — so turning it off is a real way back if the new path
+    /// misbehaves on hardware we cannot test here.
+    /// </summary>
+    [ObservableProperty]
+    private bool _multitaskingEnabled;
+
+    /// <summary>Concurrent installs on one device. Different devices are always parallel.</summary>
+    [ObservableProperty]
+    private int _maxParallelInstallsPerDevice = 2;
 
     /// <summary>
     /// Writes routine background detail (device-poll tool calls, media pipeline timings)
@@ -197,6 +220,25 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         set { if (value) InstallMode = InstallExistingOnly; }
     }
 
+    // Interrupted-download behaviour: two RadioButtons bound via the bool helpers below.
+    // Written out as ResumeMode.X rather than relying on a static import, because the
+    // `using static InstallMode` at the top of the file already owns the bare names.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumeIsRestartFromScratch))]
+    [NotifyPropertyChangedFor(nameof(ResumeIsKeepPartialFiles))]
+    private ResumeMode _resumeMode = ResumeMode.KeepPartialFiles;
+
+    public bool ResumeIsRestartFromScratch
+    {
+        get => ResumeMode == ResumeMode.RestartFromScratch;
+        set { if (value) ResumeMode = ResumeMode.RestartFromScratch; }
+    }
+    public bool ResumeIsKeepPartialFiles
+    {
+        get => ResumeMode == ResumeMode.KeepPartialFiles;
+        set { if (value) ResumeMode = ResumeMode.KeepPartialFiles; }
+    }
+
     [ObservableProperty]
     private string _accountEmail = "";
 
@@ -243,13 +285,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     public bool HasThroughputFindings => ThroughputFindings.Count > 0;
 
     public SettingsViewModel(
-        SettingsService settings, AuthService auth, QueueService queue,
-        ToolLocator tools, LocalizationManager localization, UpdateService updates,
-        DeviceService devices)
+        SettingsService settings, AuthService auth, DownloadThrottle throttle,
+        InstallService install, ToolLocator tools, LocalizationManager localization,
+        UpdateService updates, DeviceService devices, OperationService operations)
     {
+        _operations = operations;
         _settings = settings;
         _auth = auth;
-        _queue = queue;
+        _throttle = throttle;
+        _install = install;
         _tools = tools;
         _localization = localization;
         _updates = updates;
@@ -264,9 +308,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         IpatoolVersion = _settings.Current.IpatoolVersion;
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
+        MultitaskingEnabled = _settings.Current.MultitaskingEnabled;
+        MaxParallelInstallsPerDevice = _settings.Current.MaxParallelInstallsPerDevice;
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
         ToolsFolder = _tools.ToolsRoot;
         InstallMode = _settings.Current.InstallMode;
+        ResumeMode = _settings.Current.ResumeMode;
         VerboseLogging = _settings.Current.VerboseLogging;
         WifiDeviceConnection = _settings.Current.WifiDeviceConnection;
 
@@ -335,7 +382,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             var apps = _settings.Current.AppsFolder ?? _tools.AppsFolder;
             var staging = System.IO.Path.Combine(apps, ".staging");
 
+            AppLog.Info($"Throughput fix '{finding.Kind}' requested for {apps}");
+
             var outcome = await TransferTuning.TryAutoFixAsync(finding.Kind, apps, staging);
+
+            AppLog.Info($"Throughput fix '{finding.Kind}' outcome: {outcome}");
 
             if (outcome == ThroughputFixOutcome.Applied)
             {
@@ -361,8 +412,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
                 finding.FixFailed = true;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            // Was swallowed silently, which is why the log had nothing to say about a button
+            // the user reported as doing nothing at all.
+            AppLog.Error($"Throughput fix '{finding.Kind}' threw.", ex);
+
             finding.FixMessage = Str("L.Settings.Throughput.FixFailed");
             finding.FixFailed = true;
         }
@@ -475,12 +530,21 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.IpatoolVersion = IpatoolVersion;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
+        _settings.Current.MultitaskingEnabled = MultitaskingEnabled;
+        _settings.Current.MaxParallelInstallsPerDevice = Math.Clamp(MaxParallelInstallsPerDevice, 1, 4);
         _settings.Current.InstallMode = InstallMode;
+        _settings.Current.ResumeMode = ResumeMode;
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();
 
-        _queue.MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
+        // Applied live, without waiting for the current work to end: the throttle can change
+        // its limit while transfers are in flight, and the install service rebuilds its
+        // per-device limiters on assignment.
+        _throttle.Limit = _settings.Current.MaxParallelDownloads;
+        _install.MaxParallelInstallsPerDevice = _settings.Current.MaxParallelInstallsPerDevice;
+        _operations.NotifyMultitaskingChanged();
+
         _localization.Apply(Language);
 
         if (themeChanged)

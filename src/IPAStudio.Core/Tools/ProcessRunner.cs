@@ -321,12 +321,17 @@ public sealed class ProcessRunner
     }
 
     /// <summary>
-    /// Kills the whole process tree and <b>waits for it to actually exit</b>.
+    /// Kills the whole process tree, without blocking the caller.
     ///
-    /// Without the wait, <see cref="Process.Kill(bool)"/> returns while the child is
-    /// still terminating and still holding its output file open. The next attempt then
-    /// fails to delete the stale partial .ipa, and the progress poller reads that
-    /// leftover file and reports an instant bogus 100%.
+    /// This runs inside a <see cref="CancellationToken.Register"/> callback, and
+    /// <c>CancellationTokenSource.Cancel()</c> invokes those callbacks synchronously on
+    /// whichever thread called it — the UI thread. Waiting here froze the window for up
+    /// to 3 s per running process, so "Cancel all" over a few parallel downloads looked
+    /// like a dead button and users clicked it again and again.
+    ///
+    /// The wait still has to happen (see below), just not here: every caller already
+    /// awaits <see cref="Process.WaitForExitAsync"/> right after, which is where the
+    /// tree is now reaped without touching the UI thread.
     /// </summary>
     private static void KillTree(Process process)
     {
@@ -334,7 +339,6 @@ public sealed class ProcessRunner
         {
             if (process.HasExited) return;
             process.Kill(entireProcessTree: true);
-            process.WaitForExit(3000);
         }
         catch
         {

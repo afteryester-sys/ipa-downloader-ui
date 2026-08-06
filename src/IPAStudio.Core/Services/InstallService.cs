@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using iMobileDevice;
 using iMobileDevice.iDevice;
@@ -75,13 +76,76 @@ public sealed class InstallResult
 
 /// <summary>
 /// Installs IPA files onto a connected device via ideviceinstaller and lists
-/// installed apps for status badges. Device installs must run one at a time.
+/// installed apps for status badges. Installs run one at a time per device, and in
+/// parallel across devices.
 /// </summary>
 public sealed partial class InstallService
 {
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
-    private readonly SemaphoreSlim _deviceLock = new(1, 1);
+
+    /// <summary>
+    /// How many installs may run at once on a single device.
+    ///
+    /// Was effectively 1, enforced by a process-wide semaphore — which also meant a second
+    /// connected iPhone gained nothing, since it waited behind the first one's upload.
+    /// installd does accept concurrent sessions (installing from this app and from 3uTools
+    /// at the same time works), so the limit was self-imposed.
+    ///
+    /// Kept small on purpose. The bottleneck is the USB link, so more concurrency stops
+    /// buying throughput quickly and each extra stream makes the per-app progress noisier.
+    /// </summary>
+    public int MaxParallelInstallsPerDevice
+    {
+        get => _maxParallelInstallsPerDevice;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 4);
+            if (clamped == _maxParallelInstallsPerDevice) return;
+
+            _maxParallelInstallsPerDevice = clamped;
+
+            // A SemaphoreSlim's capacity is fixed once constructed, and the limiters below
+            // are cached per device forever. Without dropping them, changing the setting
+            // would only affect devices connected for the first time afterwards — the
+            // device already in the list would keep the old limit for the whole session.
+            //
+            // Safe because a limiter is only ever taken through DeviceLock: installs already
+            // in flight hold the old object and release it correctly, while the next install
+            // builds a fresh one at the new size. Worst case an install briefly overlaps the
+            // new limit, which installd tolerates.
+            _deviceLocks.Clear();
+        }
+    }
+
+    private int _maxParallelInstallsPerDevice = 2;
+
+    /// <summary>
+    /// Concurrency limiter per device, keyed by UDID. Separate devices get separate
+    /// limiters and therefore run fully in parallel.
+    ///
+    /// Entries are never removed: a UDID is a few dozen bytes and a session sees a handful
+    /// of devices, which is not worth the race that pruning a limiter somebody is about to
+    /// wait on would introduce.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _deviceLocks = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Per-bundle-id locks, so the same app is never installed twice at once.
+    ///
+    /// This is the one collision that concurrency really does introduce: two sessions for
+    /// one bundle id make installd fail with "coordinated app install already exists".
+    /// Serializing by bundle id keeps that impossible while leaving different apps parallel.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _bundleLocks = new(StringComparer.OrdinalIgnoreCase);
+
+    private SemaphoreSlim DeviceLock(string udid) =>
+        _deviceLocks.GetOrAdd(udid ?? "", _ => new SemaphoreSlim(
+            Math.Max(1, MaxParallelInstallsPerDevice),
+            Math.Max(1, MaxParallelInstallsPerDevice)));
+
+    private SemaphoreSlim BundleLock(string udid, string bundleId) =>
+        _bundleLocks.GetOrAdd($"{udid}|{bundleId}", _ => new SemaphoreSlim(1, 1));
 
     /// <summary>How often the copy phase reports, since the tool itself says nothing.</summary>
     private static readonly TimeSpan CopyTick = TimeSpan.FromMilliseconds(500);
@@ -107,19 +171,26 @@ public sealed partial class InstallService
     /// so a line-oriented reader receives NOTHING until the process exits — which is why
     /// the install used to sit on its first message and then jump straight to finished.
     ///
-    /// Serialized per process: only one install runs at a time.
+    /// Up to <see cref="MaxParallelInstallsPerDevice"/> installs run at once on one device,
+    /// and separate devices are unconstrained; the same app is never installed twice
+    /// concurrently.
     /// </summary>
     /// <param name="deviceAppleId">
     /// Apple ID the target device is signed in to, when it is known. Used to refuse an archive
     /// licensed to somebody else before it is pushed. Optional because modern iOS usually hides
     /// this, and a check that cannot be made must not become a check that guesses.
     /// </param>
+    /// <param name="bundleId">
+    /// Bundle id of the app, used only to keep two installs of the same app from overlapping.
+    /// Falls back to the archive path when unknown, which is the same app in practice.
+    /// </param>
     public async Task<InstallResult> InstallAsync(
         string udid,
         string ipaPath,
         IProgress<InstallProgress>? progress = null,
         CancellationToken ct = default,
-        string? deviceAppleId = null)
+        string? deviceAppleId = null,
+        string? bundleId = null)
     {
         if (!File.Exists(ipaPath))
             return InstallResult.Fail($"IPA file not found: {ipaPath}");
@@ -171,7 +242,23 @@ public sealed partial class InstallService
                         $"it may not launch: {license.Describe()}");
         }
 
-        await _deviceLock.WaitAsync(ct).ConfigureAwait(false);
+        // Two gates, always taken in this order (bundle, then device) everywhere, so no two
+        // callers can hold one and wait on the other's — i.e. no deadlock.
+        var bundleLock = BundleLock(udid, bundleId ?? ipaPath);
+        await bundleLock.WaitAsync(ct).ConfigureAwait(false);
+
+        var deviceLock = DeviceLock(udid);
+        try
+        {
+            await deviceLock.WaitAsync(ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Cancelled while queuing: hand back the bundle gate, or this app could never
+            // be installed again for the lifetime of the process.
+            bundleLock.Release();
+            throw;
+        }
 
         string installPath = ipaPath;
         string? stagedCopy = null;
@@ -299,7 +386,8 @@ public sealed partial class InstallService
         }
         finally
         {
-            _deviceLock.Release();
+            deviceLock.Release();
+            bundleLock.Release();
 
             // Remove the temporary copy / link (if we made one).
             if (stagedCopy is not null)
@@ -579,6 +667,75 @@ public sealed partial class InstallService
             }
 
             return icons;
+        }, ct);
+
+    /// <summary>
+    /// The device's home screen wallpaper as PNG bytes, or null when it cannot be read.
+    ///
+    /// This is the wallpaper, deliberately not a screenshot: a real screen capture needs the
+    /// Developer Disk Image mounted, which is a large download per iOS version and fails
+    /// outright on a locked phone. The wallpaper comes from the same lockdown service that
+    /// already supplies app icons, so it costs one extra call and works on any paired device
+    /// — and it is enough to tell two identical iPhones apart at a glance, which is the point.
+    ///
+    /// Returns null rather than throwing: an undecorated tile is a fine outcome here, and a
+    /// failure to fetch decoration must never keep a device from appearing.
+    /// </summary>
+    public Task<byte[]?> GetHomeScreenWallpaperAsync(string udid, CancellationToken ct = default)
+        => Task.Run<byte[]?>(() =>
+        {
+            try
+            {
+                NativeDevice.EnsureLoaded();
+
+                var sb = LibiMobileDevice.Instance.SpringBoardServices;
+
+                if (NativeDevice.Open(udid, out var device) != iDeviceError.Success)
+                    return null;
+
+                using (device)
+                {
+                    if (sb.sbservices_client_start_service(device, out var client, "IPAStudio")
+                        != SpringBoardServicesError.Success)
+                    {
+                        AppLog.Info("wallpaper: SpringBoard did not accept a connection");
+                        return null;
+                    }
+
+                    using (client)
+                    {
+                        var data = IntPtr.Zero;
+                        ulong size = 0;
+
+                        if (sb.sbservices_get_home_screen_wallpaper_pngdata(client, ref data, ref size)
+                                != SpringBoardServicesError.Success
+                            || data == IntPtr.Zero || size == 0)
+                        {
+                            AppLog.Info("wallpaper: the device returned no image");
+                            return null;
+                        }
+
+                        try
+                        {
+                            var bytes = new byte[size];
+                            Marshal.Copy(data, bytes, 0, (int)size);
+                            AppLog.Info($"wallpaper: {bytes.Length} bytes for {udid}");
+                            return bytes;
+                        }
+                        finally
+                        {
+                            // Allocated by the native library, freed on both paths out.
+                            Marshal.FreeHGlobal(data);
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Info($"wallpaper: could not read it ({ex.Message})");
+                return null;
+            }
         }, ct);
 
     public async Task<IReadOnlyList<InstalledApp>> GetInstalledAppsAsync(
