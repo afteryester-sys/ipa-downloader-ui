@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -51,6 +52,12 @@ public interface INavigator
 
     /// <summary>Opens the list of apps installed on a device.</summary>
     void GoToOnDevice(Device device);
+
+    /// <summary>
+    /// Opens the queue page for a specific operation. Needed because the queue page no
+    /// longer has one queue of its own: it has to be told which operation to show.
+    /// </summary>
+    void GoToOperation(Operation operation);
 
     /// <summary>
     /// Returns to the previously shown page. Needed by pages reachable from anywhere
@@ -114,10 +121,55 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// <summary>Global updater backing the corner update flyout (available everywhere).</summary>
     public UpdaterViewModel Updater { get; }
 
-    public ShellViewModel(UpdaterViewModel updater)
+    /// <summary>Backs the corner circle and the operations list, bound to from the window.</summary>
+    public OperationService Operations { get; }
+
+    /// <summary>
+    /// Raised when an operation is minimised, for the window to animate the collapse into
+    /// the corner circle. An event rather than a viewmodel flag because it is a one-shot
+    /// visual cue with no state to hold.
+    /// </summary>
+    public event EventHandler? OperationMinimized;
+
+    public ShellViewModel(UpdaterViewModel updater, OperationService operations)
     {
         Updater = updater;
+        Operations = operations;
+
+        Operations.ReturnRequested += (_, op) => GoToOperation(op);
+        Operations.MinimizeRequested += (_, op) => MinimizeOperation(op);
+
         GoTo(Page.Setup);
+    }
+
+    /// <summary>
+    /// Leaves an operation running and returns to the page it came from.
+    ///
+    /// The queue page is detached on the way out so a background operation's events stop
+    /// arriving at a page now showing something else.
+    /// </summary>
+    private void MinimizeOperation(Operation operation)
+    {
+        Resolve<QueueViewModel>().Detach();
+
+        // Back to where the operation was started from, which is where the user would go
+        // next anyway — usually to start the second operation.
+        if (operation.ReturnDevice is not null && operation.ReturnPage == Page.OnDevice)
+            GoToOnDevice(operation.ReturnDevice);
+        else if (operation.ReturnDevice is not null && operation.ReturnPage == Page.AppPicker)
+            GoToAppPicker(operation.ReturnDevice);
+        else
+            GoTo(Page.Devices);
+
+        OperationMinimized?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void GoToOperation(Operation operation)
+    {
+        // Attach before navigating: OnNavigatedTo starts the run, and with no queue attached
+        // it would open an empty page and never start the work.
+        Resolve<QueueViewModel>().Attach(operation);
+        GoTo(Page.Queue);
     }
 
     public void GoTo(Page page) => Navigate(page, recordHistory: true);

@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -36,6 +37,9 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private readonly DeviceService _devices;
     private readonly InstallService _install;
 
+    /// <summary>Where a download registers itself so leaving the page does not hide it.</summary>
+    private readonly OperationService _operations;
+
     private INavigator? _navigator;
 
     private CancellationTokenSource? _cts;
@@ -46,7 +50,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         AuthService auth,
         SettingsService settings,
         DeviceService devices,
-        InstallService install)
+        InstallService install,
+        OperationService operations)
     {
         _catalog = catalog;
         _download = download;
@@ -54,6 +59,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         _settings = settings;
         _devices = devices;
         _install = install;
+        _operations = operations;
 
         // Reuse the last folder so a user grabbing several apps in a row picks once.
         DestinationFolder = settings.Current.LastDirectDownloadFolder ?? "";
@@ -376,6 +382,15 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         Progress = 0;
         StatusText = Str("L.Direct.Downloading");
 
+        // Registered so leaving this page does not hide the download. No device is involved,
+        // so the subtitle names the app instead — that is what distinguishes two downloads.
+        var operation = _operations.Start(new Operation(
+            OperationKind.Download,
+            Page.DirectDownload,
+            Loc.Get("L.Ops.Kind.Download"),
+            FoundApp!.Name,
+            cancel: _cts.Cancel));
+
         // Fully qualified: this class also exposes a `Progress` property for the bar,
         // and the bare type name next to it reads as a mistake even where it compiles.
         var progress = new System.Progress<DownloadProgress>(p =>
@@ -406,6 +421,9 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
                     + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
             }
+
+            operation.Progress = Progress;
+            operation.Detail = StatusText ?? "";
         });
 
         try
@@ -428,6 +446,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 FoundApp!.License = LicenseState.Owned;
                 _settings.MarkOwned(FoundApp!.AppStoreId);
                 AppLog.Info($"Direct download OK: {result.IpaPath}");
+                operation.Finish(OperationState.Done, Path.GetFileName(result.IpaPath));
             }
             else
             {
@@ -435,6 +454,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 ErrorText = result.SessionExpired
                     ? Str("L.Direct.NeedLogin")
                     : result.Error ?? Loc.Get("L.Error.DownloadFailed");
+                operation.Finish(OperationState.Failed, ErrorText);
 
                 if (!string.IsNullOrWhiteSpace(result.Detail))
                     AppLog.Warn($"Direct download failed: {result.Detail}");
@@ -455,12 +475,14 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         {
             StatusText = null;
             Progress = 0;
+            operation.Finish(OperationState.Cancelled);
         }
         catch (Exception ex)
         {
             StatusText = null;
             ErrorText = Loc.Get("L.Error.Unknown");
             AppLog.Error("Direct download threw.", ex);
+            operation.Finish(OperationState.Failed, ex.Message);
         }
         finally
         {

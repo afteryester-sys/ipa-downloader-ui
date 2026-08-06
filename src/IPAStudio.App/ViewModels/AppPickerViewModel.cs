@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -62,7 +63,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 {
     private readonly CatalogService _catalog;
     private readonly InstallService _install;
-    private readonly QueueService _queue;
+    private readonly OperationService _operations;
     private readonly AuthService _auth;
     private INavigator? _navigator;
 
@@ -107,11 +108,12 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void DismissMismatchWarning() => ShowAppleIdMismatch = false;
 
-    public AppPickerViewModel(CatalogService catalog, InstallService install, QueueService queue, AuthService auth)
+    public AppPickerViewModel(CatalogService catalog, InstallService install,
+                              OperationService operations, AuthService auth)
     {
         _catalog = catalog;
         _install = install;
-        _queue = queue;
+        _operations = operations;
         _auth = auth;
 
         AppsView = CollectionViewSource.GetDefaultView(Apps);
@@ -297,8 +299,29 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         if (!RequireSignIn()) return;
 
         var selected = Apps.Where(a => a.IsSelected).Select(a => a.App).ToList();
-        _queue.Build(selected, TargetDevice);
-        _navigator?.GoTo(Page.Queue);
+        StartInstall(q => q.Build(selected, TargetDevice));
+    }
+
+    /// <summary>
+    /// Registers an install operation and opens it.
+    ///
+    /// Every install path goes through here so they all get an operation, which is what
+    /// makes them minimisable. The device name is the subtitle because that is what tells
+    /// two simultaneous installs apart in the operations list.
+    /// </summary>
+    private void StartInstall(Action<QueueService> build)
+    {
+        if (TargetDevice is null) return;
+
+        var operation = _operations.StartQueueOperation(
+            OperationKind.Install,
+            Page.AppPicker,
+            Loc.Get("L.Ops.Kind.Install"),
+            TargetDevice.Name,
+            TargetDevice,
+            build);
+
+        _navigator?.GoToOperation(operation);
     }
 
     /// <summary>
@@ -334,8 +357,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         };
         if (dialog.ShowDialog() != true || dialog.FileNames.Length == 0) return;
 
-        _queue.BuildFromIpaFiles(dialog.FileNames, TargetDevice);
-        _navigator?.GoTo(Page.Queue);
+        StartInstall(q => q.BuildFromIpaFiles(dialog.FileNames, TargetDevice));
     }
 
     // ---- Install by Bundle ID ----
@@ -390,8 +412,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
             if (fromCatalog is not null)
             {
-                _queue.Build(new[] { fromCatalog }, TargetDevice);
-                _navigator?.GoTo(Page.Queue);
+                StartInstall(q => q.Build(new[] { fromCatalog }, TargetDevice));
                 return;
             }
 
@@ -414,8 +435,7 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
             // Refusing up front removed the only way to fetch a delisted app, which is precisely
             // what this tool is for. The store is the authority on what it will hand over, so the
             // attempt goes through and the store's own answer decides.
-            _queue.Build(new[] { app }, TargetDevice);
-            _navigator?.GoTo(Page.Queue);
+            StartInstall(q => q.Build(new[] { app }, TargetDevice));
         }
         catch (Exception ex)
         {

@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -224,9 +225,18 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// The ordinary install queue. A transfer is built as a normal download-and-install run
     /// against the destination device, so it inherits that pipeline rather than duplicating it.
     /// </summary>
-    private readonly QueueService _queue;
+    private readonly OperationService _operations;
 
     private INavigator? _navigator;
+
+    /// <summary>
+    /// Queue of the transfer being assembled, created when the first app is queued.
+    ///
+    /// Held between calls because a transfer is built app by app: each queued app appends
+    /// to the same operation instead of starting a new one, which is what makes the batch
+    /// a single transfer the user can minimise as a unit.
+    /// </summary>
+    private Operation? _pendingTransfer;
 
     public Device? TargetDevice { get; private set; }
 
@@ -239,7 +249,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         AuthService auth,
         SettingsService settings,
         DeviceService devices,
-        QueueService queue)
+        OperationService operations)
     {
         _install = install;
         _download = download;
@@ -247,7 +257,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _auth = auth;
         _settings = settings;
         _devices = devices;
-        _queue = queue;
+        _operations = operations;
 
         DestinationFolder = settings.Current.LastOnDeviceFolder
                             ?? settings.Current.LastDirectDownloadFolder
@@ -470,10 +480,18 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}; " +
             $"{entries.Count(e => e.AppStoreId > 0)} resolved to a store id");
 
-        _queue.Build(entries, destination);
+        // One operation for the whole batch, named after both ends: with several transfers
+        // running at once, "iPhone → iPad" is the only thing that tells them apart.
+        _pendingTransfer = _operations.StartQueueOperation(
+            OperationKind.Transfer,
+            Page.OnDevice,
+            Loc.Get("L.Ops.Kind.Transfer"),
+            $"{DeviceName} → {destination.Name}",
+            TargetDevice,
+            q => q.Build(entries, destination));
 
         // Only leave for the queue once nothing is waiting on the user here.
-        if (needChoosing.Count == 0) _navigator?.GoTo(Page.Queue);
+        if (needChoosing.Count == 0) _navigator?.GoToOperation(_pendingTransfer);
     }
 
     public bool IsSignedIn => _auth.IsAuthenticated;
@@ -976,6 +994,34 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
+    /// Queues one resolved app onto the transfer being assembled, starting a new operation
+    /// when there is no live one to append to.
+    ///
+    /// Appending matters: the user resolves ambiguous apps one at a time, and a new
+    /// operation per chip would split one transfer into several competing for the same
+    /// device instead of the single batch they asked for.
+    /// </summary>
+    private void QueueTransfer(AppEntry entry, Device destination)
+    {
+        if (_pendingTransfer is { IsRunning: true, Queue: not null } pending)
+        {
+            pending.Queue.Add(entry, destination);
+            _navigator?.GoToOperation(pending);
+            return;
+        }
+
+        _pendingTransfer = _operations.StartQueueOperation(
+            OperationKind.Transfer,
+            Page.OnDevice,
+            Loc.Get("L.Ops.Kind.Transfer"),
+            $"{DeviceName} → {destination.Name}",
+            TargetDevice,
+            q => q.Add(entry, destination));
+
+        _navigator?.GoToOperation(_pendingTransfer);
+    }
+
+    /// <summary>
     /// Shows the catalog apps whose names resemble this one, each able to proceed with its own
     /// store id. Does nothing when the catalog has no near match.
     /// </summary>
@@ -998,8 +1044,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
                 item.ClearCandidates();
                 item.ErrorText = null;
-                _queue.Add(CatalogEntryFor(item.App, entry), transferTo);
-                _navigator?.GoTo(Page.Queue);
+                QueueTransfer(CatalogEntryFor(item.App, entry), transferTo);
                 return Task.CompletedTask;
             }))));
 

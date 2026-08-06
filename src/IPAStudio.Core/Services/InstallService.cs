@@ -95,7 +95,30 @@ public sealed partial class InstallService
     /// Kept small on purpose. The bottleneck is the USB link, so more concurrency stops
     /// buying throughput quickly and each extra stream makes the per-app progress noisier.
     /// </summary>
-    public int MaxParallelInstallsPerDevice { get; set; } = 2;
+    public int MaxParallelInstallsPerDevice
+    {
+        get => _maxParallelInstallsPerDevice;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 4);
+            if (clamped == _maxParallelInstallsPerDevice) return;
+
+            _maxParallelInstallsPerDevice = clamped;
+
+            // A SemaphoreSlim's capacity is fixed once constructed, and the limiters below
+            // are cached per device forever. Without dropping them, changing the setting
+            // would only affect devices connected for the first time afterwards — the
+            // device already in the list would keep the old limit for the whole session.
+            //
+            // Safe because a limiter is only ever taken through DeviceLock: installs already
+            // in flight hold the old object and release it correctly, while the next install
+            // builds a fresh one at the new size. Worst case an install briefly overlaps the
+            // new limit, which installd tolerates.
+            _deviceLocks.Clear();
+        }
+    }
+
+    private int _maxParallelInstallsPerDevice = 2;
 
     /// <summary>
     /// Concurrency limiter per device, keyed by UDID. Separate devices get separate

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
@@ -114,9 +115,19 @@ public sealed partial class QueueItemViewModel : ObservableObject
 /// </summary>
 public sealed partial class QueueViewModel : ObservableObject, IPageAware
 {
-    private readonly QueueService _queue;
     private readonly AuthService _auth;
+    private readonly OperationService _operations;
     private INavigator? _navigator;
+
+    /// <summary>
+    /// The queue being shown. Attached per operation rather than injected, because a queue
+    /// is now created per operation: injecting one would pin this page to a single queue and
+    /// make it impossible to look at a second operation.
+    /// </summary>
+    private QueueService? _queue;
+
+    /// <summary>The operation this page is currently showing, if any.</summary>
+    private Operation? _operation;
 
     public ObservableCollection<QueueItemViewModel> Items { get; } = new();
 
@@ -125,6 +136,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsFinished))]
+    [NotifyPropertyChangedFor(nameof(CanMinimize))]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     [NotifyCanExecuteChangedFor(nameof(BackToAppsCommand))]
     private bool _isRunning;
@@ -144,30 +156,109 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     public bool IsFinished => !IsRunning && Items.Count > 0;
 
-    public QueueViewModel(QueueService queue, AuthService auth)
+    public QueueViewModel(AuthService auth, OperationService operations)
     {
-        _queue = queue;
         _auth = auth;
+        _operations = operations;
+    }
+
+    /// <summary>
+    /// Points the page at an operation's queue. Detaches the previous one first, so the
+    /// handlers of an operation left running in the background do not keep writing into
+    /// the page while a different operation is on screen.
+    /// </summary>
+    public void Attach(Operation operation)
+    {
+        if (ReferenceEquals(_operation, operation)) return;
+
+        Detach();
+
+        _operation = operation;
+        _queue = operation.Queue;
+        if (_queue is null) return;
+
         _queue.ItemChanged += OnItemChanged;
         _queue.QueueCompleted += OnQueueCompleted;
         _queue.SessionExpired += OnSessionExpired;
+
+        SessionExpired = false;
+        Rebuild();
+    }
+
+    /// <summary>
+    /// Unsubscribes from the attached queue. Not unsubscribing is the leak that matters
+    /// here: a minimised operation runs for minutes, and every event would still fire into
+    /// a page showing something else.
+    /// </summary>
+    public void Detach()
+    {
+        if (_queue is null) return;
+
+        _queue.ItemChanged -= OnItemChanged;
+        _queue.QueueCompleted -= OnQueueCompleted;
+        _queue.SessionExpired -= OnSessionExpired;
+
+        _queue = null;
+        _operation = null;
+    }
+
+    private void Rebuild()
+    {
+        Items.Clear();
+        if (_queue is null) return;
+
+        foreach (var item in _queue.Items)
+            Items.Add(new QueueItemViewModel(item));
+
+        DeviceName = _queue.Items.FirstOrDefault()?.TargetDevice.Name ?? "";
+        IsRunning = _queue.IsRunning;
+        RecountAndProgress();
     }
 
     public void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;
 
-        Items.Clear();
-        foreach (var item in _queue.Items)
-            Items.Add(new QueueItemViewModel(item));
+        if (_queue is null) return;
 
-        DeviceName = _queue.Items.FirstOrDefault()?.TargetDevice.Name ?? "";
-        RecountAndProgress();
+        Rebuild();
 
         if (!_queue.IsRunning && Items.Any(i => i.IsPending))
         {
             IsRunning = true;
-            _ = _queue.RunAsync();
+            _ = RunAsync();
+        }
+    }
+
+    /// <summary>
+    /// Runs the queue and settles the operation afterwards.
+    ///
+    /// The operation has to be finished here rather than in QueueCompleted, because a
+    /// minimised operation may complete while this page is detached and showing something
+    /// else — in which case the completion event never reaches the page at all.
+    /// </summary>
+    private async Task RunAsync()
+    {
+        var queue = _queue;
+        var operation = _operation;
+        if (queue is null) return;
+
+        try
+        {
+            await queue.RunAsync();
+
+            var failed = queue.Items.Count(i => i.Stage is QueueStage.Failed);
+            operation?.Finish(
+                failed > 0 ? OperationState.Failed : OperationState.Done,
+                failed > 0 ? Loc.Get("L.Ops.State.Failed") : Loc.Get("L.Ops.State.Done"));
+        }
+        catch (OperationCanceledException)
+        {
+            operation?.Finish(OperationState.Cancelled);
+        }
+        catch (Exception ex)
+        {
+            operation?.Finish(OperationState.Failed, ex.Message);
         }
     }
 
@@ -205,21 +296,44 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     private void RecountAndProgress()
     {
+        if (_queue is null) return;
+
         OverallProgress = _queue.OverallProgress;
         DoneCount = Items.Count(i => i.IsDone);
         FailedCount = Items.Count(i => i.IsFailed);
+
+        // Feeds the corner circle. Kept in sync here rather than polled, so a minimised
+        // operation's ring keeps moving while its page is off screen.
+        if (_operation is not null) _operation.Progress = OverallProgress;
     }
 
     private bool CanCancel() => IsRunning;
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    private void Cancel() => _queue.Cancel();
+    private void Cancel() => _queue?.Cancel();
 
     [RelayCommand]
     private async Task RetryItemAsync(QueueItemViewModel item)
     {
+        if (_queue is null) return;
+
         IsRunning = true;
         await _queue.RetryAsync(item.Item);
+    }
+
+    /// <summary>Whether the page can be left with the work still going.</summary>
+    public bool CanMinimize => _operations.MultitaskingEnabled && IsRunning;
+
+    /// <summary>
+    /// Sends this operation to the background: the work keeps running, the page is left,
+    /// and the operation stays reachable through the corner circle.
+    /// </summary>
+    [RelayCommand]
+    private void Minimize()
+    {
+        if (_operation is null) return;
+
+        _operations.RequestMinimize(_operation);
     }
 
     private bool CanGoBack() => !IsRunning;

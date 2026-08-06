@@ -113,6 +113,36 @@
                 </StackPanel>
             </Border>
 
+            <!-- Simultaneous installs on one device -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Settings.ParallelInstalls}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding MaxParallelInstallsPerDevice}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <Slider Minimum="1" Maximum="4" TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding MaxParallelInstallsPerDevice}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.ParallelInstalls.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Multitasking mode -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Multitasking}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.Multitasking.Toggle}"
+                              IsChecked="{Binding MultitaskingEnabled}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Multitasking.Hint}" />
+                </StackPanel>
+            </Border>
+
             <!-- Install mode -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

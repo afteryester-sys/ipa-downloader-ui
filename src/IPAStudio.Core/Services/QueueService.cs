@@ -58,17 +58,19 @@ public sealed class QueueService
     private readonly CatalogService _catalog;
     private readonly SettingsService _settings;
     private readonly AuthService _auth;
+    private readonly DownloadThrottle _throttle;
     private readonly List<QueueItem> _items = new();
     private CancellationTokenSource? _cts;
 
     public QueueService(DownloadService download, InstallService install, CatalogService catalog,
-        SettingsService settings, AuthService auth)
+        SettingsService settings, AuthService auth, DownloadThrottle throttle)
     {
         _download = download;
         _install = install;
         _catalog = catalog;
         _settings = settings;
         _auth = auth;
+        _throttle = throttle;
     }
 
     public IReadOnlyList<QueueItem> Items
@@ -421,10 +423,30 @@ public sealed class QueueService
     }
 
     /// <summary>
+    /// Takes an application-wide download slot, then runs the download stage.
+    ///
+    /// Only the transfer is held under the slot. Holding it across the whole queue item
+    /// would put the install stage under the download limit as well, which would serialize
+    /// installs across devices and undo the per-device parallel install work.
+    /// </summary>
+    private async Task<bool> RunDownloadStageAsync(QueueItem item, CancellationToken ct)
+    {
+        // With multitasking off there is a single queue and the limit is already applied by
+        // Parallel.ForEachAsync, so the slot is almost always free and this costs nothing.
+        // With several operations running it is what keeps the total count honest.
+        if (_throttle.Active >= _throttle.Limit)
+            SetStage(item, QueueStage.Downloading, Loc.Get("L.Queue.Status.WaitingSlot"));
+
+        using var slot = await _throttle.AcquireAsync(ct).ConfigureAwait(false);
+
+        return await RunDownloadStageCoreAsync(item, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Runs the download stage. Returns false when the item has been failed and the
     /// pipeline must stop.
     /// </summary>
-    private async Task<bool> RunDownloadStageAsync(QueueItem item, CancellationToken ct)
+    private async Task<bool> RunDownloadStageCoreAsync(QueueItem item, CancellationToken ct)
     {
         SetStage(item, QueueStage.Downloading, Loc.Get("L.Queue.Status.Connecting"));
         item.IsConnecting = true;

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Services;
 
@@ -16,7 +17,11 @@ public sealed partial class UpdaterViewModel : ObservableObject
 {
     private readonly UpdateService _updates;
     private readonly SettingsService _settings;
-    private readonly QueueService _queue;
+
+    // Asked whether any work is in flight, which is a question about all operations rather
+    // than one queue: with multitasking on there can be several queues at once, and the old
+    // single QueueService reference would only have seen one of them.
+    private readonly OperationService _operations;
     private readonly CleanupService _cleanup;
 
     /// <summary>
@@ -80,11 +85,11 @@ public sealed partial class UpdaterViewModel : ObservableObject
     public bool IsBusy => IsChecking || IsDownloading;
 
     public UpdaterViewModel(UpdateService updates, SettingsService settings,
-                            QueueService queue, CleanupService cleanup)
+                            OperationService operations, CleanupService cleanup)
     {
         _updates = updates;
         _settings = settings;
-        _queue = queue;
+        _operations = operations;
         _cleanup = cleanup;
         var v = _updates.CurrentVersion;
         VersionText = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -292,7 +297,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
         // Refuse while transfers are in flight: the queue writes into AppsFolder, and
         // deleting a file mid-download would fail the transfer with a confusing I/O
         // error rather than anything that points back to this button.
-        if (_queue.IsRunning)
+        if (_operations.HasRunning)
         {
             CacheStatusText = Str("L.Cache.BusyDownloading");
             return;

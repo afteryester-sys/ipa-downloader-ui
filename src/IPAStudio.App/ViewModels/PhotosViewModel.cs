@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Infrastructure;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -160,6 +161,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// device round trips a second time.
     /// </summary>
     private readonly PhotoThumbnailCache _thumbCache;
+
+    /// <summary>Where photo transfers register themselves so they survive leaving the page.</summary>
+    private readonly OperationService _operations;
 
     private INavigator? _navigator;
     private Device? _device;
@@ -327,10 +331,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     private CancellationTokenSource? _thumbCts;
 
-    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache)
+    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache, OperationService operations)
     {
         _photos = photos;
         _thumbCache = thumbCache;
+        _operations = operations;
 
         // Built here rather than in a field initializer because the labels come from the
         // active language dictionary, and the filter compares the selection against the
@@ -1001,7 +1006,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             BuildMediaAlbums(keepSelection: true);
 
             StatusText = Loc.Format("L.Photos.Deleted", count, items.Count);
-        });
+        }, "L.Ops.Photos.Delete");
     }
 
     [RelayCommand]
@@ -1038,7 +1043,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             ImportNeedsRestart = result.Copied > 0 && !result.AppearedInLibrary;
 
             await LoadAsync();
-        });
+        }, "L.Ops.Photos.Import");
     }
 
     /// <summary>
@@ -1078,11 +1083,31 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void Cancel() => _cts?.Cancel();
 
-    private async Task RunTransferAsync(Func<IProgress<PhotoTransferProgress>, CancellationToken, Task> work)
+    /// <summary>
+    /// Runs a photo transfer and mirrors it into the operations list.
+    ///
+    /// The operation is registered here rather than at each call site because every photo
+    /// transfer already funnels through this method, and one registration point means a new
+    /// transfer cannot forget to appear in the corner circle. The title says which kind of
+    /// transfer it is, since the list shows several operations side by side.
+    /// </summary>
+    private async Task RunTransferAsync(
+        Func<IProgress<PhotoTransferProgress>, CancellationToken, Task> work,
+        string titleKey = "L.Ops.Photos.Export")
     {
         _cts = new CancellationTokenSource();
         IsTransferring = true;
         TransferProgress = 0;
+
+        var cts = _cts;
+        var operation = _operations.Start(new Operation(
+            OperationKind.Photos,
+            Page.Photos,
+            Loc.Get(titleKey),
+            _device?.Name ?? "",
+            returnDevice: _device,
+            cancel: cts.Cancel));
+
         try
         {
             var progress = new Progress<PhotoTransferProgress>(p =>
@@ -1091,16 +1116,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 StatusText = string.IsNullOrEmpty(p.CurrentFile)
                     ? StatusText
                     : $"{p.Completed}/{p.Total}: {p.CurrentFile}";
+
+                operation.Progress = TransferProgress;
+                operation.Detail = StatusText;
             });
-            await work(progress, _cts.Token);
+            await work(progress, cts.Token);
+            operation.Finish(OperationState.Done);
         }
         catch (OperationCanceledException)
         {
             StatusText = Loc.Get("L.Photos.Cancelled");
+            operation.Finish(OperationState.Cancelled);
         }
         catch (Exception ex)
         {
             StatusText = Loc.Format("L.Photos.TransferFailed", ex.Message);
+            operation.Finish(OperationState.Failed, ex.Message);
         }
         finally
         {

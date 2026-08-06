@@ -75,7 +75,16 @@ public partial class App : Application
         services.AddSingleton<PhotoThumbnailCache>();
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
-        services.AddSingleton<QueueService>();
+
+        // Shared across every queue: the parallel-download slider is one global budget, so
+        // five simultaneous operations must not each open their own three connections.
+        services.AddSingleton<DownloadThrottle>();
+
+        // Transient, not singleton. A queue owns its item list and its running flag, and the
+        // single shared instance is exactly why two simultaneous runs were impossible: the
+        // second run's Build() cleared the first run's items and RunAsync() returned early
+        // because IsRunning was already true. Each operation now gets its own.
+        services.AddTransient<QueueService>();
         services.AddSingleton<DependencyService>();
         services.AddSingleton<UpdateService>();
         services.AddSingleton<ICloudService>();
@@ -83,6 +92,7 @@ public partial class App : Application
 
         // App
         services.AddSingleton<LocalizationManager>();
+        services.AddSingleton<OperationService>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<UpdaterViewModel>();
         services.AddSingleton<SetupViewModel>();
@@ -102,6 +112,14 @@ public partial class App : Application
         // Load settings and apply language before showing the window.
         var settings = Services.GetRequiredService<SettingsService>();
         settings.Load();
+
+        // Push the saved concurrency limits into the services that enforce them. Neither
+        // reads SettingsService itself: the throttle is shared by every queue, and the
+        // install cap used to be a constant. Settings only re-applies these on Save, so
+        // without this a restart would silently fall back to the defaults.
+        Services.GetRequiredService<DownloadThrottle>().Limit = settings.Current.MaxParallelDownloads;
+        Services.GetRequiredService<InstallService>().MaxParallelInstallsPerDevice =
+            settings.Current.MaxParallelInstallsPerDevice;
 
         // The "apps this account owns" cache is stamped with the Apple ID it belongs to,
         // and BindOwnedCacheToAccount exists to drop it when that changes — but nothing

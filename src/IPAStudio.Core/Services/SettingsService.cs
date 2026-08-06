@@ -69,6 +69,24 @@ public sealed class AppSettings
     public int MaxParallelDownloads { get; set; } = 3;
 
     /// <summary>
+    /// Multitasking mode. When enabled, each action becomes a separate operation that can
+    /// be minimised to the background and returned to, and several operations run at once.
+    ///
+    /// Off by default: with it off the app keeps the single-queue path it has always used,
+    /// so an existing install behaves exactly as before an update and switching the mode
+    /// off is a real escape hatch rather than the new path capped at one.
+    /// </summary>
+    public bool MultitaskingEnabled { get; set; }
+
+    /// <summary>
+    /// How many apps install at once on one device (1-4). Default 2.
+    ///
+    /// Different devices always install in parallel; this only caps a single device. Above
+    /// 2 rarely helps, because the limit is the USB link rather than the phone.
+    /// </summary>
+    public int MaxParallelInstallsPerDevice { get; set; } = 2;
+
+    /// <summary>
     /// When true, the app checks on startup for local conditions that throttle
     /// downloads (Defender scanning the download folder, staging on a different
     /// volume, NTFS compression) and surfaces them. Diagnostics only; nothing is
