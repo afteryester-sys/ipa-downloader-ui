@@ -442,6 +442,9 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
 
     partial void OnSelectedAlbumChanged(ICloudAlbum? value)
     {
+        // Also fires for the seeded selection that skips the reload: the button depends on
+        // there being an album at all, not on how the album got selected.
+        DownloadAlbumCommand.NotifyCanExecuteChanged();
         if (_reloadOnAlbumChange) _ = LoadCurrentTabAsync();
     }
 
@@ -654,7 +657,79 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         if (dialog.ShowDialog() != true) return;
 
         var selected = Photos.Where(p => p.IsSelected).Select(p => p.Item).ToList();
+        await DownloadAssetsAsync(selected, dialog.FolderName, albumName: null).ConfigureAwait(true);
+    }
 
+    private bool CanDownloadAlbum() => SelectedAlbum is not null && !IsBusy;
+
+    /// <summary>
+    /// Downloads every photo of the selected album, without ticking each tile first.
+    ///
+    /// The album is re-queried rather than taken from the grid: the grid holds whatever was
+    /// loaded for the current view, and "the whole album" has to mean the album on Apple's
+    /// side, not the part of it that happens to be on screen.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanDownloadAlbum))]
+    private async Task DownloadAlbum()
+    {
+        var album = SelectedAlbum;
+        if (album is null) return;
+
+        var dialog = new OpenFolderDialog { Title = Loc.Get("L.ICloud.PickDownloadFolder") };
+        if (dialog.ShowDialog() != true) return;
+
+        // Each album lands in a folder of its own, so downloading several in a row does not
+        // pile them into one heap. Album names come from the user and can hold anything.
+        var folder = album.IsAllPhotos
+            ? dialog.FolderName
+            : Path.Combine(dialog.FolderName, SafeFolderName(album.Name));
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        var listCt = _cts.Token;
+
+        IsBusy = true;
+        HasError = false;
+        StatusText = Loc.Get("L.Loading");
+
+        IReadOnlyList<ICloudAsset> assets;
+        try
+        {
+            assets = await _icloud.GetAlbumAssetsAsync(album, ct: listCt).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            IsBusy = false;
+            return;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"iCloud album listing failed: {ex.Message}");
+            IsBusy = false;
+            Fail(Loc.Get("L.ICloud.DownloadFailed"));
+            return;
+        }
+
+        if (assets.Count == 0)
+        {
+            IsBusy = false;
+            Fail(Loc.Format("L.ICloud.AlbumEmpty", album.Name));
+            return;
+        }
+
+        // IsBusy is handed straight over to the download loop, which sets it again: dropping it
+        // here would briefly re-enable the buttons between listing and downloading.
+        await DownloadAssetsAsync(assets, folder, album.Name).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The download loop shared by "download selected" and "download the whole album": one
+    /// asset at a time, reporting progress and surviving individual failures.
+    /// </summary>
+    /// <param name="albumName">Album being saved, for the progress line; null for a selection.</param>
+    private async Task DownloadAssetsAsync(
+        IReadOnlyList<ICloudAsset> assets, string folder, string? albumName)
+    {
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         var ct = _cts.Token;
@@ -666,12 +741,16 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
 
         try
         {
-            foreach (var asset in selected)
+            Directory.CreateDirectory(folder);
+
+            foreach (var asset in assets)
             {
                 ct.ThrowIfCancellationRequested();
-                StatusText = Loc.Format("L.ICloud.Downloading", done + 1, selected.Count);
+                StatusText = albumName is null
+                    ? Loc.Format("L.ICloud.Downloading", done + failed + 1, assets.Count)
+                    : Loc.Format("L.ICloud.DownloadingAlbum", albumName, done + failed + 1, assets.Count);
 
-                var path = await _icloud.DownloadAssetAsync(asset, dialog.FolderName, ct).ConfigureAwait(true);
+                var path = await _icloud.DownloadAssetAsync(asset, folder, ct).ConfigureAwait(true);
                 if (path is null) failed++;
                 else done++;
             }
@@ -696,6 +775,19 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Turns an album name into a usable folder name. Album names are the user's own text and
+    /// regularly hold characters Windows rejects in a path.
+    /// </summary>
+    private static string SafeFolderName(string name)
+    {
+        var cleaned = string.Concat(name.Select(
+            c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim();
+        // A name that was nothing but punctuation, or a trailing dot Windows silently drops.
+        cleaned = cleaned.TrimEnd('.');
+        return cleaned.Length == 0 ? "album" : cleaned;
+    }
+
     private void Fail(string message)
     {
         HasError = true;
@@ -712,5 +804,6 @@ public sealed partial class ICloudViewModel : ObservableObject, IPageAware
         SubmitCodeCommand.NotifyCanExecuteChanged();
         ExportContactsCommand.NotifyCanExecuteChanged();
         DownloadPhotosCommand.NotifyCanExecuteChanged();
+        DownloadAlbumCommand.NotifyCanExecuteChanged();
     }
 }

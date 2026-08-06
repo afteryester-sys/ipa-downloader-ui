@@ -620,6 +620,11 @@
     <sys:String x:Key="L.ICloud.Smart.Panoramas">Panoramas</sys:String>
     <sys:String x:Key="L.ICloud.Smart.SloMo">Slo-mo</sys:String>
     <sys:String x:Key="L.ICloud.Smart.TimeLapse">Time-lapse</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Hidden">Hidden</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Deleted">Recently Deleted</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadAlbum">Download the whole album</sys:String>
+    <sys:String x:Key="L.ICloud.AlbumEmpty">“{0}” has no photos to download.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadingAlbum">{0} — downloading {1} of {2}…</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">No notes in this iCloud account.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>

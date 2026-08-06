@@ -105,7 +105,22 @@ public sealed class ICloudAlbum
     /// </summary>
     public string? SmartAlbum { get; init; }
 
-    public bool IsAllPhotos => RecordName is null && SmartAlbum is null;
+    /// <summary>
+    /// CloudKit index name for the albums that are neither a container nor a smart-album filter
+    /// but an index of their own - Hidden and Recently Deleted. They are queried by asking for
+    /// that index as the record type, with no filter at all, which is why neither a record name
+    /// nor a smart-album key can express them.
+    /// </summary>
+    public string? Index { get; init; }
+
+    /// <summary>
+    /// True for Recently Deleted, whose assets all carry isDeleted. Those records are dropped
+    /// everywhere else - a deleted photo has no business in a normal album - so this album has
+    /// to say explicitly that here they are the entire point.
+    /// </summary>
+    public bool IncludesDeleted { get; init; }
+
+    public bool IsAllPhotos => RecordName is null && SmartAlbum is null && Index is null;
 }
 
 /// <summary>A note from iCloud Notes.</summary>

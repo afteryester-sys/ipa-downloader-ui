@@ -881,12 +881,31 @@ public sealed class ICloudService : IDisposable
     };
 
     /// <summary>
+    /// Hidden and Recently Deleted. The Photos app shows both, and they were missing here
+    /// because neither is reachable the way the other albums are: they are not containers and
+    /// not smart-album filters but indexes of their own, asked for as the record type.
+    ///
+    /// The "AndMaster" variants are used so each photo arrives with its master record, exactly
+    /// as everywhere else - the asset record alone carries no downloadable original.
+    /// </summary>
+    private static readonly (string Index, string LocKey, bool Deleted)[] IndexAlbums =
+    {
+        ("CPLAssetAndMasterHiddenByAssetDate", "L.ICloud.Smart.Hidden", false),
+        ("CPLAssetAndMasterDeletedByExpungedDate", "L.ICloud.Smart.Deleted", true),
+    };
+
+    /// <summary>
     /// Photos of one album, whichever kind it is. The three kinds need three different
     /// CloudKit queries, and keeping that choice here means callers only ever hold an album.
     /// </summary>
     public Task<IReadOnlyList<ICloudAsset>> GetAlbumAssetsAsync(
         ICloudAlbum album, int limit = 10000, CancellationToken ct = default)
     {
+        // Hidden and Recently Deleted: their own index, queried with no filter beyond paging.
+        if (album.Index is { Length: > 0 } index)
+            return QueryAssetsAsync(index, parentId: null, smartAlbum: null, limit, ct,
+                includeDeleted: album.IncludesDeleted);
+
         if (album.SmartAlbum is { Length: > 0 } smart)
             return QueryAssetsAsync(
                 "CPLAssetAndMasterInSmartAlbumByAssetDate", parentId: null, smartAlbum: smart, limit, ct);
@@ -926,6 +945,13 @@ public sealed class ICloudService : IDisposable
         var albums = new List<ICloudAlbum> { all };
         foreach (var (key, locKey) in SmartAlbums)
             albums.Add(new ICloudAlbum { SmartAlbum = key, Name = Loc.Get(locKey) });
+        foreach (var (index, locKey, deleted) in IndexAlbums)
+            albums.Add(new ICloudAlbum
+            {
+                Index = index,
+                Name = Loc.Get(locKey),
+                IncludesDeleted = deleted,
+            });
 
         try
         {
@@ -972,7 +998,8 @@ public sealed class ICloudService : IDisposable
     /// or null for the whole library.
     /// </summary>
     private async Task<IReadOnlyList<ICloudAsset>> QueryAssetsAsync(
-        string recordType, string? parentId, string? smartAlbum, int limit, CancellationToken ct)
+        string recordType, string? parentId, string? smartAlbum, int limit, CancellationToken ct,
+        bool includeDeleted = false)
     {
         var root = ServiceUrl("ckdatabasews");
         if (root is null) return Array.Empty<ICloudAsset>();
@@ -1046,7 +1073,7 @@ public sealed class ICloudService : IDisposable
             if (json?["records"] is not JsonArray records || records.Count == 0) break;
 
             pages++;
-            var page = ParseAssetRecords(records);
+            var page = ParseAssetRecords(records, includeDeleted);
             var added = 0;
             foreach (var asset in page)
             {
@@ -1074,7 +1101,12 @@ public sealed class ICloudService : IDisposable
     /// record (the file) and an "asset" record (the library entry): the thumbnail hangs off
     /// the asset, the original off the master, so the assets are indexed first.
     /// </summary>
-    private static List<ICloudAsset> ParseAssetRecords(JsonArray records)
+    /// <param name="includeDeleted">
+    /// Keeps records marked isDeleted. They are dropped by default - a deleted photo does not
+    /// belong in a normal album - but the Recently Deleted album consists of nothing else, so
+    /// filtering there would always return an empty grid.
+    /// </param>
+    private static List<ICloudAsset> ParseAssetRecords(JsonArray records, bool includeDeleted = false)
     {
         // Two renditions per photo, both keyed by the master they belong to: the small
         // thumbnail when the asset has one, and the medium rendition as a fallback.
@@ -1104,7 +1136,7 @@ public sealed class ICloudService : IDisposable
         foreach (var record in records)
         {
             if (record?["recordType"]?.GetValue<string>() != "CPLMaster") continue;
-            if (record["fields"]?["isDeleted"]?["value"]?.GetValue<int>() == 1) continue;
+            if (!includeDeleted && record["fields"]?["isDeleted"]?["value"]?.GetValue<int>() == 1) continue;
 
             var recordName = record["recordName"]?.GetValue<string>() ?? "";
             var fields = record["fields"];
@@ -1245,7 +1277,7 @@ public sealed class ICloudService : IDisposable
         }
     }
 
-    // ─────────────────────────── notes ───────────────────────────
+    // ─────────────────────────── notes ───────────��───────────────
 
     /// <summary>
     /// Lists notes with their titles, previews and folders.

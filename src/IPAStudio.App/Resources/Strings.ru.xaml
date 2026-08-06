@@ -285,7 +285,7 @@
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
     <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
-    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложени��</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
     <sys:String x:Key="L.Cache.Item.Temp">Временные файлы</sys:String>
@@ -516,7 +516,7 @@
     <sys:String x:Key="L.Photos.Restarting">Устройство перезагружается</sys:String>
     <sys:String x:Key="L.Photos.RestartFailed">Устройство отказалось перезагружаться. Перезагрузите его вручную.</sys:String>
     <sys:String x:Key="L.Photos.Cancelled">Операция отменена.</sys:String>
-    <sys:String x:Key="L.Photos.TransferFailed">Ошибка переноса: {0}</sys:String>
+    <sys:String x:Key="L.Photos.TransferFailed">Оши��ка переноса: {0}</sys:String>
 
     <!-- Диалог конфликта файлов -->
     <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано ранее. Выберите, что сделать с существующим файлом.</sys:String>
@@ -620,6 +620,11 @@
     <sys:String x:Key="L.ICloud.Smart.Panoramas">Панорамы</sys:String>
     <sys:String x:Key="L.ICloud.Smart.SloMo">Замедленно</sys:String>
     <sys:String x:Key="L.ICloud.Smart.TimeLapse">Таймлапс</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Hidden">Скрытые</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Deleted">Недавно удалённые</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadAlbum">Скачать альбом целиком</sys:String>
+    <sys:String x:Key="L.ICloud.AlbumEmpty">В альбоме «{0}» нет фото для скачивания.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadingAlbum">{0} — скачиваем {1} из {2}…</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
     <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
@@ -657,7 +662,7 @@
     <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
     <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
-    <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
+    <sys:String x:Key="L.OnDevice.ClearSelection">Сня��ь выбор</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>
     <sys:String x:Key="L.OnDevice.BatchProgress">Скачиваем {0} из {1}…</sys:String>
     <sys:String x:Key="L.OnDevice.BatchDone">Сохранено файлов: {0}.</sys:String>

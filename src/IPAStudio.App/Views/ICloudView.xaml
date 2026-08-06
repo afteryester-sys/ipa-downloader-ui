@@ -377,16 +377,24 @@
                         Command="{Binding ExportContactsCommand}"
                         Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabContacts}}" />
 
-                <!-- Photos: select all, then download the ticked ones -->
-                <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabPhotos}}">
+                <!-- Photos: select all, take the whole album, or download the ticked ones.
+                     Wrapped rather than laid out in one row: three buttons plus the account
+                     line do not fit the narrow window, and a clipped button is unusable. -->
+                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                           Visibility="{Binding SelectedTab, Converter={StaticResource TabVis}, ConverterParameter={StaticResource TabPhotos}}">
                     <Button Content="{DynamicResource L.ICloud.SelectAll}"
                             Style="{StaticResource Button.Secondary}"
-                            Command="{Binding ToggleSelectAllPhotosCommand}" Margin="0,0,8,0" />
+                            Command="{Binding ToggleSelectAllPhotosCommand}" Margin="0,0,8,4" />
+                    <!-- Downloads the album as Apple holds it, not the tiles on screen, so it
+                         needs no selection - hence a command of its own. -->
+                    <Button Content="{DynamicResource L.ICloud.DownloadAlbum}"
+                            Style="{StaticResource Button.Secondary}"
+                            Command="{Binding DownloadAlbumCommand}"
+                            ToolTip="{Binding SelectedAlbum.Name}" Margin="0,0,8,4" />
                     <Button Content="{DynamicResource L.ICloud.Download}"
                             Style="{StaticResource Button.Primary}"
-                            Command="{Binding DownloadPhotosCommand}" />
-                </StackPanel>
+                            Command="{Binding DownloadPhotosCommand}" Margin="0,0,0,4" />
+                </WrapPanel>
             </StackPanel>
         </Grid>
     </Grid>
