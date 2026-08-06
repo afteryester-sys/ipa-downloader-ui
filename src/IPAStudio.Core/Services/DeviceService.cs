@@ -152,6 +152,25 @@ public sealed class DeviceService : IAsyncDisposable
                 changed = true;
             }
 
+            // Identity is read once, when the device first appears. A phone that was locked or
+            // had not been trusted yet answers nothing then - and, because nothing ever asked
+            // again, it stayed nameless for the rest of the session: pickers offered a bare
+            // "iPhone" with no model and no iOS version. Retried while still unknown, which is
+            // also what happens moments after the user unlocks it.
+            //
+            // Only the fields left blank are queried, so a device that answered in full adds no
+            // work here at all.
+            if (device.Model.Length == 0 || device.OsVersion.Length == 0)
+            {
+                var before = device.DisplayLabel;
+                await FillMissingCoreFieldsAsync(device, ct).ConfigureAwait(false);
+                if (device.DisplayLabel != before)
+                {
+                    AppLog.Info($"Device details filled in: {device.Name} — {device.Model}, iOS {device.OsVersion}");
+                    changed = true;
+                }
+            }
+
             var battery = await ReadBatteryAsync(device.Udid, ct, quiet).ConfigureAwait(false);
             if (battery != device.BatteryLevel && battery >= 0)
             {

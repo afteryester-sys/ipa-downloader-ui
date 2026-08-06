@@ -36,8 +36,13 @@
                         Margin="0,0,56,0">
                 <TextBlock Text="{DynamicResource L.Catalogs.InstallTo}" Style="{StaticResource Text.Caption}"
                            VerticalAlignment="Center" Margin="0,0,10,0" />
+                <!-- DisplayLabel rather than Name: the name falls back to the bare word
+                     "iPhone" until it is actually read, so two connected phones appeared as
+                     two identical entries with nothing to choose between them. -->
                 <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
-                          DisplayMemberPath="Name" MinWidth="180" VerticalAlignment="Center" />
+                          DisplayMemberPath="DisplayLabel" MinWidth="240" MaxWidth="320"
+                          VerticalAlignment="Center"
+                          ToolTip="{Binding SelectedDevice.Udid}" />
             </StackPanel>
         </Grid>
 

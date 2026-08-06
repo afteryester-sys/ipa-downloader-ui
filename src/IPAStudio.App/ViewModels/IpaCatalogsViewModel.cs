@@ -151,6 +151,33 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         _catalogs = catalogs;
         _devices = devices;
         _operations = operations;
+
+        // Model and iOS version arrive after the device is first reported, so the target list
+        // would otherwise sit on the bare fallback name for as long as the page stays open.
+        // Device carries no change notification of its own, so the row is replaced instead.
+        _devices.DeviceUpdated += OnDeviceUpdated;
+        _devices.DeviceConnected += OnDeviceListChanged;
+        _devices.DeviceDisconnected += OnDeviceListChanged;
+    }
+
+    private void OnDeviceListChanged(object? sender, Device device) =>
+        Application.Current?.Dispatcher.Invoke(LoadDevices);
+
+    /// <summary>
+    /// Label each device was last shown with. The service updates devices in place, so the
+    /// object in the list and the one in the event are the same instance - there is nothing to
+    /// compare it against without remembering what was displayed.
+    /// </summary>
+    private readonly Dictionary<string, string> _shownLabels = new();
+
+    private void OnDeviceUpdated(object? sender, Device device)
+    {
+        // Battery level is polled continuously. Rebuilding on every update would close the
+        // dropdown under the user's cursor for a change this list does not even show.
+        if (_shownLabels.TryGetValue(device.Udid, out var shown) && shown == device.DisplayLabel)
+            return;
+
+        Application.Current?.Dispatcher.Invoke(LoadDevices);
     }
 
     public ObservableCollection<CatalogEntryViewModel> Catalogs { get; } = new();
@@ -259,8 +286,12 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         var previous = SelectedDevice?.Udid;
 
         Devices.Clear();
+        _shownLabels.Clear();
         foreach (var device in _devices.ConnectedDevices)
+        {
             Devices.Add(device);
+            _shownLabels[device.Udid] = device.DisplayLabel;
+        }
 
         // The device the page was opened for wins, then whatever was chosen last, then the
         // first one connected.

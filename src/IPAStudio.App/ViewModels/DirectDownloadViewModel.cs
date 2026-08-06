@@ -37,6 +37,12 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private readonly DeviceService _devices;
     private readonly InstallService _install;
 
+    /// <summary>
+    /// Local .ipa libraries. The third place an app's name and icon can come from, and the only
+    /// one that answers with no network and no phone attached.
+    /// </summary>
+    private readonly IpaCatalogService _ipaCatalogs;
+
     /// <summary>Where a download registers itself so leaving the page does not hide it.</summary>
     private readonly OperationService _operations;
 
@@ -51,8 +57,10 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         SettingsService settings,
         DeviceService devices,
         InstallService install,
-        OperationService operations)
+        OperationService operations,
+        IpaCatalogService ipaCatalogs)
     {
+        _ipaCatalogs = ipaCatalogs;
         _catalog = catalog;
         _download = download;
         _auth = auth;
@@ -288,6 +296,20 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 {
                     app = fromDevice.Value.Entry;
                     FoundIconImage = fromDevice.Value.Icon;
+                }
+
+                // Still nameless: no store listing and no phone that has it. The .ipa libraries
+                // already scanned on this machine are consulted last, and for a delisted app
+                // with nothing plugged in they are the only source left - which is exactly the
+                // case where the page used to show nothing but the number that was typed.
+                if (app.IsProvisional && !app.HasLocalMetadata)
+                {
+                    var fromLibrary = TryResolveFromLibraries(app);
+                    if (fromLibrary is not null)
+                    {
+                        app = fromLibrary.Value.Entry;
+                        FoundIconImage ??= fromLibrary.Value.Icon;
+                    }
                 }
             }
 
@@ -581,6 +603,86 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Recovers an app's name, version and icon from the .ipa libraries scanned on this machine.
+    /// Returns null when no library holds this bundle id.
+    ///
+    /// Matched by bundle id only. The libraries hold no store ids, and matching on a name would
+    /// be matching on the very thing that is missing at this point.
+    /// </summary>
+    private (AppEntry Entry, ImageSource? Icon)? TryResolveFromLibraries(AppEntry app)
+    {
+        // No bundle id required: an app entered as a bare store number has none, and matching on
+        // that number is exactly what is needed here.
+        if (string.IsNullOrWhiteSpace(app.BundleId) && app.AppStoreId <= 0) return null;
+
+        IpaCatalogItem? match;
+        try
+        {
+            match = _ipaCatalogs.FindLocal(app.BundleId, app.AppStoreId);
+        }
+        catch (Exception ex)
+        {
+            // The libraries are a courtesy here, exactly as the bundled catalog is: a lookup
+            // must not fail because a library file is unreadable.
+            AppLog.Warn($"Could not search local libraries: {ex.Message}");
+            return null;
+        }
+
+        if (match is null || string.IsNullOrWhiteSpace(match.Name)) return null;
+
+        AppLog.Info($"Direct download: '{match.Name}' identified from a local library");
+
+        // Rebuilt rather than patched, for the same reason as the device path: Name and
+        // AppStoreId are init-only so a downloader can never be handed a rewritten entry.
+        var entry = new AppEntry
+        {
+            Name = match.Name,
+            AppStoreId = app.AppStoreId,
+            // Filled in from the archive when the query was a bare number: the bundle id is
+            // shown under the name, and the archive is the only thing that knows it here.
+            BundleId = string.IsNullOrWhiteSpace(app.BundleId)
+                ? (string.IsNullOrWhiteSpace(match.BundleId) ? app.BundleId : match.BundleId)
+                : app.BundleId,
+            IconUrl = app.IconUrl,
+            IconUrlLarge = app.IconUrlLarge,
+            CachedIconPath = app.CachedIconPath,
+            Developer = app.Developer,
+            LatestVersion = app.LatestVersion ?? match.Version,
+            IsProvisional = true,
+            HasLocalMetadata = true,
+        };
+
+        return (entry, LoadIconFile(match.IconPath));
+    }
+
+    /// <summary>Loads an icon a library scan extracted to disk, or null if unreadable.</summary>
+    private static ImageSource? LoadIconFile(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            // Loaded through a stream, not a UriSource: the latter keeps the file locked for the
+            // life of the image, and a rescan of the same library then cannot replace it.
+            using (var stream = File.OpenRead(path))
+            {
+                image.DecodePixelWidth = 128;
+                image.StreamSource = stream;
+                image.EndInit();
+            }
+            image.Freeze();
+            return image;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Decodes SpringBoard's PNG for display, or null if it cannot be read.</summary>

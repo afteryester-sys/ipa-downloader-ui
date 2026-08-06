@@ -41,7 +41,7 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal">
                 <ComboBox Style="{StaticResource Input.ComboBox}" MinWidth="190"
                           ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
-                          DisplayMemberPath="Name" Margin="0,0,8,0"
+                          DisplayMemberPath="DisplayLabel" Margin="0,0,8,0"
                           IsEnabled="{Binding IsStreaming, Converter={StaticResource InverseBool}}" />
 
                 <Button Content="{DynamicResource L.DeviceLogs.Start}" Style="{StaticResource Button.Primary}"

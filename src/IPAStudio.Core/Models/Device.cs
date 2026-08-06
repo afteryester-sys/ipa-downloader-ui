@@ -97,4 +97,49 @@ public sealed class Device
 
     /// <summary>When the device was first seen in the current session.</summary>
     public DateTimeOffset ConnectedAt { get; init; } = DateTimeOffset.Now;
+
+    /// <summary>
+    /// One-line description for pickers: "Денис · iPhone 15 Pro · iOS 18.5".
+    ///
+    /// The install target used to be bound to <see cref="Name"/> alone, which falls back to the
+    /// bare word "iPhone" until the name is actually read - so a picker offering two phones
+    /// showed two identical entries, and a single phone gave no hint which one it was.
+    ///
+    /// Parts that say nothing are left out rather than shown empty: an unnamed device gets its
+    /// model, and a device that answered nothing at all gets the tail of its UDID, which is
+    /// unique even between two phones of the same model with the same name.
+    /// </summary>
+    public string DisplayLabel
+    {
+        get
+        {
+            var name = Name.Trim();
+            var model = Model.Trim();
+            var parts = new List<string>(3);
+
+            // "iPhone" next to "iPhone 15 Pro" is noise: the name is still the class default,
+            // and the model already contains every word of it.
+            if (model.Length > 0 && name.Length > 0 &&
+                model.Contains(name, StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(model);
+            }
+            else
+            {
+                if (name.Length > 0) parts.Add(name);
+                if (model.Length > 0 && !model.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    parts.Add(model);
+            }
+
+            var os = OsVersion.Trim();
+            if (os.Length > 0) parts.Add($"iOS {os}");
+
+            // Nothing but the class default: a locked or still-loading device. The UDID tail is
+            // the only thing known for certain at that point, and it does tell two apart.
+            if (parts.Count <= 1 && os.Length == 0 && model.Length == 0 && Udid.Length >= 4)
+                parts.Add("…" + Udid[^4..]);
+
+            return parts.Count > 0 ? string.Join(" · ", parts) : DeviceClass;
+        }
+    }
 }

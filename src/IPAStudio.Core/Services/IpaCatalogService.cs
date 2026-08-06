@@ -50,6 +50,20 @@ public sealed class IpaCatalogItem
     /// file from an untouched one, so a replaced IPA is not served from a stale entry.
     /// </summary>
     public DateTimeOffset ModifiedAt { get; init; }
+
+    /// <summary>
+    /// App Store id from the archive's own store metadata, null for an archive that did not
+    /// come from the store.
+    /// </summary>
+    public long? StoreId { get; init; }
+
+    /// <summary>
+    /// Which generation of the scanner produced this entry. Entries written before a field was
+    /// introduced carry 0, which is how an unchanged file is re-read exactly once instead of
+    /// keeping a blank the scanner could now fill — and, just as importantly, how an archive
+    /// that legitimately has no store id avoids being reopened on every single scan.
+    /// </summary>
+    public int ScanVersion { get; init; }
 }
 
 /// <summary>
@@ -61,6 +75,12 @@ public sealed class IpaCatalogItem
 public sealed class IpaCatalogService
 {
     private readonly ToolLocator _tools;
+
+    /// <summary>
+    /// Bump whenever the scanner learns to read a new field, so archives listed by an older
+    /// build are re-read once instead of keeping a blank forever.
+    /// </summary>
+    private const int CurrentScanVersion = 1;
 
     /// <summary>
     /// Serialises writes. Two catalogs can be scanned at once, and both finish by saving the
@@ -101,6 +121,36 @@ public sealed class IpaCatalogService
         _catalogs.Add(catalog);
         Save();
         return catalog;
+    }
+
+    /// <summary>
+    /// The scanned .ipa carrying this bundle id, newest version first, or null when no library
+    /// holds it.
+    ///
+    /// Exists for the direct-download page, which could previously name an app only from the
+    /// store or from a phone that happened to be plugged in. Neither answers for a delisted app
+    /// with no device attached - yet the archives already scanned on this machine carry the
+    /// name, version and icon, and were simply never consulted, so the page showed the bare
+    /// number the user had typed.
+    /// </summary>
+    public IpaCatalogItem? FindLocal(string? bundleId, long storeId = 0)
+    {
+        var hasBundle = !string.IsNullOrWhiteSpace(bundleId);
+        if (!hasBundle && storeId <= 0) return null;
+
+        _catalogs ??= Load();
+
+        return _catalogs
+            .SelectMany(c => c.Items)
+            // Either identifier is enough. The store id matters most: an app entered as a bare
+            // number has no bundle id yet, and that is precisely the case with nothing else to
+            // match on.
+            .Where(i => (hasBundle && string.Equals(i.BundleId, bundleId, StringComparison.OrdinalIgnoreCase))
+                     || (storeId > 0 && i.StoreId == storeId))
+            // Several libraries may hold the same app at different versions; the newest archive
+            // is the one whose name and artwork are least likely to be out of date.
+            .OrderByDescending(i => i.ModifiedAt)
+            .FirstOrDefault();
     }
 
     public void Remove(string id)
@@ -191,10 +241,13 @@ public sealed class IpaCatalogService
 
             var stamp = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero);
 
-            // Unchanged file: reuse what the last scan learned rather than reopening it.
+            // Unchanged file: reuse what the last scan learned rather than reopening it. The
+            // scanner generation is part of the test, so entries written before the store id was
+            // collected are re-read once and then left alone again.
             if (known.TryGetValue(path, out var previous) &&
                 previous.SizeBytes == info.Length &&
                 previous.ModifiedAt == stamp &&
+                previous.ScanVersion >= CurrentScanVersion &&
                 !string.IsNullOrEmpty(previous.BundleId))
             {
                 found.Add(previous);
@@ -214,6 +267,8 @@ public sealed class IpaCatalogService
                 SizeBytes = info.Length,
                 IconPath = meta.IconPath,
                 ModifiedAt = stamp,
+                StoreId = meta.StoreId,
+                ScanVersion = CurrentScanVersion,
             });
         }
 

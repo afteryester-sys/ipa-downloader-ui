@@ -29,13 +29,19 @@ namespace IPAStudio.Core.Tools;
 /// Extracted artwork on disk, or null when the archive has none we can display.
 /// </param>
 /// <param name="SizeBytes">Size of the archive itself.</param>
+/// <param name="StoreId">
+/// App Store (Adam) id from the archive's store metadata, or null for an archive that never
+/// came from the store. This is what lets an app typed in as a bare number be recognised from a
+/// local library, since a number can be matched against nothing else.
+/// </param>
 public sealed record IpaInfo(
     string Path,
     string Name,
     string? BundleId,
     string? Version,
     string? IconPath,
-    long SizeBytes);
+    long SizeBytes,
+    long? StoreId = null);
 
 /// <summary>
 /// Reads the metadata of an .ipa without unpacking it.
@@ -82,6 +88,7 @@ public static class IpaMetadata
             // Info.plist is authoritative for the bundle id but often gives a terse internal
             // name ("Mail" for what the store calls something longer).
             string? name = null, bundleId = null, version = null;
+            long? storeId = null;
 
             var itunes = zip.GetEntry("iTunesMetadata.plist");
             if (itunes is not null && ReadPlist(itunes) is Dictionary<string, object?> meta)
@@ -89,6 +96,8 @@ public static class IpaMetadata
                 name = FirstString(meta, "itemName", "playlistName");
                 bundleId = FirstString(meta, "softwareVersionBundleId", "bundleId");
                 version = FirstString(meta, "bundleShortVersionString", "shortVersionString");
+                // Same key spellings the install path already has to accept.
+                storeId = FirstLong(meta, "itemId", "item-id", "storeItemIdentifier");
             }
 
             // Info.plist of the app bundle itself. Read even when the store metadata answered,
@@ -116,7 +125,8 @@ public static class IpaMetadata
                 string.IsNullOrWhiteSpace(bundleId) ? null : bundleId!.Trim(),
                 string.IsNullOrWhiteSpace(version) ? null : version!.Trim(),
                 icon,
-                size);
+                size,
+                storeId);
         }
         catch (Exception ex)
         {
@@ -333,6 +343,33 @@ public static class IpaMetadata
     }
 
     /// <summary>First of <paramref name="keys"/> present as a non-empty string.</summary>
+    /// <summary>
+    /// First key holding a whole number. Written separately from <see cref="FirstString"/>
+    /// because the store id arrives as a plist integer in some archives and as a string in
+    /// others, and either spelling has to answer.
+    /// </summary>
+    private static long? FirstLong(Dictionary<string, object?> dict, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!dict.TryGetValue(key, out var value) || value is null) continue;
+
+            switch (value)
+            {
+                case long l when l > 0: return l;
+                case int i when i > 0: return i;
+                // Converted rather than cast: a plist can hold this as a real, and the value is
+                // an identifier, so anything fractional is not one.
+                case double d when d > 0 && d == Math.Floor(d): return (long)d;
+                case string s when long.TryParse(
+                    s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) && parsed > 0:
+                    return parsed;
+            }
+        }
+
+        return null;
+    }
+
     private static string? FirstString(Dictionary<string, object?> dict, params string[] keys)
     {
         foreach (var key in keys)
