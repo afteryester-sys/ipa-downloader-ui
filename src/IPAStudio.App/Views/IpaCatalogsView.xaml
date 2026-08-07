@@ -1,12 +1,23 @@
 <UserControl x:Class="IPAStudio.App.Views.IpaCatalogsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:ctrl="clr-namespace:IPAStudio.App.Controls">
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:InitialConverter x:Key="Initial" />
+
+        <!-- List / tile toggle, matching the on-device and photo screens so every list in
+             the app is switched the same way. -->
+        <Style x:Key="ViewToggle" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
 
         <!-- Library name. Turns accent-coloured for the selected row: the tinted background
              alone is faint, and this panel is the only thing telling the user which library the
@@ -229,6 +240,23 @@
                         <Button Content="{DynamicResource L.Catalogs.Rescan}" Style="{StaticResource Button.Secondary}"
                                 Command="{Binding ScanCommand}"
                                 IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}" />
+
+                        <!-- Tile size. Only meaningful in tile mode, so it is shown with it. -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"
+                                    Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{DynamicResource L.OnDevice.TileSize}" Style="{StaticResource Text.Caption}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <Slider Width="110" VerticalAlignment="Center"
+                                    Minimum="104" Maximum="208" TickFrequency="26" IsSnapToTickEnabled="True"
+                                    Value="{Binding TileSize}" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                            <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewList}"
+                                    Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
+                            <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewTiles}"
+                                    Content="&#xF0E2;" Command="{Binding SetTileViewCommand}" Margin="4,0,0,0" />
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
 
@@ -247,11 +275,18 @@
                                    TextAlignment="Center" MaxWidth="360" TextWrapping="Wrap"
                                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
 
+                        <!-- Both layouts live inside this wrapper so the existing "hide while
+                             scanning" rule keeps guarding them as one thing; each list then
+                             only decides which of the two modes it belongs to. Visibility in
+                             WPF cannot AND two bindings, so the conditions are split across
+                             the two levels instead. -->
+                        <Grid Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+
                         <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True"
                                  VirtualizingPanel.VirtualizationMode="Recycling"
-                                 Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                                 Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -336,6 +371,103 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+
+                        <!-- ===== Tile mode =====
+                             The same archives as a grid of app icons, mirroring the on-device
+                             page: in a folder of a hundred .ipa files the artwork is faster to
+                             find than a name in a column of rows. The file name and the long
+                             details line stay with the list mode — a tile has no room to say
+                             why an archive cannot be read, so unreadable ones just show up
+                             without a checkbox here. -->
+                        <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                 Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- TileSize is bound so the panel drops its cached measurement
+                                         when the slider moves; without it the grid would keep the
+                                         old spacing. -->
+                                    <ctrl:VirtualizingWrapPanel TileSize="{Binding DataContext.TileSize,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Bg" Background="Transparent" CornerRadius="12" Margin="5">
+                                                    <ContentPresenter />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bg" Property="Background"
+                                                                Value="{StaticResource Brush.SurfaceHover}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="{Binding DataContext.TileSize,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Height="{Binding DataContext.TileHeight,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Margin="6,8,6,6">
+                                        <Grid HorizontalAlignment="Center">
+                                            <Border Width="{Binding DataContext.TileIconSize,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Height="{Binding DataContext.TileIconSize,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CornerRadius="{Binding DataContext.TileIconRadius,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Background="{StaticResource Brush.SurfaceHover}">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               FontSize="24" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.TextMuted}" />
+                                                    <Border CornerRadius="{Binding DataContext.TileIconRadius,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Visibility="{Binding Icon, Converter={StaticResource NullToCollapsed}}">
+                                                        <Border.Background>
+                                                            <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                                                        </Border.Background>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Over the icon's corner rather than beside it: the
+                                                 row layout's leading column would cost a tile most
+                                                 of its width. Backed so it stays visible on light
+                                                 artwork. -->
+                                            <Border CornerRadius="6" Padding="2" Margin="0,-2,-4,0"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Background="{StaticResource Brush.Surface}"
+                                                    Visibility="{Binding CanSelect, Converter={StaticResource BoolToVis}}">
+                                                <CheckBox IsChecked="{Binding IsSelected}" />
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                                   FontWeight="SemiBold" TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
+                                        <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
+                                                   TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

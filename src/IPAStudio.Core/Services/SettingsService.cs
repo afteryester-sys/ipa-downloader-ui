@@ -149,6 +149,17 @@ public sealed class AppSettings
     public double OnDeviceTileSize { get; set; } = 132;
 
     /// <summary>
+    /// The same tile-or-rows preference for the .ipa catalog page ("install from file").
+    /// Stored separately from the on-device one: the two lists show different things — files
+    /// on disk versus apps on a phone — and wanting icons for one does not mean wanting to
+    /// lose the file names the other mode shows.
+    /// </summary>
+    public bool CatalogTileView { get; set; }
+
+    /// <summary>Tile edge for the catalog page, with the same clamp-on-load contract.</summary>
+    public double CatalogTileSize { get; set; } = 132;
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.

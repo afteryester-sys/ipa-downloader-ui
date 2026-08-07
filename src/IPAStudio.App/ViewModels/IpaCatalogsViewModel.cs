@@ -140,17 +140,24 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     private readonly IpaCatalogService _catalogs;
     private readonly DeviceService _devices;
     private readonly OperationService _operations;
+    private readonly SettingsService _settings;
 
     private INavigator? _navigator;
 
     public IpaCatalogsViewModel(
         IpaCatalogService catalogs,
         DeviceService devices,
-        OperationService operations)
+        OperationService operations,
+        SettingsService settings)
     {
         _catalogs = catalogs;
         _devices = devices;
         _operations = operations;
+        _settings = settings;
+
+        _isTileView = settings.Current.CatalogTileView;
+        _tileSize = Math.Clamp(settings.Current.CatalogTileSize,
+            OnDeviceViewModel.MinTileSize, OnDeviceViewModel.MaxTileSize);
 
         // Model and iOS version arrive after the device is first reported, so the target list
         // would otherwise sit on the bare fallback name for as long as the page stays open.
@@ -207,6 +214,66 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private string _renameText = "";
+
+    // ─────────────────────── list / tile layout ───────────────────────
+    // The same second view the on-device list has, and for the same reason: with a hundred
+    // archives in a folder, the icon is found faster than a name in a column of rows. The
+    // bounds and geometry maths are shared with OnDeviceViewModel so the two grids cannot
+    // quietly drift apart.
+
+    /// <summary>Whether the archives are shown as tiles instead of rows. Persisted.</summary>
+    [ObservableProperty]
+    private bool _isTileView;
+
+    /// <summary>Tile edge in device-independent pixels, driven by the size slider.</summary>
+    [ObservableProperty]
+    private double _tileSize = 132;
+
+    public bool IsListView => !IsTileView;
+
+    /// <summary>
+    /// Tile height: the icon square plus a fixed block for the name and the details line.
+    /// Smaller than the on-device tile's extra because there is no download button here.
+    /// </summary>
+    public double TileHeight => TileSize + 66;
+
+    /// <summary>Artwork size inside a tile, leaving a margin the tile does not look cramped in.</summary>
+    public double TileIconSize => Math.Max(48, TileSize - 56);
+
+    /// <summary>Corner radius scaled with the icon, so it keeps iOS's proportions.</summary>
+    public double TileIconRadius => TileIconSize * 0.225;
+
+    partial void OnIsTileViewChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsListView));
+        _settings.Current.CatalogTileView = value;
+        SaveViewPreferences();
+    }
+
+    partial void OnTileSizeChanged(double value)
+    {
+        OnPropertyChanged(nameof(TileHeight));
+        OnPropertyChanged(nameof(TileIconSize));
+        OnPropertyChanged(nameof(TileIconRadius));
+
+        // Kept in the settings object on every tick but written to disk only when the page is
+        // left: a slider drag raises this a few dozen times, and saving each one would rewrite
+        // the settings file that often for a value that is still moving.
+        _settings.Current.CatalogTileSize = value;
+    }
+
+    [RelayCommand]
+    private void SetListView() => IsTileView = false;
+
+    [RelayCommand]
+    private void SetTileView() => IsTileView = true;
+
+    /// <summary>Writes the layout preferences out, tolerating a settings file that will not save.</summary>
+    private void SaveViewPreferences()
+    {
+        try { _settings.Save(); }
+        catch (Exception ex) { AppLog.Warn($"Could not save the catalog view preference: {ex.Message}"); }
+    }
 
     /// <summary>All rows of the selected catalog, before the search box filters them.</summary>
     private readonly List<CatalogIpaViewModel> _allItems = new();
@@ -580,9 +647,20 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         _navigator?.GoToOperation(operation);
     }
 
-    [RelayCommand]
-    private void GoBack() => _navigator?.GoBack();
+    // The slider's last position is flushed here rather than on every tick; leaving the page
+    // is the natural end of a drag, and both exits pass through these two commands.
 
     [RelayCommand]
-    private void GoHome() => _navigator?.GoHome();
+    private void GoBack()
+    {
+        SaveViewPreferences();
+        _navigator?.GoBack();
+    }
+
+    [RelayCommand]
+    private void GoHome()
+    {
+        SaveViewPreferences();
+        _navigator?.GoHome();
+    }
 }
