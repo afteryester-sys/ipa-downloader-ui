@@ -157,7 +157,9 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         AddRow("MEID", _device.Meid, copyable: true);
         AddRow("UDID", _device.Udid, copyable: true);
         AddRow(Loc.Get("L.DeviceInfo.PhoneNumber"), _device.PhoneNumber);
-        AddRow(Loc.Get("L.DeviceInfo.Region"), _device.RegionInfo);
+        // Shown as "LL/A · США": the code stays first because that is what warranty and
+        // carrier lookups ask for, with the country spelled out for everyone else.
+        AddRow(Loc.Get("L.DeviceInfo.Region"), AppleRegionCodes.Describe(_device.RegionInfo));
         AddRow(Loc.Get("L.DeviceInfo.WifiAddress"), _device.WifiAddress);
         AddRow(Loc.Get("L.DeviceInfo.BluetoothAddress"), _device.BluetoothAddress);
     }
