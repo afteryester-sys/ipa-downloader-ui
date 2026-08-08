@@ -184,6 +184,31 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
 
     public void GoToOperation(Operation operation)
     {
+        // Only queue-backed work lives on the queue page. Photo copying runs inside the photos
+        // page itself, and sending it here opened an empty "installing apps" screen with a
+        // progress bar stuck at 0% — the operation was never a queue to begin with.
+        if (operation.Queue is null)
+        {
+            if (operation.ReturnDevice is not null)
+            {
+                switch (operation.ReturnPage)
+                {
+                    case Page.Photos:
+                        GoToPhotos(operation.ReturnDevice);
+                        return;
+                    case Page.OnDevice:
+                        GoToOnDevice(operation.ReturnDevice);
+                        return;
+                    case Page.AppPicker:
+                        GoToAppPicker(operation.ReturnDevice);
+                        return;
+                }
+            }
+
+            GoTo(operation.ReturnPage);
+            return;
+        }
+
         // Attach before navigating: OnNavigatedTo starts the run, and with no queue attached
         // it would open an empty page and never start the work.
         Resolve<QueueViewModel>().Attach(operation);

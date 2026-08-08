@@ -98,6 +98,85 @@ public sealed partial class UpdaterViewModel : ObservableObject
     [RelayCommand]
     private void Toggle() => IsOpen = !IsOpen;
 
+    // ---- Automatic checking -------------------------------------------------
+    // Nothing checked on its own before: the dot beside the gear only appeared after the
+    // user opened the menu and pressed "Check", so a release could sit unnoticed for as
+    // long as nobody thought to look. The timer runs the same check quietly instead.
+
+    private System.Windows.Threading.DispatcherTimer? _autoCheckTimer;
+
+    /// <summary>Once an hour. Releases appear a few times a day at most.</summary>
+    private static readonly TimeSpan AutoCheckInterval = TimeSpan.FromHours(1);
+
+    /// <summary>
+    /// Delay before the first look. Startup is already busy probing tools, polling for
+    /// devices and loading the catalog; adding a network call to that makes the window
+    /// slower to become usable and buys nothing, since the answer then keeps for an hour.
+    /// </summary>
+    private static readonly TimeSpan FirstCheckDelay = TimeSpan.FromSeconds(45);
+
+    /// <summary>
+    /// Starts checking in the background. Safe to call again — a running timer is left
+    /// alone, which matters because the window re-hooks its view model on every
+    /// DataContext change.
+    /// </summary>
+    public void StartAutoCheck()
+    {
+        if (_autoCheckTimer is not null) return;
+
+        // Background priority: this must never take a slice from rendering or input.
+        _autoCheckTimer = new System.Windows.Threading.DispatcherTimer(
+            System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = FirstCheckDelay,
+        };
+        _autoCheckTimer.Tick += async (_, _) =>
+        {
+            // The first tick uses the short startup delay; every one after it is hourly.
+            if (_autoCheckTimer is { } timer && timer.Interval != AutoCheckInterval)
+                timer.Interval = AutoCheckInterval;
+
+            await AutoCheckAsync().ConfigureAwait(true);
+        };
+        _autoCheckTimer.Start();
+    }
+
+    /// <summary>
+    /// The quiet counterpart of <see cref="CheckAsync"/>: it may only ever turn the dot on.
+    ///
+    /// Deliberately does not touch <see cref="StatusText"/> on failure and does not clear
+    /// <see cref="UpdateAvailable"/> the way the manual check does. An hourly background
+    /// task that reports "no connection" into the menu, or blanks the dot for the duration
+    /// of its own request, would be reporting on itself rather than on updates.
+    /// </summary>
+    private async Task AutoCheckAsync()
+    {
+        // Anything the user started owns the status text; an already-downloaded update is
+        // waiting to be installed, and the dot has nothing left to say.
+        if (IsBusy || UpdateReady || UpdateAvailable) return;
+
+        // Not while the menu is open: text changing under the pointer reads as a glitch,
+        // and the Check button is right there for anyone who wants an answer now.
+        if (IsOpen) return;
+
+        try
+        {
+            var hasUpdate = await _updates.CheckForUpdatesAsync().ConfigureAwait(true);
+            if (!hasUpdate || _updates.LatestVersion is not { } latest) return;
+
+            UpdateAvailable = true;
+            StatusText = string.Format(Str("L.Update.Available"),
+                $"{latest.Major}.{latest.Minor}.{latest.Build}");
+            AppLog.Info($"Automatic check found update {latest.Major}.{latest.Minor}.{latest.Build}.");
+        }
+        catch (Exception ex)
+        {
+            // Logged, never shown: an unreachable network is the normal case here, and the
+            // next attempt is an hour away.
+            AppLog.Info($"Automatic update check failed, will retry later ({ex.Message}).");
+        }
+    }
+
     // ---- Appearance (color theme) ------------------------------------------
     // Two RadioButtons in the menu popup bind to these. Selecting a different
     // theme saves the setting and restarts the app so the palette re-applies.

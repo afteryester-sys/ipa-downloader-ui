@@ -49,6 +49,7 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         if (d is not VirtualizingWrapPanel panel) return;
 
         panel._itemSize = Size.Empty;
+        panel._slotCount = -1;
 
         // The containers are recycled, so they carry the previous measurement with them; without
         // invalidating each one the re-measure below would be handed the old desired size back.
@@ -58,10 +59,45 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         panel.InvalidateMeasure();
     }
 
+    /// <summary>
+    /// Height given to a full-width section heading (an item implementing
+    /// <see cref="IGridGroupHeader"/>). A fixed figure rather than a measured one: the slot
+    /// map has to be built for items that are still virtualised, so there is no container to
+    /// measure for most of them.
+    /// </summary>
+    public static readonly DependencyProperty HeaderHeightProperty = DependencyProperty.Register(
+        nameof(HeaderHeight), typeof(double), typeof(VirtualizingWrapPanel),
+        new FrameworkPropertyMetadata(44d, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public double HeaderHeight
+    {
+        get => (double)GetValue(HeaderHeightProperty);
+        set => SetValue(HeaderHeightProperty, value);
+    }
+
     private int _columns = 1;
     private Size _extent;
     private Size _viewport;
     private double _verticalOffset;
+
+    /// <summary>
+    /// Where each item sits in content space. Once headings can break a row, position is no
+    /// longer <c>index / columns</c> arithmetic, so it is computed once per layout change and
+    /// reused by arrange, hit-testing and scrolling. Slots are in ascending Y order, which is
+    /// what lets the visible range be found by binary search instead of a scan.
+    /// </summary>
+    private Rect[] _slots = Array.Empty<Rect>();
+
+    /// <summary>Inputs the cached slot map was built from; a change in any of them rebuilds it.</summary>
+    private int _slotCount = -1;
+    private int _slotColumns = -1;
+    private double _slotItemWidth;
+    private double _slotItemHeight;
+    private double _slotHeaderHeight;
+    private double _slotViewportWidth;
+
+    /// <summary>Content height implied by the slot map.</summary>
+    private double _slotExtentHeight;
 
     /// <summary>Index range realised by the last measure pass, or -1 when empty.</summary>
     public int FirstVisibleIndex { get; private set; } = -1;
@@ -102,21 +138,33 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var viewportHeight = double.IsInfinity(availableSize.Height) ? itemHeight : availableSize.Height;
 
         _columns = Math.Max(1, (int)Math.Floor(viewportWidth / itemWidth));
-        var rows = (int)Math.Ceiling((double)itemCount / _columns);
 
-        _extent = new Size(_columns * itemWidth, rows * itemHeight);
+        EnsureSlots(owner!, itemCount, itemWidth, itemHeight, viewportWidth);
+
+        _extent = new Size(_columns * itemWidth, _slotExtentHeight);
         _viewport = new Size(viewportWidth, viewportHeight);
 
         // Narrowing the window or removing items can leave the offset past the end.
         _verticalOffset = Math.Max(0, Math.Min(_verticalOffset, Math.Max(0, _extent.Height - _viewport.Height)));
         ScrollOwner?.InvalidateScrollInfo();
 
-        // One extra row above and below keeps tiles from popping in at the edges.
-        var firstRow = Math.Max(0, (int)Math.Floor(_verticalOffset / itemHeight) - 1);
-        var lastRow = (int)Math.Ceiling((_verticalOffset + viewportHeight) / itemHeight) + 1;
+        // One tile row of slack above and below keeps tiles from popping in at the edges.
+        var top = _verticalOffset - itemHeight;
+        var bottom = _verticalOffset + viewportHeight + itemHeight;
 
-        var first = Math.Max(0, firstRow * _columns);
-        var last = Math.Min(itemCount - 1, lastRow * _columns - 1);
+        var first = FirstSlotAtOrAfter(top);
+        var last = LastSlotStartingBefore(bottom);
+
+        if (first > last)
+        {
+            // Everything is off-screen (an offset left past the end mid-relayout); realise
+            // nothing rather than passing an inverted range on to the generator.
+            VirtualizeRangeOutside(generator, 0, -1);
+            SetVisibleRange(-1, -1);
+            return new Size(
+                double.IsInfinity(availableSize.Width) ? _extent.Width : availableSize.Width,
+                double.IsInfinity(availableSize.Height) ? _extent.Height : availableSize.Height);
+        }
 
         RealizeRange(generator, first, last, new Size(itemWidth, itemHeight));
         SetVisibleRange(first, last);
@@ -128,8 +176,6 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var itemWidth = _itemSize.Width > 0 ? _itemSize.Width : 142;
-        var itemHeight = _itemSize.Height > 0 ? _itemSize.Height : 164;
         // IndexFromGeneratorPosition is an explicit interface implementation, so it is
         // only reachable through IItemContainerGenerator.
         var generator = (IItemContainerGenerator)ItemContainerGenerator;
@@ -138,21 +184,97 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         {
             var child = InternalChildren[i];
             var itemIndex = generator.IndexFromGeneratorPosition(new GeneratorPosition(i, 0));
-            if (itemIndex < 0) continue;
+            if (itemIndex < 0 || itemIndex >= _slots.Length) continue;
 
-            var row = itemIndex / _columns;
-            var col = itemIndex % _columns;
+            var slot = _slots[itemIndex];
 
             // Offsetting by the scroll position here is what makes this panel scroll:
             // children are placed in content space, shifted by the viewport.
-            child.Arrange(new Rect(
-                col * itemWidth,
-                row * itemHeight - _verticalOffset,
-                itemWidth,
-                itemHeight));
+            child.Arrange(new Rect(slot.X, slot.Y - _verticalOffset, slot.Width, slot.Height));
         }
 
         return finalSize;
+    }
+
+    /// <summary>
+    /// Builds the slot map: tiles flow left to right, and a section heading takes a row to
+    /// itself across the full width, ending whatever row was in progress. Rebuilt only when
+    /// one of its inputs changes, so scrolling stays free of per-frame O(n) work.
+    /// </summary>
+    private void EnsureSlots(ItemsControl owner, int itemCount, double itemWidth, double itemHeight,
+        double viewportWidth)
+    {
+        var headerHeight = HeaderHeight;
+
+        if (_slotCount == itemCount && _slotColumns == _columns
+            && Math.Abs(_slotItemWidth - itemWidth) < 0.5
+            && Math.Abs(_slotItemHeight - itemHeight) < 0.5
+            && Math.Abs(_slotHeaderHeight - headerHeight) < 0.5
+            && Math.Abs(_slotViewportWidth - viewportWidth) < 0.5)
+        {
+            return;
+        }
+
+        var slots = new Rect[itemCount];
+        var y = 0d;
+        var col = 0;
+
+        for (var i = 0; i < itemCount; i++)
+        {
+            if (owner.Items[i] is IGridGroupHeader)
+            {
+                // Close the part-filled row first, so a heading never lands beside tiles
+                // that belong to the previous day.
+                if (col > 0) { y += itemHeight; col = 0; }
+
+                slots[i] = new Rect(0, y, viewportWidth, headerHeight);
+                y += headerHeight;
+                continue;
+            }
+
+            slots[i] = new Rect(col * itemWidth, y, itemWidth, itemHeight);
+            if (++col < _columns) continue;
+            col = 0;
+            y += itemHeight;
+        }
+
+        if (col > 0) y += itemHeight;
+
+        _slots = slots;
+        _slotExtentHeight = y;
+        _slotCount = itemCount;
+        _slotColumns = _columns;
+        _slotItemWidth = itemWidth;
+        _slotItemHeight = itemHeight;
+        _slotHeaderHeight = headerHeight;
+        _slotViewportWidth = viewportWidth;
+    }
+
+    /// <summary>First slot whose bottom edge is at or below <paramref name="y"/>, or 0.</summary>
+    private int FirstSlotAtOrAfter(double y)
+    {
+        // Slots ascend in Y, so the first one still on screen can be bisected for.
+        int low = 0, high = _slots.Length - 1, found = _slots.Length;
+        while (low <= high)
+        {
+            var mid = (low + high) / 2;
+            if (_slots[mid].Bottom > y) { found = mid; high = mid - 1; }
+            else low = mid + 1;
+        }
+        return Math.Min(found, Math.Max(0, _slots.Length - 1));
+    }
+
+    /// <summary>Last slot that starts above <paramref name="y"/>, or -1 when none does.</summary>
+    private int LastSlotStartingBefore(double y)
+    {
+        int low = 0, high = _slots.Length - 1, found = -1;
+        while (low <= high)
+        {
+            var mid = (low + high) / 2;
+            if (_slots[mid].Y < y) { found = mid; low = mid + 1; }
+            else high = mid - 1;
+        }
+        return found;
     }
 
     /// <summary>
@@ -163,7 +285,20 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     {
         if (!_itemSize.IsEmpty) return;
 
-        var position = generator.GeneratorPositionFromIndex(0);
+        // Measure a tile, not a heading: with a date heading first in the list, measuring
+        // index 0 would take the full-width band as the uniform tile size and collapse the
+        // grid to a single column.
+        var owner = ItemsControl.GetItemsOwner(this);
+        var probeIndex = 0;
+        if (owner is not null)
+        {
+            while (probeIndex < owner.Items.Count && owner.Items[probeIndex] is IGridGroupHeader)
+                probeIndex++;
+
+            if (probeIndex >= owner.Items.Count) return; // headings only; nothing to measure
+        }
+
+        var position = generator.GeneratorPositionFromIndex(probeIndex);
         using (generator.StartAt(position, GeneratorDirection.Forward, true))
         {
             if (generator.GenerateNext(out var isNew) is not UIElement child) return;
@@ -205,7 +340,9 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
                 generator.PrepareItemContainer(child);
 
-                child.Measure(itemSize);
+                // Headings are a different shape from tiles, so each container is measured
+                // against its own slot rather than a single uniform size.
+                child.Measure(i < _slots.Length ? _slots[i].Size : itemSize);
             }
         }
 
@@ -257,6 +394,10 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             _itemSize = Size.Empty;
             _verticalOffset = 0;
         }
+
+        // Items moving, appearing or disappearing shifts every slot after them, and the
+        // count alone cannot detect a replacement, so drop the map outright.
+        _slotCount = -1;
 
         InvalidateMeasure();
     }
@@ -335,15 +476,15 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             index = generator.IndexFromGeneratorPosition(new GeneratorPosition(i, 0));
             break;
         }
-        if (index < 0) return rectangle;
+        if (index < 0 || index >= _slots.Length) return rectangle;
 
-        var row = index / Math.Max(1, _columns);
-        var top = row * LineHeight;
-        var bottom = top + LineHeight;
+        var slot = _slots[index];
+        var top = slot.Y;
+        var bottom = slot.Bottom;
 
         if (top < _verticalOffset) SetVerticalOffset(top);
         else if (bottom > _verticalOffset + _viewport.Height) SetVerticalOffset(bottom - _viewport.Height);
 
-        return new Rect(0, top - _verticalOffset, _itemSize.Width, LineHeight);
+        return new Rect(slot.X, top - _verticalOffset, slot.Width, slot.Height);
     }
 }

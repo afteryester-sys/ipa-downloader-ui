@@ -163,32 +163,55 @@
                                              mounted per iOS version and fails on a locked phone, whereas
                                              the wallpaper comes from SpringBoard, which any paired
                                              device answers. -->
-                                        <Border Width="46" Height="76" CornerRadius="11" Padding="3"
+                                        <!-- Sized and shaped from what the device reported, not fixed:
+                                             this used to be one 46x76 rounded rectangle with a pill, so
+                                             an iPad, an SE and a 17 Pro Max all drew as the same modern
+                                             iPhone. A mini now reads smaller than a Max and a tablet
+                                             reads as a tablet. -->
+                                        <Border Width="{Binding BodyWidth}" Height="{Binding BodyHeight}"
+                                                CornerRadius="{Binding BodyRadius}" Padding="{Binding BodyPadding}"
                                                 Background="{StaticResource Brush.SurfaceHover}"
                                                 BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
-                                                HorizontalAlignment="Left">
-                                            <!-- The screen, inset so the body around it reads as a bezel. -->
-                                            <Border CornerRadius="8" ClipToBounds="True"
-                                                    Background="{StaticResource Brush.AccentSoft}">
-                                                <Grid>
-                                                    <!-- Fallback outline, covered once the wallpaper loads. -->
-                                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
-                                                               Foreground="{StaticResource Brush.Accent}"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                HorizontalAlignment="Left" VerticalAlignment="Top">
+                                            <Grid>
+                                                <!-- The screen, inset so the body around it reads as a bezel. -->
+                                                <Border CornerRadius="{Binding ScreenRadius}" ClipToBounds="True"
+                                                        Background="{StaticResource Brush.AccentSoft}">
+                                                    <Grid>
+                                                        <!-- Fallback outline, covered once the wallpaper loads. -->
+                                                        <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                                                   Foreground="{StaticResource Brush.Accent}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                                                    <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
-                                                        <Border.Background>
-                                                            <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
-                                                        </Border.Background>
-                                                    </Border>
+                                                        <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
+                                                            <Border.Background>
+                                                                <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
+                                                            </Border.Background>
+                                                        </Border>
 
-                                                    <!-- Dynamic-island pill: the one detail that makes the
-                                                         shape read as a phone and not a rounded box. -->
-                                                    <Border Width="14" Height="4" CornerRadius="2" Margin="0,3,0,0"
-                                                            Background="{StaticResource Brush.Text}" Opacity="0.5"
-                                                            HorizontalAlignment="Center" VerticalAlignment="Top" />
-                                                </Grid>
-                                            </Border>
+                                                        <!-- Dynamic-island pill, iPhone 14 Pro onwards. -->
+                                                        <Border Width="14" Height="4" CornerRadius="2" Margin="0,3,0,0"
+                                                                Background="{StaticResource Brush.Text}" Opacity="0.5"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                                Visibility="{Binding HasDynamicIsland, Converter={StaticResource BoolToVis}}" />
+
+                                                        <!-- Notch, iPhone X through 14: cut into the top edge
+                                                             rather than floating below it, which is what
+                                                             separates it from the pill at this size. -->
+                                                        <Border Width="18" Height="5" CornerRadius="0,0,3,3"
+                                                                Background="{StaticResource Brush.Text}" Opacity="0.5"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                                Visibility="{Binding HasNotch, Converter={StaticResource BoolToVis}}" />
+                                                    </Grid>
+                                                </Border>
+
+                                                <!-- Home button, sitting in the lower bezel outside the screen
+                                                     — which is why the body pads out further on these models. -->
+                                                <Ellipse Width="7" Height="7" Margin="0,0,0,-6"
+                                                         Stroke="{StaticResource Brush.Border}" StrokeThickness="1"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                                         Visibility="{Binding HasHomeButton, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
                                         </Border>
                                         <!-- Connection state and transport, side by side in one row so the
                                              two badges cannot overlap as either label changes length between

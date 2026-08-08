@@ -32,6 +32,11 @@ public partial class MainWindow : Window
 
         shell.PropertyChanged += OnShellPropertyChanged;
         shell.OperationMinimized += (_, _) => PlayMinimizeAnimation();
+
+        // Begin looking for updates on our own. Started from the window rather than the
+        // view model's constructor so the timer belongs to the UI thread that will run its
+        // ticks; the call is idempotent, which this hook needs since it can run again.
+        shell.Updater.StartAutoCheck();
     }
 
     /// <summary>
@@ -45,7 +50,7 @@ public partial class MainWindow : Window
     {
         var pop = new DoubleAnimationUsingKeyFrames();
         pop.KeyFrames.Add(new EasingDoubleKeyFrame(0.6, KeyTime.FromTimeSpan(TimeSpan.Zero)));
-        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.18, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180)),
+        pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.10, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(180)),
             new CubicEase { EasingMode = EasingMode.EaseOut }));
         pop.KeyFrames.Add(new EasingDoubleKeyFrame(1.0, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(320)),
             new CubicEase { EasingMode = EasingMode.EaseOut }));

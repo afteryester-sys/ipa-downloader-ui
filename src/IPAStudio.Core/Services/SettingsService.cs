@@ -160,6 +160,14 @@ public sealed class AppSettings
     public double CatalogTileSize { get; set; } = 132;
 
     /// <summary>
+    /// Thumbnail tile edge on the photos page, with the same clamp-on-load contract. Kept
+    /// apart from the app-tile sizes: a camera roll is scanned by eye, so the size that
+    /// suits picking one shot out of hundreds has nothing to do with the size that suits
+    /// reading app names.
+    /// </summary>
+    public double PhotoTileSize { get; set; } = 130;
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.

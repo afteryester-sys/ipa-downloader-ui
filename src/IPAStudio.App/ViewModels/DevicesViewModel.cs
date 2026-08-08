@@ -60,11 +60,79 @@ public sealed partial class DeviceViewModel : ObservableObject
     public string OsVersion => Device.OsVersion;
     public string DeviceClass => Device.DeviceClass;
 
+    /// <summary>
+    /// The shape this device is drawn as, looked up from what it reported about itself. The card
+    /// used to draw one fixed rounded rectangle with a pill, so an iPad and an SE both came out
+    /// as a modern iPhone; the frame now follows the actual hardware.
+    /// </summary>
+    private DeviceSilhouette Silhouette => DeviceModels.Silhouette(Device.ProductType, Device.DeviceClass);
+
+    /// <summary>
+    /// Frame height in pixels. Tablets are scaled down harder than phones on purpose: at one
+    /// shared scale an iPad would either dwarf the card or shrink every phone to a sliver, and
+    /// the frame is there to be recognised, not to be a measuring stick between families.
+    /// </summary>
+    public double BodyHeight => Math.Round(Silhouette.HeightMm * (Silhouette.IsTablet ? 0.30 : 0.53));
+
+    /// <summary>Frame width, on the same scale as <see cref="BodyHeight"/>.</summary>
+    public double BodyWidth => Math.Round(Silhouette.WidthMm * (Silhouette.IsTablet ? 0.30 : 0.53));
+
+    /// <summary>
+    /// Body corner rounding, scaled like the body but with a floor: below about 3px a corner
+    /// stops reading as rounded at all, which would make an iPhone 4 look like a cut rectangle.
+    /// </summary>
+    public double BodyRadius => Math.Max(3, Math.Round(Silhouette.CornerRadiusMm * (Silhouette.IsTablet ? 0.30 : 0.53)));
+
+    /// <summary>
+    /// Bezel thickness. Home-button devices get a much thicker frame because that top and bottom
+    /// band is the whole visual difference between them and an edge-to-edge phone.
+    /// </summary>
+    public Thickness BodyPadding => Silhouette.Front switch
+    {
+        DeviceFront.HomeButton => new Thickness(2, 7, 2, 7),
+        DeviceFront.TabletHomeButton => new Thickness(3, 9, 3, 9),
+        _ => new Thickness(3),
+    };
+
+    /// <summary>Screen rounding: square-ish inside a home-button body, softened on the rest.</summary>
+    public double ScreenRadius => Silhouette.Front switch
+    {
+        DeviceFront.HomeButton or DeviceFront.TabletHomeButton => 2,
+        _ => Math.Max(3, BodyRadius - 3),
+    };
+
+    /// <summary>True for iPhone 14 Pro and later: draw the pill.</summary>
+    public bool HasDynamicIsland => Silhouette.Front is DeviceFront.DynamicIsland;
+
+    /// <summary>True for iPhone X through 14: draw the notch.</summary>
+    public bool HasNotch => Silhouette.Front is DeviceFront.Notch;
+
+    /// <summary>True where a round home button belongs under the screen.</summary>
+    public bool HasHomeButton => Silhouette.Front is DeviceFront.HomeButton or DeviceFront.TabletHomeButton;
+
     public DeviceViewModel(Device device)
     {
         Device = device;
         _batteryLevel = device.BatteryLevel;
         _isNetworkLink = device.IsNetworkLink;
+    }
+
+    /// <summary>
+    /// Re-reads the shape after the device reports more about itself. A locked phone answers with
+    /// its class first and its product type a moment later, so the first lookup can only produce
+    /// a generic frame — without this the card would keep it for the whole session.
+    /// </summary>
+    public void RefreshSilhouette()
+    {
+        OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(BodyHeight));
+        OnPropertyChanged(nameof(BodyWidth));
+        OnPropertyChanged(nameof(BodyRadius));
+        OnPropertyChanged(nameof(BodyPadding));
+        OnPropertyChanged(nameof(ScreenRadius));
+        OnPropertyChanged(nameof(HasDynamicIsland));
+        OnPropertyChanged(nameof(HasNotch));
+        OnPropertyChanged(nameof(HasHomeButton));
     }
 
     /// <summary>
@@ -125,6 +193,7 @@ public sealed partial class DeviceViewModel : ObservableObject
     {
         BatteryLevel = Device.BatteryLevel;
         IsNetworkLink = Device.IsNetworkLink;
+        RefreshSilhouette();
     }
 }
 

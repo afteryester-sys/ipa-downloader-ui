@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Controls;
 using IPAStudio.App.Infrastructure;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
@@ -21,6 +23,12 @@ namespace IPAStudio.App.ViewModels;
 public sealed partial class PhotoItemViewModel : ObservableObject
 {
     public PhotoItem Item { get; }
+
+    /// <summary>
+    /// Always false. Present so one container style can serve both tiles and the date bands
+    /// they sit under, which share the grid's item collection.
+    /// </summary>
+    public bool IsGroupHeader => false;
 
     [ObservableProperty]
     private bool _isSelected;
@@ -108,6 +116,28 @@ public sealed partial class PhotoItemViewModel : ObservableObject
 }
 
 /// <summary>
+/// A date band shown across the grid above the shots taken that day.
+///
+/// It lives in the same item collection as the tiles rather than using WPF grouping, because
+/// <see cref="Controls.VirtualizingWrapPanel"/> owns its own scrolling and virtualisation —
+/// switching to a GroupStyle would have meant giving that up and building a container per
+/// photo again.
+/// </summary>
+public sealed partial class PhotoDateGroupViewModel : ObservableObject, IGridGroupHeader
+{
+    /// <summary>"Today", "Yesterday", or the date written out.</summary>
+    public string Title { get; }
+
+    /// <summary>How many items fall under this heading.</summary>
+    [ObservableProperty]
+    private int _count;
+
+    public bool IsGroupHeader => true;
+
+    public PhotoDateGroupViewModel(string title) => Title = title;
+}
+
+/// <summary>
 /// One album tile: a cover picture, a title and how many items it holds.
 ///
 /// An album is defined by a predicate rather than by a stored list, because most of these
@@ -165,6 +195,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// <summary>Where photo transfers register themselves so they survive leaving the page.</summary>
     private readonly OperationService _operations;
 
+    /// <summary>Holds the persisted thumbnail tile size across visits.</summary>
+    private readonly SettingsService _settings;
+
     private INavigator? _navigator;
     private Device? _device;
     private CancellationTokenSource? _cts;
@@ -212,6 +245,16 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// </summary>
     public BulkObservableCollection<PhotoItemViewModel> Photos { get; } = new();
     public ICollectionView PhotosView { get; }
+
+    /// <summary>
+    /// What the tile grid binds to: the same photos in <see cref="PhotosView"/> order, with a
+    /// <see cref="PhotoDateGroupViewModel"/> inserted wherever the day changes.
+    ///
+    /// The grid needs its own collection because the headings have to be real items for the
+    /// panel to lay out and virtualise, while the list view and every selection command still
+    /// want photos only.
+    /// </summary>
+    public ObservableCollection<object> GridEntries { get; } = new();
 
     /// <summary>
     /// Album tiles shown before the photos themselves, the way a phone gallery opens.
@@ -317,6 +360,33 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private double _albumNamesProgress;
 
+    // ─────────────────────── thumbnail tile size ───────────────────────
+
+    /// <summary>Narrowest tile that still fits a file name and its size underneath.</summary>
+    public const double MinTileSize = 96;
+
+    /// <summary>Widest tile worth offering; past this the grid stops being a contact sheet.</summary>
+    public const double MaxTileSize = 220;
+
+    /// <summary>
+    /// Thumbnail tile edge. Persisted, because how large the user likes their contact sheet
+    /// is a standing preference rather than a per-visit choice.
+    /// </summary>
+    [ObservableProperty]
+    private double _tileSize;
+
+    /// <summary>Thumbnail box edge, slightly shorter than the tile so photos stay landscape-ish.</summary>
+    public double ThumbHeight => Math.Max(60, TileSize - 20);
+
+    partial void OnTileSizeChanged(double value)
+    {
+        OnPropertyChanged(nameof(ThumbHeight));
+
+        // Held in the settings object on every tick of the slider but flushed to disk only
+        // when the page is left, so dragging it does not write the file dozens of times.
+        _settings.Current.PhotoTileSize = value;
+    }
+
     public bool IsGridView => !IsListView;
 
     /// <summary>True while the photos are shown, i.e. an album is open.</summary>
@@ -347,11 +417,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     private CancellationTokenSource? _thumbCts;
 
-    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache, OperationService operations)
+    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache, OperationService operations,
+        SettingsService settings)
     {
         _photos = photos;
         _thumbCache = thumbCache;
         _operations = operations;
+        _settings = settings;
+
+        _tileSize = Math.Clamp(settings.Current.PhotoTileSize, MinTileSize, MaxTileSize);
 
         // Built here rather than in a field initializer because the labels come from the
         // active language dictionary, and the filter compares the selection against the
@@ -362,6 +436,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
         PhotosView = CollectionViewSource.GetDefaultView(Photos);
         PhotosView.Filter = Filter;
+
+        // Regrouping is driven off the view rather than called from each place that changes
+        // it: filtering, reloading and the newest-first re-sort all end in a view refresh, so
+        // one subscription keeps the date bands correct without every caller remembering to.
+        if (PhotosView is INotifyCollectionChanged incc)
+            incc.CollectionChanged += (_, _) => RebuildGridEntries();
 
         // After PhotosView exists: the setter notifies, and the handler refreshes the view.
         SelectedMediaType = MediaTypes[0];
@@ -387,6 +467,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     {
         _navigator = navigator;
         DeviceName = _device?.Name ?? "";
+
+        // Returning to a transfer that is still running must not rescan: the reload clears
+        // every row (and the selection) out from under work that is mid-flight, so coming
+        // back to watch the progress would be what destroyed the list it reports on.
+        if (IsTransferring && Photos.Count > 0) return;
+
         _ = LoadAsync();
     }
 
@@ -865,6 +951,85 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             // Sizes and dates are cosmetic — a mid-pass disconnect leaves the
             // placeholders in place rather than tearing down a working grid.
         }
+    }
+
+    /// <summary>True while a regroup is already queued, so a burst collapses into one pass.</summary>
+    private bool _gridRebuildQueued;
+
+    /// <summary>
+    /// Queues a rebuild of <see cref="GridEntries"/> at background priority.
+    ///
+    /// Coalescing matters because listing a roll adds items one at a time and each add raises
+    /// a collection change: rebuilding synchronously would make loading quadratic, which on a
+    /// few thousand photos is the difference between instant and a stalled window.
+    /// </summary>
+    private void RebuildGridEntries()
+    {
+        if (_gridRebuildQueued) return;
+        _gridRebuildQueued = true;
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
+        {
+            _gridRebuildQueued = false;
+            return;
+        }
+
+        dispatcher.BeginInvoke(new Action(() =>
+        {
+            _gridRebuildQueued = false;
+            RebuildGridEntriesCore();
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Walks the view in display order and rewrites the grid's items, opening a new date band
+    /// whenever the day changes. Relies on the view already being newest-first, so a day is
+    /// contiguous and one pass is enough.
+    /// </summary>
+    private void RebuildGridEntriesCore()
+    {
+        GridEntries.Clear();
+
+        PhotoDateGroupViewModel? group = null;
+        DateTime? currentDay = null;
+
+        foreach (var entry in PhotosView)
+        {
+            if (entry is not PhotoItemViewModel photo) continue;
+
+            var day = photo.Item.ModifiedUtc?.LocalDateTime.Date;
+
+            if (group is null || day != currentDay)
+            {
+                group = new PhotoDateGroupViewModel(FormatDayHeading(day));
+                currentDay = day;
+                GridEntries.Add(group);
+            }
+
+            group.Count++;
+            GridEntries.Add(photo);
+        }
+    }
+
+    /// <summary>
+    /// Names a day the way someone would say it: today and yesterday by name, everything else
+    /// as a written-out date. Items whose date the device has not reported yet are gathered
+    /// under one "date unknown" band instead of being scattered.
+    /// </summary>
+    private static string FormatDayHeading(DateTime? day)
+    {
+        if (day is null) return Loc.Get("L.Photos.NoDate");
+
+        var today = DateTime.Today;
+        if (day.Value == today) return Loc.Get("L.Photos.Today");
+        if (day.Value == today.AddDays(-1)) return Loc.Get("L.Photos.Yesterday");
+
+        // Year dropped for the current year: "8 August" reads better than "8 August 2026"
+        // when every heading would repeat it.
+        return day.Value.Year == today.Year
+            ? day.Value.ToString("d MMMM")
+            : day.Value.ToString("d MMMM yyyy");
     }
 
     /// <summary>Newest first, falling back to file name so the order stays stable.</summary>
@@ -1476,6 +1641,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// Returns items of a single kind (all HEIC or all JPEG) so the caller can use one
     /// read size per AFC session.
     /// </summary>
+    /// <summary>
+    /// The item sequence the reported visible indices refer to: the grid's entries (photos
+    /// interleaved with date bands) or, in list mode, the plain view.
+    /// </summary>
+    private System.Collections.IEnumerable VisibleEntries => IsListView ? PhotosView : GridEntries;
+
     private List<PhotoItemViewModel> NextThumbnailBatch()
     {
         var result = new List<PhotoItemViewModel>();
@@ -1492,12 +1663,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         // would be O(total photos) on every batch.
         bool? wantHeic = null;
         var index = -1;
-        foreach (PhotoItemViewModel item in PhotosView)
+
+        // Walked over whatever the visible panel is showing, because the indices came from
+        // that panel: in grid mode the date bands occupy positions of their own, so counting
+        // photos only would drift further out of step with every heading passed and start
+        // fetching thumbnails for rows nowhere near the viewport.
+        foreach (var entry in VisibleEntries)
         {
             index++;
             if (index < first) continue;
             if (index > last) break;
 
+            if (entry is not PhotoItemViewModel item) continue;
             if (item.Thumbnail is not null || item.ThumbnailAttempted) continue;
 
             // Videos join any batch instead of being skipped. They used to be excluded
@@ -1719,6 +1896,41 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Steps back one level rather than always leaving the page: inside an album that means
+    /// the album grid, which is what the header arrow appears to promise. Previously it went
+    /// straight to the device list, so with an album open there were two controls side by
+    /// side that looked like "back" and did different things, and the album grid could only
+    /// be reached through the one that was not labelled as back.
+    /// </summary>
     [RelayCommand]
-    private void Back() => _navigator?.GoTo(Page.Devices);
+    private void Back()
+    {
+        if (IsPhotoMode)
+        {
+            ShowAlbums();
+            return;
+        }
+
+        GoHome();
+    }
+
+    /// <summary>Leaves for the device list from anywhere, without stepping out album by album.</summary>
+    [RelayCommand]
+    private void GoHome()
+    {
+        SaveViewPreferences();
+        _navigator?.GoTo(Page.Devices);
+    }
+
+    /// <summary>
+    /// Flushes the tile size to disk. Deferred to leaving the page because the slider raises
+    /// a change per tick, and writing the settings file on each one would mean dozens of
+    /// writes for a single drag.
+    /// </summary>
+    private void SaveViewPreferences()
+    {
+        try { _settings.Save(); }
+        catch (Exception ex) { AppLog.Warn($"Could not save the photo view preference: {ex.Message}"); }
+    }
 }

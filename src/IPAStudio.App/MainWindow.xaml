@@ -422,8 +422,11 @@
              chrome rather than floating over page content at the bottom. Hidden entirely
              until there is an operation, keeping the window unchanged for anyone who leaves
              multitasking off. -->
+        <!-- The pop animation scales this about its centre, so it needs clearance on every
+             side: at 8px from the top the grown ring ran off the window edge and the circle
+             came out visibly sliced. ClipToBounds stays off for the same reason. -->
         <Grid x:Name="OpsCorner" HorizontalAlignment="Right" VerticalAlignment="Top"
-              Margin="0,8,50,0" Panel.ZIndex="20"
+              Margin="0,13,50,0" Panel.ZIndex="20" ClipToBounds="False"
               DataContext="{Binding Operations}"
               Visibility="{Binding HasOperations, Converter={StaticResource BoolToVis}}">
             <Grid.RenderTransform>

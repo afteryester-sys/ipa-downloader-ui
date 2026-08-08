@@ -532,6 +532,10 @@
     <!-- Фото -->
     <sys:String x:Key="L.Photos.Hidden">Скрытые</sys:String>
     <sys:String x:Key="L.Photos.NoAlbum">Без альбома</sys:String>
+    <sys:String x:Key="L.Photos.Today">Сегодня</sys:String>
+    <sys:String x:Key="L.Photos.Yesterday">Вчера</sys:String>
+    <sys:String x:Key="L.Photos.NoDate">Дата неизвестна</sys:String>
+    <sys:String x:Key="L.Photos.TileSize">Размер плитки</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>
     <sys:String x:Key="L.Photos.LoadingAlbums">Читаем названия альбомов с устройства. Медленно только в первый раз — дальше они берутся из кэша. Фото уже можно смотреть.</sys:String>
     <sys:String x:Key="L.Photos.Albums.All">Все фото</sys:String>

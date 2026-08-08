@@ -532,6 +532,10 @@
     <!-- Photos -->
     <sys:String x:Key="L.Photos.Hidden">Hidden</sys:String>
     <sys:String x:Key="L.Photos.NoAlbum">Not in an album</sys:String>
+    <sys:String x:Key="L.Photos.Today">Today</sys:String>
+    <sys:String x:Key="L.Photos.Yesterday">Yesterday</sys:String>
+    <sys:String x:Key="L.Photos.NoDate">Date unknown</sys:String>
+    <sys:String x:Key="L.Photos.TileSize">Tile size</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
     <sys:String x:Key="L.Photos.LoadingAlbums">Reading album names from the device. Only the first time is slow — after that they come from the cache. The photos are already usable.</sys:String>
     <sys:String x:Key="L.Photos.Albums.All">All photos</sys:String>
