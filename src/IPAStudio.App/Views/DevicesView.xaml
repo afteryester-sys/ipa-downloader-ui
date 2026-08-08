@@ -146,73 +146,49 @@
                                 <Grid>
                                 <StackPanel>
                                     <Grid Margin="0,0,0,12">
-                                        <!-- The device, drawn as a phone: a body in the card's own
-                                             colours with this phone's wallpaper as its screen. The
-                                             wallpaper is what tells two devices of the same model apart,
-                                             which a generic outline icon could never do.
+                                        <!-- The device as line art, shaped from what it reported about
+                                             itself: a mini is narrower than a Max, a tablet is wider than
+                                             both, and the notch, pill or home button says which era it is
+                                             from. Geometry comes from DeviceOutlines, so the millimetre
+                                             table is the single source for both the name and the drawing.
 
-                                             Deliberately the wallpaper alone. A mosaic of real app icons
-                                             used to be laid over it, and at eight pixels a square they
-                                             read as a smear of colour rather than as a home screen - the
-                                             frame looked broken instead of recognisable, and it cost a
-                                             SpringBoard round-trip per icon on every connect. The
-                                             wallpaper carries the same "this is my phone" signal on its
-                                             own, for one request.
+                                             This replaced a filled frame showing the phone's own wallpaper.
+                                             The wallpaper did tell two identical models apart, but it cost
+                                             a SpringBoard round-trip per device on every connect, came back
+                                             empty on a locked phone often enough to need a "why not" note
+                                             on the card, and put a photograph where the rest of the UI is
+                                             flat single-colour iconography. One stroke in the theme's text
+                                             colour sits with the toolbar glyphs instead.
 
-                                             Not a screen capture - that needs the Developer Disk Image
-                                             mounted per iOS version and fails on a locked phone, whereas
-                                             the wallpaper comes from SpringBoard, which any paired
-                                             device answers. -->
-                                        <!-- Sized and shaped from what the device reported, not fixed:
-                                             this used to be one 46x76 rounded rectangle with a pill, so
-                                             an iPad, an SE and a 17 Pro Max all drew as the same modern
-                                             iPhone. A mini now reads smaller than a Max and a tablet
-                                             reads as a tablet. -->
-                                        <Border Width="{Binding BodyWidth}" Height="{Binding BodyHeight}"
-                                                CornerRadius="{Binding BodyRadius}" Padding="{Binding BodyPadding}"
-                                                Background="{StaticResource Brush.SurfaceHover}"
-                                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
-                                                HorizontalAlignment="Left" VerticalAlignment="Top">
-                                            <Grid>
-                                                <!-- The screen, inset so the body around it reads as a bezel. -->
-                                                <Border CornerRadius="{Binding ScreenRadius}" ClipToBounds="True"
-                                                        Background="{StaticResource Brush.AccentSoft}">
-                                                    <Grid>
-                                                        <!-- Fallback outline, covered once the wallpaper loads. -->
-                                                        <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
-                                                                   Foreground="{StaticResource Brush.Accent}"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                             All shapes are drawn in one 64x88 box scaled by the Viewbox,
+                                             which is what lets relative size carry the model. -->
+                                        <Viewbox Width="56" Height="77" Stretch="Uniform"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Top">
+                                            <Canvas Width="64" Height="88">
+                                                <Path Data="{Binding OutlineBody}"
+                                                      Stroke="{StaticResource Brush.Text}" StrokeThickness="2"
+                                                      StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round" Opacity="0.75" />
 
-                                                        <Border Visibility="{Binding Wallpaper, Converter={StaticResource NullToCollapsed}}">
-                                                            <Border.Background>
-                                                                <ImageBrush ImageSource="{Binding Wallpaper}" Stretch="UniformToFill" />
-                                                            </Border.Background>
-                                                        </Border>
+                                                <!-- Screen and home button: thinner and dimmer so they stay
+                                                     detail inside the body rather than a second outline
+                                                     competing with it. Both bind to null on edge-to-edge
+                                                     models, which draws nothing. -->
+                                                <Path Data="{Binding OutlineScreen}"
+                                                      Stroke="{StaticResource Brush.Text}" StrokeThickness="1.5"
+                                                      StrokeLineJoin="Round" Opacity="0.4" />
+                                                <Path Data="{Binding OutlineHomeButton}"
+                                                      Stroke="{StaticResource Brush.Text}" StrokeThickness="1.5"
+                                                      Opacity="0.5" />
 
-                                                        <!-- Dynamic-island pill, iPhone 14 Pro onwards. -->
-                                                        <Border Width="14" Height="4" CornerRadius="2" Margin="0,3,0,0"
-                                                                Background="{StaticResource Brush.Text}" Opacity="0.5"
-                                                                HorizontalAlignment="Center" VerticalAlignment="Top"
-                                                                Visibility="{Binding HasDynamicIsland, Converter={StaticResource BoolToVis}}" />
-
-                                                        <!-- Notch, iPhone X through 14: cut into the top edge
-                                                             rather than floating below it, which is what
-                                                             separates it from the pill at this size. -->
-                                                        <Border Width="18" Height="5" CornerRadius="0,0,3,3"
-                                                                Background="{StaticResource Brush.Text}" Opacity="0.5"
-                                                                HorizontalAlignment="Center" VerticalAlignment="Top"
-                                                                Visibility="{Binding HasNotch, Converter={StaticResource BoolToVis}}" />
-                                                    </Grid>
-                                                </Border>
-
-                                                <!-- Home button, sitting in the lower bezel outside the screen
-                                                     — which is why the body pads out further on these models. -->
-                                                <Ellipse Width="7" Height="7" Margin="0,0,0,-6"
-                                                         Stroke="{StaticResource Brush.Border}" StrokeThickness="1"
-                                                         HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                                                         Visibility="{Binding HasHomeButton, Converter={StaticResource BoolToVis}}" />
-                                            </Grid>
-                                        </Border>
+                                                <!-- Filled, not stroked: a hollow pill this small turns to
+                                                     mush, and the same goes for the camera dot. -->
+                                                <Path Data="{Binding OutlineIsland}"
+                                                      Fill="{StaticResource Brush.Text}" Opacity="0.6" />
+                                                <Path Data="{Binding OutlineCamera}"
+                                                      Fill="{StaticResource Brush.Text}" Opacity="0.6" />
+                                            </Canvas>
+                                        </Viewbox>
                                         <!-- Connection state and transport, side by side in one row so the
                                              two badges cannot overlap as either label changes length between
                                              languages. -->
@@ -260,14 +236,6 @@
                                     <TextBlock Style="{StaticResource Text.Caption}" Margin="0,2,0,0">
                                         <Run Text="{Binding Model, Mode=OneWay}" /> · iOS <Run Text="{Binding OsVersion, Mode=OneWay}" />
                                     </TextBlock>
-
-                                    <!-- Why the home screen preview is missing, stated on the card. Without
-                                         it a failed fetch looks exactly like a device with a plain
-                                         wallpaper, and the difference could only be found in the log. -->
-                                    <TextBlock Text="{Binding PreviewNote}"
-                                               Style="{StaticResource Text.Caption}"
-                                               Margin="0,6,0,0" TextWrapping="Wrap"
-                                               Visibility="{Binding HasPreviewNote, Converter={StaticResource BoolToVis}}" />
 
                                     <!-- Battery -->
                                     <Grid Margin="0,14,0,0">

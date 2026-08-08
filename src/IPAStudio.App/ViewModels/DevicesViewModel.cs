@@ -1,7 +1,7 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Windows;
-using System.Windows.Media.Imaging;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.Core.Diagnostics;
@@ -33,28 +33,6 @@ public sealed partial class DeviceViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNetworkLink;
 
-    /// <summary>
-    /// The device's own home screen wallpaper, shown inside a phone-shaped frame on the card so
-    /// two phones of the same model are told apart at a glance instead of being two identical
-    /// tiles. Null until it has been fetched, and stays null when the device will not give it up
-    /// — the card is designed to look finished either way.
-    /// </summary>
-    [ObservableProperty]
-    private BitmapImage? _wallpaper;
-
-    /// <summary>
-    /// Why the home screen preview is missing, for the tile to show. Without this the failure is
-    /// indistinguishable from a device that simply has a plain wallpaper, which left no way to
-    /// tell a broken fetch from a working one without reading the log.
-    /// </summary>
-    [ObservableProperty]
-    private string? _previewNote;
-
-    /// <summary>True once a preview attempt has finished and produced no wallpaper.</summary>
-    public bool HasPreviewNote => !string.IsNullOrEmpty(PreviewNote);
-
-    partial void OnPreviewNoteChanged(string? value) => OnPropertyChanged(nameof(HasPreviewNote));
-
     public string Name => Device.Name;
     public string Model => Device.Model;
     public string OsVersion => Device.OsVersion;
@@ -67,48 +45,22 @@ public sealed partial class DeviceViewModel : ObservableObject
     /// </summary>
     private DeviceSilhouette Silhouette => DeviceModels.Silhouette(Device.ProductType, Device.DeviceClass);
 
-    /// <summary>
-    /// Frame height in pixels. Tablets are scaled down harder than phones on purpose: at one
-    /// shared scale an iPad would either dwarf the card or shrink every phone to a sliver, and
-    /// the frame is there to be recognised, not to be a measuring stick between families.
-    /// </summary>
-    public double BodyHeight => Math.Round(Silhouette.HeightMm * (Silhouette.IsTablet ? 0.30 : 0.53));
+    /// <summary>Body outline, with the notch already cut into it where the model has one.</summary>
+    public Geometry OutlineBody => Outline.Body;
 
-    /// <summary>Frame width, on the same scale as <see cref="BodyHeight"/>.</summary>
-    public double BodyWidth => Math.Round(Silhouette.WidthMm * (Silhouette.IsTablet ? 0.30 : 0.53));
+    /// <summary>Inner screen rectangle, null on edge-to-edge models.</summary>
+    public Geometry? OutlineScreen => Outline.Screen;
 
-    /// <summary>
-    /// Body corner rounding, scaled like the body but with a floor: below about 3px a corner
-    /// stops reading as rounded at all, which would make an iPhone 4 look like a cut rectangle.
-    /// </summary>
-    public double BodyRadius => Math.Max(3, Math.Round(Silhouette.CornerRadiusMm * (Silhouette.IsTablet ? 0.30 : 0.53)));
+    /// <summary>Dynamic Island pill, null unless this is an iPhone 14 Pro or later.</summary>
+    public Geometry? OutlineIsland => Outline.Island;
 
-    /// <summary>
-    /// Bezel thickness. Home-button devices get a much thicker frame because that top and bottom
-    /// band is the whole visual difference between them and an edge-to-edge phone.
-    /// </summary>
-    public Thickness BodyPadding => Silhouette.Front switch
-    {
-        DeviceFront.HomeButton => new Thickness(2, 7, 2, 7),
-        DeviceFront.TabletHomeButton => new Thickness(3, 9, 3, 9),
-        _ => new Thickness(3),
-    };
+    /// <summary>Front-camera dot, null on anything but a tablet.</summary>
+    public Geometry? OutlineCamera => Outline.Camera;
 
-    /// <summary>Screen rounding: square-ish inside a home-button body, softened on the rest.</summary>
-    public double ScreenRadius => Silhouette.Front switch
-    {
-        DeviceFront.HomeButton or DeviceFront.TabletHomeButton => 2,
-        _ => Math.Max(3, BodyRadius - 3),
-    };
+    /// <summary>Home button, null on edge-to-edge models.</summary>
+    public Geometry? OutlineHomeButton => Outline.HomeButton;
 
-    /// <summary>True for iPhone 14 Pro and later: draw the pill.</summary>
-    public bool HasDynamicIsland => Silhouette.Front is DeviceFront.DynamicIsland;
-
-    /// <summary>True for iPhone X through 14: draw the notch.</summary>
-    public bool HasNotch => Silhouette.Front is DeviceFront.Notch;
-
-    /// <summary>True where a round home button belongs under the screen.</summary>
-    public bool HasHomeButton => Silhouette.Front is DeviceFront.HomeButton or DeviceFront.TabletHomeButton;
+    private ParsedOutline Outline => ParsedOutline.For(Silhouette);
 
     public DeviceViewModel(Device device)
     {
@@ -125,68 +77,11 @@ public sealed partial class DeviceViewModel : ObservableObject
     public void RefreshSilhouette()
     {
         OnPropertyChanged(nameof(Model));
-        OnPropertyChanged(nameof(BodyHeight));
-        OnPropertyChanged(nameof(BodyWidth));
-        OnPropertyChanged(nameof(BodyRadius));
-        OnPropertyChanged(nameof(BodyPadding));
-        OnPropertyChanged(nameof(ScreenRadius));
-        OnPropertyChanged(nameof(HasDynamicIsland));
-        OnPropertyChanged(nameof(HasNotch));
-        OnPropertyChanged(nameof(HasHomeButton));
-    }
-
-    /// <summary>
-    /// Fetches the device's wallpaper in the background, which is the whole of the preview.
-    /// Fire-and-forget by design: decoration must never delay a device appearing in the list,
-    /// and any failure just leaves the card plain with a short note saying why.
-    /// </summary>
-    public async Task LoadWallpaperAsync(InstallService install)
-    {
-        try
-        {
-            // SpringBoard often refuses the very first connection right after attach, while it is
-            // still bringing services up. A couple of spaced retries turn the common "no image on
-            // a freshly plugged phone" into a preview that simply arrives a moment later. This was
-            // the reason the wallpaper looked like it never loaded.
-            byte[]? png = null;
-            for (var attempt = 0; attempt < 3 && (png is null || png.Length == 0); attempt++)
-            {
-                if (attempt > 0) await Task.Delay(1200).ConfigureAwait(true);
-                png = await install.GetHomeScreenWallpaperAsync(Device.Udid).ConfigureAwait(true);
-            }
-
-            if (png is null || png.Length == 0)
-            {
-                PreviewNote = Loc.Get("L.Devices.Preview.Locked");
-                AppLog.Info($"devices: no wallpaper for {Device.Name} after retries");
-                return;
-            }
-
-            Wallpaper = DecodeCard(png, 320);
-        }
-        catch (Exception ex)
-        {
-            PreviewNote = Loc.Get("L.Devices.Preview.Failed");
-            AppLog.Info($"devices: no wallpaper for {Device.Name} ({ex.Message})");
-        }
-    }
-
-    /// <summary>
-    /// Decodes PNG bytes to a frozen bitmap at roughly its on-card size, so a full-resolution
-    /// wallpaper does not cost several megabytes of bitmap per device. Frozen so it can be
-    /// handed to the UI thread from here.
-    /// </summary>
-    private static BitmapImage DecodeCard(byte[] png, int width)
-    {
-        using var stream = new MemoryStream(png, writable: false);
-        var image = new BitmapImage();
-        image.BeginInit();
-        image.CacheOption = BitmapCacheOption.OnLoad;
-        image.DecodePixelWidth = width;
-        image.StreamSource = stream;
-        image.EndInit();
-        image.Freeze();
-        return image;
+        OnPropertyChanged(nameof(OutlineBody));
+        OnPropertyChanged(nameof(OutlineScreen));
+        OnPropertyChanged(nameof(OutlineIsland));
+        OnPropertyChanged(nameof(OutlineCamera));
+        OnPropertyChanged(nameof(OutlineHomeButton));
     }
 
     public void Refresh()
@@ -194,6 +89,40 @@ public sealed partial class DeviceViewModel : ObservableObject
         BatteryLevel = Device.BatteryLevel;
         IsNetworkLink = Device.IsNetworkLink;
         RefreshSilhouette();
+    }
+}
+
+/// <summary>
+/// One device outline with its path strings already parsed into frozen WPF geometry.
+///
+/// Cached per shape, not per device: the silhouette table hands out one shared instance per
+/// distinct outline, so ten iPhones of the same model parse once between them. Frozen so the
+/// same geometry can be shared across cards without WPF cloning it for each one.
+/// </summary>
+internal sealed record ParsedOutline(
+    Geometry Body,
+    Geometry? Screen,
+    Geometry? Island,
+    Geometry? Camera,
+    Geometry? HomeButton)
+{
+    private static readonly ConcurrentDictionary<DeviceSilhouette, ParsedOutline> Cache = new();
+
+    public static ParsedOutline For(DeviceSilhouette silhouette) =>
+        Cache.GetOrAdd(silhouette, static s =>
+        {
+            var g = DeviceOutlines.For(s);
+            return new ParsedOutline(Parse(g.Body)!, Parse(g.Screen), Parse(g.Island),
+                                     Parse(g.Camera), Parse(g.HomeButton));
+        });
+
+    private static Geometry? Parse(string? data)
+    {
+        if (string.IsNullOrEmpty(data)) return null;
+
+        var geometry = Geometry.Parse(data);
+        geometry.Freeze();
+        return geometry;
     }
 }
 
@@ -337,10 +266,6 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
             var vm = new DeviceViewModel(device) { JustConnected = true };
             Devices.Add(vm);
             HasDevices = Devices.Count > 0;
-
-            // Started after the card is already on screen, so the wallpaper fades in late
-            // rather than holding the device back while SpringBoard is asked for it.
-            _ = vm.LoadWallpaperAsync(_install);
 
             // Clear the "just connected" flag after the entry animation window.
             _ = Task.Delay(2500).ContinueWith(_ =>

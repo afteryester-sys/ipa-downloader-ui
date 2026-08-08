@@ -64,8 +64,6 @@
     <sys:String x:Key="L.Devices.Battery">Батарея</sys:String>
     <sys:String x:Key="L.Devices.Select">Выбрать</sys:String>
     <sys:String x:Key="L.Devices.Connected">Подключено</sys:String>
-    <sys:String x:Key="L.Devices.Preview.Locked">Разблокируйте экран, чтобы увидеть рабочий стол</sys:String>
-    <sys:String x:Key="L.Devices.Preview.Failed">Не удалось получить рабочий стол</sys:String>
     <sys:String x:Key="L.Devices.Catalog">Каталог приложений</sys:String>
     <sys:String x:Key="L.Devices.CatalogApps">приложений в каталоге</sys:String>
     <sys:String x:Key="L.Devices.SignOut">Выйти</sys:String>
