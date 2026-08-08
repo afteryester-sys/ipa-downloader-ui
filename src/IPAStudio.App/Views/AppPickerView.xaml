@@ -247,6 +247,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
@@ -271,7 +272,9 @@
                             Margin="4,0,0,0" Width="44" Height="44" ToolTip="{DynamicResource L.Common.Close}"
                             Command="{Binding ToggleBundleIdPanelCommand}" />
 
-                    <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                    <!-- Row 2, not row 1: sharing the input's cell drew the error on top of the
+                         field and buttons instead of under them. -->
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Margin="0,6,0,0"
                                Visibility="{Binding BundleIdError, Converter={StaticResource NullToCollapsed}}"
                                Text="{Binding BundleIdError}"
                                Foreground="{StaticResource Brush.Danger}" Style="{StaticResource Text.Caption}" />

@@ -156,8 +156,12 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.Control}">
+                        <!-- The content host must stretch. A ScrollViewer can scroll, so it asks
+                             for almost no height of its own; centring it made it shrink to a few
+                             pixels whenever the box had a fixed Height, clipping the text to a
+                             sliver. Centring is VerticalContentAlignment's job (see Input.Base). -->
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center" />
+                                      Focusable="False" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
@@ -179,8 +183,9 @@
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.Control}">
+                        <!-- Stretched for the same reason as Input.TextBox above. -->
                         <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
-                                      VerticalAlignment="Center" />
+                                      Focusable="False" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsKeyboardFocused" Value="True">
