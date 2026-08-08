@@ -17,9 +17,30 @@ public sealed class DeviceService : IAsyncDisposable
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(3);
 
+    /// <summary>
+    /// How many consecutive polls a Wi-Fi device may be absent from before it counts as gone.
+    ///
+    /// A cable is binary: it is either seated or it is not, so a missing USB device is reported
+    /// immediately. A phone on Wi-Fi is not — it drops off individual polls whenever the screen
+    /// locks or the radio dozes, and it comes straight back. Removing it on the first miss was
+    /// why a phone "sometimes shows up and sometimes doesn't": nothing was wrong with the
+    /// discovery, the list was simply being torn down and rebuilt every few seconds.
+    ///
+    /// Five polls is roughly fifteen seconds of silence, long enough to ride out that dozing
+    /// while still noticing a phone that really did leave the network.
+    /// </summary>
+    private const int NetworkGraceMisses = 5;
+
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
     private readonly Dictionary<string, Device> _devices = new();
+
+    /// <summary>
+    /// Consecutive polls each device has been missing from, keyed by UDID. Only ever holds
+    /// entries for devices currently absent; a device that answers is struck from it, so a
+    /// phone that blinks out every so often never accumulates towards the limit.
+    /// </summary>
+    private readonly Dictionary<string, int> _missedPolls = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _pollCts;
     private Task? _pollTask;
 
@@ -103,13 +124,30 @@ public sealed class DeviceService : IAsyncDisposable
         foreach (var (udid, link) in links)
             DeviceTransport.Remember(udid, link);
 
-        List<Device> disconnected;
+        List<Device> disconnected = new();
         List<string> newUdids;
         lock (_devices)
         {
-            disconnected = _devices.Values.Where(d => !currentUdids.Contains(d.Udid)).ToList();
-            foreach (var device in disconnected)
+            // A device answering now clears whatever absence it had built up, so only an
+            // unbroken run of misses counts towards the grace limit.
+            foreach (var udid in currentUdids)
+                _missedPolls.Remove(udid);
+
+            foreach (var device in _devices.Values.Where(d => !currentUdids.Contains(d.Udid)).ToList())
+            {
+                // USB is reported at once; Wi-Fi is given a few polls to answer again.
+                if (device.Link == DeviceLink.Network)
+                {
+                    var misses = _missedPolls.TryGetValue(device.Udid, out var n) ? n + 1 : 1;
+                    _missedPolls[device.Udid] = misses;
+                    if (misses < NetworkGraceMisses) continue;
+                }
+
+                _missedPolls.Remove(device.Udid);
                 _devices.Remove(device.Udid);
+                disconnected.Add(device);
+            }
+
             newUdids = currentUdids.Where(u => !_devices.ContainsKey(u)).ToList();
         }
 

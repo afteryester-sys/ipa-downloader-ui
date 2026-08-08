@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json.Serialization;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
 
@@ -98,6 +99,21 @@ public sealed class UpdateService
             req.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UpdateSecrets.GitHubToken);
         return req;
+    }
+
+    /// <summary>
+    /// Where the downloaded installer is written: the app's own sub-folder of the system temp
+    /// directory, created if missing.
+    ///
+    /// These used to land in the temp root, which "clear cache" does not sweep — so every
+    /// update left its installer, some 60 MB, on the disk forever with no way to remove it
+    /// from inside the app. The sub-folder is already part of the cache sweep.
+    /// </summary>
+    private static string InstallerFolder()
+    {
+        var folder = ToolLocator.SharedTempFolder;
+        Directory.CreateDirectory(folder);
+        return folder;
     }
 
     private void Set(UpdateState state)
@@ -254,7 +270,7 @@ public sealed class UpdateService
             if (string.IsNullOrWhiteSpace(fileName))
                 fileName = Path.GetFileName(new Uri(_downloadUrl).LocalPath);
             if (string.IsNullOrWhiteSpace(fileName)) fileName = "IPAStudio-Update.exe";
-            var dest = Path.Combine(Path.GetTempPath(), fileName);
+            var dest = Path.Combine(InstallerFolder(), fileName);
 
             AppLog.Info($"Downloading update asset: {_downloadUrl} → {dest}");
 
@@ -290,7 +306,7 @@ public sealed class UpdateService
                     fallbackResp.EnsureSuccessStatusCode();
 
                     var total2 = fallbackResp.Content.Headers.ContentLength ?? -1;
-                    var dest2   = Path.Combine(Path.GetTempPath(), _downloadFileName ?? "IPAStudio-Update.exe");
+                    var dest2   = Path.Combine(InstallerFolder(), _downloadFileName ?? "IPAStudio-Update.exe");
                     await using var src2  = await fallbackResp.Content.ReadAsStreamAsync(effectiveCt);
                     await using var file2 = File.Create(dest2);
                     var buf2 = new byte[81920]; long rd2 = 0; int n2;

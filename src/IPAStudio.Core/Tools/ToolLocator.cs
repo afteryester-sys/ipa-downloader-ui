@@ -138,7 +138,14 @@ public sealed class ToolLocator
     /// use, but a crash — or SQLite still holding the file — leaves them behind, so
     /// "clear cache" sweeps this directory as well.
     /// </summary>
-    public string TempFolder => Path.Combine(Path.GetTempPath(), "IPAStudio");
+    public string TempFolder => SharedTempFolder;
+
+    /// <summary>
+    /// The same scratch folder, reachable without a ToolLocator instance. Exists so code that
+    /// is not handed one — the updater, which only gets an HttpClient — can still write into
+    /// the swept directory instead of the temp root, where its files would never be cleaned.
+    /// </summary>
+    public static string SharedTempFolder => Path.Combine(Path.GetTempPath(), "IPAStudio");
 
     public void EnsureFolders()
     {

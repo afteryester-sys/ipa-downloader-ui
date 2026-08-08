@@ -47,7 +47,8 @@ public sealed record CleanupResult(long FreedBytes, int DeletedFiles, int Skippe
 /// <summary>
 /// Measures and removes everything the app can rebuild: downloaded IPA files (including
 /// half-finished ones), the icon and catalog caches, staged photo-library copies in the
-/// system temp folder, and log files from previous days.
+/// system temp folder, update installers left over from earlier versions, and log files
+/// from previous days.
 ///
 /// Deleting is done file by file rather than with a single recursive Directory.Delete so
 /// that progress is real — clearing tens of gigabytes of IPA files otherwise looks frozen —
@@ -76,6 +77,10 @@ public sealed class CleanupService
             {
                 Measure("L.Cache.Item.Apps",    _tools.AppsFolder,      onGroup, ct),
                 Measure("L.Cache.Item.Icons",   _tools.IconCacheFolder, onGroup, ct),
+                // Icons extracted from local .ipa files. A separate folder from the store
+                // icons above and simply missing from this list, so it was never scanned
+                // and never cleared however often the user pressed the button.
+                Measure("L.Cache.Item.IpaIcons", _tools.LocalIpaIconCacheFolder, onGroup, ct),
                 Measure("L.Cache.Item.Thumbs",  _tools.PhotoThumbCacheFolder, onGroup, ct),
                 // The largest single item here by far: one copy of the device Photos library
                 // runs to hundreds of megabytes. It is kept deliberately (re-fetching it is
@@ -84,6 +89,7 @@ public sealed class CleanupService
                 Measure("L.Cache.Item.PhotoDb", _tools.PhotoLibraryDbCacheFolder, onGroup, ct),
                 MeasureFile("L.Cache.Item.Catalog", _tools.CatalogCacheFile, onGroup),
                 Measure("L.Cache.Item.Temp",    _tools.TempFolder,      onGroup, ct),
+                MeasureStaleInstallers(onGroup, ct),
                 MeasureOldLogs(onGroup, ct),
             };
 
@@ -154,6 +160,7 @@ public sealed class CleanupService
             // Directories are emptied above; drop the leftover empty shells so a stale
             // folder tree does not accumulate, then put back the ones the app needs.
             PruneEmptyDirectories(_tools.IconCacheFolder);
+            PruneEmptyDirectories(_tools.LocalIpaIconCacheFolder);
             // The thumbnail cache is sharded into up-to-256 sub-folders, so clearing it
             // leaves that many empty shells behind without this.
             PruneEmptyDirectories(_tools.PhotoThumbCacheFolder);
@@ -204,6 +211,46 @@ public sealed class CleanupService
             Files = exists ? new[] { file } : Array.Empty<string>(),
             Bytes = exists ? SizeOf(file) : 0,
         };
+    }
+
+    /// <summary>
+    /// Update installers left in the temp root by earlier versions of the app.
+    ///
+    /// New downloads go into the swept temp sub-folder, but builds up to 1.6.104 wrote here,
+    /// and each one is around 60 MB. Nothing removes them, so they accumulate for as long as
+    /// the user keeps updating — this reclaims what those versions left behind.
+    ///
+    /// Matched by the app's own installer naming only, and non-recursively: the temp root is
+    /// shared with every other program on the machine and must not be swept broadly.
+    /// </summary>
+    private static CleanupGroup MeasureStaleInstallers(IProgress<string>? onGroup, CancellationToken ct)
+    {
+        const string key = "L.Cache.Item.Installers";
+        onGroup?.Report(key);
+
+        var folder = Path.GetTempPath();
+        var files = new List<string>();
+        long bytes = 0;
+
+        try
+        {
+            foreach (var pattern in new[] { "IPAStudio-Setup-*.exe", "IPAStudio-Update.exe" })
+            {
+                foreach (var file in Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    files.Add(file);
+                    bytes += SizeOf(file);
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Cache scan: could not read '{folder}': {ex.Message}");
+        }
+
+        return new CleanupGroup { Key = key, Path = folder, Files = files, Bytes = bytes };
     }
 
     /// <summary>

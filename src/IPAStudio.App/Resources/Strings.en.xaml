@@ -287,10 +287,12 @@
     <sys:String x:Key="L.Cache.DonePartial">Freed {0}. {1} file(s) were in use and were kept.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Downloaded apps (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">App icons</sys:String>
+    <sys:String x:Key="L.Cache.Item.IpaIcons">Icons from local .ipa files</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Photo thumbnails</sys:String>
     <sys:String x:Key="L.Cache.Item.PhotoDb">Photo library database (album names)</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Catalog cache</sys:String>
     <sys:String x:Key="L.Cache.Item.Temp">Temporary files</sys:String>
+    <sys:String x:Key="L.Cache.Item.Installers">Update installers</sys:String>
     <sys:String x:Key="L.Cache.Item.Logs">Logs from previous days</sys:String>
 
     <!-- Logs -->
