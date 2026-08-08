@@ -137,6 +137,7 @@
     <sys:String x:Key="L.Catalogs.ScannedAt">Обновлён: {0}</sys:String>
     <sys:String x:Key="L.Catalogs.Count">Приложений: {0}</sys:String>
     <sys:String x:Key="L.Catalogs.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Catalogs.ClearSelection">Снять выбор</sys:String>
     <sys:String x:Key="L.Catalogs.InstallTo">Установить на:</sys:String>
     <sys:String x:Key="L.Catalogs.InstallSelected">Установить выбранные ({0})</sys:String>
 
@@ -335,6 +336,11 @@
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
+    <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
+    <sys:String x:Key="L.Settings.Load.Memory">Память</sys:String>
+    <sys:String x:Key="L.Settings.Load.Helpers">Вспомогательных процессов</sys:String>
+    <sys:String x:Key="L.Settings.Load.Hint">Учитывается сама программа вместе со вспомогательными процессами (ipatool, idevice* и другими) — в диспетчере задач их нагрузка записывается отдельно от IPA Studio. Значение обновляется раз в секунду, пока открыт этот раздел.</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
@@ -510,8 +516,8 @@
     <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
-    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В Медиатеке файлы пока не появились</sys:String>
-    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы скопированы в DCIM, но «Фото» их ещё не показывают. Обычно помогает перезагрузка iPhone.</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там только свою медиатеку</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>
     <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
     <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
     <sys:String x:Key="L.Photos.RestartConfirm">Перезагрузить устройство сейчас? Несохранённые данные в приложениях на iPhone могут быть потеряны.</sys:String>

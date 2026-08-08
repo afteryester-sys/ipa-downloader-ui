@@ -105,7 +105,22 @@ public sealed partial class OperationService : ObservableObject
             Interval = ProgressInterval,
         };
         _progressTimer.Tick += (_, _) => PublishProgress();
-        _progressTimer.Start();
+    }
+
+    /// <summary>
+    /// Runs the progress timer only while something is actually running.
+    ///
+    /// It used to tick from startup to shutdown, waking the dispatcher four times a second to
+    /// walk a list that was usually empty. Cheap per tick, but it never stopped, so an app
+    /// sitting idle on the home screen still showed measurable CPU use.
+    /// </summary>
+    private void SyncProgressTimer()
+    {
+        var needed = Operations.Any(o => o.IsRunning);
+        if (needed == _progressTimer.IsEnabled) return;
+
+        if (needed) _progressTimer.Start();
+        else _progressTimer.Stop();
     }
 
     /// <summary>Copies each running queue's progress onto its operation.</summary>
@@ -273,6 +288,11 @@ public sealed partial class OperationService : ObservableObject
             : running.Sum(o => o.Progress) / running.Count;
 
         OnPropertyChanged(nameof(HasRunning));
+
+        // Every path that starts, finishes or cancels work ends up here, so this is the one
+        // place that reliably learns whether the timer still has anything to publish.
+        SyncProgressTimer();
+
         TrimHistory();
     }
 

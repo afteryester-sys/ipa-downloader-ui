@@ -137,6 +137,7 @@
     <sys:String x:Key="L.Catalogs.ScannedAt">Refreshed: {0}</sys:String>
     <sys:String x:Key="L.Catalogs.Count">Apps: {0}</sys:String>
     <sys:String x:Key="L.Catalogs.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.Catalogs.ClearSelection">Clear selection</sys:String>
     <sys:String x:Key="L.Catalogs.InstallTo">Install to:</sys:String>
     <sys:String x:Key="L.Catalogs.InstallSelected">Install selected ({0})</sys:String>
 
@@ -335,6 +336,11 @@
 
     <!-- Diagnostics (logging settings) -->
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
+    <sys:String x:Key="L.Settings.Load">Current load</sys:String>
+    <sys:String x:Key="L.Settings.Load.Cpu">Processor</sys:String>
+    <sys:String x:Key="L.Settings.Load.Memory">Memory</sys:String>
+    <sys:String x:Key="L.Settings.Load.Helpers">Helper processes</sys:String>
+    <sys:String x:Key="L.Settings.Load.Hint">Counts the app together with its helper processes (ipatool, idevice* and others) — Task Manager attributes their load separately from IPA Studio. Updated once a second while this section is open.</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Verbose logging</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging.Hint">Logs every internal call, including the device poll that runs every few seconds. Normally unnecessary: those lines repeat constantly and bury real errors. Turn it on when diagnosing a problem.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Wi-Fi connection</sys:String>
@@ -510,8 +516,8 @@
     <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">No files could be copied</sys:String>
-    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. Not in the Photos library yet</sys:String>
-    <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are in DCIM but Photos has not picked them up. Restarting the iPhone usually does it.</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. They will not appear in Photos — iOS only shows its own library there</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are on the device in DCIM and readable by anything that reads that folder directly. They will not appear in Photos: iOS keeps its library in a separate closed database and does not pick up files added from outside. Restarting the device does not change this.</sys:String>
     <sys:String x:Key="L.Photos.RestartDevice">Restart iPhone</sys:String>
     <sys:String x:Key="L.Photos.DismissHint">Dismiss</sys:String>
     <sys:String x:Key="L.Photos.RestartConfirm">Restart the device now? Unsaved data in apps on the iPhone may be lost.</sys:String>

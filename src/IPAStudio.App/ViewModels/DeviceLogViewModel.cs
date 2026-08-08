@@ -101,8 +101,8 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
 
         // Runs for the window's lifetime: a tick with nothing new costs a single flag check,
         // and starting it per capture would need the same stopping logic on every exit path.
+        // Deliberately not started here — Start() owns that, so an idle app pays nothing.
         _refreshTimer.Tick += OnRefreshTick;
-        _refreshTimer.Start();
 
         StatusText = Devices.Count == 0
             ? Loc.Get("L.DeviceLogs.NoDevice")
@@ -130,6 +130,12 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
 
         _syslog.Filter = InstallAndLaunchOnly ? SyslogFilter.InstallAndLaunch : SyslogFilter.Everything;
         _syslog.Start(device.Udid);
+
+        // Only ticks while there is a capture feeding it. This view model is a singleton, so a
+        // timer started in the constructor used to keep firing four times a second for the rest
+        // of the session — including while the log page was nowhere on screen.
+        _refreshTimer.Start();
+
         AppLog.Info($"Device log capture started for {device.Name}");
         HintText = Loc.Get("L.DeviceLogs.Hint.Reproduce");
     }
@@ -138,6 +144,13 @@ public sealed partial class DeviceLogViewModel : ObservableObject, IDisposable
     private void Stop()
     {
         _syslog.Stop();
+        _refreshTimer.Stop();
+
+        // One last rebuild: stopping mid-tick would otherwise leave the last few lines that
+        // arrived before the stop sitting in the buffer, unseen.
+        _dirty = true;
+        OnRefreshTick(null, EventArgs.Empty);
+
         IsStreaming = false;
         StatusText = Loc.Get("L.DeviceLogs.Stopped");
         AppLog.Info("Device log capture stopped");

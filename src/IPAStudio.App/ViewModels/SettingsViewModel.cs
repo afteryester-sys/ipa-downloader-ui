@@ -300,6 +300,91 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _devices = devices;
     }
 
+    // ===== Current load =====
+    //
+    // Measuring costs something itself, so it only runs while the reading is on screen. The
+    // view starts and stops it: this view model is a singleton, and a timer left running here
+    // would be exactly the kind of permanent background cost the reading exists to expose.
+
+    private readonly LoadMonitor _loadMonitor = new();
+    private System.Windows.Threading.DispatcherTimer? _loadTimer;
+
+    /// <summary>
+    /// One second between readings. Faster would make the number jitter too much to read, and
+    /// each reading walks the process list.
+    /// </summary>
+    private static readonly TimeSpan LoadInterval = TimeSpan.FromSeconds(1);
+
+    [ObservableProperty]
+    private string _loadCpu = "—";
+
+    [ObservableProperty]
+    private string _loadMemory = "—";
+
+    [ObservableProperty]
+    private string _loadHelpers = "—";
+
+    /// <summary>
+    /// True when the app is working the processor hard enough to be worth flagging. Used to
+    /// colour the figure, so a genuine problem is visible without reading the number.
+    /// </summary>
+    [ObservableProperty]
+    private bool _loadIsHigh;
+
+    /// <summary>Begins sampling. Safe to call again; a running timer is left alone.</summary>
+    public void StartLoadMonitor()
+    {
+        if (_loadTimer is not null) return;
+
+        _loadMonitor.Reset();
+
+        _loadTimer = new System.Windows.Threading.DispatcherTimer(
+            System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = LoadInterval,
+        };
+        _loadTimer.Tick += (_, _) => SampleLoad();
+        _loadTimer.Start();
+    }
+
+    /// <summary>Stops sampling when the reading is no longer visible.</summary>
+    public void StopLoadMonitor()
+    {
+        if (_loadTimer is null) return;
+
+        _loadTimer.Stop();
+        _loadTimer = null;
+    }
+
+    private void SampleLoad()
+    {
+        var sample = _loadMonitor.Sample();
+
+        // Null is the priming call, where there is no window to measure across yet. The
+        // previous text is left in place rather than blanked, which would read as a glitch.
+        if (sample is null) return;
+
+        LoadCpu = $"{sample.CpuPercent:0.#} %";
+        LoadMemory = FormatBytes(sample.MemoryBytes);
+        LoadHelpers = sample.HelperCount.ToString();
+        LoadIsHigh = sample.CpuPercent >= 40;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes <= 0) return "—";
+
+        double value = bytes;
+        string[] units = { "Б", "КБ", "МБ", "ГБ" };
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return unit >= 3 ? $"{value:0.#} {units[unit]}" : $"{value:0} {units[unit]}";
+    }
+
     public void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;

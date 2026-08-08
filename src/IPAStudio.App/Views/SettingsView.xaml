@@ -196,6 +196,59 @@
                             Command="{Binding ShowDeviceLogCommand}" />
                     <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                Text="{DynamicResource L.DeviceLogs.OpenHint}" />
+
+                    <!-- Current load. Sampling is driven by this element being loaded, so the
+                         measurement stops as soon as the user leaves the page. -->
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Load}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Cpu}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LoadCpu}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+                                        <Style.Triggers>
+                                            <!-- Turns amber only past the threshold: a number that
+                                                 is always coloured stops meaning anything. -->
+                                            <DataTrigger Binding="{Binding LoadIsHigh}" Value="True">
+                                                <Setter Property="Foreground"
+                                                        Value="{StaticResource Brush.Warning}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Memory}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LoadMemory}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Helpers}"
+                                       Style="{StaticResource Text.Caption}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding LoadHelpers}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Text="{DynamicResource L.Settings.Load.Hint}" />
                 </StackPanel>
             </Border>
 

@@ -66,6 +66,18 @@ public sealed partial class CatalogIpaViewModel : ObservableObject
     public bool CanSelect => !IsUnreadable;
 
     /// <summary>
+    /// Picks the archive by clicking it anywhere rather than hitting the small box in its corner.
+    /// An unreadable archive silently ignores the click: it is listed to be seen, not chosen, and
+    /// a checkbox that refuses to tick would read as a bug rather than as a disabled control.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleSelection()
+    {
+        if (!CanSelect) return;
+        IsSelected = !IsSelected;
+    }
+
+    /// <summary>
     /// Version and size on one line, with the bundle id left out: it repeats for every build of
     /// the same app and is not what the user is scanning the list for.
     /// </summary>
@@ -409,6 +421,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(InstallSelectedLabel));
         InstallSelectedCommand.NotifyCanExecuteChanged();
+        ClearSelectionCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyFilter()
@@ -600,16 +613,29 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         }
     }
 
+    /// <summary>
+    /// Ticks everything the current filter shows. This used to toggle — selecting all, then
+    /// clearing on a second press — which made one button mean two things and left no way to
+    /// tell which it would do next. Clearing now has its own button, so this one only ever adds.
+    /// </summary>
     [RelayCommand]
     private void SelectAll()
     {
         // Unreadable archives are skipped: ticking them would only queue certain failures.
-        var selectable = Items.Where(i => i.CanSelect).ToList();
-        if (selectable.Count == 0) return;
+        foreach (var row in Items.Where(i => i.CanSelect))
+            row.IsSelected = true;
+    }
 
-        var target = selectable.Any(i => !i.IsSelected);
-        foreach (var row in selectable)
-            row.IsSelected = target;
+    /// <summary>
+    /// Drops the whole selection, including archives hidden by the search box — with a hundred
+    /// files and a filter applied, the ticks left outside the current view are exactly the ones
+    /// that are hard to find and clear by hand.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void ClearSelection()
+    {
+        foreach (var row in _allItems.Where(i => i.IsSelected))
+            row.IsSelected = false;
     }
 
     private bool CanInstall() => HasSelection && SelectedDevice is not null;
