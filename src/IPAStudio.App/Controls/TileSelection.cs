@@ -142,9 +142,14 @@ public static class TileSelection
         // discoverable way to undo a selection made by clicking. Only while the select mode is
         // on: with it off the click that got here was a Ctrl-click, and a Ctrl-click on nothing
         // is a miss rather than an instruction to throw the batch away.
+        //
+        // Skipped when the select mode is permanent — where Ctrl-select is turned off, the mode
+        // cannot be left, so every click in the list area is a selecting click and a slightly
+        // low one under the last row would silently empty a batch that took real work to build.
+        // "Clear selection" in the toolbar stays the way out.
         if (container is null)
         {
-            if (selecting && !ctrl && !shift) SelectOnly(list, null);
+            if (selecting && GetCtrlSelects(list) && !ctrl && !shift) SelectOnly(list, null);
             return;
         }
 

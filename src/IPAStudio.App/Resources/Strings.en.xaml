@@ -343,7 +343,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">By click</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">With tick boxes</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Select with Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">In addition to the "Select" button: Ctrl-click marks items without turning the mode on. Turn this off if you keep clearing a selection by accident.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">On: a click opens an item, and you mark items with Ctrl or the page's "Select" button. Off: a click marks items straight away, so the "Select" button is not needed and is hidden.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Settings.Load">Current load</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Processor</sys:String>

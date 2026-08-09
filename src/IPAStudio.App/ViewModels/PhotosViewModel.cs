@@ -506,11 +506,33 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _isSelecting;
 
-    /// <summary>True when the toolbar should offer the select toggle at all.</summary>
-    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click;
+    /// <summary>
+    /// True when the toolbar should offer the select toggle at all.
+    ///
+    /// Hidden when Ctrl-select is turned off, because that setting is what decides whether the
+    /// page has two states to switch between. With Ctrl-select on, a click browses and the
+    /// toggle is how one asks to select instead; with it off there is no other way in, so the
+    /// page simply selects on click always and a toggle that could only ever be pressed would
+    /// be one press standing between the user and every batch.
+    /// </summary>
+    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click && CtrlSelects;
 
     /// <summary>Whether Ctrl-click selects while the select mode is off, from settings.</summary>
     public bool CtrlSelects => _settings.Current.PhotosCtrlSelects;
+
+    /// <summary>
+    /// Puts the select mode where the current settings say it belongs: always on when clicking
+    /// is the only way to select, and otherwise off, waiting for the toggle.
+    /// </summary>
+    private void ApplySelectionSetting()
+    {
+        OnPropertyChanged(nameof(CtrlSelects));
+        OnPropertyChanged(nameof(ShowSelectToggle));
+
+        // Off outside click mode too, or the page would keep toggling photos on click while
+        // showing tick boxes and no visible way to stop.
+        IsSelecting = SelectionMode == TileSelectionMode.Click && !CtrlSelects;
+    }
 
     partial void OnIsAlbumModeChanged(bool value)
     {
@@ -538,17 +560,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         // straight back to settings — do not run before the values have even been read.
         _isListView = !settings.Current.PhotosGridView;
         _showDates = settings.Current.PhotosShowDates;
+        _isSelecting = _selectionMode == TileSelectionMode.Click && !settings.Current.PhotosCtrlSelects;
 
         // Kept in step while the page is open, so switching the setting takes effect here
         // rather than on the next visit.
         settings.Changed += (_, _) =>
         {
             SelectionMode = _settings.Current.PhotosSelectionMode;
-            OnPropertyChanged(nameof(CtrlSelects));
-
-            // Leaving click mode has to drop the select mode with it, or the page would keep
-            // toggling photos on click while showing tick boxes and no way to turn it off.
-            if (SelectionMode != TileSelectionMode.Click) IsSelecting = false;
+            ApplySelectionSetting();
         };
 
         // Built here rather than in a field initializer because the labels come from the

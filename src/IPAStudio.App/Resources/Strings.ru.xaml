@@ -343,7 +343,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Дополнительно к кнопке «Выбрать»: с Ctrl можно отмечать элементы, не включая режим. Выключите, если случайно сбиваете выделение.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>

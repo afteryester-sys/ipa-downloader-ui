@@ -316,15 +316,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _isTileView = settings.Current.OnDeviceTileView;
         _tileSize = Math.Clamp(settings.Current.OnDeviceTileSize, MinTileSize, MaxTileSize);
         _selectionMode = settings.Current.OnDeviceSelectionMode;
+        _isSelecting = _selectionMode == TileSelectionMode.Click && !settings.Current.OnDeviceCtrlSelects;
 
         settings.Changed += (_, _) =>
         {
             SelectionMode = _settings.Current.OnDeviceSelectionMode;
-            OnPropertyChanged(nameof(CtrlSelects));
-
-            // Leaving click mode drops the select mode with it, so the page cannot be left
-            // toggling rows on click with no visible way to stop.
-            if (SelectionMode != TileSelectionMode.Click) IsSelecting = false;
+            ApplySelectionSetting();
         };
     }
 
@@ -397,11 +394,30 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _isSelecting;
 
-    /// <summary>True when the toolbar should offer the select toggle at all.</summary>
-    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click;
+    /// <summary>
+    /// True when the toolbar should offer the select toggle at all. Hidden when Ctrl-select is
+    /// off: that setting decides whether the page has two states to switch between, and with it
+    /// off clicking is the only way in, so the page selects on click always rather than putting
+    /// a press between the user and every batch.
+    /// </summary>
+    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click && CtrlSelects;
 
     /// <summary>Whether Ctrl-click selects while the select mode is off, from settings.</summary>
     public bool CtrlSelects => _settings.Current.OnDeviceCtrlSelects;
+
+    /// <summary>
+    /// Puts the select mode where the current settings say it belongs: always on when clicking
+    /// is the only way to select, and otherwise off, waiting for the toggle.
+    /// </summary>
+    private void ApplySelectionSetting()
+    {
+        OnPropertyChanged(nameof(CtrlSelects));
+        OnPropertyChanged(nameof(ShowSelectToggle));
+
+        // Off outside click mode too, or the page would keep toggling rows on click while
+        // showing tick boxes and no visible way to stop.
+        IsSelecting = SelectionMode == TileSelectionMode.Click && !CtrlSelects;
+    }
 
     partial void OnIsTileViewChanged(bool value)
     {
