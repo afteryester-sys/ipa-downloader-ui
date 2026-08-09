@@ -317,7 +317,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _tileSize = Math.Clamp(settings.Current.OnDeviceTileSize, MinTileSize, MaxTileSize);
         _selectionMode = settings.Current.OnDeviceSelectionMode;
 
-        settings.Changed += (_, _) => SelectionMode = _settings.Current.OnDeviceSelectionMode;
+        settings.Changed += (_, _) =>
+        {
+            SelectionMode = _settings.Current.OnDeviceSelectionMode;
+            OnPropertyChanged(nameof(CtrlSelects));
+
+            // Leaving click mode drops the select mode with it, so the page cannot be left
+            // toggling rows on click with no visible way to stop.
+            if (SelectionMode != TileSelectionMode.Click) IsSelecting = false;
+        };
     }
 
     [ObservableProperty]
@@ -376,10 +384,24 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    [NotifyPropertyChangedFor(nameof(ShowSelectToggle))]
     private TileSelectionMode _selectionMode;
 
     /// <summary>True when selecting is done with tick boxes, so the rows draw one.</summary>
     public bool ShowSelectionCheckboxes => SelectionMode == TileSelectionMode.Checkbox;
+
+    /// <summary>
+    /// Whether a click picks apps out rather than just focusing a row. The toolbar's toggle;
+    /// without it, click mode needed Ctrl to add a second app and nothing said so.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSelecting;
+
+    /// <summary>True when the toolbar should offer the select toggle at all.</summary>
+    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click;
+
+    /// <summary>Whether Ctrl-click selects while the select mode is off, from settings.</summary>
+    public bool CtrlSelects => _settings.Current.OnDeviceCtrlSelects;
 
     partial void OnIsTileViewChanged(bool value)
     {

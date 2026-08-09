@@ -427,6 +427,15 @@
                                     Value="{Binding TileSize}" />
                         </StackPanel>
 
+                        <!-- Turns clicks on the list into picking archives out, which is what
+                             assembling a batch to install needs and what Ctrl alone never said. -->
+                        <ToggleButton Style="{StaticResource Toggle.Pill}" Margin="12,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Content="{DynamicResource L.Common.Select}"
+                                      ToolTip="{DynamicResource L.Common.Select.Hint}"
+                                      IsChecked="{Binding IsSelecting}"
+                                      Visibility="{Binding ShowSelectToggle, Converter={StaticResource BoolToVis}}" />
+
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                             <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewList}"
                                     Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
@@ -463,6 +472,8 @@
                                  VirtualizingPanel.IsVirtualizing="True"
                                  VirtualizingPanel.VirtualizationMode="Recycling"
                                  ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                                 ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                                  ItemContainerStyle="{StaticResource Selectable}"
                                  Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
                             <ListBox.ItemTemplate>
@@ -572,6 +583,8 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                  ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                                 ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                                  ItemContainerStyle="{StaticResource SelectableTile}"
                                  Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
                             <ListBox.ItemsPanel>

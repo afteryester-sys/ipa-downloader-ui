@@ -291,6 +291,18 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         set { if (value) CatalogSelectionMode = TileSelectionMode.Checkbox; }
     }
 
+    // Whether Ctrl-click also selects while the page's select mode is off. On by default,
+    // since it is the habit from every file manager, but switchable per page: on a camera roll
+    // it is the accidental Ctrl-click that loses a carefully built selection.
+    [ObservableProperty]
+    private bool _photosCtrlSelects = true;
+
+    [ObservableProperty]
+    private bool _onDeviceCtrlSelects = true;
+
+    [ObservableProperty]
+    private bool _catalogCtrlSelects = true;
+
     [ObservableProperty]
     private string _accountEmail = "";
 
@@ -456,6 +468,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         PhotosSelectionMode = _settings.Current.PhotosSelectionMode;
         OnDeviceSelectionMode = _settings.Current.OnDeviceSelectionMode;
         CatalogSelectionMode = _settings.Current.CatalogSelectionMode;
+        PhotosCtrlSelects = _settings.Current.PhotosCtrlSelects;
+        OnDeviceCtrlSelects = _settings.Current.OnDeviceCtrlSelects;
+        CatalogCtrlSelects = _settings.Current.CatalogCtrlSelects;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -677,6 +692,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.PhotosSelectionMode = PhotosSelectionMode;
         _settings.Current.OnDeviceSelectionMode = OnDeviceSelectionMode;
         _settings.Current.CatalogSelectionMode = CatalogSelectionMode;
+        _settings.Current.PhotosCtrlSelects = PhotosCtrlSelects;
+        _settings.Current.OnDeviceCtrlSelects = OnDeviceCtrlSelects;
+        _settings.Current.CatalogCtrlSelects = CatalogCtrlSelects;
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();

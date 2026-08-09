@@ -199,6 +199,15 @@
                             Value="{Binding TileSize}" />
                 </StackPanel>
 
+                <!-- Turns clicks on the list into picking apps out. Only shown in click mode;
+                     with tick boxes the boxes are already the visible way in. -->
+                <ToggleButton Style="{StaticResource Toggle.Pill}" Margin="12,0,0,0"
+                              VerticalAlignment="Center"
+                              Content="{DynamicResource L.Common.Select}"
+                              ToolTip="{DynamicResource L.Common.Select.Hint}"
+                              IsChecked="{Binding IsSelecting}"
+                              Visibility="{Binding ShowSelectToggle, Converter={StaticResource BoolToVis}}" />
+
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                     <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewList}"
                             Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
@@ -239,6 +248,8 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                          ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                         ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                         ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                          Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -256,6 +267,14 @@
                                                 <Setter TargetName="Bg" Property="Background"
                                                         Value="{StaticResource Brush.SurfaceHover}" />
                                             </Trigger>
+                                            <!-- A selected item has to look selected. Without this, clicking in
+                                                 click mode changed the batch invisibly: the toolbar count moved
+                                                 and the item itself did not, so there was no way to see what was
+                                                 in. After the hover trigger so it wins where both apply. -->
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter TargetName="Bg" Property="Background"
+                                                        Value="{DynamicResource Brush.AccentSoft}" />
+                                            </DataTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
@@ -436,6 +455,8 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                          ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                         ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                         ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                          Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
                     <ListBox.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -461,6 +482,14 @@
                                                 <Setter TargetName="Bg" Property="Background"
                                                         Value="{StaticResource Brush.SurfaceHover}" />
                                             </Trigger>
+                                            <!-- A selected item has to look selected. Without this, clicking in
+                                                 click mode changed the batch invisibly: the toolbar count moved
+                                                 and the item itself did not, so there was no way to see what was
+                                                 in. After the hover trigger so it wins where both apply. -->
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter TargetName="Bg" Property="Background"
+                                                        Value="{DynamicResource Brush.AccentSoft}" />
+                                            </DataTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>

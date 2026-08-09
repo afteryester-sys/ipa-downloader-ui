@@ -92,7 +92,11 @@
                  width here would pin every tile back to one shape and undo that.
 
                  MaxWidth only bounds the panel's one-off probe measurement, which measures a
-                 tile against infinity to learn the row height. -->
+                 tile against infinity to learn the row height.
+
+                 With the date bands off the panel hands out equal square slots instead, and the
+                 same stretch fills them; the picture is then cropped to the square, which is
+                 what a contact sheet is. -->
             <Grid Height="{Binding DataContext.ThumbHeight, RelativeSource={RelativeSource AncestorType=ListBox}}"
                   MaxWidth="{Binding DataContext.MaxTileWidth, RelativeSource={RelativeSource AncestorType=ListBox}}"
                   HorizontalAlignment="Stretch">
@@ -325,6 +329,16 @@
             <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
             <Setter Property="FontSize" Value="16" />
         </Style>
+
+        <!-- Square icon version of Toggle.Pill, sized to match the view buttons beside it so
+             the row of toolbar controls stays one height. -->
+        <Style x:Key="ViewToggleCheck" TargetType="ToggleButton" BasedOn="{StaticResource Toggle.Pill}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32">
@@ -437,6 +451,22 @@
                             Minimum="96" Maximum="220" TickFrequency="31" IsSnapToTickEnabled="True"
                             Value="{Binding TileSize}" />
                 </StackPanel>
+                <!-- Date bands. Off gives a plain contact sheet of equal squares, which is the
+                     view for scanning a whole roll rather than reading it as a timeline. Only
+                     offered with the grid, since the list has no bands to turn off. -->
+                <ToggleButton Style="{StaticResource ViewToggleCheck}" Margin="0,0,10,0"
+                              ToolTip="{DynamicResource L.Photos.ShowDates.Hint}"
+                              Content="&#xE787;" IsChecked="{Binding ShowDates}"
+                              Visibility="{Binding IsGridView, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Turns clicks into picking photos out, instead of opening one. -->
+                <ToggleButton Style="{StaticResource Toggle.Pill}" Margin="0,0,10,0"
+                              VerticalAlignment="Center"
+                              Content="{DynamicResource L.Common.Select}"
+                              ToolTip="{DynamicResource L.Common.Select.Hint}"
+                              IsChecked="{Binding IsSelecting}"
+                              Visibility="{Binding ShowSelectToggle, Converter={StaticResource BoolToVis}}" />
+
                 <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewList}"
                         Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
                 <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewGrid}"
@@ -583,6 +613,8 @@
                              VirtualizingPanel.ScrollUnit="Pixel"
                              ScrollViewer.ScrollChanged="OnPhotosScrollChanged"
                              ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                             ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                             ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                              ItemContainerStyle="{StaticResource PhotoListItem}"
                              ItemTemplate="{StaticResource ListItemTemplate}" />
 
@@ -611,6 +643,8 @@
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                             ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                             ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
                              ItemContainerStyle="{StaticResource PhotoTileItem}">
                         <!-- A plain WrapPanel does not virtualise: it builds a container
                              for every photo, so a large roll allocated thousands of
@@ -626,9 +660,11 @@
                                 <ctrl:VirtualizingWrapPanel
                                     TileSize="{Binding DataContext.TileSize,
                                                RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    ShapeVersion="{Binding DataContext.TileShapeVersion,
-                                                   RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                    TileChrome="16" />
+                                ShapeVersion="{Binding DataContext.TileShapeVersion,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                UniformTiles="{Binding DataContext.UniformTiles,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                TileChrome="16" />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                     </ListBox>

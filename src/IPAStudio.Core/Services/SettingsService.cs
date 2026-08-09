@@ -190,6 +190,25 @@ public sealed class AppSettings
     public double PhotoTileSize { get; set; } = 130;
 
     /// <summary>
+    /// Whether the photos page shows thumbnails as a grid rather than as rows. Remembered for
+    /// the same reason the app pages remember theirs: which of the two views someone reads their
+    /// camera roll in is a standing preference, and re-picking the grid on every visit made the
+    /// grid not worth switching to.
+    /// </summary>
+    public bool PhotosGridView { get; set; }
+
+    /// <summary>
+    /// Whether the photo grid is broken into date bands.
+    ///
+    /// With bands on, tiles are also shaped like the pictures they show and rows are justified,
+    /// the way a phone gallery lays out a roll. With them off the grid becomes a plain contact
+    /// sheet of equal square tiles: no bands to break the flow, and every tile on the same
+    /// column grid. The two go together because they answer one question — whether the grid is
+    /// being read as a timeline or scanned as a sheet.
+    /// </summary>
+    public bool PhotosShowDates { get; set; } = true;
+
+    /// <summary>
     /// How items are picked on the photos page. Stored per page rather than once for the
     /// whole app because the pages are used differently: a camera roll is skimmed and
     /// clicked through, whereas a list of apps to download is assembled deliberately and
@@ -202,6 +221,24 @@ public sealed class AppSettings
 
     /// <summary>How items are picked on the .ipa catalog page.</summary>
     public TileSelectionMode CatalogSelectionMode { get; set; } = TileSelectionMode.Checkbox;
+
+    /// <summary>
+    /// Whether Ctrl-click selects on the photos page while the toolbar's select mode is off.
+    ///
+    /// Only meaningful in <see cref="TileSelectionMode.Click"/>. In that mode a click is two
+    /// things at once — "show me this one" and "add this one to the batch" — and the toolbar's
+    /// select button is what tells them apart. This is the escape hatch for the user who would
+    /// rather hold a key than press a button first: with it on, Ctrl-click selects without
+    /// entering select mode; with it off, the button is the only way, so no combination of
+    /// modifiers can disturb a batch by accident.
+    /// </summary>
+    public bool PhotosCtrlSelects { get; set; } = true;
+
+    /// <summary>The same for the "on the device" page.</summary>
+    public bool OnDeviceCtrlSelects { get; set; } = true;
+
+    /// <summary>The same for the .ipa catalog page.</summary>
+    public bool CatalogCtrlSelects { get; set; } = true;
 
     /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful

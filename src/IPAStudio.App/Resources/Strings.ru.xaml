@@ -336,12 +336,14 @@
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Selection">Выделение в списках</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом работают Ctrl (добавить один) и Shift (добавить подряд), а клик по пустому месту снимает выделение. Галочки медленнее, зато их не сбить случайным кликом.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом на странице появляется кнопка «Выбрать»: пока она нажата, клик отмечает элемент, а Shift отмечает подряд. Галочки медленнее, зато их не сбить случайным кликом.</sys:String>
     <sys:String x:Key="L.Settings.Selection.Photos">Фото</sys:String>
     <sys:String x:Key="L.Settings.Selection.OnDevice">Приложения на устройстве</sys:String>
     <sys:String x:Key="L.Settings.Selection.Catalog">Каталоги .ipa</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Дополнительно к кнопке «Выбрать»: с Ctrl можно отмечать элементы, не включая режим. Выключите, если случайно сбиваете выделение.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
@@ -541,6 +543,9 @@
     <sys:String x:Key="L.Photos.NoAlbum">Без альбома</sys:String>
     <sys:String x:Key="L.Photos.Today">Сегодня</sys:String>
     <sys:String x:Key="L.Photos.Yesterday">Вчера</sys:String>
+    <sys:String x:Key="L.Common.Select">Выбрать</sys:String>
+    <sys:String x:Key="L.Common.Select.Hint">Отмечать элементы кликом, без Ctrl</sys:String>
+    <sys:String x:Key="L.Photos.ShowDates.Hint">Показывать даты</sys:String>
     <sys:String x:Key="L.Photos.NoDate">Дата неизвестна</sys:String>
     <sys:String x:Key="L.Photos.TileSize">Размер плитки</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>

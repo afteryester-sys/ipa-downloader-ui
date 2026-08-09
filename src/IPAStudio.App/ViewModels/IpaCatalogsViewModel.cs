@@ -161,7 +161,15 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
             OnDeviceViewModel.MinTileSize, OnDeviceViewModel.MaxTileSize);
         _selectionMode = settings.Current.CatalogSelectionMode;
 
-        settings.Changed += (_, _) => SelectionMode = _settings.Current.CatalogSelectionMode;
+        settings.Changed += (_, _) =>
+        {
+            SelectionMode = _settings.Current.CatalogSelectionMode;
+            OnPropertyChanged(nameof(CtrlSelects));
+
+            // Leaving click mode drops the select mode with it, so the page cannot be left
+            // toggling rows on click with no visible way to stop.
+            if (SelectionMode != TileSelectionMode.Click) IsSelecting = false;
+        };
 
         // Model and iOS version arrive after the device is first reported, so the target list
         // would otherwise sit on the bare fallback name for as long as the page stays open.
@@ -219,7 +227,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _renameText = "";
 
-    // ─────────────────────── list / tile layout ───────────────────────
+    // ─────────────────────── list / tile layout ───────────────���───────
     // The same second view the on-device list has, and for the same reason: with a hundred
     // archives in a folder, the icon is found faster than a name in a column of rows. The
     // bounds and geometry maths are shared with OnDeviceViewModel so the two grids cannot
@@ -253,10 +261,25 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    [NotifyPropertyChangedFor(nameof(ShowSelectToggle))]
     private TileSelectionMode _selectionMode;
 
     /// <summary>True when selecting is done with tick boxes, so the rows draw one.</summary>
     public bool ShowSelectionCheckboxes => SelectionMode == TileSelectionMode.Checkbox;
+
+    /// <summary>
+    /// Whether a click picks archives out rather than just focusing a row. This is the toolbar's
+    /// select toggle: with it on, working down a library and clicking the ones to install builds
+    /// the batch, with no key held.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSelecting;
+
+    /// <summary>True when the toolbar should offer the select toggle at all.</summary>
+    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click;
+
+    /// <summary>Whether Ctrl-click selects while the select mode is off, from settings.</summary>
+    public bool CtrlSelects => _settings.Current.CatalogCtrlSelects;
 
     partial void OnIsTileViewChanged(bool value)
     {

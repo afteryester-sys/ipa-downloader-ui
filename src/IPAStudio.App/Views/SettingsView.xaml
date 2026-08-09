@@ -197,6 +197,13 @@
                                      IsChecked="{Binding PhotosSelectByCheckbox}" />
                     </StackPanel>
 
+                    <!-- Only meaningful alongside click selection, so it is hidden with the
+                         tick boxes rather than left on screen doing nothing. -->
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,0,14"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding PhotosCtrlSelects}"
+                              Visibility="{Binding PhotosSelectByClick, Converter={StaticResource BoolToVis}}" />
+
                     <TextBlock Text="{DynamicResource L.Settings.Selection.OnDevice}"
                                Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
@@ -208,6 +215,11 @@
                                      IsChecked="{Binding OnDeviceSelectByCheckbox}" />
                     </StackPanel>
 
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,0,14"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding OnDeviceCtrlSelects}"
+                              Visibility="{Binding OnDeviceSelectByClick, Converter={StaticResource BoolToVis}}" />
+
                     <TextBlock Text="{DynamicResource L.Settings.Selection.Catalog}"
                                Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
                     <StackPanel Orientation="Horizontal">
@@ -218,6 +230,14 @@
                                      GroupName="CatalogSelection" Foreground="{StaticResource Brush.Text}"
                                      IsChecked="{Binding CatalogSelectByCheckbox}" />
                     </StackPanel>
+
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,12,0,0"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding CatalogCtrlSelects}"
+                              Visibility="{Binding CatalogSelectByClick, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Ctrl.Hint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
 

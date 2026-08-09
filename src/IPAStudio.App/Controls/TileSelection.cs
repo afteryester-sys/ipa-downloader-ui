@@ -29,8 +29,14 @@ public interface ISelectableTile
 
 /// <summary>
 /// Click-to-select for the tile and row lists, attached to a <see cref="ListBox"/> rather
-/// than written into each page: the behaviour (plain click replaces the batch, Ctrl adds one,
-/// Shift adds a run) has to be identical everywhere or it is worse than not having it.
+/// than written into each page: the behaviour has to be identical everywhere or it is worse
+/// than not having it.
+///
+/// A click picks items out only while the page's select mode is on — see
+/// <see cref="IsSelectingProperty"/> — or, where the setting allows it, while Ctrl is held.
+/// Within either, a click toggles the item under the pointer and Shift extends a run from the
+/// last one. Outside both the click is none of this control's business and reaches the ListBox
+/// untouched, so a list can be browsed without a batch being at risk.
 ///
 /// Deliberately not implemented by binding <c>ListBoxItem.IsSelected</c> to the item's flag
 /// and switching the ListBox to extended selection, which looks like the shorter route. The
@@ -64,7 +70,39 @@ public static class TileSelection
     public static TileSelectionMode? GetMode(DependencyObject element) =>
         (TileSelectionMode?)element.GetValue(ModeProperty);
 
-    /// <summary>Anchor for Shift-range selection: the item of the last plain or Ctrl click.</summary>
+    /// <summary>
+    /// Whether the page's select mode is on, i.e. whether a plain click picks items out rather
+    /// than previewing one. Bound to the toolbar's "select" toggle.
+    ///
+    /// This is what makes click selection usable without a keyboard. Previously a plain click in
+    /// click mode replaced the batch outright, so browsing a list and assembling a batch were the
+    /// same gesture and the only way to add a second item was Ctrl — which nothing on screen said.
+    /// With a mode there is a visible statement of which of the two the list is doing.
+    /// </summary>
+    public static readonly DependencyProperty IsSelectingProperty = DependencyProperty.RegisterAttached(
+        "IsSelecting", typeof(bool), typeof(TileSelection), new PropertyMetadata(false));
+
+    public static void SetIsSelecting(DependencyObject element, bool value) =>
+        element.SetValue(IsSelectingProperty, value);
+
+    public static bool GetIsSelecting(DependencyObject element) =>
+        (bool)element.GetValue(IsSelectingProperty);
+
+    /// <summary>
+    /// Whether Ctrl-click selects while the select mode is off. Bound to the page's setting, so
+    /// the user who would rather hold a key than press a button keeps that, and the user who
+    /// would rather no modifier could ever touch a batch can turn it off.
+    /// </summary>
+    public static readonly DependencyProperty CtrlSelectsProperty = DependencyProperty.RegisterAttached(
+        "CtrlSelects", typeof(bool), typeof(TileSelection), new PropertyMetadata(true));
+
+    public static void SetCtrlSelects(DependencyObject element, bool value) =>
+        element.SetValue(CtrlSelectsProperty, value);
+
+    public static bool GetCtrlSelects(DependencyObject element) =>
+        (bool)element.GetValue(CtrlSelectsProperty);
+
+    /// <summary>Anchor for Shift-range selection: the item of the last selecting click.</summary>
     private static readonly DependencyProperty AnchorProperty = DependencyProperty.RegisterAttached(
         "Anchor", typeof(object), typeof(TileSelection));
 
@@ -84,6 +122,15 @@ public static class TileSelection
         if (sender is not ListBox list) return;
         if (GetMode(list) != TileSelectionMode.Click) return;
 
+        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+        var selecting = GetIsSelecting(list);
+
+        // The two ways in. Outside them the click is not about the batch at all and is left
+        // entirely to the ListBox, which is what makes browsing a list safe: with the select
+        // mode off and Ctrl-select turned off, nothing a mouse can do disturbs a batch.
+        if (!selecting && !(ctrl && GetCtrlSelects(list))) return;
+
         // A press on a control inside the tile is that control's: the tiles carry buttons
         // (save this app, open this album) and a checkbox, and selecting as well would make
         // pressing them feel like a misclick.
@@ -92,22 +139,21 @@ public static class TileSelection
         var container = FindContainer(e.OriginalSource as DependencyObject, list);
 
         // A press on the empty space below the tiles clears the batch, which is the only
-        // discoverable way to undo a selection made by clicking.
+        // discoverable way to undo a selection made by clicking. Only while the select mode is
+        // on: with it off the click that got here was a Ctrl-click, and a Ctrl-click on nothing
+        // is a miss rather than an instruction to throw the batch away.
         if (container is null)
         {
-            if (Keyboard.Modifiers == ModifierKeys.None) SelectOnly(list, null);
+            if (selecting && !ctrl && !shift) SelectOnly(list, null);
             return;
         }
 
         if (container.DataContext is not ISelectableTile tile) return;
 
         // An item that cannot join a batch is inert rather than destructive: clicking an
-        // unreadable archive or a busy app would otherwise fall through to "select only this",
-        // clearing a batch and selecting nothing in its place.
+        // unreadable archive or a busy app would otherwise fall through and clear a batch
+        // while selecting nothing in its place.
         if (!tile.CanSelect) return;
-
-        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
-        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
 
         if (shift && list.GetValue(AnchorProperty) is { } anchor)
         {
@@ -115,16 +161,11 @@ public static class TileSelection
             return;
         }
 
-        if (ctrl)
-        {
-            if (tile.CanSelect) tile.IsSelected = !tile.IsSelected;
-            list.SetValue(AnchorProperty, container.DataContext);
-            return;
-        }
-
-        // A plain click on the one item already selected is left alone, so that clicking a
-        // selected tile to preview it does not throw the rest of the batch away.
-        if (!(tile.IsSelected && CountSelected(list) == 1)) SelectOnly(list, container.DataContext);
+        // Toggling rather than replacing, both here and under Ctrl. In select mode the click is
+        // unambiguously about the batch, so the file-manager behaviour of dropping everything
+        // else would make the mode useless for the one thing it is for — picking several out
+        // one at a time.
+        tile.IsSelected = !tile.IsSelected;
         list.SetValue(AnchorProperty, container.DataContext);
     }
 
@@ -156,14 +197,6 @@ public static class TileSelection
             if (items[i] is not ISelectableTile tile || !tile.CanSelect) continue;
             if (!tile.IsSelected) tile.IsSelected = true;
         }
-    }
-
-    private static int CountSelected(ListBox list)
-    {
-        var count = 0;
-        foreach (var tile in Enumerate(list))
-            if (tile.IsSelected) count++;
-        return count;
     }
 
     /// <summary>

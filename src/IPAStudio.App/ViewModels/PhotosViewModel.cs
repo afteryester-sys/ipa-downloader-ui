@@ -434,6 +434,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    [NotifyPropertyChangedFor(nameof(ShowSelectToggle))]
     private TileSelectionMode _selectionMode;
 
     /// <summary>True when the tick box is the way to select, so the tiles draw one.</summary>
@@ -466,7 +467,50 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(IsGridView));
         OnPropertyChanged(nameof(ShowPhotoList));
         OnPropertyChanged(nameof(ShowPhotoGrid));
+
+        // Remembered like the tile size is. Without this the page opened as a list every time,
+        // so the grid had to be re-picked on each visit and stopped being worth switching to.
+        //
+        // Written through at once rather than deferred the way the slider's value is: this is one
+        // deliberate press, not a stream of them, and the page has no "leaving" hook to flush on
+        // — the existing flush only runs when the user happens to go back to the device list.
+        _settings.Current.PhotosGridView = !value;
+        SaveViewPreferences();
     }
+
+    /// <summary>
+    /// Whether the grid is broken into date bands. Off also flattens the tiles to equal squares,
+    /// because a sheet without bands is the plain contact sheet that "no dates" asks for.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UniformTiles))]
+    private bool _showDates = true;
+
+    /// <summary>True when the grid should ignore each picture's proportions.</summary>
+    public bool UniformTiles => !ShowDates;
+
+    partial void OnShowDatesChanged(bool value)
+    {
+        _settings.Current.PhotosShowDates = value;
+        SaveViewPreferences();
+
+        // The bands are items in the grid's own collection, so turning them off is a rebuild
+        // rather than a visibility change.
+        RebuildGridEntries();
+    }
+
+    /// <summary>
+    /// Whether a plain click picks photos out rather than previewing one. Only meaningful in
+    /// click mode; the toolbar's toggle is what makes that mode usable without a keyboard.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSelecting;
+
+    /// <summary>True when the toolbar should offer the select toggle at all.</summary>
+    public bool ShowSelectToggle => SelectionMode == TileSelectionMode.Click;
+
+    /// <summary>Whether Ctrl-click selects while the select mode is off, from settings.</summary>
+    public bool CtrlSelects => _settings.Current.PhotosCtrlSelects;
 
     partial void OnIsAlbumModeChanged(bool value)
     {
@@ -490,9 +534,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         _tileSize = Math.Clamp(settings.Current.PhotoTileSize, MinTileSize, MaxTileSize);
         _selectionMode = settings.Current.PhotosSelectionMode;
 
+        // Assigned to the backing fields so the generated setters' side effects — which write
+        // straight back to settings — do not run before the values have even been read.
+        _isListView = !settings.Current.PhotosGridView;
+        _showDates = settings.Current.PhotosShowDates;
+
         // Kept in step while the page is open, so switching the setting takes effect here
         // rather than on the next visit.
-        settings.Changed += (_, _) => SelectionMode = _settings.Current.PhotosSelectionMode;
+        settings.Changed += (_, _) =>
+        {
+            SelectionMode = _settings.Current.PhotosSelectionMode;
+            OnPropertyChanged(nameof(CtrlSelects));
+
+            // Leaving click mode has to drop the select mode with it, or the page would keep
+            // toggling photos on click while showing tick boxes and no way to turn it off.
+            if (SelectionMode != TileSelectionMode.Click) IsSelecting = false;
+        };
 
         // Built here rather than in a field initializer because the labels come from the
         // active language dictionary, and the filter compares the selection against the
@@ -1075,6 +1132,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private void RebuildGridEntriesCore()
     {
         GridEntries.Clear();
+
+        // Bands off: the grid is a plain contact sheet, so the items go in as they come.
+        if (!ShowDates)
+        {
+            foreach (var entry in PhotosView)
+                if (entry is PhotoItemViewModel photo) GridEntries.Add(photo);
+            return;
+        }
 
         PhotoDateGroupViewModel? group = null;
         DateTime? currentDay = null;

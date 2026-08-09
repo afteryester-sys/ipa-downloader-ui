@@ -101,6 +101,9 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     private double _slotViewportWidth;
     private int _slotShapeVersion = -1;
 
+    /// <summary>Which of the two layouts built the current slot map.</summary>
+    private bool _slotShaped;
+
     /// <summary>Content height implied by the slot map.</summary>
     private double _slotExtentHeight;
 
@@ -157,6 +160,24 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     {
         get => (double)GetValue(TileChromeProperty);
         set => SetValue(TileChromeProperty, value);
+    }
+
+    /// <summary>
+    /// Lays the items out as equal cells even when they can report their own shape.
+    ///
+    /// The photo grid reads as a timeline when its tiles are shaped like the pictures and as a
+    /// contact sheet when they are all the same, and the page offers both. Set from the same
+    /// switch that turns the date bands off, because a sheet with no bands is what "no dates"
+    /// means: nothing left to break the flow, and every tile on one column grid.
+    /// </summary>
+    public static readonly DependencyProperty UniformTilesProperty = DependencyProperty.Register(
+        nameof(UniformTiles), typeof(bool), typeof(VirtualizingWrapPanel),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public bool UniformTiles
+    {
+        get => (bool)GetValue(UniformTilesProperty);
+        set => SetValue(UniformTilesProperty, value);
     }
 
     /// <summary>Index range realised by the last measure pass, or -1 when empty.</summary>
@@ -267,7 +288,7 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         double viewportWidth)
     {
         var headerHeight = HeaderHeight;
-        var shaped = UsesAspectLayout(owner, itemCount);
+        var shaped = !UniformTiles && UsesAspectLayout(owner, itemCount);
 
         // In the shaped layout the measured tile width and the column count are meaningless —
         // tiles differ in width by design, so whichever tile the size probe happened to measure
@@ -278,6 +299,7 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var columnKey = shaped ? 0 : _columns;
 
         if (_slotCount == itemCount && _slotColumns == columnKey
+            && _slotShaped == shaped
             && _slotShapeVersion == _shapeVersion
             && Math.Abs(_slotItemWidth - widthKey) < 0.5
             && Math.Abs(_slotItemHeight - itemHeight) < 0.5
@@ -303,6 +325,7 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         _slotHeaderHeight = headerHeight;
         _slotViewportWidth = viewportWidth;
         _slotShapeVersion = _shapeVersion;
+        _slotShaped = shaped;
     }
 
     /// <summary>
@@ -487,6 +510,21 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     /// </summary>
     private void EnsureItemSize(IItemContainerGenerator generator)
     {
+        // Re-read the size from a live container on every pass, rather than measuring once and
+        // keeping the answer. The one-shot cache is what made a freshly switched-to tile view
+        // arrive broken — tiles overlapping and captions cut off — and stay broken until the
+        // size slider was touched: the first measure happens before the template's bindings have
+        // resolved the tile's real height, so the grid was laid out on that early figure and had
+        // no reason to ever ask again. Moving the slider dropped the cache, which is why that
+        // one action put it right, and why it looked like the view had "forgotten" its setting.
+        //
+        // The cost is one extra Measure of one on-screen container per pass, and it cannot
+        // oscillate: the container is measured against an unbounded constraint, so it reports the
+        // size the template asks for regardless of the slot it was last arranged in.
+        if (MeasureRealisedTile()) return;
+
+        // Nothing realised. Keep whatever was measured before rather than falling back to the
+        // nominal size, which would reflow the whole grid every time it scrolled past its end.
         if (!_itemSize.IsEmpty) return;
 
         // Measure a tile, not a heading: with a date heading first in the list, measuring
@@ -501,11 +539,6 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
             if (probeIndex >= owner.Items.Count) return; // headings only; nothing to measure
         }
-
-        // The size only ever changes while tiles are on screen, so this is also the path
-        // taken when the slider moves; the containers were invalidated by OnTileSizeChanged
-        // and report the new size.
-        if (MeasureRealisedTile()) return;
 
         // Nothing realised yet (first layout). Generating is safe here precisely because
         // there is no existing child order to disturb, and the probe is released again

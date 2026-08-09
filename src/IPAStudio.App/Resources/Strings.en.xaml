@@ -336,12 +336,14 @@
 
     <!-- Diagnostics (logging settings) -->
     <sys:String x:Key="L.Settings.Selection">Selecting in lists</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Hint">How several items are marked for a batch action. Selecting by click supports Ctrl to add one and Shift to add a run, and a click on empty space clears the selection. Tick boxes are slower but a stray click cannot undo them.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">How several items are marked for a batch action. Selecting by click puts a "Select" button on the page: while it is on, a click marks an item and Shift marks a run. Tick boxes are slower but a stray click cannot undo them.</sys:String>
     <sys:String x:Key="L.Settings.Selection.Photos">Photos</sys:String>
     <sys:String x:Key="L.Settings.Selection.OnDevice">Apps on the device</sys:String>
     <sys:String x:Key="L.Settings.Selection.Catalog">.ipa catalogs</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByClick">By click</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">With tick boxes</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl">Select with Ctrl</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">In addition to the "Select" button: Ctrl-click marks items without turning the mode on. Turn this off if you keep clearing a selection by accident.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Settings.Load">Current load</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Processor</sys:String>
@@ -541,6 +543,9 @@
     <sys:String x:Key="L.Photos.NoAlbum">Not in an album</sys:String>
     <sys:String x:Key="L.Photos.Today">Today</sys:String>
     <sys:String x:Key="L.Photos.Yesterday">Yesterday</sys:String>
+    <sys:String x:Key="L.Common.Select">Select</sys:String>
+    <sys:String x:Key="L.Common.Select.Hint">Mark items by clicking, without Ctrl</sys:String>
+    <sys:String x:Key="L.Photos.ShowDates.Hint">Show dates</sys:String>
     <sys:String x:Key="L.Photos.NoDate">Date unknown</sys:String>
     <sys:String x:Key="L.Photos.TileSize">Tile size</sys:String>
     <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
