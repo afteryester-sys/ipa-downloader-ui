@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,11 +15,14 @@ namespace IPAStudio.App.Controls;
 /// a few thousand photos that alone makes opening and scrolling the grid slow, no
 /// matter how cheaply thumbnails are loaded.
 ///
-/// The layout assumes every tile is the same size, which holds here because the photo
-/// tile template has a fixed width and height. That assumption is what keeps this small:
-/// row and column positions are plain arithmetic instead of an incremental measure pass.
-/// The size is measured once from a real container rather than hardcoded, so restyling
-/// the tile can't silently break the layout.
+/// Two layouts are available. By default tiles are a uniform size — measured once from a
+/// real container rather than hardcoded, so restyling the tile cannot silently break the
+/// layout — and row and column positions are plain arithmetic. When the items implement
+/// <see cref="IAspectTile"/>, each tile is instead given the shape of what it shows and rows
+/// are justified to the width of the viewport, the way a photo gallery lays out a camera roll.
+///
+/// Either way positions are computed into a slot map ahead of arrange, so a tile's size never
+/// depends on measuring its neighbours and virtualised items still have a known position.
 /// </summary>
 public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 {
@@ -95,9 +99,65 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     private double _slotItemHeight;
     private double _slotHeaderHeight;
     private double _slotViewportWidth;
+    private int _slotShapeVersion = -1;
 
     /// <summary>Content height implied by the slot map.</summary>
     private double _slotExtentHeight;
+
+    /// <summary>Content width implied by the slot map.</summary>
+    private double _slotExtentWidth;
+
+    /// <summary>
+    /// Bumped whenever the shapes the items report have changed, which rebuilds the slot map.
+    /// Needed because a photo's proportions arrive with its thumbnail, long after the item
+    /// itself was added to the list, and until then the panel is laying out on a guess.
+    /// </summary>
+    private int _shapeVersion;
+
+    /// <summary>
+    /// Tells the panel that <see cref="IAspectTile.TileAspect"/> has changed on one or more
+    /// items, so the rows are laid out again against their real proportions.
+    /// </summary>
+    public void InvalidateItemShapes()
+    {
+        _shapeVersion++;
+        InvalidateMeasure();
+    }
+
+    /// <summary>
+    /// Bind to a counter the source raises whenever the items' shapes have changed; every
+    /// change relays out the rows. Exists so the trigger can be declared in the template
+    /// alongside <see cref="TileSizeProperty"/>, rather than requiring the page's code-behind
+    /// to reach into the panel.
+    /// </summary>
+    public static readonly DependencyProperty ShapeVersionProperty = DependencyProperty.Register(
+        nameof(ShapeVersion), typeof(int), typeof(VirtualizingWrapPanel),
+        new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.AffectsMeasure, OnShapeVersionChanged));
+
+    public int ShapeVersion
+    {
+        get => (int)GetValue(ShapeVersionProperty);
+        set => SetValue(ShapeVersionProperty, value);
+    }
+
+    private static void OnShapeVersionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        => ((VirtualizingWrapPanel)d).InvalidateItemShapes();
+
+    /// <summary>
+    /// Total margin and padding the item container adds around the tile's content, along one
+    /// axis. Only the shaped layout needs it: it sizes tiles from the picture's proportions,
+    /// and the picture is the slot minus this border. Declared rather than measured because the
+    /// border comes from the container style, which the panel cannot see.
+    /// </summary>
+    public static readonly DependencyProperty TileChromeProperty = DependencyProperty.Register(
+        nameof(TileChrome), typeof(double), typeof(VirtualizingWrapPanel),
+        new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public double TileChrome
+    {
+        get => (double)GetValue(TileChromeProperty);
+        set => SetValue(TileChromeProperty, value);
+    }
 
     /// <summary>Index range realised by the last measure pass, or -1 when empty.</summary>
     public int FirstVisibleIndex { get; private set; } = -1;
@@ -141,7 +201,9 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
         EnsureSlots(owner!, itemCount, itemWidth, itemHeight, viewportWidth);
 
-        _extent = new Size(_columns * itemWidth, _slotExtentHeight);
+        // Width comes from the slot map, which in the shaped layout fills the viewport rather
+        // than snapping to a whole number of equal columns.
+        _extent = new Size(_slotExtentWidth > 0 ? _slotExtentWidth : _columns * itemWidth, _slotExtentHeight);
         _viewport = new Size(viewportWidth, viewportHeight);
 
         // Narrowing the window or removing items can leave the offset past the end.
@@ -205,9 +267,19 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         double viewportWidth)
     {
         var headerHeight = HeaderHeight;
+        var shaped = UsesAspectLayout(owner, itemCount);
 
-        if (_slotCount == itemCount && _slotColumns == _columns
-            && Math.Abs(_slotItemWidth - itemWidth) < 0.5
+        // In the shaped layout the measured tile width and the column count are meaningless —
+        // tiles differ in width by design, so whichever tile the size probe happened to measure
+        // sets them, and they change from pass to pass. Left in the comparison they would
+        // rebuild the slot map on every measure, which is both wasted O(n) work per frame and
+        // a plausible way to never reach a stable layout. The row height is the real input.
+        var widthKey = shaped ? itemHeight : itemWidth;
+        var columnKey = shaped ? 0 : _columns;
+
+        if (_slotCount == itemCount && _slotColumns == columnKey
+            && _slotShapeVersion == _shapeVersion
+            && Math.Abs(_slotItemWidth - widthKey) < 0.5
             && Math.Abs(_slotItemHeight - itemHeight) < 0.5
             && Math.Abs(_slotHeaderHeight - headerHeight) < 0.5
             && Math.Abs(_slotViewportWidth - viewportWidth) < 0.5)
@@ -216,6 +288,43 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         }
 
         var slots = new Rect[itemCount];
+
+        var y = shaped
+            ? BuildShapedRows(owner, itemCount, slots, itemHeight, headerHeight, viewportWidth)
+            : BuildUniformGrid(owner, itemCount, slots, itemWidth, itemHeight, headerHeight, viewportWidth);
+
+        _slots = slots;
+        _slotExtentHeight = y;
+        _slotExtentWidth = viewportWidth;
+        _slotCount = itemCount;
+        _slotColumns = columnKey;
+        _slotItemWidth = widthKey;
+        _slotItemHeight = itemHeight;
+        _slotHeaderHeight = headerHeight;
+        _slotViewportWidth = viewportWidth;
+        _slotShapeVersion = _shapeVersion;
+    }
+
+    /// <summary>
+    /// Whether the items want to be laid out in their own shape. Decided from the first real
+    /// tile: a list is of one kind throughout, and checking every item would mean walking all
+    /// thirteen thousand of them on each relayout.
+    /// </summary>
+    private static bool UsesAspectLayout(ItemsControl owner, int itemCount)
+    {
+        for (var i = 0; i < itemCount; i++)
+        {
+            if (owner.Items[i] is IGridGroupHeader) continue;
+            return owner.Items[i] is IAspectTile;
+        }
+
+        return false;
+    }
+
+    /// <summary>Equal cells in fixed columns. Used by the app lists, where every tile is a card of the same size.</summary>
+    private double BuildUniformGrid(ItemsControl owner, int itemCount, Rect[] slots,
+        double itemWidth, double itemHeight, double headerHeight, double viewportWidth)
+    {
         var y = 0d;
         var col = 0;
 
@@ -239,15 +348,101 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         }
 
         if (col > 0) y += itemHeight;
+        return y;
+    }
 
-        _slots = slots;
-        _slotExtentHeight = y;
-        _slotCount = itemCount;
-        _slotColumns = _columns;
-        _slotItemWidth = itemWidth;
-        _slotItemHeight = itemHeight;
-        _slotHeaderHeight = headerHeight;
-        _slotViewportWidth = viewportWidth;
+    /// <summary>
+    /// Rows of tiles each shaped like the frame it shows, scaled together so the row ends
+    /// exactly at the right edge — the layout a photo gallery uses. An upright photo gets an
+    /// upright tile, so nothing is cropped and no tile carries empty panels beside the picture.
+    /// </summary>
+    private double BuildShapedRows(ItemsControl owner, int itemCount, Rect[] slots,
+        double itemHeight, double headerHeight, double viewportWidth)
+    {
+        // What an iPhone frame is, and the shape a tile is given until its thumbnail has been
+        // decoded and can say otherwise. Guessing upright rather than square keeps the rows
+        // from visibly reflowing for most of a camera roll once the pictures arrive.
+        const double UnknownAspect = 3d / 4d;
+
+        // A panorama would otherwise claim a row to itself and a hair-thin frame would vanish.
+        const double MinAspect = 0.4;
+        const double MaxAspect = 3.0;
+
+        // How far a row may be scaled up to reach the right edge. Without a ceiling a row
+        // holding one leftover picture would blow it up into a poster.
+        const double MaxRowStretch = 1.35;
+
+        // The container draws a margin and padding around the picture, so a slot is the frame
+        // plus that fixed border. Scaling has to leave the border alone and act on the picture
+        // only: scaling the whole slot would make each tile's border proportional to its width,
+        // so a wide tile would sit in a thicker frame than a narrow one and neither would end
+        // up the shape the photograph actually is.
+        var chrome = Math.Min(TileChrome, itemHeight - 1);
+        var contentHeight = Math.Max(1, itemHeight - chrome);
+
+        // Width of each tile's picture, excluding the border.
+        var contentWidths = new double[itemCount];
+        var row = new List<int>();
+        var rowContentWidth = 0d;
+        var y = 0d;
+
+        double CloseRow(bool justify)
+        {
+            if (row.Count == 0) return y;
+
+            // Room the pictures have to share once every tile's border is paid for.
+            var available = viewportWidth - row.Count * chrome;
+
+            var scale = justify && rowContentWidth > 0 && available > 0
+                ? Math.Min(available / rowContentWidth, MaxRowStretch)
+                : 1d;
+
+            var height = contentHeight * scale + chrome;
+            var x = 0d;
+
+            foreach (var index in row)
+            {
+                var width = contentWidths[index] * scale + chrome;
+                slots[index] = new Rect(x, y, width, height);
+                x += width;
+            }
+
+            y += height;
+            row.Clear();
+            rowContentWidth = 0;
+            return y;
+        }
+
+        for (var i = 0; i < itemCount; i++)
+        {
+            if (owner.Items[i] is IGridGroupHeader)
+            {
+                CloseRow(false);
+                slots[i] = new Rect(0, y, viewportWidth, headerHeight);
+                y += headerHeight;
+                continue;
+            }
+
+            var reported = (owner.Items[i] as IAspectTile)?.TileAspect ?? 0;
+            var aspect = reported > 0
+                ? Math.Clamp(reported, MinAspect, MaxAspect)
+                : UnknownAspect;
+
+            var width = Math.Min(contentHeight * aspect, Math.Max(1, viewportWidth - chrome));
+
+            // Break before adding rather than after, so a row is never wider than the
+            // viewport and the scale factor above only ever has to stretch, never shrink.
+            if (row.Count > 0 && rowContentWidth + width + (row.Count + 1) * chrome > viewportWidth)
+                CloseRow(true);
+
+            contentWidths[i] = width;
+            rowContentWidth += width;
+            row.Add(i);
+        }
+
+        // The last row is left unjustified: stretching a part-filled row would leave the
+        // final few pictures conspicuously larger than everything above them.
+        return CloseRow(false);
     }
 
     /// <summary>First slot whose bottom edge is at or below <paramref name="y"/>, or 0.</summary>

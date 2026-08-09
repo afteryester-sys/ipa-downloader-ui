@@ -20,9 +20,18 @@ using Microsoft.Win32;
 namespace IPAStudio.App.ViewModels;
 
 /// <summary>Selectable wrapper around a Camera Roll media file.</summary>
-public sealed partial class PhotoItemViewModel : ObservableObject, ISelectableTile
+public sealed partial class PhotoItemViewModel : ObservableObject, ISelectableTile, IAspectTile
 {
     public PhotoItem Item { get; }
+
+    /// <summary>
+    /// Shape of the frame, so the grid can give the tile the proportions of the picture instead
+    /// of a cell of its own choosing. Zero until the thumbnail has been decoded — that is the
+    /// only place the real pixel dimensions become known, since listing the roll deliberately
+    /// skips per-file metadata to get the grid on screen quickly.
+    /// </summary>
+    public double TileAspect =>
+        Thumbnail is { PixelHeight: > 0 } thumb ? (double)thumb.PixelWidth / thumb.PixelHeight : 0;
 
     /// <summary>Any photo can join a batch; there is nothing to disqualify one.</summary>
     public bool CanSelect => true;
@@ -47,6 +56,9 @@ public sealed partial class PhotoItemViewModel : ObservableObject, ISelectableTi
     /// when a thumbnail is evicted from the cache, so a retry is still possible.
     /// </summary>
     public bool ThumbnailAttempted { get; set; }
+
+    /// <summary>The frame's proportions are read off the thumbnail, so they change with it.</summary>
+    partial void OnThumbnailChanged(BitmapImage? value) => OnPropertyChanged(nameof(TileAspect));
 
     public string FileName => Item.FileName;
 
@@ -307,7 +319,22 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportAlbumCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSelectedCommand))]
+    [NotifyPropertyChangedFor(nameof(CanAcceptDrop))]
     private bool _isTransferring;
+
+    /// <summary>
+    /// True while files are being dragged over the page, which draws the drop overlay. Kept
+    /// here rather than in the view so the overlay's wording and visibility follow the same
+    /// bindings as the rest of the page.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDropTarget;
+
+    /// <summary>
+    /// Whether a drop would be accepted right now: there has to be a device to copy to, and
+    /// a transfer already running would otherwise queue a second one behind it.
+    /// </summary>
+    public bool CanAcceptDrop => _device is not null && !IsTransferring;
 
     [ObservableProperty]
     private double _transferProgress;
@@ -378,8 +405,27 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private double _tileSize;
 
-    /// <summary>Thumbnail box edge, slightly shorter than the tile so photos stay landscape-ish.</summary>
-    public double ThumbHeight => Math.Max(60, TileSize - 20);
+    /// <summary>
+    /// Row height for the grid: tiles are as tall as this and as wide as their frame is,
+    /// so the slider still sets how large the contact sheet is while each picture keeps
+    /// its own proportions.
+    /// </summary>
+    public double ThumbHeight => Math.Max(60, TileSize);
+
+    /// <summary>
+    /// Widest a single tile may be drawn. Bounds the grid's probe measurement, which measures
+    /// one tile against no constraint to learn the row height, and keeps a panorama from
+    /// claiming an entire row on its own.
+    /// </summary>
+    public double MaxTileWidth => ThumbHeight * 3;
+
+    /// <summary>
+    /// Counter the grid watches to know the tiles' proportions have changed. Raised after each
+    /// batch of thumbnails is applied, because a photo's shape is not known until its thumbnail
+    /// has been decoded, and the grid lays out tiles from that shape.
+    /// </summary>
+    [ObservableProperty]
+    private int _tileShapeVersion;
 
     /// <summary>
     /// How the list picks items out for the toolbar's batch actions, from settings. Mirrored
@@ -396,6 +442,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     partial void OnTileSizeChanged(double value)
     {
         OnPropertyChanged(nameof(ThumbHeight));
+        OnPropertyChanged(nameof(MaxTileWidth));
 
         // Held in the settings object on every tick of the slider but flushed to disk only
         // when the page is left, so dragging it does not write the file dozens of times.
@@ -467,7 +514,15 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         SelectedMediaType = MediaTypes[0];
     }
 
-    public void SetDevice(Device device) => _device = device;
+    public void SetDevice(Device device)
+    {
+        _device = device;
+
+        // Whether a drop is accepted depends on there being a device, so the overlay has to
+        // hear about this — otherwise the page stays refusing drops until something else
+        // happens to raise a notification.
+        OnPropertyChanged(nameof(CanAcceptDrop));
+    }
 
     /// <summary>
     /// Keeps <see cref="SelectedCount"/> up to date by adjusting it in place.
@@ -966,10 +1021,20 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         {
             // List was rebuilt or the page was left; nothing to report.
         }
-        catch
+        catch (Exception ex)
         {
-            // Sizes and dates are cosmetic — a mid-pass disconnect leaves the
-            // placeholders in place rather than tearing down a working grid.
+            // Sizes and dates are cosmetic — a mid-pass disconnect leaves the placeholders in
+            // place rather than tearing down a working grid. Logged rather than swallowed
+            // outright: a failure here is invisible in the UI (the grid just keeps showing
+            // dashes and no date bands), so without a line in the log there is nothing to tell
+            // "the device refused the stat" apart from "the dates are simply still coming".
+            AppLog.Warn($"photos: reading sizes and dates failed: {ex.Message}");
+
+            // The re-sort above is what normally rebuilds the date bands, and it was skipped.
+            // Without this the photos that did get a date before the failure would keep no
+            // heading at all, which reads as "this album has no dates" rather than "the rest
+            // of them could not be read".
+            RebuildGridEntries();
         }
     }
 
@@ -1017,6 +1082,23 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         foreach (var entry in PhotosView)
         {
             if (entry is not PhotoItemViewModel photo) continue;
+
+            // A photo whose date has not been fetched yet gets no band at all, rather than
+            // being filed under "date unknown". Listing the roll deliberately skips the
+            // per-file stat, so on opening an album every single item is in that state — and
+            // filing them by it put the whole roll under one "date unknown" heading, which is
+            // what it looked like: a grid that had lost its dates rather than one still
+            // fetching them. The heading is a claim about the photo; it should not be made
+            // until there is something to claim.
+            if (!photo.Item.HasMetadata)
+            {
+                // Ends the open band, so a real date arriving later starts its own row
+                // instead of appearing to continue a band it does not belong to.
+                group = null;
+                currentDay = null;
+                GridEntries.Add(photo);
+                continue;
+            }
 
             var day = photo.Item.ModifiedUtc?.LocalDateTime.Date;
 
@@ -1286,7 +1368,25 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         };
         if (dialog.ShowDialog() != true) return;
 
-        var files = dialog.FileNames.ToList();
+        await ImportFilesAsync(dialog.FileNames);
+    }
+
+    /// <summary>
+    /// Copies the given local files onto the device. Split out from the file dialog so
+    /// dragging pictures onto the page and picking them through the dialog are the same
+    /// operation, including the "copied but not in the library yet" reporting.
+    /// </summary>
+    public async Task ImportFilesAsync(IEnumerable<string> paths)
+    {
+        if (_device is null) return;
+
+        var files = paths.Where(PhotoService.IsMediaFile).ToList();
+        if (files.Count == 0)
+        {
+            StatusText = Loc.Get("L.Photos.DropNoMedia");
+            return;
+        }
+
         await RunTransferAsync(async (progress, ct) =>
         {
             ImportNeedsRestart = false;
@@ -1631,6 +1731,13 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                             item.Thumbnail = thumb;
                             TouchCache(item);
                         }
+
+                        // A decoded thumbnail is where a frame's proportions first become
+                        // known, and the grid shapes each tile from them, so the rows have to
+                        // be laid out again. Bumped once per batch rather than per picture:
+                        // a relayout walks the whole slot map, and doing that thirty times for
+                        // one batch would be thirty times the work for the same result.
+                        if (decoded.Count > 0) TileShapeVersion++;
                         // Items whose bytes arrived but produced no image are recorded
                         // as attempted, so the loader doesn't retry them forever.
                         // Videos count as attempted either way: there is no second thing

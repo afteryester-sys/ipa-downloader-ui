@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -161,6 +163,61 @@ public partial class PhotosView : UserControl
     /// <summary>The list box for the mode currently shown; the other one is collapsed.</summary>
     private ListBox? FindActiveListBox()
         => PhotosGrid.IsVisible ? PhotosGrid : PhotosList.IsVisible ? PhotosList : null;
+
+    /// <summary>
+    /// Lights up the drop overlay while files are dragged over the page, and refuses drops that
+    /// cannot be honoured — no device, or a transfer already in flight — so the cursor says no
+    /// before the user lets go rather than a message appearing afterwards.
+    ///
+    /// Dragging is view plumbing, which is why it is here: the view model only ever sees the
+    /// resulting list of paths.
+    /// </summary>
+    private void OnDragOverPage(object sender, DragEventArgs e)
+    {
+        var accepted = DataContext is PhotosViewModel { CanAcceptDrop: true }
+                       && e.Data.GetDataPresent(DataFormats.FileDrop);
+
+        e.Effects = accepted ? DragDropEffects.Copy : DragDropEffects.None;
+
+        if (DataContext is PhotosViewModel vm) vm.IsDropTarget = accepted;
+
+        // Without this WPF keeps looking for a handler further up and applies its answer
+        // instead, which shows the "no" cursor over a page that would in fact take the files.
+        e.Handled = true;
+    }
+
+    private void OnDragLeavePage(object sender, DragEventArgs e)
+    {
+        if (DataContext is PhotosViewModel vm) vm.IsDropTarget = false;
+    }
+
+    private async void OnDropOnPage(object sender, DragEventArgs e)
+    {
+        if (DataContext is not PhotosViewModel vm) return;
+
+        // Clear the overlay first: the copy runs for as long as it takes, and leaving the
+        // "drop here" panel over the page for its duration would hide the progress it reports.
+        vm.IsDropTarget = false;
+        e.Handled = true;
+
+        if (!vm.CanAcceptDrop) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
+
+        // Folders are expanded rather than ignored: dragging a folder of holiday pictures is
+        // the obvious thing to try, and refusing it would look like the drop failed. Recursive,
+        // because camera imports and phone backups both nest by date.
+        var files = new List<string>();
+        foreach (var path in paths)
+        {
+            if (Directory.Exists(path))
+                files.AddRange(Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories));
+            else if (File.Exists(path))
+                files.Add(path);
+        }
+
+        // The view model drops anything that is not media and reports it.
+        await vm.ImportFilesAsync(files);
+    }
 
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
     {

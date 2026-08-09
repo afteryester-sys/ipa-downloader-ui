@@ -53,6 +53,14 @@ public sealed class PhotoService
     };
 
     /// <summary>
+    /// Whether a local file is something the Camera Roll can hold. Exposed so a drop onto the
+    /// photos page can sort media out of whatever else was dragged along with it, using the
+    /// same list the listing recognises rather than a second copy that could drift from it.
+    /// </summary>
+    public static bool IsMediaFile(string path) =>
+        MediaExtensions.Contains(Path.GetExtension(path));
+
+    /// <summary>
     /// How many files to stat before reporting progress. Batching keeps a 5 000 photo
     /// roll from marshalling 5 000 separate UI updates, which cost far more than the
     /// stats themselves.

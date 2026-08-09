@@ -575,6 +575,9 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Выберите фото или видео для переноса</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Отпустите, чтобы перенести на устройство</sys:String>
+    <sys:String x:Key="L.Photos.DropHintSub">Фото и видео; папки будут просмотрены целиком</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">Среди перенесённых файлов нет фото и видео</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там только свою медиатеку</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>

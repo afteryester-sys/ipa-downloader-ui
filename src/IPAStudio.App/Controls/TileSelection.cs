@@ -45,16 +45,24 @@ public static class TileSelection
     /// <summary>
     /// Which way the list selects. Bound to the page's setting, so switching the mode takes
     /// effect on the open page instead of on the next visit.
+    ///
+    /// Nullable with a null default, which is what makes the click handler attach at all.
+    /// WPF raises the change callback only when the effective value actually changes, so with
+    /// a default of <see cref="TileSelectionMode.Click"/> a page whose setting was also Click
+    /// — the shipped default — bound the same value the property already held, the callback
+    /// never ran, and nothing was ever hooked. Click selection was dead on every list while
+    /// the tick boxes stayed hidden for being in click mode, so no list could be selected in
+    /// any way. Against a null default every real value is a change, whichever mode it is.
     /// </summary>
     public static readonly DependencyProperty ModeProperty = DependencyProperty.RegisterAttached(
-        "Mode", typeof(TileSelectionMode), typeof(TileSelection),
-        new PropertyMetadata(TileSelectionMode.Click, OnModeChanged));
+        "Mode", typeof(TileSelectionMode?), typeof(TileSelection),
+        new PropertyMetadata(null, OnModeChanged));
 
-    public static void SetMode(DependencyObject element, TileSelectionMode value) =>
+    public static void SetMode(DependencyObject element, TileSelectionMode? value) =>
         element.SetValue(ModeProperty, value);
 
-    public static TileSelectionMode GetMode(DependencyObject element) =>
-        (TileSelectionMode)element.GetValue(ModeProperty);
+    public static TileSelectionMode? GetMode(DependencyObject element) =>
+        (TileSelectionMode?)element.GetValue(ModeProperty);
 
     /// <summary>Anchor for Shift-range selection: the item of the last plain or Ctrl click.</summary>
     private static readonly DependencyProperty AnchorProperty = DependencyProperty.RegisterAttached(

@@ -47,15 +47,19 @@ public enum TileSelectionMode
 {
     /// <summary>
     /// Pick items by clicking them, the way a file manager or a photo gallery does, with
-    /// Ctrl to add one and Shift to add a run. The default: it is what the same lists do
-    /// everywhere else on the machine, and it leaves the tile itself uncluttered.
+    /// Ctrl to add one and Shift to add a run. Uncluttered, and it matches the lists the
+    /// user meets elsewhere on the machine — but a stray click can drop a batch that took
+    /// a while to assemble, which is why it is offered rather than imposed.
     /// </summary>
     Click = 0,
 
     /// <summary>
     /// Pick items with a tick box drawn on each one. Slower per item, but it states plainly
-    /// what is selected and cannot be undone by a stray click, which matters when the batch
-    /// took a while to assemble. Kept as a choice rather than removed for that reason.
+    /// what is selected and cannot be undone by a stray click.
+    ///
+    /// The default. It is the mode that shows the user, without being told, that a list can
+    /// be selected at all: the box is on the tile whether or not anyone knows to try
+    /// dragging or Ctrl-clicking.
     /// </summary>
     Checkbox = 1,
 }
@@ -191,13 +195,13 @@ public sealed class AppSettings
     /// clicked through, whereas a list of apps to download is assembled deliberately and
     /// benefits from tick boxes that a misplaced click cannot clear.
     /// </summary>
-    public TileSelectionMode PhotosSelectionMode { get; set; } = TileSelectionMode.Click;
+    public TileSelectionMode PhotosSelectionMode { get; set; } = TileSelectionMode.Checkbox;
 
     /// <summary>How items are picked on the "on the device" page.</summary>
-    public TileSelectionMode OnDeviceSelectionMode { get; set; } = TileSelectionMode.Click;
+    public TileSelectionMode OnDeviceSelectionMode { get; set; } = TileSelectionMode.Checkbox;
 
     /// <summary>How items are picked on the .ipa catalog page.</summary>
-    public TileSelectionMode CatalogSelectionMode { get; set; } = TileSelectionMode.Click;
+    public TileSelectionMode CatalogSelectionMode { get; set; } = TileSelectionMode.Checkbox;
 
     /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful

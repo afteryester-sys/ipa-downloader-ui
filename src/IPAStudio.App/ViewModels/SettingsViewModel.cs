@@ -246,7 +246,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PhotosSelectByClick))]
     [NotifyPropertyChangedFor(nameof(PhotosSelectByCheckbox))]
-    private TileSelectionMode _photosSelectionMode = TileSelectionMode.Click;
+    private TileSelectionMode _photosSelectionMode = TileSelectionMode.Checkbox;
 
     public bool PhotosSelectByClick
     {
@@ -262,7 +262,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OnDeviceSelectByClick))]
     [NotifyPropertyChangedFor(nameof(OnDeviceSelectByCheckbox))]
-    private TileSelectionMode _onDeviceSelectionMode = TileSelectionMode.Click;
+    private TileSelectionMode _onDeviceSelectionMode = TileSelectionMode.Checkbox;
 
     public bool OnDeviceSelectByClick
     {
@@ -278,7 +278,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CatalogSelectByClick))]
     [NotifyPropertyChangedFor(nameof(CatalogSelectByCheckbox))]
-    private TileSelectionMode _catalogSelectionMode = TileSelectionMode.Click;
+    private TileSelectionMode _catalogSelectionMode = TileSelectionMode.Checkbox;
 
     public bool CatalogSelectByClick
     {

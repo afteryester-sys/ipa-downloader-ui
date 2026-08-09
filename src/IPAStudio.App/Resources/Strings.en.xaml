@@ -575,6 +575,9 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Choose photos or videos to transfer</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Drop to copy to the device</sys:String>
+    <sys:String x:Key="L.Photos.DropHintSub">Photos and videos; folders are searched through</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">None of those files are photos or videos</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">No files could be copied</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. They will not appear in Photos — iOS only shows its own library there</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are on the device in DCIM and readable by anything that reads that folder directly. They will not appear in Photos: iOS keeps its library in a separate closed database and does not pick up files added from outside. Restarting the device does not change this.</sys:String>

@@ -3,7 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:IPAStudio.App.Converters"
              xmlns:ctrl="clr-namespace:IPAStudio.App.Controls"
-             xmlns:vm="clr-namespace:IPAStudio.App.ViewModels">
+             xmlns:vm="clr-namespace:IPAStudio.App.ViewModels"
+             AllowDrop="True" DragOver="OnDragOverPage"
+             DragLeave="OnDragLeavePage" Drop="OnDropOnPage">
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
@@ -84,59 +86,63 @@
             <!-- No margin of its own: the spacing between tiles and the inset the selection
                  highlight is drawn at both come from the container style, so that the
                  highlight cannot end up off centre relative to the tile. -->
-            <Grid Width="{Binding DataContext.TileSize, RelativeSource={RelativeSource AncestorType=ListBox}}">
-                <StackPanel>
+            <!-- Height fixed by the slider, width left to stretch: the panel hands this tile a
+                 rectangle already cut to the proportions of the photograph, so the picture fills
+                 it edge to edge with nothing cropped and no empty panel beside it. Setting a
+                 width here would pin every tile back to one shape and undo that.
+
+                 MaxWidth only bounds the panel's one-off probe measurement, which measures a
+                 tile against infinity to learn the row height. -->
+            <Grid Height="{Binding DataContext.ThumbHeight, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                  MaxWidth="{Binding DataContext.MaxTileWidth, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                  HorizontalAlignment="Stretch">
+                <!-- The file name and size used to sit under each thumbnail. They are gone from
+                     the tile because the tile is now exactly the picture: captions would add
+                     height that is not part of the frame, and the shape the panel laid out
+                     would no longer match what is drawn. Both are still shown for the selected
+                     photo in the preview panel beside the grid. -->
+                <Border Style="{StaticResource ThumbBorder}">
                     <Grid>
-                        <Border Width="{Binding DataContext.TileSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                Height="{Binding DataContext.ThumbHeight, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                Style="{StaticResource ThumbBorder}">
-                            <Grid>
-                                <!-- Uniform, not UniformToFill: filling a 130x110 tile from a
-                                     4:3 or 16:9 frame cut the edges off, and in a grid used to
-                                     spot one particular shot the cropped-away part is often the
-                                     subject. Letterboxing shows the whole frame instead. -->
-                                <Image Source="{Binding Thumbnail}" Stretch="Uniform"
-                                       Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
-                                <!-- Fallback glyph -->
-                                <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
-                                           FontFamily="Segoe MDL2 Assets" FontSize="36"
-                                           Foreground="{StaticResource Brush.Accent}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="&#xEB9F;" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsVideo}" Value="True">
-                                                    <Setter Property="Text" Value="&#xE714;" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </Border>
-                        <!-- Video badge -->
-                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                Background="#88000000" CornerRadius="0,0,9,0" Padding="5,3"
-                                Visibility="{Binding IsVideo, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                       Foreground="White" />
-                        </Border>
-                        <!-- Selection checkbox overlay, only in checkbox mode. In click mode
-                             the highlight on the container says what is selected, and leaving
-                             a box on top of every thumbnail would both cover the photograph
-                             and offer a second, contradictory way to select. -->
-                        <CheckBox Style="{StaticResource Check.Base}" IsChecked="{Binding IsSelected}"
-                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0"
-                                  Visibility="{Binding DataContext.ShowSelectionCheckboxes,
-                                               RelativeSource={RelativeSource AncestorType=ListBox},
-                                               Converter={StaticResource BoolToVis}}" />
+                        <!-- UniformToFill against a slot that already matches the frame's shape:
+                             the fill is what removes the letterbox bars, and because the slot is
+                             the right shape it has nothing to crop beyond a rounding error at
+                             the edge. -->
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                        <!-- Fallback glyph -->
+                        <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                   FontFamily="Segoe MDL2 Assets" FontSize="36"
+                                   Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xEB9F;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                            <Setter Property="Text" Value="&#xE714;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Grid>
-                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Caption}"
-                               TextTrimming="CharacterEllipsis" Margin="2,5,2,1" />
-                    <TextBlock Text="{Binding SizeText}" Style="{StaticResource Text.Caption}"
-                               Foreground="{StaticResource Brush.TextMuted}" Margin="2,0,2,0" FontSize="11" />
-                </StackPanel>
+                </Border>
+                <!-- Video badge -->
+                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Background="#88000000" CornerRadius="0,0,9,0" Padding="5,3"
+                        Visibility="{Binding IsVideo, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                               Foreground="White" />
+                </Border>
+                <!-- Selection checkbox overlay, only in checkbox mode. In click mode the
+                     highlight on the container says what is selected, and leaving a box on top
+                     of every thumbnail would both cover the photograph and offer a second,
+                     contradictory way to select. -->
+                <CheckBox Style="{StaticResource Check.Base}" IsChecked="{Binding IsSelected}"
+                          HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0"
+                          Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                       Converter={StaticResource BoolToVis}}" />
             </Grid>
         </DataTemplate>
 
@@ -335,8 +341,13 @@
                 <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
                         Command="{Binding BackCommand}" VerticalAlignment="Center" Margin="0,0,8,0" />
                 <!-- Shown only inside an album, where back is one step out rather than off the
-                     page: without it leaving the photos took two deliberate presses. -->
-                <Button Content="{DynamicResource L.Home}" Style="{StaticResource Button.Ghost}"
+                     page: without it leaving the photos took two deliberate presses.
+
+                     Button.Home, like the five other pages that carry this button. It was left
+                     on Ghost with a text label here, which is why the house was missing on this
+                     page alone and why the hover fill spread across the whole phrase instead of
+                     sitting inside a button-sized square. -->
+                <Button Style="{StaticResource Button.Home}"
                         Command="{Binding GoHomeCommand}" VerticalAlignment="Center" Margin="0,0,16,0"
                         Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}" />
                 <StackPanel>
@@ -609,9 +620,15 @@
                                 <!-- TileSize is not the layout size: it tells the panel to drop
                                      its cached measurement, which it takes once and would
                                      otherwise keep using after the slider moved. -->
+                                <!-- ShapeVersion relays out the rows when the pictures'
+                                     proportions become known, which happens as thumbnails
+                                     decode rather than when the list is built. -->
                                 <ctrl:VirtualizingWrapPanel
                                     TileSize="{Binding DataContext.TileSize,
-                                               RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                               RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    ShapeVersion="{Binding DataContext.TileShapeVersion,
+                                                   RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    TileChrome="16" />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                     </ListBox>
@@ -695,5 +712,23 @@
                         Padding="28,12" Command="{Binding ExportSelectedCommand}" />
             </StackPanel>
         </Grid>
+
+        <!-- Drop overlay. Covers every row, because the whole page takes the drop rather than
+             one strip of it, and IsHitTestVisible is off so it cannot itself swallow the drop
+             it is advertising. -->
+        <Border Grid.Row="0" Grid.RowSpan="4" IsHitTestVisible="False"
+                Background="{StaticResource Brush.AccentSoft}" Opacity="0.94"
+                CornerRadius="12" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.Accent}"
+                Visibility="{Binding IsDropTarget, Converter={StaticResource BoolToVis}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="&#xE8B9;" FontFamily="Segoe MDL2 Assets" FontSize="40"
+                           Foreground="{StaticResource Brush.Accent}" HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Photos.DropHint}" Style="{StaticResource Text.Subtitle}"
+                           Margin="0,14,0,0" HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Photos.DropHintSub}" Style="{StaticResource Text.Caption}"
+                           Margin="0,6,0,0" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
     </Grid>
 </UserControl>
