@@ -770,6 +770,7 @@
     <sys:String x:Key="L.Rollback.Lock">Скрыть</sys:String>
 
     <sys:String x:Key="L.MediaExport.Title">Экспорт фото и видео с носителя</sys:String>
+    <sys:String x:Key="L.MediaExport.MenuTitle">Фото с носителя</sys:String>
     <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
     <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>

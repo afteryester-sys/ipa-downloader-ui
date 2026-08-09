@@ -51,6 +51,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     private string _sourcePath = "";
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private string _destinationPath = "";
 
     /// <summary>True lays copies out one sub-folder per source group; false flattens everything
@@ -75,9 +76,15 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     // ---- State ----
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBusy))]
+    [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private bool _isScanning;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBusy))]
+    [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private bool _isExporting;
 
     public bool IsBusy => IsScanning || IsExporting;
@@ -142,6 +149,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
         Groups.Clear();
         TotalFoundText = "";
         SkippedJunkText = "";
+        ExportCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -249,6 +257,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
             : "";
 
         StatusText = null;
+        ExportCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanExport() => !IsBusy && _scanResult is { TotalCount: > 0 } && !string.IsNullOrWhiteSpace(DestinationPath);

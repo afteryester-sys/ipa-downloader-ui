@@ -337,7 +337,7 @@
                         <Button Content="{DynamicResource L.ICloud.Title}" Style="{StaticResource Button.Secondary}"
                                 HorizontalAlignment="Stretch" Click="OpenICloud_Click"
                                 Margin="0,0,0,8" />
-                        <Button Content="{DynamicResource L.MediaExport.Title}" Style="{StaticResource Button.Secondary}"
+                        <Button Content="{DynamicResource L.MediaExport.MenuTitle}" Style="{StaticResource Button.Secondary}"
                                 HorizontalAlignment="Stretch" Click="OpenMediaExport_Click" />
 
                         <!-- Divider -->

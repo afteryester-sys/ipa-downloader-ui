@@ -258,6 +258,7 @@
 
     <!-- Media export: photos/videos from a drive, folder, or Android phone -->
     <sys:String x:Key="L.MediaExport.Title">Export Photos &amp; Videos</sys:String>
+    <sys:String x:Key="L.MediaExport.MenuTitle">Photos from Media</sys:String>
     <sys:String x:Key="L.MediaExport.Subtitle">Scan a drive, folder, or Android phone mounted as a file system, then copy what it finds to your PC</sys:String>
     <sys:String x:Key="L.MediaExport.SourceLabel">Source</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Choose the drive or folder to scan for photos and videos.</sys:String>
