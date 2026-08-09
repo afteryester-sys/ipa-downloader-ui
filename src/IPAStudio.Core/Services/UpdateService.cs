@@ -47,6 +47,9 @@ public sealed class UpdateService
     private const string LatestReleaseApi =
         "https://api.github.com/repos/afteryester-sys/ipa-downloader-ui/releases/latest";
 
+    private const string ReleasesListApi =
+        "https://api.github.com/repos/afteryester-sys/ipa-downloader-ui/releases?per_page=30";
+
     private const string ReleasesPage =
         "https://github.com/afteryester-sys/ipa-downloader-ui/releases/latest";
 
@@ -209,15 +212,7 @@ public sealed class UpdateService
         ReleaseNotes = release.Body;
         AppLog.Info($"Update check: latest published release is '{release.TagName}' (parsed {LatestVersion?.ToString() ?? "n/a"}).");
 
-        // Prefer an installer asset (Setup*.exe), otherwise any .exe/.zip.
-        var asset =
-            release.Assets?.FirstOrDefault(a =>
-                a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
-                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            ?? release.Assets?.FirstOrDefault(a =>
-                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            ?? release.Assets?.FirstOrDefault(a =>
-                a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+        var asset = PickAsset(release);
 
         // For a private repo we must download via the asset's API URL with a
         // token; browser_download_url only works for public repos / browsers.
@@ -245,12 +240,21 @@ public sealed class UpdateService
     /// Downloads the installer for the latest release. If no direct asset is
     /// available, opens the releases page in the browser instead.
     /// </summary>
-    public async Task<bool> DownloadUpdateAsync(
-        IProgress<double>? progress = null, CancellationToken ct = default)
+    public Task<bool> DownloadUpdateAsync(
+        IProgress<double>? progress = null, CancellationToken ct = default) =>
+        DownloadAssetAsync(progress, ct);
+
+    /// <summary>
+    /// Core download shared by <see cref="DownloadUpdateAsync"/> and the rollback path in
+    /// <see cref="DownloadReleaseAsync"/>: both just point <c>_downloadUrl</c> et al. at a
+    /// different release first and then call this.
+    /// </summary>
+    private async Task<bool> DownloadAssetAsync(
+        IProgress<double>? progress, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(_downloadUrl))
         {
-            AppLog.Warn("DownloadUpdateAsync: no download URL — opening releases page.");
+            AppLog.Warn("DownloadAssetAsync: no download URL — opening releases page.");
             OpenReleasesPage();
             return false;
         }
@@ -431,6 +435,107 @@ public sealed class UpdateService
         catch { /* best effort */ }
     }
 
+    /// <summary>
+    /// Lists published releases with an installer asset attached, newest first, for the
+    /// rollback picker. Unlike <see cref="CheckForUpdatesAsync"/> this does not touch
+    /// <see cref="State"/> — it is a lookup, not a check, and the corner dot has nothing to
+    /// say about it either way.
+    /// </summary>
+    public async Task<List<ReleaseSummary>> ListReleasesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = BuildRequest(ReleasesListApi);
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                AppLog.Warn($"ListReleasesAsync: HTTP {(int)response.StatusCode}.");
+                return [];
+            }
+
+            var releases = await response.Content.ReadFromJsonAsync<List<GitHubRelease>>(cancellationToken: ct);
+            if (releases is null) return [];
+
+            var result = new List<ReleaseSummary>();
+            foreach (var r in releases)
+            {
+                if (string.IsNullOrWhiteSpace(r.TagName)) continue;
+                if (PickAsset(r) is null) continue; // nothing installable in this release
+                result.Add(new ReleaseSummary(r.TagName, ParseVersion(r.TagName), r.PublishedAt));
+            }
+            return result;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("ListReleasesAsync failed.", ex);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Downloads the installer asset for a specific past release by tag, for the password-
+    /// gated rollback tool. Shares the same download core and the same
+    /// <see cref="LaunchInstaller"/> hand-off as a normal update, so a rollback runs the
+    /// real installer for that build rather than trying to reconstruct one.
+    /// </summary>
+    public async Task<bool> DownloadReleaseAsync(
+        string tagName, IProgress<double>? progress = null, CancellationToken ct = default)
+    {
+        GitHubRelease? release;
+        try
+        {
+            using var request = BuildRequest(
+                $"https://api.github.com/repos/afteryester-sys/ipa-downloader-ui/releases/tags/{Uri.EscapeDataString(tagName)}");
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                AppLog.Warn($"DownloadReleaseAsync: HTTP {(int)response.StatusCode} for tag '{tagName}'.");
+                FailureReason = UpdateFailureReason.ServerError;
+                LastErrorDetail = $"HTTP {(int)response.StatusCode}";
+                Set(UpdateState.Failed);
+                return false;
+            }
+            release = await response.Content.ReadFromJsonAsync<GitHubRelease>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error($"DownloadReleaseAsync failed to fetch release '{tagName}'.", ex);
+            FailureReason = UpdateFailureReason.Network;
+            LastErrorDetail = ex.Message;
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        var asset = release is null ? null : PickAsset(release);
+        if (asset is null)
+        {
+            AppLog.Warn($"DownloadReleaseAsync: release '{tagName}' has no installable asset.");
+            FailureReason = UpdateFailureReason.NoReleases;
+            LastErrorDetail = "That release has no installer attached.";
+            Set(UpdateState.Failed);
+            return false;
+        }
+
+        _downloadFallbackUrl = asset.DownloadUrl;
+        _downloadUrl = HasToken ? (asset.ApiUrl.Length > 0 ? asset.ApiUrl : asset.DownloadUrl) : asset.DownloadUrl;
+        _downloadFileName = asset.Name;
+
+        AppLog.Info($"Rollback: downloading '{tagName}' asset '{asset.Name}'.");
+        return await DownloadAssetAsync(progress, ct);
+    }
+
+    /// <summary>Prefers an installer (Setup*.exe), otherwise any .exe/.zip — same rule the
+    /// update check uses, kept in one place so rollback picks the same file a normal
+    /// update would have.</summary>
+    private static GitHubAsset? PickAsset(GitHubRelease release) =>
+        release.Assets?.FirstOrDefault(a =>
+            a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
+            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        ?? release.Assets?.FirstOrDefault(a =>
+            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        ?? release.Assets?.FirstOrDefault(a =>
+            a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+
     private static Version? ParseVersion(string tag)
     {
         // Tags look like "v1.2.3" or "1.2.3".
@@ -447,6 +552,7 @@ public sealed class UpdateService
         [JsonPropertyName("tag_name")] public string TagName { get; set; } = "";
         [JsonPropertyName("body")] public string? Body { get; set; }
         [JsonPropertyName("assets")] public List<GitHubAsset>? Assets { get; set; }
+        [JsonPropertyName("published_at")] public DateTimeOffset? PublishedAt { get; set; }
     }
 
     private sealed class GitHubAsset
@@ -456,4 +562,11 @@ public sealed class UpdateService
         /// <summary>API URL of the asset — required to download from a private repo with a token.</summary>
         [JsonPropertyName("url")] public string ApiUrl { get; set; } = "";
     }
+}
+
+/// <summary>One entry in the rollback picker.</summary>
+public sealed record ReleaseSummary(string Tag, Version? Version, DateTimeOffset? PublishedAt)
+{
+    public string DisplayVersion => Version is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : Tag;
+    public string DisplayDate => PublishedAt is { } d ? d.LocalDateTime.ToString("dd.MM.yyyy") : "";
 }

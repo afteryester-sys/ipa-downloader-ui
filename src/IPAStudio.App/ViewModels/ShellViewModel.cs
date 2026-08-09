@@ -39,6 +39,12 @@ public enum Page
     /// app names read out of the archives and installable without an Apple ID.
     /// </summary>
     IpaCatalogs,
+
+    /// <summary>
+    /// Export photos and videos from any media: a drive, a folder, or an Android phone
+    /// mounted as a plain file system. Needs no connected iOS device.
+    /// </summary>
+    MediaExport,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -176,6 +182,11 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             GoToOnDevice(operation.ReturnDevice);
         else if (operation.ReturnDevice is not null && operation.ReturnPage == Page.AppPicker)
             GoToAppPicker(operation.ReturnDevice);
+        // No device to hand back for this one — it works off a plain path, not a connected
+        // device — so it goes straight back to itself rather than falling through to the
+        // device list, which would strand the corner circle's "return" action.
+        else if (operation.ReturnPage == Page.MediaExport)
+            GoTo(Page.MediaExport);
         else
             GoTo(Page.Devices);
 
@@ -253,6 +264,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.ICloud => Resolve<ICloudViewModel>(),
             Page.OnDevice => Resolve<OnDeviceViewModel>(),
             Page.IpaCatalogs => Resolve<IpaCatalogsViewModel>(),
+            Page.MediaExport => Resolve<MediaExportViewModel>(),
             _ => CurrentViewModel,
         };
 

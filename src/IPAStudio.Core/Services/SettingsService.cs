@@ -240,6 +240,23 @@ public sealed class AppSettings
     /// <summary>The same for the .ipa catalog page.</summary>
     public bool CatalogCtrlSelects { get; set; } = true;
 
+    /// <summary>Last folder scanned by "Export photos and videos from media" (drive, folder,
+    /// or a mounted Android phone), reused so re-running the tool does not start from scratch.</summary>
+    public string? LastMediaExportSource { get; set; }
+
+    /// <summary>Last destination folder the media export tool copied into.</summary>
+    public string? LastMediaExportDestination { get; set; }
+
+    /// <summary>True lays copies out one sub-folder per source folder (DCIM, Download, ...);
+    /// false drops everything found into a single destination folder.</summary>
+    public bool MediaExportByFolder { get; set; } = true;
+
+    /// <summary>
+    /// Files smaller than this (in KB) are treated as junk — app icons and thumbnail sidecars
+    /// rather than real photos or videos — and left out of both the count and the copy.
+    /// </summary>
+    public int MediaExportJunkThresholdKb { get; set; } = 20;
+
     /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the

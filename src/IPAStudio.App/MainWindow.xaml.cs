@@ -33,6 +33,16 @@ public partial class MainWindow : Window
         shell.PropertyChanged += OnShellPropertyChanged;
         shell.OperationMinimized += (_, _) => PlayMinimizeAnimation();
 
+        // The password box can't bind to RollbackPasswordInput (WPF keeps Password
+        // non-bindable on purpose), so once the view model clears it — on a successful
+        // unlock or an explicit lock — the box itself needs to be wiped by hand.
+        shell.Updater.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModels.UpdaterViewModel.RollbackPasswordInput)
+                && shell.Updater.RollbackPasswordInput.Length == 0)
+                RollbackPasswordBox.Password = "";
+        };
+
         // Begin looking for updates on our own. Started from the window rather than the
         // view model's constructor so the timer belongs to the UI thread that will run its
         // ticks; the call is idempotent, which this hook needs since it can run again.
@@ -132,6 +142,25 @@ public partial class MainWindow : Window
         if (DataContext is not ShellViewModel shell) return;
         shell.Updater.IsOpen = false;
         shell.GoTo(Page.ICloud);
+    }
+
+    private void OpenMediaExport_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.GoTo(Page.MediaExport);
+    }
+
+    /// <summary>
+    /// Feeds the rollback password box into the Updater view model. PasswordBox.Password is
+    /// deliberately not bindable in WPF (so it can't be dumped to a binding trace or a
+    /// crash log), so this is the standard code-behind bridge instead of a Binding.
+    /// </summary>
+    private void RollbackPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        if (sender is System.Windows.Controls.PasswordBox box)
+            shell.Updater.RollbackPasswordInput = box.Password;
     }
 
     /// <summary>

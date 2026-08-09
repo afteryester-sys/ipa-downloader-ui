@@ -20,6 +20,9 @@ public enum OperationKind
 
     /// <summary>Copying photos off a device.</summary>
     Photos,
+
+    /// <summary>Scanning or copying media off a drive or a mounted device.</summary>
+    MediaExport,
 }
 
 public enum OperationState

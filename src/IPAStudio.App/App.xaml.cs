@@ -90,6 +90,7 @@ public partial class App : Application
         services.AddSingleton<ICloudService>();
         services.AddSingleton<CleanupService>();
         services.AddSingleton<IpaCatalogService>();
+        services.AddSingleton<MediaExportService>();
 
         // App
         services.AddSingleton<LocalizationManager>();
@@ -108,6 +109,7 @@ public partial class App : Application
         services.AddSingleton<OnDeviceViewModel>();
         services.AddSingleton<ICloudViewModel>();
         services.AddSingleton<IpaCatalogsViewModel>();
+        services.AddSingleton<MediaExportViewModel>();
 
         Services = services.BuildServiceProvider();
 

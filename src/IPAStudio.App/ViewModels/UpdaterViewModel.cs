@@ -82,7 +82,40 @@ public sealed partial class UpdaterViewModel : ObservableObject
     [ObservableProperty]
     private double _progress;
 
-    public bool IsBusy => IsChecking || IsDownloading;
+    public bool IsBusy => IsChecking || IsDownloading || IsRollingBack;
+
+    // ---- Rollback (password-gated) -----------------------------------------
+    // Hidden behind a password so it isn't a stray button next to "Check for updates":
+    // rolling back reinstalls an older build over the current one, which is not something
+    // to trigger by accident.
+
+    private const string RollbackPassword = "SEREGA";
+
+    [ObservableProperty]
+    private bool _rollbackUnlocked;
+
+    [ObservableProperty]
+    private string _rollbackPasswordInput = "";
+
+    [ObservableProperty]
+    private string _rollbackPasswordError = "";
+
+    [ObservableProperty]
+    private bool _isLoadingReleases;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBusy))]
+    private bool _isRollingBack;
+
+    [ObservableProperty]
+    private string _rollbackStatusText = "";
+
+    [ObservableProperty]
+    private ReleaseSummary? _selectedRollbackRelease;
+
+    public ObservableCollection<ReleaseSummary> RollbackReleases { get; } = new();
+
+    public bool HasRollbackReleases => RollbackReleases.Count > 0;
 
     public UpdaterViewModel(UpdateService updates, SettingsService settings,
                             OperationService operations, CleanupService cleanup)
@@ -93,6 +126,8 @@ public sealed partial class UpdaterViewModel : ObservableObject
         _cleanup = cleanup;
         var v = _updates.CurrentVersion;
         VersionText = $"{v.Major}.{v.Minor}.{v.Build}";
+
+        RollbackReleases.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasRollbackReleases));
     }
 
     [RelayCommand]
@@ -493,6 +528,109 @@ public sealed partial class UpdaterViewModel : ObservableObject
 
     private static string Str(string key) =>
         Application.Current.TryFindResource(key) as string ?? key;
+
+    // ---- Rollback (password-gated) -----------------------------------------
+
+    /// <summary>Checks the typed password and, if correct, loads the release list.</summary>
+    [RelayCommand]
+    private async Task UnlockRollbackAsync()
+    {
+        if (RollbackPasswordInput != RollbackPassword)
+        {
+            RollbackPasswordError = Str("L.Rollback.WrongPassword");
+            return;
+        }
+
+        RollbackPasswordError = "";
+        RollbackUnlocked = true;
+        RollbackPasswordInput = "";
+        await LoadRollbackReleasesAsync();
+    }
+
+    /// <summary>Re-locks the tool and drops whatever was loaded, so leaving the menu open
+    /// unattended doesn't leave rollback armed for the next person to use the PC.</summary>
+    [RelayCommand]
+    private void LockRollback()
+    {
+        RollbackUnlocked = false;
+        RollbackPasswordInput = "";
+        RollbackPasswordError = "";
+        RollbackStatusText = "";
+        SelectedRollbackRelease = null;
+        RollbackReleases.Clear();
+    }
+
+    private async Task LoadRollbackReleasesAsync()
+    {
+        IsLoadingReleases = true;
+        RollbackStatusText = Str("L.Rollback.Loading");
+        try
+        {
+            var releases = await _updates.ListReleasesAsync();
+            RollbackReleases.Clear();
+            // The current build has nothing to roll back to itself, so it is excluded —
+            // whatever remains is strictly older or, for a pre-release channel, unreleased.
+            foreach (var r in releases.Where(r => r.Version is null || r.Version != _updates.CurrentVersion))
+                RollbackReleases.Add(r);
+
+            RollbackStatusText = RollbackReleases.Count > 0
+                ? "" : Str("L.Rollback.NoReleases");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("LoadRollbackReleasesAsync failed.", ex);
+            RollbackStatusText = Str("L.Rollback.LoadFailed");
+        }
+        finally
+        {
+            IsLoadingReleases = false;
+        }
+    }
+
+    /// <summary>Downloads the selected release's installer and hands off to it, exactly like
+    /// a normal update install — the app closes so the installer can replace its files.</summary>
+    [RelayCommand]
+    private async Task RollbackAsync()
+    {
+        if (IsBusy || SelectedRollbackRelease is not { } release) return;
+
+        var confirm = MessageBox.Show(
+            string.Format(Str("L.Rollback.ConfirmBody"), release.DisplayVersion),
+            Str("L.Rollback.ConfirmTitle"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        IsRollingBack = true;
+        Progress = 0;
+        RollbackStatusText = Str("L.Rollback.Downloading");
+        try
+        {
+            var progress = new Progress<double>(f => Progress = f);
+            var ok = await _updates.DownloadReleaseAsync(release.Tag, progress);
+            if (!ok)
+            {
+                RollbackStatusText = Str("L.Rollback.Failed");
+                AppLog.Error($"Rollback download failed for tag '{release.Tag}'.");
+                return;
+            }
+
+            AppLog.Info($"Rollback: launching installer for '{release.Tag}'.");
+            if (_updates.LaunchInstaller())
+                Application.Current.Shutdown();
+            else
+                RollbackStatusText = Str("L.Rollback.Failed");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("RollbackAsync failed.", ex);
+            RollbackStatusText = Str("L.Rollback.Failed");
+        }
+        finally
+        {
+            IsRollingBack = false;
+        }
+    }
 }
 
 /// <summary>One line of the cache breakdown: what it is, how big, and where it lives.</summary>

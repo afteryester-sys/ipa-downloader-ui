@@ -52,6 +52,9 @@
         <DataTemplate DataType="{x:Type vm:IpaCatalogsViewModel}">
             <views:IpaCatalogsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MediaExportViewModel}">
+            <views:MediaExportView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -332,7 +335,10 @@
                                 HorizontalAlignment="Stretch" Click="OpenDirectDownload_Click"
                                 Margin="0,0,0,8" />
                         <Button Content="{DynamicResource L.ICloud.Title}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenICloud_Click" />
+                                HorizontalAlignment="Stretch" Click="OpenICloud_Click"
+                                Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.MediaExport.Title}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Click="OpenMediaExport_Click" />
 
                         <!-- Divider -->
                         <Border Height="1" Background="{StaticResource Brush.Border}"
@@ -411,6 +417,57 @@
                         <Button Content="{DynamicResource L.Menu.ClearCache}" Style="{StaticResource Button.Secondary}"
                                 HorizontalAlignment="Stretch" Command="{Binding ClearCacheCommand}"
                                 IsEnabled="{Binding IsCacheBusy, Converter={StaticResource InverseBool}}" />
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="{StaticResource Brush.Border}"
+                                Margin="0,12,0,12" />
+
+                        <!-- Rollback. Password-gated: locked by default, so it never shows up
+                             as a stray button next to "Check for updates". -->
+                        <TextBlock Text="{DynamicResource L.Rollback.Title}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
+
+                        <StackPanel Visibility="{Binding RollbackUnlocked, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+                            <TextBlock Text="{DynamicResource L.Rollback.PasswordHint}"
+                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <PasswordBox x:Name="RollbackPasswordBox" Margin="0,0,0,8"
+                                         PasswordChanged="RollbackPasswordBox_PasswordChanged" />
+                            <TextBlock Text="{Binding RollbackPasswordError}" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding RollbackPasswordError, Converter={StaticResource NullToCollapsed}}" />
+                            <Button Content="{DynamicResource L.Rollback.Unlock}" Style="{StaticResource Button.Secondary}"
+                                    HorizontalAlignment="Stretch" Command="{Binding UnlockRollbackCommand}" />
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding RollbackUnlocked, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding RollbackStatusText}" Style="{StaticResource Text.Caption}"
+                                       TextWrapping="Wrap" Margin="0,0,0,8"
+                                       Visibility="{Binding RollbackStatusText, Converter={StaticResource NullToCollapsed}}" />
+
+                            <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                         IsIndeterminate="{Binding IsLoadingReleases}"
+                                         Value="{Binding Progress}" Margin="0,0,0,8"
+                                         Visibility="{Binding IsRollingBack, Converter={StaticResource BoolToVis}}" />
+
+                            <TextBlock Text="{DynamicResource L.Rollback.PickVersion}"
+                                       Style="{StaticResource Text.Caption}" Margin="0,0,0,6"
+                                       Visibility="{Binding HasRollbackReleases, Converter={StaticResource BoolToVis}}" />
+                            <ComboBox ItemsSource="{Binding RollbackReleases}"
+                                      SelectedItem="{Binding SelectedRollbackRelease}"
+                                      DisplayMemberPath="DisplayVersion"
+                                      Margin="0,0,0,8"
+                                      IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                      Visibility="{Binding HasRollbackReleases, Converter={StaticResource BoolToVis}}" />
+
+                            <Button Content="{DynamicResource L.Rollback.Button}" Style="{StaticResource Button.Primary}"
+                                    HorizontalAlignment="Stretch" Command="{Binding RollbackCommand}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                    Margin="0,0,0,8"
+                                    Visibility="{Binding HasRollbackReleases, Converter={StaticResource BoolToVis}}" />
+
+                            <Button Content="{DynamicResource L.Rollback.Lock}" Style="{StaticResource Button.Secondary}"
+                                    HorizontalAlignment="Stretch" Command="{Binding LockRollbackCommand}" />
+                        </StackPanel>
                     </StackPanel>
                     </ScrollViewer>
                 </Border>

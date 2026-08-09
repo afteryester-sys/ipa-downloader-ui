@@ -171,6 +171,7 @@
     <sys:String x:Key="L.Ops.Kind.Transfer">Перенос приложений</sys:String>
     <sys:String x:Key="L.Ops.Kind.Download">Загрузка IPA</sys:String>
     <sys:String x:Key="L.Ops.Kind.Photos">Фотографии</sys:String>
+    <sys:String x:Key="L.Ops.Kind.MediaExport">Экспорт медиа</sys:String>
     <sys:String x:Key="L.Ops.Photos.Export">Сохранение фото на компьютер</sys:String>
     <sys:String x:Key="L.Ops.Photos.Delete">Удаление фото с устройства</sys:String>
     <sys:String x:Key="L.Ops.Photos.Import">Загрузка фото на устройство</sys:String>
@@ -752,5 +753,51 @@
     <sys:String x:Key="L.OnDevice.TransferPickTarget">Куда перенести:</sys:String>
     <sys:String x:Key="L.OnDevice.TransferNoTargets">Других подключённых устройств нет. Подключите второй iPhone кабелем, нажмите на нём «Доверять» и откройте этот список снова.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачиваются из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
+
+    <sys:String x:Key="L.Rollback.Title">Откат к предыдущей версии</sys:String>
+    <sys:String x:Key="L.Rollback.PasswordHint">Введите пароль для доступа к откату</sys:String>
+    <sys:String x:Key="L.Rollback.Unlock">Разблокировать</sys:String>
+    <sys:String x:Key="L.Rollback.WrongPassword">Неверный пароль.</sys:String>
+    <sys:String x:Key="L.Rollback.Loading">Загружаем список версий…</sys:String>
+    <sys:String x:Key="L.Rollback.LoadFailed">Не удалось загрузить список версий.</sys:String>
+    <sys:String x:Key="L.Rollback.NoReleases">Других версий не найдено.</sys:String>
+    <sys:String x:Key="L.Rollback.PickVersion">Выберите версию:</sys:String>
+    <sys:String x:Key="L.Rollback.Button">Откатиться</sys:String>
+    <sys:String x:Key="L.Rollback.Downloading">Загружаем установщик выбранной версии…</sys:String>
+    <sys:String x:Key="L.Rollback.Failed">Откат не удался. Попробуйте ещё раз.</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmTitle">Откатиться на версию {0}?</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmBody">Приложение будет закрыто и переустановлено на версию {0}. Продолжить?</sys:String>
+    <sys:String x:Key="L.Rollback.Lock">Скрыть</sys:String>
+
+    <sys:String x:Key="L.MediaExport.Title">Экспорт фото и видео с носителя</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationHint">Выберите папку, куда будут скопированы найденные файлы.</sys:String>
+    <sys:String x:Key="L.MediaExport.Browse">Выбрать…</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceTitle">Выберите папку-источник</sys:String>
+    <sys:String x:Key="L.MediaExport.PickDestinationTitle">Выберите папку назначения</sys:String>
+    <sys:String x:Key="L.MediaExport.OptionsLabel">Параметры</sys:String>
+    <sys:String x:Key="L.MediaExport.ByFolder">Раскладывать по папкам-источникам</sys:String>
+    <sys:String x:Key="L.MediaExport.SingleFolder">Скидывать всё в одну папку</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunk">Пропускать мелкие файлы (иконки, превью)</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunkHint">Файлы меньше указанного порога считаются мусором и не попадают в поиск.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scan">Найти</sys:String>
+    <sys:String x:Key="L.MediaExport.Export">Экспортировать</sys:String>
+    <sys:String x:Key="L.MediaExport.OpenDestination">Открыть папку назначения</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedSource">Сначала выберите папку-источник.</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedDestination">Сначала выберите папку назначения.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scanning">Идёт поиск…</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanningGroup">Поиск: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.Cancelled">Отменено.</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanFailed">Поиск не удался: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.RootGroup">(корень)</sys:String>
+    <sys:String x:Key="L.MediaExport.NothingFound">Фото и видео не найдены.</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundTotal">Найдено {0} фото и {1} видео, всего {2}</sys:String>
+    <sys:String x:Key="L.MediaExport.SkippedJunk">Пропущено {0} мелких файлов как мусор.</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
+    <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
+    <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
 
 </ResourceDictionary>

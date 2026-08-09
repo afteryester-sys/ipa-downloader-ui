@@ -171,6 +171,7 @@
     <sys:String x:Key="L.Ops.Kind.Transfer">Transferring apps</sys:String>
     <sys:String x:Key="L.Ops.Kind.Download">Downloading IPA</sys:String>
     <sys:String x:Key="L.Ops.Kind.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Ops.Kind.MediaExport">Exporting media</sys:String>
     <sys:String x:Key="L.Ops.Photos.Export">Saving photos to computer</sys:String>
     <sys:String x:Key="L.Ops.Photos.Delete">Deleting photos from device</sys:String>
     <sys:String x:Key="L.Ops.Photos.Import">Importing photos to device</sys:String>
@@ -238,6 +239,54 @@
     <sys:String x:Key="L.Update.Timeout">The update server timed out. Please try again.</sys:String>
     <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
+
+    <!-- Rollback -->
+    <sys:String x:Key="L.Rollback.Title">Roll back to a previous version</sys:String>
+    <sys:String x:Key="L.Rollback.PasswordHint">Enter the password to access rollback</sys:String>
+    <sys:String x:Key="L.Rollback.Unlock">Unlock</sys:String>
+    <sys:String x:Key="L.Rollback.WrongPassword">Wrong password.</sys:String>
+    <sys:String x:Key="L.Rollback.Loading">Loading version list…</sys:String>
+    <sys:String x:Key="L.Rollback.LoadFailed">Could not load the version list.</sys:String>
+    <sys:String x:Key="L.Rollback.NoReleases">No other versions found.</sys:String>
+    <sys:String x:Key="L.Rollback.PickVersion">Choose a version:</sys:String>
+    <sys:String x:Key="L.Rollback.Button">Roll back</sys:String>
+    <sys:String x:Key="L.Rollback.Downloading">Downloading the installer for the selected version…</sys:String>
+    <sys:String x:Key="L.Rollback.Failed">Rollback failed. Please try again.</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmTitle">Roll back to version {0}?</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmBody">The app will close and reinstall as version {0}. Continue?</sys:String>
+    <sys:String x:Key="L.Rollback.Lock">Hide</sys:String>
+
+    <!-- Media export: photos/videos from a drive, folder, or Android phone -->
+    <sys:String x:Key="L.MediaExport.Title">Export Photos &amp; Videos</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Scan a drive, folder, or Android phone mounted as a file system, then copy what it finds to your PC</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceLabel">Source</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceHint">Choose the drive or folder to scan for photos and videos.</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationLabel">Destination</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationHint">Choose where the found files should be copied.</sys:String>
+    <sys:String x:Key="L.MediaExport.Browse">Browse…</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceTitle">Choose a source folder</sys:String>
+    <sys:String x:Key="L.MediaExport.PickDestinationTitle">Choose a destination folder</sys:String>
+    <sys:String x:Key="L.MediaExport.OptionsLabel">Options</sys:String>
+    <sys:String x:Key="L.MediaExport.ByFolder">Keep one folder per source group</sys:String>
+    <sys:String x:Key="L.MediaExport.SingleFolder">Copy everything into one folder</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunk">Skip tiny files (thumbnails, previews)</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunkHint">Files smaller than the threshold below are treated as junk and left out of the scan.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scan">Scan</sys:String>
+    <sys:String x:Key="L.MediaExport.Export">Export</sys:String>
+    <sys:String x:Key="L.MediaExport.OpenDestination">Open destination</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedSource">Choose a source folder first.</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedDestination">Choose a destination folder first.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scanning">Scanning…</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanningGroup">Scanning: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.Cancelled">Cancelled.</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanFailed">Scan failed: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.RootGroup">(root)</sys:String>
+    <sys:String x:Key="L.MediaExport.NothingFound">No photos or videos were found.</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundTotal">Found {0} photo(s) and {1} video(s), {2} total</sys:String>
+    <sys:String x:Key="L.MediaExport.SkippedJunk">Skipped {0} tiny file(s) as junk.</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
+    <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
+    <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
 
     <!-- Download IPA by Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Download IPA</sys:String>
