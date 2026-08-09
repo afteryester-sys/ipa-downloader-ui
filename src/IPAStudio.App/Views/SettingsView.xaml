@@ -176,6 +176,51 @@
                 </StackPanel>
             </Border>
 
+            <!-- How the lists that offer batch actions let items be picked. One choice per
+                 page rather than one for the app: the pages are used differently, and a
+                 single answer would be the wrong one somewhere. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Selection}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Hint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Photos}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="PhotosSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding PhotosSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="PhotosSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding PhotosSelectByCheckbox}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.OnDevice}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="OnDeviceSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding OnDeviceSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="OnDeviceSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding OnDeviceSelectByCheckbox}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Catalog}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="CatalogSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding CatalogSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="CatalogSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding CatalogSelectByCheckbox}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Diagnostics / logging -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

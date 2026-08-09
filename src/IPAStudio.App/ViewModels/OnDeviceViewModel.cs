@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Controls;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
@@ -42,9 +43,16 @@ public sealed class CatalogCandidateViewModel
 /// <summary>
 /// One app installed on the device, plus its own download state.
 /// </summary>
-public sealed partial class InstalledAppViewModel : ObservableObject
+public sealed partial class InstalledAppViewModel : ObservableObject, ISelectableTile
 {
     public InstalledApp App { get; }
+
+    /// <summary>
+    /// Only rows that can actually be fetched, and are not already fetching, are candidates —
+    /// the same rule the tick box was already shown under, so click selection cannot assemble
+    /// a batch the download command would then have to filter back down.
+    /// </summary>
+    public bool CanSelect => CanDownload && IsIdle;
 
     /// <summary>
     /// Apple ID currently signed in, or null when nobody is.
@@ -307,6 +315,9 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         _isTileView = settings.Current.OnDeviceTileView;
         _tileSize = Math.Clamp(settings.Current.OnDeviceTileSize, MinTileSize, MaxTileSize);
+        _selectionMode = settings.Current.OnDeviceSelectionMode;
+
+        settings.Changed += (_, _) => SelectionMode = _settings.Current.OnDeviceSelectionMode;
     }
 
     [ObservableProperty]
@@ -358,6 +369,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     /// <summary>Corner radius scaled with the icon, so it keeps iOS's proportions.</summary>
     public double TileIconRadius => TileIconSize * 0.225;
+
+    /// <summary>
+    /// How rows and tiles are picked for the batch download, from settings. Mirrored here
+    /// rather than read from settings in the XAML so a change reaches the open page.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    private TileSelectionMode _selectionMode;
+
+    /// <summary>True when selecting is done with tick boxes, so the rows draw one.</summary>
+    public bool ShowSelectionCheckboxes => SelectionMode == TileSelectionMode.Checkbox;
 
     partial void OnIsTileViewChanged(bool value)
     {

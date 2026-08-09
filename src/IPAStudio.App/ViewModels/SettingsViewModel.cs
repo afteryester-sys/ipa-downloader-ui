@@ -239,6 +239,58 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         set { if (value) ResumeMode = ResumeMode.KeepPartialFiles; }
     }
 
+    // Selection mode, one setting per page. Three pairs of RadioButtons rather than one
+    // setting for the whole app, because the pages are used differently enough that a single
+    // answer would be wrong somewhere: a camera roll is clicked through, while a batch of
+    // apps to download is assembled slowly and is worth protecting from a stray click.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PhotosSelectByClick))]
+    [NotifyPropertyChangedFor(nameof(PhotosSelectByCheckbox))]
+    private TileSelectionMode _photosSelectionMode = TileSelectionMode.Click;
+
+    public bool PhotosSelectByClick
+    {
+        get => PhotosSelectionMode == TileSelectionMode.Click;
+        set { if (value) PhotosSelectionMode = TileSelectionMode.Click; }
+    }
+    public bool PhotosSelectByCheckbox
+    {
+        get => PhotosSelectionMode == TileSelectionMode.Checkbox;
+        set { if (value) PhotosSelectionMode = TileSelectionMode.Checkbox; }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OnDeviceSelectByClick))]
+    [NotifyPropertyChangedFor(nameof(OnDeviceSelectByCheckbox))]
+    private TileSelectionMode _onDeviceSelectionMode = TileSelectionMode.Click;
+
+    public bool OnDeviceSelectByClick
+    {
+        get => OnDeviceSelectionMode == TileSelectionMode.Click;
+        set { if (value) OnDeviceSelectionMode = TileSelectionMode.Click; }
+    }
+    public bool OnDeviceSelectByCheckbox
+    {
+        get => OnDeviceSelectionMode == TileSelectionMode.Checkbox;
+        set { if (value) OnDeviceSelectionMode = TileSelectionMode.Checkbox; }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CatalogSelectByClick))]
+    [NotifyPropertyChangedFor(nameof(CatalogSelectByCheckbox))]
+    private TileSelectionMode _catalogSelectionMode = TileSelectionMode.Click;
+
+    public bool CatalogSelectByClick
+    {
+        get => CatalogSelectionMode == TileSelectionMode.Click;
+        set { if (value) CatalogSelectionMode = TileSelectionMode.Click; }
+    }
+    public bool CatalogSelectByCheckbox
+    {
+        get => CatalogSelectionMode == TileSelectionMode.Checkbox;
+        set { if (value) CatalogSelectionMode = TileSelectionMode.Checkbox; }
+    }
+
     [ObservableProperty]
     private string _accountEmail = "";
 
@@ -401,6 +453,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         ResumeMode = _settings.Current.ResumeMode;
         VerboseLogging = _settings.Current.VerboseLogging;
         WifiDeviceConnection = _settings.Current.WifiDeviceConnection;
+        PhotosSelectionMode = _settings.Current.PhotosSelectionMode;
+        OnDeviceSelectionMode = _settings.Current.OnDeviceSelectionMode;
+        CatalogSelectionMode = _settings.Current.CatalogSelectionMode;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -619,6 +674,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.MaxParallelInstallsPerDevice = Math.Clamp(MaxParallelInstallsPerDevice, 1, 4);
         _settings.Current.InstallMode = InstallMode;
         _settings.Current.ResumeMode = ResumeMode;
+        _settings.Current.PhotosSelectionMode = PhotosSelectionMode;
+        _settings.Current.OnDeviceSelectionMode = OnDeviceSelectionMode;
+        _settings.Current.CatalogSelectionMode = CatalogSelectionMode;
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Save();

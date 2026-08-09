@@ -278,8 +278,17 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     }
 
     /// <summary>
-    /// Measures one real container to learn the uniform tile size. Done once, with an
-    /// unbounded constraint so the template reports the size it actually wants.
+    /// Measures one real container to learn the uniform tile size, with an unbounded
+    /// constraint so the template reports the size it actually wants.
+    ///
+    /// A container that is already realised is measured in preference to generating one.
+    /// Generating while other children exist is what used to crash the page on moving the
+    /// size slider: the probe is appended to the end of <c>InternalChildren</c> even though
+    /// its item index belongs at the front, so child order stopped matching generator
+    /// position order. Every later <c>IndexFromGeneratorPosition</c> then answered for the
+    /// wrong child, and arrange, recycling and removal each acted on a different element
+    /// until the generator's own bookkeeping gave way — one NullReferenceException dialog
+    /// per layout pass, which is why they arrived in a stack of dozens.
     /// </summary>
     private void EnsureItemSize(IItemContainerGenerator generator)
     {
@@ -298,12 +307,22 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             if (probeIndex >= owner.Items.Count) return; // headings only; nothing to measure
         }
 
+        // The size only ever changes while tiles are on screen, so this is also the path
+        // taken when the slider moves; the containers were invalidated by OnTileSizeChanged
+        // and report the new size.
+        if (MeasureRealisedTile()) return;
+
+        // Nothing realised yet (first layout). Generating is safe here precisely because
+        // there is no existing child order to disturb, and the probe is released again
+        // before the real range is realised so it cannot linger out of position.
+        UIElement? probe = null;
         var position = generator.GeneratorPositionFromIndex(probeIndex);
         using (generator.StartAt(position, GeneratorDirection.Forward, true))
         {
             if (generator.GenerateNext(out var isNew) is not UIElement child) return;
+            probe = child;
 
-            if (isNew)
+            if (isNew || !InternalChildren.Contains(child))
             {
                 AddInternalChild(child);
                 generator.PrepareItemContainer(child);
@@ -312,6 +331,31 @@ public class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
             _itemSize = child.DesiredSize;
         }
+
+        // Outside the StartAt scope: the generator refuses to recycle a position while a
+        // generation run over it is still open.
+        if (probe is not null) VirtualizeRangeOutside(generator, 0, -1);
+    }
+
+    /// <summary>
+    /// Takes the tile size from a container that is already on screen, ignoring headings
+    /// and anything that measures to nothing. Returns false when no usable tile exists.
+    /// </summary>
+    private bool MeasureRealisedTile()
+    {
+        foreach (UIElement child in InternalChildren)
+        {
+            if (child is FrameworkElement { DataContext: IGridGroupHeader }) continue;
+
+            child.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var size = child.DesiredSize;
+            if (size.Width <= 0 || size.Height <= 0) continue;
+
+            _itemSize = size;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Creates containers for <paramref name="first"/>..<paramref name="last"/> and drops the rest.</summary>

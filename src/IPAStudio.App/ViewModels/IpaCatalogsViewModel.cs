@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Controls;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
@@ -20,7 +21,7 @@ using Microsoft.Win32;
 namespace IPAStudio.App.ViewModels;
 
 /// <summary>One .ipa row inside the selected catalog.</summary>
-public sealed partial class CatalogIpaViewModel : ObservableObject
+public sealed partial class CatalogIpaViewModel : ObservableObject, ISelectableTile
 {
     public CatalogIpaViewModel(IpaCatalogItem item)
     {
@@ -64,18 +65,6 @@ public sealed partial class CatalogIpaViewModel : ObservableObject
 
     /// <summary>Only a readable archive can be picked for installing.</summary>
     public bool CanSelect => !IsUnreadable;
-
-    /// <summary>
-    /// Picks the archive by clicking it anywhere rather than hitting the small box in its corner.
-    /// An unreadable archive silently ignores the click: it is listed to be seen, not chosen, and
-    /// a checkbox that refuses to tick would read as a bug rather than as a disabled control.
-    /// </summary>
-    [RelayCommand]
-    private void ToggleSelection()
-    {
-        if (!CanSelect) return;
-        IsSelected = !IsSelected;
-    }
 
     /// <summary>
     /// Version and size on one line, with the bundle id left out: it repeats for every build of
@@ -170,6 +159,9 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         _isTileView = settings.Current.CatalogTileView;
         _tileSize = Math.Clamp(settings.Current.CatalogTileSize,
             OnDeviceViewModel.MinTileSize, OnDeviceViewModel.MaxTileSize);
+        _selectionMode = settings.Current.CatalogSelectionMode;
+
+        settings.Changed += (_, _) => SelectionMode = _settings.Current.CatalogSelectionMode;
 
         // Model and iOS version arrive after the device is first reported, so the target list
         // would otherwise sit on the bare fallback name for as long as the page stays open.
@@ -254,6 +246,17 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
 
     /// <summary>Corner radius scaled with the icon, so it keeps iOS's proportions.</summary>
     public double TileIconRadius => TileIconSize * 0.225;
+
+    /// <summary>
+    /// How archives are picked for installing, from settings. Mirrored here rather than read
+    /// from settings in the XAML so a change reaches the open page.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    private TileSelectionMode _selectionMode;
+
+    /// <summary>True when selecting is done with tick boxes, so the rows draw one.</summary>
+    public bool ShowSelectionCheckboxes => SelectionMode == TileSelectionMode.Checkbox;
 
     partial void OnIsTileViewChanged(bool value)
     {

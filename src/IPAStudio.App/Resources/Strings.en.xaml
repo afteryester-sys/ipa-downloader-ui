@@ -335,6 +335,13 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">The app was downloaded under Apple ID {0}, but the phone is signed in as {1}. A FairPlay licence is issued to one account, so this copy will not launch on this phone whatever you do in the App Store. Either sign the phone in as {0}, or download the app again here under {1} and reinstall it.</sys:String>
 
     <!-- Diagnostics (logging settings) -->
+    <sys:String x:Key="L.Settings.Selection">Selecting in lists</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">How several items are marked for a batch action. Selecting by click supports Ctrl to add one and Shift to add a run, and a click on empty space clears the selection. Tick boxes are slower but a stray click cannot undo them.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Settings.Selection.OnDevice">Apps on the device</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Catalog">.ipa catalogs</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByClick">By click</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByCheckbox">With tick boxes</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
     <sys:String x:Key="L.Settings.Load">Current load</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Processor</sys:String>

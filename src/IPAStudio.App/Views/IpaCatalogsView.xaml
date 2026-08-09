@@ -10,26 +10,32 @@
         <conv:InitialConverter x:Key="Initial" />
 
         <!-- ===== Picking an archive =====
-             The whole row or tile is the target instead of a checkbox in its corner: a tile is
-             mostly artwork, and asking for a 16px box inside it is a worse gesture than clicking
-             the thing itself. The tick is kept as a read-out — it shows what is chosen — but it
-             is not what has to be hit.
+             In click mode the whole row or tile is the target: a tile is mostly artwork, and
+             asking for a 16px box inside it is a worse gesture than clicking the thing itself.
+             The tick is kept as a read-out — it shows what is chosen — but it is not what has
+             to be hit. In checkbox mode a real box appears and the row stops responding.
+
+             Drawn on the container rather than on a Button wrapped around the content, which is
+             what this was. A Button handles the click itself, so the shared click-to-select
+             behaviour — which has to leave buttons inside a tile alone — could never see it,
+             and the row would both toggle and select from one press.
 
              Selection is drawn as a ring that grows into place rather than appearing instantly,
              so picking many archives in a row reads as a sequence of deliberate acts instead of
              a grid flickering between two states. The pop is deliberately small (0.98) and short:
              at a hundred tiles anything larger turns a sweep of selections into a jelly wobble. -->
-        <Style x:Key="Selectable" TargetType="Button">
+        <Style x:Key="Selectable" TargetType="ListBoxItem">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="4,2" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="True" />
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="Button">
+                    <ControlTemplate TargetType="ListBoxItem">
                         <Grid RenderTransformOrigin="0.5,0.5">
                             <Grid.RenderTransform>
                                 <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
@@ -115,6 +121,11 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Same treatment, only spaced as a grid cell rather than as a row. -->
+        <Style x:Key="SelectableTile" TargetType="ListBoxItem" BasedOn="{StaticResource Selectable}">
+            <Setter Property="Margin" Value="5" />
         </Style>
 
         <!-- The tick that shows the outcome. Not a control any more: it cannot be clicked, so it
@@ -451,28 +462,11 @@
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True"
                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ItemContainerStyle="{StaticResource Selectable}"
                                  Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <ContentPresenter Margin="4,2" />
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                  <!-- Clicking anywhere on the row picks it, exactly as in tile
-                                       mode: the same list should not need two different gestures
-                                       depending on how it happens to be drawn. -->
-                                  <Button Style="{StaticResource Selectable}"
-                                          Command="{Binding ToggleSelectionCommand}">
                                     <Grid Margin="12,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -481,15 +475,42 @@
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Keeps the row's leading column so names stay aligned
-                                             whether or not anything is picked. -->
+                                             whether or not anything is picked. The badge and the
+                                             box share the cell because only one of them is ever
+                                             shown: the badge reads out a click-mode selection,
+                                             the box is the control in checkbox mode. -->
                                         <Grid Grid.Column="0" Width="20" Margin="2,0,10,0"
                                               VerticalAlignment="Center">
-                                            <Border Style="{StaticResource SelectedBadge}">
+                                            <Border Style="{StaticResource SelectedBadge}"
+                                                    Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                 Converter={StaticResource BoolToVis},
+                                                                 ConverterParameter=invert}">
                                                 <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
                                                            FontSize="10" HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"
                                                            Foreground="{StaticResource Brush.Surface}" />
                                             </Border>
+                                            <CheckBox IsChecked="{Binding IsSelected}"
+                                                      IsEnabled="{Binding CanSelect}"
+                                                      VerticalAlignment="Center">
+                                                <CheckBox.Style>
+                                                    <Style TargetType="CheckBox">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding CanSelect}" Value="True" />
+                                                                    <Condition Binding="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                               Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </CheckBox.Style>
+                                            </CheckBox>
                                         </Grid>
 
                                         <!-- The app's own icon, read out of the archive. The
@@ -536,7 +557,6 @@
                                                        Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Grid>
-                                  </Button>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -551,6 +571,8 @@
                         <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ItemContainerStyle="{StaticResource SelectableTile}"
                                  Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
                             <ListBox.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -562,29 +584,10 @@
                                 </ItemsPanelTemplate>
                             </ListBox.ItemsPanel>
 
-                            <!-- The container is stripped bare: hover, selection tint and the ring
-                                 all belong to the Selectable button inside, and a ListBoxItem
-                                 drawing its own highlight on top would fight with them. -->
-                            <ListBox.ItemContainerStyle>
-                                <Style TargetType="ListBoxItem">
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="ListBoxItem">
-                                                <ContentPresenter Margin="5" />
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </ListBox.ItemContainerStyle>
-
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                  <Button Style="{StaticResource Selectable}"
-                                          Command="{Binding ToggleSelectionCommand}"
-                                          ToolTip="{Binding FileName}">
-                                    <StackPanel Width="{Binding DataContext.TileSize,
+                                    <StackPanel ToolTip="{Binding FileName}"
+                                                Width="{Binding DataContext.TileSize,
                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 Height="{Binding DataContext.TileHeight,
                                                 RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -613,14 +616,43 @@
                                             </Border>
 
                                             <!-- Sits on the icon's corner rather than beside it: a
-                                                 leading column would cost a tile most of its width. -->
+                                                 leading column would cost a tile most of its width.
+                                                 Hidden in checkbox mode, where the box below takes
+                                                 the same corner. -->
                                             <Border Style="{StaticResource SelectedBadge}"
                                                     Margin="0,-3,-5,0"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                 Converter={StaticResource BoolToVis},
+                                                                 ConverterParameter=invert}">
                                                 <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
                                                            FontSize="10" HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"
                                                            Foreground="{StaticResource Brush.Surface}" />
+                                            </Border>
+
+                                            <!-- Backed so the box stays legible on light artwork. -->
+                                            <Border CornerRadius="6" Padding="2" Margin="0,-2,-4,0"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Background="{StaticResource Brush.Surface}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding CanSelect}" Value="True" />
+                                                                    <Condition Binding="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                               Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <CheckBox IsChecked="{Binding IsSelected}" />
                                             </Border>
                                         </Grid>
 
@@ -630,7 +662,6 @@
                                         <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
                                                    TextAlignment="Center" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
-                                  </Button>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

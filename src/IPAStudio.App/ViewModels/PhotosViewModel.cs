@@ -20,9 +20,12 @@ using Microsoft.Win32;
 namespace IPAStudio.App.ViewModels;
 
 /// <summary>Selectable wrapper around a Camera Roll media file.</summary>
-public sealed partial class PhotoItemViewModel : ObservableObject
+public sealed partial class PhotoItemViewModel : ObservableObject, ISelectableTile
 {
     public PhotoItem Item { get; }
+
+    /// <summary>Any photo can join a batch; there is nothing to disqualify one.</summary>
+    public bool CanSelect => true;
 
     /// <summary>
     /// Always false. Present so one container style can serve both tiles and the date bands
@@ -378,6 +381,18 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// <summary>Thumbnail box edge, slightly shorter than the tile so photos stay landscape-ish.</summary>
     public double ThumbHeight => Math.Max(60, TileSize - 20);
 
+    /// <summary>
+    /// How the list picks items out for the toolbar's batch actions, from settings. Mirrored
+    /// onto the view model rather than read from settings in the XAML so that changing it
+    /// updates the open page.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSelectionCheckboxes))]
+    private TileSelectionMode _selectionMode;
+
+    /// <summary>True when the tick box is the way to select, so the tiles draw one.</summary>
+    public bool ShowSelectionCheckboxes => SelectionMode == TileSelectionMode.Checkbox;
+
     partial void OnTileSizeChanged(double value)
     {
         OnPropertyChanged(nameof(ThumbHeight));
@@ -426,6 +441,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         _settings = settings;
 
         _tileSize = Math.Clamp(settings.Current.PhotoTileSize, MinTileSize, MaxTileSize);
+        _selectionMode = settings.Current.PhotosSelectionMode;
+
+        // Kept in step while the page is open, so switching the setting takes effect here
+        // rather than on the next visit.
+        settings.Changed += (_, _) => SelectionMode = _settings.Current.PhotosSelectionMode;
 
         // Built here rather than in a field initializer because the labels come from the
         // active language dictionary, and the filter compares the selection against the

@@ -335,6 +335,13 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
+    <sys:String x:Key="L.Settings.Selection">Выделение в списках</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом работают Ctrl (добавить один) и Shift (добавить подряд), а клик по пустому месту снимает выделение. Галочки медленнее, зато их не сбить случайным кликом.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Photos">Фото</sys:String>
+    <sys:String x:Key="L.Settings.Selection.OnDevice">Приложения на устройстве</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Catalog">Каталоги .ipa</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>

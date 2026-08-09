@@ -26,8 +26,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
+                <!-- Collapsed rather than hidden in click mode, so the Auto column shrinks
+                     away instead of leaving a blank gutter where the boxes used to be. -->
                 <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
-                          IsChecked="{Binding IsSelected}" VerticalAlignment="Center" />
+                          IsChecked="{Binding IsSelected}" VerticalAlignment="Center"
+                          Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                       Converter={StaticResource BoolToVis}}" />
 
                 <!-- Thumbnail or type glyph -->
                 <Border Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0"
@@ -76,8 +81,10 @@
         <!-- Selected by item type rather than by key: the grid's items are tiles and date
              bands mixed together, so the ListBox cannot name one template for all of them. -->
         <DataTemplate DataType="{x:Type vm:PhotoItemViewModel}">
-            <Grid Width="{Binding DataContext.TileSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
-                  Margin="6">
+            <!-- No margin of its own: the spacing between tiles and the inset the selection
+                 highlight is drawn at both come from the container style, so that the
+                 highlight cannot end up off centre relative to the tile. -->
+            <Grid Width="{Binding DataContext.TileSize, RelativeSource={RelativeSource AncestorType=ListBox}}">
                 <StackPanel>
                     <Grid>
                         <Border Width="{Binding DataContext.TileSize, RelativeSource={RelativeSource AncestorType=ListBox}}"
@@ -115,9 +122,15 @@
                             <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                        Foreground="White" />
                         </Border>
-                        <!-- Selection checkbox overlay -->
+                        <!-- Selection checkbox overlay, only in checkbox mode. In click mode
+                             the highlight on the container says what is selected, and leaving
+                             a box on top of every thumbnail would both cover the photograph
+                             and offer a second, contradictory way to select. -->
                         <CheckBox Style="{StaticResource Check.Base}" IsChecked="{Binding IsSelected}"
-                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0" />
+                                  HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0"
+                                  Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                               RelativeSource={RelativeSource AncestorType=ListBox},
+                                               Converter={StaticResource BoolToVis}}" />
                     </Grid>
                     <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Caption}"
                                TextTrimming="CharacterEllipsis" Margin="2,5,2,1" />
@@ -131,7 +144,7 @@
         <DataTemplate DataType="{x:Type vm:PhotoDateGroupViewModel}">
             <!-- A hairline under the label instead of a filled block: the band separates rows
                  of photographs, and a solid strip every few rows competes with them. -->
-            <Grid VerticalAlignment="Bottom" Margin="6,0,6,6">
+            <Grid VerticalAlignment="Bottom" Margin="0,0,0,6">
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                     <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -146,7 +159,7 @@
 
         <!-- ── ALBUM tile template ── -->
         <DataTemplate x:Key="AlbumTileTemplate">
-            <Grid Width="168" Margin="8" x:Name="AlbumTileRoot" Background="Transparent">
+            <Grid Width="168" x:Name="AlbumTileRoot" Background="Transparent">
                 <StackPanel>
                     <Border Width="168" Height="126" Style="{StaticResource ThumbBorder}">
                         <Grid>
@@ -212,7 +225,58 @@
             </Grid>
         </DataTemplate>
 
-        <!-- ListBox item container (used in both views) -->
+        <!-- Tile container. Separate from the row container because the highlight has to sit
+             differently: a row is a wide band where a little breathing room above and below
+             reads fine, while a tile is a square whose highlight has to look concentric. The
+             row style's 4,2 margin plus the tile template's own 6 put the accent box off
+             centre and a good deal larger than the thumbnail, which is what made the
+             selection look crooked. All the spacing lives here instead, so the highlight is
+             an even inset around the tile and the gap between tiles is the margin. -->
+        <Style x:Key="PhotoTileItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="10"
+                                Margin="3" Padding="5" BorderThickness="1"
+                                BorderBrush="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <!-- Outlined as well as filled: on a wall of photographs a tint
+                                 alone is easy to lose, because most of the tile is the image
+                                 rather than the background the tint applies to.
+
+                                 Bound to the photo's own flag, not to ListBoxItem.IsSelected.
+                                 The two are different things here: the container's flag is
+                                 WPF's current item, which the page uses to decide what to
+                                 preview, while the batch the toolbar acts on lives on the
+                                 items. Reading the container's would outline the previewed
+                                 photo and leave the actual selection undrawn. -->
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                                <Setter TargetName="Bg" Property="BorderBrush"
+                                        Value="{StaticResource Brush.Accent}" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsGroupHeader}" Value="True">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ListBox item container (list/rows view) -->
         <Style x:Key="PhotoListItem" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
@@ -227,10 +291,12 @@
                                 <Setter TargetName="Bg" Property="Background"
                                         Value="{StaticResource Brush.SurfaceHover}" />
                             </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
+                            <!-- The photo's own flag, as in the tile style: the container's
+                                 IsSelected is the previewed row, not the batch. -->
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter TargetName="Bg" Property="Background"
                                         Value="{StaticResource Brush.AccentSoft}" />
-                            </Trigger>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -474,7 +540,7 @@
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                         <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource PhotoListItem}">
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource PhotoTileItem}">
                                 <!-- A single click opens the album: a gallery is browsed, not
                                      multi-selected, so requiring a double click would only be
                                      a step the user has to discover. -->
@@ -505,6 +571,7 @@
                              VirtualizingPanel.VirtualizationMode="Recycling"
                              VirtualizingPanel.ScrollUnit="Pixel"
                              ScrollViewer.ScrollChanged="OnPhotosScrollChanged"
+                             ctrl:TileSelection.Mode="{Binding SelectionMode}"
                              ItemContainerStyle="{StaticResource PhotoListItem}"
                              ItemTemplate="{StaticResource ListItemTemplate}" />
 
@@ -532,7 +599,8 @@
                              ScrollViewer.ScrollChanged="OnPhotosScrollChanged"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling"
-                             ItemContainerStyle="{StaticResource PhotoListItem}">
+                             ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                             ItemContainerStyle="{StaticResource PhotoTileItem}">
                         <!-- A plain WrapPanel does not virtualise: it builds a container
                              for every photo, so a large roll allocated thousands of
                              tiles up front. This panel keeps only visible rows alive. -->

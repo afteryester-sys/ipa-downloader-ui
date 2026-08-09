@@ -42,6 +42,24 @@ public enum InstallMode
     InstallExistingOnly = 2,
 }
 
+/// <summary>How a list on a page lets several items be picked out for a batch action.</summary>
+public enum TileSelectionMode
+{
+    /// <summary>
+    /// Pick items by clicking them, the way a file manager or a photo gallery does, with
+    /// Ctrl to add one and Shift to add a run. The default: it is what the same lists do
+    /// everywhere else on the machine, and it leaves the tile itself uncluttered.
+    /// </summary>
+    Click = 0,
+
+    /// <summary>
+    /// Pick items with a tick box drawn on each one. Slower per item, but it states plainly
+    /// what is selected and cannot be undone by a stray click, which matters when the batch
+    /// took a while to assemble. Kept as a choice rather than removed for that reason.
+    /// </summary>
+    Checkbox = 1,
+}
+
 /// <summary>Persisted user settings.</summary>
 public sealed class AppSettings
 {
@@ -168,6 +186,20 @@ public sealed class AppSettings
     public double PhotoTileSize { get; set; } = 130;
 
     /// <summary>
+    /// How items are picked on the photos page. Stored per page rather than once for the
+    /// whole app because the pages are used differently: a camera roll is skimmed and
+    /// clicked through, whereas a list of apps to download is assembled deliberately and
+    /// benefits from tick boxes that a misplaced click cannot clear.
+    /// </summary>
+    public TileSelectionMode PhotosSelectionMode { get; set; } = TileSelectionMode.Click;
+
+    /// <summary>How items are picked on the "on the device" page.</summary>
+    public TileSelectionMode OnDeviceSelectionMode { get; set; } = TileSelectionMode.Click;
+
+    /// <summary>How items are picked on the .ipa catalog page.</summary>
+    public TileSelectionMode CatalogSelectionMode { get; set; } = TileSelectionMode.Click;
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.
@@ -211,6 +243,14 @@ public sealed class SettingsService
     private readonly object _ownedLock = new();
 
     public AppSettings Current { get; private set; } = new();
+
+    /// <summary>
+    /// Raised after settings are saved, so an open page can pick up a change instead of
+    /// showing the old behaviour until it is next opened. Added for the selection mode:
+    /// changing it and returning to a page that still selected the old way would read as
+    /// the setting not working.
+    /// </summary>
+    public event EventHandler? Changed;
 
     public SettingsService(ToolLocator tools)
     {
@@ -361,5 +401,8 @@ public sealed class SettingsService
         // never has to read settings itself. Doing it in one place means the flag cannot
         // drift out of step with what was saved.
         DeviceTransport.WifiEnabled = Current.WifiDeviceConnection;
+
+        // Last, so a handler sees the mirrored values above already in place.
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 }
