@@ -74,7 +74,7 @@
     <sys:String x:Key="L.Devices.Photos">Фото</sys:String>
     <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
-    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают ег�� в целях конфиденциальности.</sys:String>
     <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
     <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
@@ -700,7 +700,7 @@
     <sys:String x:Key="L.ICloud.Smart.Hidden">Скрытые</sys:String>
     <sys:String x:Key="L.ICloud.Smart.Deleted">Недавно удалённые</sys:String>
     <sys:String x:Key="L.ICloud.DownloadAlbum">Скачать альбом целиком</sys:String>
-    <sys:String x:Key="L.ICloud.AlbumEmpty">В альбоме «{0}» нет фото для скачивания.</sys:String>
+    <sys:String x:Key="L.ICloud.AlbumEmpty">В альбоме «{0}» ��ет фото для скачивания.</sys:String>
     <sys:String x:Key="L.ICloud.DownloadingAlbum">{0} — скачиваем {1} из {2}…</sys:String>
     <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
     <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
@@ -800,5 +800,22 @@
     <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
+
+    <!-- Защищённое устройство: пароль спрашивается перед каждым действием, каждый раз. -->
+    <sys:String x:Key="L.Guard.Title">Требуется пароль</sys:String>
+    <sys:String x:Key="L.Guard.ActionLine">Это устройство защищено. Введите пароль, чтобы продолжить: {0}.</sys:String>
+    <sys:String x:Key="L.Guard.Serial">Серийный номер: {0}</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Устройство без имени</sys:String>
+    <sys:String x:Key="L.Guard.Confirm">Продолжить</sys:String>
+    <sys:String x:Key="L.Guard.Wrong">Неверный пароль. Попробуйте ещё раз.</sys:String>
+    <sys:String x:Key="L.Guard.Denied">Действие отменено: пароль не введён.</sys:String>
+
+    <!-- Названия действий, подставляемые в запрос пароля. -->
+    <sys:String x:Key="L.Guard.Action.List">просмотр установленных приложений</sys:String>
+    <sys:String x:Key="L.Guard.Action.Download">скачивание IPA</sys:String>
+    <sys:String x:Key="L.Guard.Action.Transfer">перенос приложений на другое устройство</sys:String>
+    <sys:String x:Key="L.Guard.Action.Install">установка приложений</sys:String>
+
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат для {0} приложений из локальных папок. Ещё {1} требуют входа в Apple ID и пропущены.</sys:String>
 
 </ResourceDictionary>

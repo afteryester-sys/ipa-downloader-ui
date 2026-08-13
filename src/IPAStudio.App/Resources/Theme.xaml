@@ -16,6 +16,178 @@
     <CornerRadius x:Key="Radius.Card">10</CornerRadius>
     <CornerRadius x:Key="Radius.Control">8</CornerRadius>
 
+    <!-- ============ Selection ============
+         One definition for every list in the app that picks things out: the IPA catalogs, the
+         apps installed on a device, and anything added later.
+
+         This used to be written twice — once in IpaCatalogsView as a ring with a tick, and once
+         inside OnDeviceView as a plain tinted rectangle. Two copies meant two behaviours, so
+         picking apps on a phone looked nothing like picking archives from a catalog even though
+         it is the same gesture with the same outcome. Kept in the theme so they cannot drift
+         apart again.
+
+         Selection is drawn as a ring that grows into place rather than appearing instantly, so
+         picking many rows in a row reads as a sequence of deliberate acts instead of a list
+         flickering between two states. The pop is deliberately small (0.98) and short: at a
+         hundred items anything larger turns a sweep of selections into a jelly wobble.
+
+         Brushes are DynamicResource for the reason given at the top of this file. -->
+    <Style x:Key="Selectable" TargetType="ListBoxItem">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="4,2" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Grid RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
+                        </Grid.RenderTransform>
+
+                        <!-- Hover and selected fill share one layer; the ring sits above it so
+                             the accent edge is never dimmed by the tint underneath. -->
+                        <Border x:Name="Fill" CornerRadius="12" Background="Transparent" />
+
+                        <Border x:Name="Ring" CornerRadius="12" Opacity="0"
+                                BorderBrush="{DynamicResource Brush.Accent}"
+                                BorderThickness="0" />
+
+                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fill" Property="Background"
+                                    Value="{DynamicResource Brush.SurfaceHover}" />
+                        </Trigger>
+
+                        <!-- Keyboard focus has to be visible on its own: without this a
+                             tabbed-to row would look identical to an untouched one. -->
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="Ring" Property="BorderThickness" Value="1.5" />
+                        </Trigger>
+
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Fill" Property="Background"
+                                    Value="{DynamicResource Brush.AccentSoft}" />
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ThicknessAnimation Storyboard.TargetName="Ring"
+                                            Storyboard.TargetProperty="BorderThickness"
+                                            To="2" Duration="0:0:0.18">
+                                            <ThicknessAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </ThicknessAnimation.EasingFunction>
+                                        </ThicknessAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="Ring"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="1" Duration="0:0:0.14" />
+                                        <DoubleAnimationUsingKeyFrames
+                                            Storyboard.TargetName="Pop"
+                                            Storyboard.TargetProperty="ScaleX">
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                        </DoubleAnimationUsingKeyFrames>
+                                        <DoubleAnimationUsingKeyFrames
+                                            Storyboard.TargetName="Pop"
+                                            Storyboard.TargetProperty="ScaleY">
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                            <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                        </DoubleAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <ThicknessAnimation Storyboard.TargetName="Ring"
+                                            Storyboard.TargetProperty="BorderThickness"
+                                            To="0" Duration="0:0:0.12" />
+                                        <DoubleAnimation Storyboard.TargetName="Ring"
+                                            Storyboard.TargetProperty="Opacity"
+                                            To="0" Duration="0:0:0.12" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+
+                        <!-- Something that cannot be acted on is not offered as a target at
+                             all: no hand cursor, no hover, no ring. -->
+                        <DataTrigger Binding="{Binding CanSelect}" Value="False">
+                            <Setter Property="Cursor" Value="Arrow" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter TargetName="Fill" Property="Background" Value="Transparent" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Same treatment, only spaced as a grid cell rather than as a row. -->
+    <Style x:Key="SelectableTile" TargetType="ListBoxItem" BasedOn="{StaticResource Selectable}">
+        <Setter Property="Margin" Value="5" />
+    </Style>
+
+    <!-- The tick that shows the outcome. Not a control: it cannot be clicked, so it never
+         disagrees with the ring about what a click just did. -->
+    <Style x:Key="SelectedBadge" TargetType="Border">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             To="1" Duration="0:0:0.14" />
+                            <!-- Overshoots to 1.1 before settling: the badge is small, and a
+                                 plain fade at this size is easy to miss entirely. -->
+                            <DoubleAnimationUsingKeyFrames
+                                Storyboard.TargetProperty="RenderTransform.ScaleX">
+                                <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                            </DoubleAnimationUsingKeyFrames>
+                            <DoubleAnimationUsingKeyFrames
+                                Storyboard.TargetProperty="RenderTransform.ScaleY">
+                                <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                            </DoubleAnimationUsingKeyFrames>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             To="0" Duration="0:0:0.1" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                             To="0.6" Duration="0:0:0.1" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                             To="0.6" Duration="0:0:0.1" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- ============ Typography ============ -->
     <FontFamily x:Key="Font.Body">Segoe UI Variable, Segoe UI</FontFamily>
 

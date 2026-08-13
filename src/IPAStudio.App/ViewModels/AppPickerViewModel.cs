@@ -65,6 +65,9 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private readonly InstallService _install;
     private readonly OperationService _operations;
     private readonly AuthService _auth;
+
+    /// <summary>Decides whether the destination device needs a password before an install runs.</summary>
+    private readonly DeviceGuardService _guard;
     private INavigator? _navigator;
 
     public Device? TargetDevice { get; set; }
@@ -109,12 +112,14 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private void DismissMismatchWarning() => ShowAppleIdMismatch = false;
 
     public AppPickerViewModel(CatalogService catalog, InstallService install,
-                              OperationService operations, AuthService auth)
+                              OperationService operations, AuthService auth,
+                              DeviceGuardService guard)
     {
         _catalog = catalog;
         _install = install;
         _operations = operations;
         _auth = auth;
+        _guard = guard;
 
         AppsView = CollectionViewSource.GetDefaultView(Apps);
         AppsView.Filter = FilterApp;
@@ -312,6 +317,11 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private void StartInstall(Action<QueueService> build)
     {
         if (TargetDevice is null) return;
+
+        // Guarded here rather than in each caller for the same reason the operation is registered
+        // here: this is the single funnel every install path passes through, so a new path cannot
+        // be added that quietly skips the password.
+        if (!DeviceGuardPrompt.Allow(_guard, TargetDevice, "L.Guard.Action.Install")) return;
 
         var operation = _operations.StartQueueOperation(
             OperationKind.Install,

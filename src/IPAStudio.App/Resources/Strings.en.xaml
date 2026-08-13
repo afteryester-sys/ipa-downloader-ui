@@ -803,4 +803,21 @@
     <sys:String x:Key="L.OnDevice.TransferNoTargets">No other device is connected. Attach a second iPhone by cable, tap Trust on it, then open this list again.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
 
+    <!-- Guarded device: the password is asked before every action, every time. -->
+    <sys:String x:Key="L.Guard.Title">Password required</sys:String>
+    <sys:String x:Key="L.Guard.ActionLine">This device is guarded. Enter the password to continue: {0}.</sys:String>
+    <sys:String x:Key="L.Guard.Serial">Serial number: {0}</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Unnamed device</sys:String>
+    <sys:String x:Key="L.Guard.Confirm">Continue</sys:String>
+    <sys:String x:Key="L.Guard.Wrong">Wrong password. Try again.</sys:String>
+    <sys:String x:Key="L.Guard.Denied">Cancelled: no password was entered.</sys:String>
+
+    <!-- Action names substituted into the password prompt. -->
+    <sys:String x:Key="L.Guard.Action.List">listing the installed apps</sys:String>
+    <sys:String x:Key="L.Guard.Action.Download">downloading IPA files</sys:String>
+    <sys:String x:Key="L.Guard.Action.Transfer">transferring apps to another device</sys:String>
+    <sys:String x:Key="L.Guard.Action.Install">installing apps</sys:String>
+
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Transferring {0} app(s) from local folders. {1} more need an Apple ID sign-in and were skipped.</sys:String>
+
 </ResourceDictionary>
