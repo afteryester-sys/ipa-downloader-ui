@@ -261,9 +261,12 @@ public sealed class UpdateService
 
         Set(UpdateState.Downloading);
 
-        // Use a firm per-download timeout so a stalled connection never freezes
-        // the UI indefinitely. 3 minutes is generous for a ~20 MB installer.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        // Use a firm per-download timeout so a stalled connection never freezes the UI
+        // indefinitely. The installer is a ~60 MB .exe fetched from GitHub's CDN, which is
+        // throttled or partially blocked on some networks rather than simply refused — those
+        // connections still finish, just slowly — so 3 minutes was cutting off transfers that
+        // would otherwise have completed.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         using var linked  = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         var effectiveCt   = linked.Token;
 
@@ -365,7 +368,7 @@ public sealed class UpdateService
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
         {
             FailureReason = UpdateFailureReason.Timeout;
-            LastErrorDetail = "Download timed out after 3 minutes.";
+            LastErrorDetail = "Download timed out after 8 minutes.";
             AppLog.Error("Update download timed out.");
             Set(UpdateState.Failed);
             return false;

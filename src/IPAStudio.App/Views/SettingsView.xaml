@@ -363,7 +363,16 @@
                                 Margin="0,0,10,0" />
                         <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
                                 Command="{Binding InstallUpdateCommand}"
-                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,10,0" />
+
+                        <!-- Manual fallback: some networks throttle or block GitHub's CDN for the
+                             in-app downloader without refusing the connection outright, so this
+                             stays available whenever there's an update to fetch, not only after
+                             the in-app download has already failed. -->
+                        <Button Content="{DynamicResource L.Update.OpenBrowser}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding OpenReleasesInBrowserCommand}"
+                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                 </StackPanel>
             </Border>

@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
+using IPAStudio.App.Views;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -136,6 +139,16 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private readonly CatalogService _catalog;
     private readonly AuthService _auth;
     private readonly InstallService _install;
+
+    /// <summary>Copies media onto the device Camera Roll for the Quick Transfer dialog.</summary>
+    private readonly PhotoService _photos;
+
+    /// <summary>Registers the Quick Transfer install as a trackable background operation.</summary>
+    private readonly OperationService _operations;
+
+    /// <summary>Decides whether Quick Transfer needs a password before it opens.</summary>
+    private readonly DeviceGuardService _guard;
+
     private INavigator? _navigator;
     private bool _initialized;
 
@@ -163,12 +176,16 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private bool _hasDevices;
 
     public DevicesViewModel(
-        DeviceService devices, CatalogService catalog, AuthService auth, InstallService install)
+        DeviceService devices, CatalogService catalog, AuthService auth, InstallService install,
+        PhotoService photos, OperationService operations, DeviceGuardService guard)
     {
         _devices = devices;
         _catalog = catalog;
         _auth = auth;
         _install = install;
+        _photos = photos;
+        _operations = operations;
+        _guard = guard;
 
         _devices.DeviceConnected += OnDeviceConnected;
         _devices.DeviceDisconnected += OnDeviceDisconnected;
@@ -245,6 +262,24 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     {
         if (device is null) return;
         _navigator?.GoToOnDevice(device.Device);
+    }
+
+    [RelayCommand]
+    private void OpenQuickTransfer(DeviceViewModel? device)
+    {
+        if (device is null) return;
+
+        // Gated like every other action that touches this specific device — the dialog
+        // itself never runs against an unapproved serial, so there is nothing to unwind
+        // if the password prompt is cancelled.
+        if (!DeviceGuardPrompt.Allow(_guard, device.Device, "L.Guard.Action.QuickTransfer")) return;
+
+        var owner = Application.Current?.Windows
+            .OfType<Window>()
+            .FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
+
+        var dialog = new QuickTransferDialog(device.Device, _photos, _operations) { Owner = owner };
+        dialog.ShowDialog();
     }
 
     [RelayCommand]

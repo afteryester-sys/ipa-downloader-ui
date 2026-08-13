@@ -615,18 +615,35 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             }
             else
             {
-                UpdateStatus = Str("L.Update.Failed");
+                // The generic "check failed" text used to hide exactly what went wrong (no
+                // internet, GitHub unreachable, a bad response) — the same reason mapping
+                // UpdaterViewModel already uses for its own copy of this flow.
+                UpdateStatus = FailureText();
+                AppLog.Error($"Update check failed: {_updates.FailureReason} — {_updates.LastErrorDetail}");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            UpdateStatus = Str("L.Update.Failed");
+            UpdateStatus = FailureText();
+            AppLog.Error("Update check failed (unexpected).", ex);
         }
         finally
         {
             IsCheckingUpdate = false;
         }
     }
+
+    /// <summary>Maps the updater's last failure reason to user-facing text, same mapping used
+    /// for both the check and the download failure paths.</summary>
+    private string FailureText() => _updates.FailureReason switch
+    {
+        UpdateFailureReason.NoReleases  => Str("L.Update.NoReleases"),
+        UpdateFailureReason.Network     => Str("L.Update.NoConnection"),
+        UpdateFailureReason.Timeout     => Str("L.Update.Timeout"),
+        UpdateFailureReason.ServerError => string.Format(Str("L.Update.ServerError"), _updates.LastErrorDetail),
+        UpdateFailureReason.BadResponse => Str("L.Update.BadResponse"),
+        _                               => Str("L.Update.Failed"),
+    };
 
     [RelayCommand]
     private async Task DownloadUpdateAsync()
@@ -637,7 +654,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         UpdateStatus = Str("L.Update.Downloading");
         try
         {
-            var progress = new Progress<double>(f => UpdateProgress = f);
+            // Ticking the percentage into the status line, not just the bar, means a slow
+            // download still visibly moves — the bar alone froze at whatever fraction the
+            // last progress tick reported and, static text on top of it, looked exactly like
+            // a hang whether or not it actually was one.
+            var progress = new Progress<double>(f =>
+            {
+                UpdateProgress = f;
+                UpdateStatus = $"{Str("L.Update.Downloading")} {f * 100:0}%";
+            });
             var ok = await _updates.DownloadUpdateAsync(progress);
             if (ok)
             {
@@ -645,15 +670,26 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
                 UpdateAvailable = false;
                 UpdateStatus = Str("L.Update.Ready");
             }
+            else if (_updates.State == UpdateState.Failed)
+            {
+                // The download actually failed (timeout / network / server error) rather than
+                // simply having no direct asset to fetch. Reporting "opened the releases page"
+                // here regardless of which of those happened — the previous behavior — is what
+                // made a real network failure look like a no-op success, so a stalled or
+                // blocked download read as the button silently doing nothing.
+                UpdateStatus = FailureText();
+                AppLog.Error($"Update download failed: {_updates.FailureReason} — {_updates.LastErrorDetail}");
+            }
             else
             {
                 // No direct asset — the releases page was opened in the browser.
                 UpdateStatus = Str("L.Update.OpenedBrowser");
             }
         }
-        catch
+        catch (Exception ex)
         {
-            UpdateStatus = Str("L.Update.Failed");
+            UpdateStatus = FailureText();
+            AppLog.Error("Update download failed (unexpected).", ex);
         }
         finally
         {
@@ -669,6 +705,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         else
             _updates.OpenReleasesPage();
     }
+
+    /// <summary>
+    /// Manual escape hatch next to the automated download: some networks throttle or block
+    /// GitHub's CDN without refusing the connection outright, so the in-app download can keep
+    /// failing or crawling while a browser on the same machine — often via a different route or
+    /// with its own retry/resume — fetches the same file fine.
+    /// </summary>
+    [RelayCommand]
+    private void OpenReleasesInBrowser() => _updates.OpenReleasesPage();
 
     private static string Str(string key) =>
         Application.Current.TryFindResource(key) as string ?? key;

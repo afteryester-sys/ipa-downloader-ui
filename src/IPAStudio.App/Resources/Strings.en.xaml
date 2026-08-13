@@ -239,6 +239,7 @@
     <sys:String x:Key="L.Update.Timeout">The update server timed out. Please try again.</sys:String>
     <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
+    <sys:String x:Key="L.Update.OpenBrowser">Download in browser</sys:String>
 
     <!-- Rollback -->
     <sys:String x:Key="L.Rollback.Title">Roll back to a previous version</sys:String>
@@ -285,7 +286,7 @@
     <sys:String x:Key="L.MediaExport.NothingFound">No photos or videos were found.</sys:String>
     <sys:String x:Key="L.MediaExport.FoundTotal">Found {0} photo(s) and {1} video(s), {2} total</sys:String>
     <sys:String x:Key="L.MediaExport.SkippedJunk">Skipped {0} tiny file(s) as junk.</sys:String>
-    <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Exporting�������</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
 
@@ -817,7 +818,26 @@
     <sys:String x:Key="L.Guard.Action.Download">downloading IPA files</sys:String>
     <sys:String x:Key="L.Guard.Action.Transfer">transferring apps to another device</sys:String>
     <sys:String x:Key="L.Guard.Action.Install">installing apps</sys:String>
+    <sys:String x:Key="L.Guard.Action.QuickTransfer">quick-transferring files to the device</sys:String>
 
     <sys:String x:Key="L.OnDevice.PartialTransfer">Transferring {0} app(s) from local folders. {1} more need an Apple ID sign-in and were skipped.</sys:String>
+
+    <!-- Quick Transfer: drop a file onto a device card and it works out where it belongs
+         (photos/videos into the Camera Roll, .ipa archives get installed). -->
+    <sys:String x:Key="L.Devices.QuickTransfer">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Title">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Device">Device: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DropHint">Drag files and folders here</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Browse">Choose…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Filter">All supported files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.bmp;*.webp;*.tif;*.tiff;*.dng;*.mov;*.mp4;*.m4v;*.avi;*.ipa|All files|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Supported">Photos, videos and .ipa files are supported. Anything else is skipped.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Summary">{0} compatible file(s) will be transferred.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Photos">Photos</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Apps">Apps</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileCount">{0} file(s)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Transfer">Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Importing">Copying to the device…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingFile">Copied {0} of {1}…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Close</sys:String>
 
 </ResourceDictionary>
