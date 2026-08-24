@@ -22,7 +22,10 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp"
+# The upstream project removed its legacy v3 directory on 2026-08-16. Pin the
+# last known revision so release builds remain reproducible instead of returning 404.
+$LegacyToolsRevision = "9e799c58f04a6b47f6b81d261b179dcdc4cbf70f"
+$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/$LegacyToolsRevision/MainApp"
 $IpatoolVersion = "2.3.2"
 $IpatoolRelease = "https://github.com/majd/ipatool/releases/download/v$($IpatoolVersion)/ipatool-$($IpatoolVersion)-windows-amd64.tar.gz"
 $IpatoolSha256 = "6352441f6f91df7947aaa203b19cb7d3c9d77920fc466dd784ff9cae88db5c92"
