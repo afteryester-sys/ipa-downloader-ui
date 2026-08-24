@@ -52,6 +52,7 @@ public sealed partial class AuthService
         // receives on their trusted device) and then exits with:
         //   "Error: two-factor auth code required. Retry with --auth-code CODE"
         AppLog.Info($"Login: step 1 (no code) for '{email}' using ipatool v{_tools.IpatoolVersion}.");
+        RepairIncompatibleCookieJar();
         ProcessResult first;
         try
         {
@@ -171,6 +172,7 @@ public sealed partial class AuthService
     {
         try
         {
+            RepairIncompatibleCookieJar();
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
                 new[] { "auth", "info", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
@@ -223,6 +225,49 @@ public sealed partial class AuthService
             _reauth = null;
 
             AccountChanged?.Invoke(this, null);
+        }
+    }
+
+    // ---- Local ipatool state migration ----
+
+    /// <summary>
+    /// ipatool 2.3.x stores cookies as JSON, while the previously bundled fork wrote
+    /// a Netscape-format file beginning with '#'. The new binary panics before executing
+    /// any command when that old file remains in the user's profile. Preserve it as a
+    /// backup and let ipatool create a clean jar; users then sign in normally once.
+    /// </summary>
+    private static void RepairIncompatibleCookieJar()
+    {
+        var cookiePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".ipatool",
+            "cookies");
+
+        if (!File.Exists(cookiePath)) return;
+
+        try
+        {
+            var contents = File.ReadAllText(cookiePath);
+            if (string.IsNullOrWhiteSpace(contents)) return;
+
+            try
+            {
+                using var _ = JsonDocument.Parse(contents);
+                return;
+            }
+            catch (JsonException)
+            {
+                // Legacy Netscape cookie jar or a truncated JSON jar.
+            }
+
+            var backupPath = cookiePath + ".legacy-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            File.Move(cookiePath, backupPath, overwrite: false);
+            AppLog.Warn($"Migrated incompatible ipatool cookie jar to '{backupPath}'. A new sign-in is required.");
+        }
+        catch (Exception ex)
+        {
+            // Do not hide the original ipatool result if profile permissions prevent repair.
+            AppLog.Error("Could not migrate the incompatible ipatool cookie jar.", ex);
         }
     }
 
