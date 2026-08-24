@@ -51,7 +51,7 @@ public sealed partial class AuthService
         // If the account has 2FA, ipatool asks Apple to push the code (which the user
         // receives on their trusted device) and then exits with:
         //   "Error: two-factor auth code required. Retry with --auth-code CODE"
-        AppLog.Info($"Login: step 1 (no code) for '{email}' using ipatool v{_tools.IpatoolVersion}.");
+        AppLog.Info($"Login: step 1 (no code) for '{email}' using {_tools.IpatoolEngineName}.");
         RepairIncompatibleCookieJar();
         ProcessResult first;
         try
@@ -149,8 +149,8 @@ public sealed partial class AuthService
         var args = new List<string>
         {
             "auth", "login",
-            "-e", email,
-            "-p", password,
+            "--email", email,
+            "--password", password,
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
             "--non-interactive",
             "--format", "json",

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Security.Cryptography;
 using IPAStudio.Core.Tools;
 using Microsoft.Win32;
 
@@ -60,6 +61,10 @@ public sealed class DependencyService
     private const string RepoRaw =
         $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
 
+    private const string IpatoolRsZipUrl =
+        "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.6/ipatool-rs-x86_64-pc-windows-msvc.zip";
+    private const string IpatoolRsSha256 =
+        "bb618026f6026cd31d62497c330bb60d08267d7e2d5b23322da484a282cbed08";
     private const string ImobiledeviceZipUrl =
         "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip";
 
@@ -478,10 +483,29 @@ public sealed class DependencyService
         {
             var root = GetWritableToolsRoot();
 
-            // ipatool v2 / v3 / anisette — small, direct downloads.
+            // ipatool-rs ships as a zip. Always replace the old Go binary because it can
+            // exist and still be unusable after Apple's auth endpoint change.
+            var rsZip = Path.Combine(Path.GetTempPath(), "ipatool-rs-windows-x64.zip");
+            await DownloadWithProgressAsync(IpatoolRsZipUrl, rsZip,
+                f => progress?.Report((f / 4.0, "tools")), ct);
+            var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(
+                File.OpenRead(rsZip), ct)).ToLowerInvariant();
+            if (!actualHash.Equals(IpatoolRsSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("ipatool-rs archive checksum mismatch.");
+            var rsDestination = Path.Combine(root, @"windows_amd64_v2\ipatool.exe");
+            Directory.CreateDirectory(Path.GetDirectoryName(rsDestination)!);
+            using (var archive = ZipFile.OpenRead(rsZip))
+            {
+                var entry = archive.Entries.FirstOrDefault(e =>
+                    e.Name.Equals("ipatool.exe", StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidDataException("ipatool.exe missing from ipatool-rs archive.");
+                entry.ExtractToFile(rsDestination, overwrite: true);
+            }
+            try { File.Delete(rsZip); } catch { /* best effort */ }
+
+            // Legacy v3 + anisette remain available as a manual fallback.
             var direct = new (string url, string relative)[]
             {
-                ($"{RepoRaw}/windows_amd64_v2/ipatool.exe", @"windows_amd64_v2\ipatool.exe"),
                 ($"{RepoRaw}/windows_amd64_v3/ipatool.exe", @"windows_amd64_v3\ipatool.exe"),
                 ($"{RepoRaw}/windows_amd64_v3/anisette.exe", @"windows_amd64_v3\anisette.exe"),
             };

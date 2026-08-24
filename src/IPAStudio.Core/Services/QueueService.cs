@@ -517,7 +517,7 @@ public sealed class QueueService
         {
             SetStage(item, QueueStage.Licensing, Loc.Get("L.Queue.Status.Licensing"));
             var (ok, licenseError, licenseSessionExpired) =
-                await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
+                await _download.PurchaseAsync(item.App, ct).ConfigureAwait(false);
             if (!ok)
             {
                 if (licenseSessionExpired)

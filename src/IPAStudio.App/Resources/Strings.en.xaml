@@ -187,9 +187,9 @@
     <sys:String x:Key="L.Settings.Theme.Dark">Dark</sys:String>
     <sys:String x:Key="L.Settings.Theme.Light">Light</sys:String>
     <sys:String x:Key="L.Settings.Theme.RestartHint">The app will restart after changing the appearance.</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">App Store engine</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">ipatool-rs — current Apple authentication (recommended)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">Legacy ipatool + anisette — iCloud fallback</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple throttles each connection separately, so a single stream rarely saturates your line. Running several downloads at once raises the total speed of a queue. It does not make one app download faster.</sys:String>

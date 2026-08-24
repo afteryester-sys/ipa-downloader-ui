@@ -329,11 +329,14 @@ public sealed partial class DownloadService
     /// Obtains a license for a free app (ipatool purchase). <c>Error</c> is already
     /// localized; <c>SessionExpired</c> tells the caller to route the user to sign-in.
     /// </summary>
-    public async Task<(bool Success, string? Error, bool SessionExpired)> PurchaseAsync(long appId, CancellationToken ct = default)
+    public async Task<(bool Success, string? Error, bool SessionExpired)> PurchaseAsync(AppEntry app, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(app.BundleId))
+            return (false, Loc.Get("L.Error.LicenseFailed"), false);
+
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            new[] { "purchase", "-b", app.BundleId, "--keychain-passphrase", ToolLocator.KeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
@@ -344,12 +347,12 @@ public sealed partial class DownloadService
 
         if (AuthService.IsSessionExpiredError(result.CombinedOutput))
         {
-            AppLog.Warn($"Purchase {appId}: {SessionExpiredDetail}");
+            AppLog.Warn($"Purchase {app.AppStoreId}: {SessionExpiredDetail}");
             return (false, Loc.Get("L.Error.SessionExpired"), true);
         }
 
         var raw = ExtractError(result.CombinedOutput);
-        AppLog.Warn($"Purchase {appId} failed: {raw}");
+        AppLog.Warn($"Purchase {app.AppStoreId} failed: {raw}");
         return (false, DescribeStoreFailure(result.CombinedOutput), false);
     }
 

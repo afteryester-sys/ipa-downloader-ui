@@ -187,9 +187,9 @@
     <sys:String x:Key="L.Settings.Theme.Dark">Тёмное</sys:String>
     <sys:String x:Key="L.Settings.Theme.Light">Светлое</sys:String>
     <sys:String x:Key="L.Settings.Theme.RestartHint">После смены оформления приложение перезапустится.</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">Движок App Store</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">ipatool-rs — актуальная авторизация Apple (рекомендуется)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">Legacy ipatool + anisette — резервный режим с iCloud</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple ограничивает скорость каждого соединения отдельно, поэтому один поток обычно не занимает весь канал. Несколько загрузок одновременно повышают суммарную скорость очереди. На скорость одного приложения это не влияет.</sys:String>
@@ -807,7 +807,7 @@
     <sys:String x:Key="L.Guard.Title">Требуется пароль</sys:String>
     <sys:String x:Key="L.Guard.ActionLine">Это устройство защищено. Введите пароль, чтобы продолжить: {0}.</sys:String>
     <sys:String x:Key="L.Guard.Serial">Серийный номер: {0}</sys:String>
-    <sys:String x:Key="L.Guard.UnknownDevice">Устройство без имени</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Устройство ��ез имени</sys:String>
     <sys:String x:Key="L.Guard.Confirm">Продолжить</sys:String>
     <sys:String x:Key="L.Guard.Wrong">Неверный пароль. Попробуйте ещё раз.</sys:String>
     <sys:String x:Key="L.Guard.Denied">Действие отменено: пароль не введён.</sys:String>
