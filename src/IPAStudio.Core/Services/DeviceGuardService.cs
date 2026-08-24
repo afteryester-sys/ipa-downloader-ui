@@ -25,10 +25,7 @@ public sealed class DeviceGuardService
     /// Serial numbers that require the password. Compared case-insensitively and trimmed, since a
     /// serial arrives from the device as free-form text and pasted ones tend to carry whitespace.
     /// </summary>
-    private static readonly HashSet<string> GuardedSerials = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "C0D4FVYYTD",
-    };
+    private static readonly HashSet<string> GuardedSerials = new(StringComparer.OrdinalIgnoreCase);
 
     private const string Password = "NAEBANET";
 

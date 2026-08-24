@@ -136,8 +136,12 @@ jobs:
           $ipatool = "build/publish/tools/windows_amd64_v2/ipatool.exe"
           $version = (& $ipatool --version 2>&1 | Out-String).Trim()
           Write-Host "Bundled $version"
-          if ($LASTEXITCODE -ne 0 -or $version -notmatch '2\.3\.[2-9]|2\.[4-9]\.|[3-9]\.') {
-            throw "Bundled ipatool is too old for Apple's current authentication endpoint: $version"
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch 'ipatool(?:-rs)?\s+0\.1\.[6-9]') {
+            throw "Expected ipatool-rs 0.1.6 or newer, got: $version"
+          }
+          $help = (& $ipatool auth login --help 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $help -notmatch '--auth-code' -or $help -notmatch '--email') {
+            throw "Bundled ipatool-rs does not expose the required non-interactive auth arguments."
           }
 
           # Starting the executable catches missing runtime files. It should stay alive long

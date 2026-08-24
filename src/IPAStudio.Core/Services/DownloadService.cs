@@ -289,40 +289,13 @@ public sealed partial class DownloadService
     /// does the same thing, so calling both pays the (multi-second) handshake twice.
     /// Use this only for explicit, user-initiated license checks in the app picker.
     /// </summary>
-    public async Task<LicenseState> CheckLicenseAsync(long appId, CancellationToken ct = default)
+    public Task<LicenseState> CheckLicenseAsync(long appId, CancellationToken ct = default)
     {
-        try
-        {
-            var result = await _runner.RunAsync(
-                _tools.IpatoolPath,
-                new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
-                        "--format", "json" },
-                closeStdin: true,
-                workingDirectory: _tools.IpatoolWorkingDirectory,
-                ct: ct).ConfigureAwait(false);
-
-            if (result.Success) return LicenseState.Owned;
-
-            var output = result.CombinedOutput;
-
-            // Session is stale / keychain unprotected -> bubble up so the UI can re-login.
-            if (AuthService.IsSessionExpiredError(output))
-                return LicenseState.SessionExpired;
-
-            // "already purchased" style errors also mean the license exists.
-            if (output.Contains("already", StringComparison.OrdinalIgnoreCase))
-                return LicenseState.Owned;
-            if (LicenseRequiredRegex().IsMatch(output) ||
-                output.Contains("price", StringComparison.OrdinalIgnoreCase))
-                return LicenseState.NotOwned;
-
-            return LicenseState.CheckFailed;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch
-        {
-            return LicenseState.CheckFailed;
-        }
+        // ipatool-rs purchase accepts a bundle identifier, not a numeric App Store ID. This
+        // legacy API has no bundle ID and currently has no callers; returning an honest unknown
+        // state is safer than invoking an invalid command or acquiring a license unexpectedly.
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(LicenseState.CheckFailed);
     }
 
     /// <summary>
