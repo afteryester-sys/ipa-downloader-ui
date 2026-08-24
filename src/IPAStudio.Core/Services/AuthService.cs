@@ -7,8 +7,8 @@ using IPAStudio.Core.Tools;
 namespace IPAStudio.Core.Services;
 
 /// <summary>
-/// Apple ID authentication via the bundled ipatool fork. That fork exposes only two
-/// global flags (--format, --keychain-passphrase) and has NO --non-interactive flag.
+/// Apple ID authentication via bundled ipatool. The current v2 binary supports
+/// --non-interactive together with --format and --keychain-passphrase.
 /// Its 2FA handling is:
 ///   1. "auth login" WITHOUT a code -> Apple pushes the code to the trusted device and
 ///      ipatool exits with "two-factor auth code required. Retry with --auth-code CODE".
@@ -141,9 +141,8 @@ public sealed partial class AuthService
 
     /// <summary>
     /// Runs a single "auth login" (optionally with a 2FA code). The bundled ipatool
-    /// fork exposes only --format and --keychain-passphrase as global flags (there is
-    /// no --non-interactive); stdin is closed so its interactive "Enter 2FA code:"
-    /// prompt gets EOF and it falls back to the "--auth-code required" error path.
+    /// v2 supports --non-interactive; stdin is also closed defensively so an unexpected
+    /// interactive prompt cannot leave the desktop application waiting forever.
     /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
@@ -260,7 +259,11 @@ public sealed partial class AuthService
                 // Legacy Netscape cookie jar or a truncated JSON jar.
             }
 
-            var backupPath = cookiePath + ".legacy-" + DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            // Include milliseconds and a random suffix because session restore and a manual
+            // sign-in can overlap; two repairs must never choose the same backup filename.
+            var backupPath = cookiePath + ".legacy-" +
+                DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" +
+                Guid.NewGuid().ToString("N")[..8];
             File.Move(cookiePath, backupPath, overwrite: false);
             AppLog.Warn($"Migrated incompatible ipatool cookie jar to '{backupPath}'. A new sign-in is required.");
         }

@@ -53,8 +53,12 @@ public sealed class DependencyService
     private const string ICloudDownloadUrl =
         "https://updates.cdn-apple.com/2020/windows/001-39935-20200911-1A70AA56-F448-11EA-8CC0-99D41950005E/iCloudSetup.exe";
 
+    // Keep runtime repair downloads reproducible too. The release build script already
+    // uses this last known revision; using main here made Settings install a different
+    // (and now incomplete) tool set than the installer ships.
+    private const string LegacyToolsRevision = "9e799c58f04a6b47f6b81d261b179dcdc4cbf70f";
     private const string RepoRaw =
-        "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp";
+        $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
 
     private const string ImobiledeviceZipUrl =
         "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip";

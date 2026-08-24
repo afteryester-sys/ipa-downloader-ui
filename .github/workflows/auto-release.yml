@@ -58,6 +58,21 @@ jobs:
           "exists=$exists" >> $env:GITHUB_OUTPUT
           Write-Host "Tag $tag exists: $exists"
 
+      # A push with code changes but an unchanged Version used to be silently skipped,
+      # leaving users on the old release forever. Re-running the tagged commit is fine;
+      # a different commit claiming an existing version is a release error.
+      - name: Reject reused version on a new commit
+        if: steps.check_tag.outputs.exists == 'true'
+        shell: pwsh
+        run: |
+          $tag = "v${{ steps.version.outputs.value }}"
+          $tagCommit = (git rev-list -n 1 $tag).Trim()
+          $headCommit = (git rev-parse HEAD).Trim()
+          if ($tagCommit -ne $headCommit) {
+            throw "Version ${{ steps.version.outputs.value }} is already tagged at $tagCommit, but HEAD is $headCommit. Bump <Version> before release."
+          }
+          Write-Host "$tag already points at this exact commit; nothing to release."
+
       # ---- Inject the read-only update token into UpdateSecrets.cs ---------
       # UPDATE_TOKEN must be a fine-grained PAT with ONLY "Contents: read" on
       # this repo. If the secret is missing the placeholder is left as-is and
@@ -145,6 +160,18 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
             "/DMyAppVersion=${{ steps.version.outputs.value }}" `
             build\installer.iss
+
+      - name: Verify installer output
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $expected = "build/output/IPAStudio-Setup-${{ steps.version.outputs.value }}.exe"
+          if (-not (Test-Path $expected -PathType Leaf)) {
+            throw "Expected installer was not produced: $expected"
+          }
+          if ((Get-Item $expected).Length -lt 1MB) {
+            throw "Installer is unexpectedly small: $expected"
+          }
 
       # ---- Upload installer as artifact ------------------------------------
       - name: Upload installer artifact

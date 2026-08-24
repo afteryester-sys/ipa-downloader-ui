@@ -229,7 +229,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _renameText = "";
 
-    // ─────────────────────── list / tile layout ───────────────���───────
+    // ─────────────────────── list / tile layout ──────────────────────
     // The same second view the on-device list has, and for the same reason: with a hundred
     // archives in a folder, the icon is found faster than a name in a column of rows. The
     // bounds and geometry maths are shared with OnDeviceViewModel so the two grids cannot

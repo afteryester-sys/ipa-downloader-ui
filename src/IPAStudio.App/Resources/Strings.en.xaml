@@ -286,7 +286,7 @@
     <sys:String x:Key="L.MediaExport.NothingFound">No photos or videos were found.</sys:String>
     <sys:String x:Key="L.MediaExport.FoundTotal">Found {0} photo(s) and {1} video(s), {2} total</sys:String>
     <sys:String x:Key="L.MediaExport.SkippedJunk">Skipped {0} tiny file(s) as junk.</sys:String>
-    <sys:String x:Key="L.MediaExport.Exporting">Exporting�������</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
 

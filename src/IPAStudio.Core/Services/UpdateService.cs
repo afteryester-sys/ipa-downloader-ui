@@ -212,7 +212,28 @@ public sealed class UpdateService
         ReleaseNotes = release.Body;
         AppLog.Info($"Update check: latest published release is '{release.TagName}' (parsed {LatestVersion?.ToString() ?? "n/a"}).");
 
+        if (LatestVersion is null)
+        {
+            FailureReason = UpdateFailureReason.BadResponse;
+            LastErrorDetail = $"Release tag '{release.TagName}' is not a valid version.";
+            AppLog.Error($"Update check: {LastErrorDetail}");
+            Set(UpdateState.Failed);
+            return false;
+        }
+
         var asset = PickAsset(release);
+
+        // A newer tag without an installer is not an actionable update. Previously the UI
+        // announced it and then the Download button only opened the browser, which looked
+        // exactly like the updater had failed to see the release asset.
+        if (LatestVersion is not null && LatestVersion > CurrentVersion && asset is null)
+        {
+            FailureReason = UpdateFailureReason.BadResponse;
+            LastErrorDetail = $"Release '{release.TagName}' has no IPAStudio setup executable.";
+            AppLog.Error($"Update check: {LastErrorDetail}");
+            Set(UpdateState.Failed);
+            return false;
+        }
 
         // For a private repo we must download via the asset's API URL with a
         // token; browser_download_url only works for public repos / browsers.
@@ -237,8 +258,7 @@ public sealed class UpdateService
     }
 
     /// <summary>
-    /// Downloads the installer for the latest release. If no direct asset is
-    /// available, opens the releases page in the browser instead.
+    /// Downloads the validated IPA Studio installer from the latest release.
     /// </summary>
     public Task<bool> DownloadUpdateAsync(
         IProgress<double>? progress = null, CancellationToken ct = default) =>
@@ -527,17 +547,14 @@ public sealed class UpdateService
         return await DownloadAssetAsync(progress, ct);
     }
 
-    /// <summary>Prefers an installer (Setup*.exe), otherwise any .exe/.zip — same rule the
-    /// update check uses, kept in one place so rollback picks the same file a normal
-    /// update would have.</summary>
+    /// <summary>
+    /// Selects only the installer produced by this repository's release workflow. Accepting
+    /// any executable or zip can run an unrelated diagnostic asset if one is attached later.
+    /// </summary>
     private static GitHubAsset? PickAsset(GitHubRelease release) =>
         release.Assets?.FirstOrDefault(a =>
-            a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
-            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-        ?? release.Assets?.FirstOrDefault(a =>
-            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-        ?? release.Assets?.FirstOrDefault(a =>
-            a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            a.Name.StartsWith("IPAStudio-Setup-", StringComparison.OrdinalIgnoreCase) &&
+            a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
 
     private static Version? ParseVersion(string tag)
     {
