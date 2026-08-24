@@ -19,15 +19,30 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        base.OnStartup(e);
-
-        // Global safety net — installed FIRST so nothing can silently kill the
-        // app. Any unhandled exception is logged with a full stack trace and
-        // surfaced in a dialog instead of terminating the process.
+        // Install the safety net before WPF loads App.xaml resources. ResourceDictionary
+        // parse errors happen inside base.OnStartup; registering afterward meant exactly
+        // those startup failures closed the process without reaching AppLog.
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
+        try
+        {
+            AppLog.Info("Startup: loading application resources.");
+            base.OnStartup(e);
+            StartApplication();
+            AppLog.Info("Startup: main window shown.");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Fatal startup exception.", ex);
+            ShowFatalStartupError(ex);
+            Shutdown(-1);
+        }
+    }
+
+    private void StartApplication()
+    {
         var services = new ServiceCollection();
 
         // Core
@@ -251,6 +266,21 @@ public partial class App : Application
                 MessageBoxImage.Warning);
         }
         catch { /* never let the error handler itself crash */ }
+    }
+
+    private static void ShowFatalStartupError(Exception ex)
+    {
+        try
+        {
+            MessageBox.Show(
+                "IPA Studio could not start.\n\n" +
+                $"{ex.GetType().Name}: {ex.Message}\n\n" +
+                $"Diagnostic log:\n{AppLog.FilePath}",
+                "IPA Studio",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        catch { /* the log remains available even if WPF cannot show a dialog */ }
     }
 
     protected override void OnExit(ExitEventArgs e)

@@ -101,6 +101,42 @@ jobs:
         shell: pwsh
         run: ./build/Fetch-Tools.ps1 -OutDir build/publish/tools
 
+      # ---- Validate runtime resources and bundled authentication tool ------
+      - name: Smoke-test published application
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          # Duplicate ResourceDictionary keys compile but crash WPF while loading App.xaml.
+          $duplicates = @()
+          Get-ChildItem src/IPAStudio.App -Recurse -Filter *.xaml | ForEach-Object {
+            $keys = [regex]::Matches((Get-Content $_.FullName -Raw), 'x:Key="([^"]+)"') |
+              ForEach-Object { $_.Groups[1].Value }
+            $dupes = $keys | Group-Object | Where-Object Count -gt 1
+            foreach ($dupe in $dupes) { $duplicates += "$($_.FullName): $($dupe.Name)" }
+          }
+          if ($duplicates.Count -gt 0) {
+            throw "Duplicate XAML resource keys:`n$($duplicates -join "`n")"
+          }
+
+          $ipatool = "build/publish/tools/windows_amd64_v2/ipatool.exe"
+          $version = (& $ipatool --version 2>&1 | Out-String).Trim()
+          Write-Host "Bundled $version"
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '2\.3\.[2-9]|2\.[4-9]\.|[3-9]\.') {
+            throw "Bundled ipatool is too old for Apple's current authentication endpoint: $version"
+          }
+
+          # Starting the executable catches missing runtime files. It should stay alive long
+          # enough to create and show the main window; an immediate exit is a release blocker.
+          $process = Start-Process "build/publish/IPAStudio.exe" -PassThru
+          Start-Sleep -Seconds 8
+          if ($process.HasExited) {
+            $log = Get-ChildItem "$env:LOCALAPPDATA/IPAStudio/logs" -Filter *.log -ErrorAction SilentlyContinue |
+              Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if ($log) { Get-Content $log.FullName | Write-Host }
+            throw "IPAStudio.exe exited during the startup smoke test (code $($process.ExitCode))."
+          }
+          Stop-Process -Id $process.Id -Force
+
       # ---- Build installer via Inno Setup ----------------------------------
       - name: Build installer
         if: steps.check_tag.outputs.exists == 'false'

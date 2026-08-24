@@ -143,7 +143,7 @@
     <sys:String x:Key="L.Queue.Title">Установка приложений</sys:String>
     <sys:String x:Key="L.Queue.Overall">Общий прогресс</sys:String>
     <sys:String x:Key="L.Queue.Done">Готово</sys:String>
-    <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
+    <sys:String x:Key="L.Queue.Failed">Ошиб��а</sys:String>
     <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
@@ -444,6 +444,7 @@
     <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
+    <sys:String x:Key="L.Login.Error.ToolOutdated">Apple больше не принимает эту версию ipatool. Установите последнее обновление IPA Studio и повторите вход.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
 
     <!-- Поиск приложения (Bundle ID, ID из App Store или ссылка) -->
@@ -527,7 +528,7 @@
     <sys:String x:Key="L.Region.ZP">Гонконг, Макао</sys:String>
     <sys:String x:Key="L.DeviceInfo.WifiAddress">Wi-Fi адрес</sys:String>
     <sys:String x:Key="L.DeviceInfo.BluetoothAddress">Bluetooth адрес</sys:String>
-    <sys:String x:Key="L.DeviceInfo.Cycles">{0} циклов</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Cycles">{0} цикл��в</sys:String>
     <sys:String x:Key="L.DeviceInfo.StorageSummary">Занято {0} из {1} · свободно {2}</sys:String>
     <sys:String x:Key="L.Unit.TB">ТБ</sys:String>
 
@@ -597,7 +598,7 @@
     <sys:String x:Key="L.Photos.TransferFailed">Ошибка переноса: {0}</sys:String>
 
     <!-- Диалог конфликта файлов -->
-    <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано ранее. Выберите, что сделать с существующим файлом.</sys:String>
+    <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано р��нее. Выберите, что сделать с существующим файлом.</sys:String>
     <sys:String x:Key="L.Conflict.FileMeta">{0} · сохранён {1}</sys:String>
     <sys:String x:Key="L.Conflict.SizeUnknown">размер неизвестен</sys:String>
 
@@ -817,8 +818,6 @@
     <sys:String x:Key="L.Guard.Action.Transfer">перенос приложений на другое устройство</sys:String>
     <sys:String x:Key="L.Guard.Action.Install">установка приложений</sys:String>
     <sys:String x:Key="L.Guard.Action.QuickTransfer">быстрый перенос файлов на устройство</sys:String>
-
-    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат для {0} приложений из локальных папок. Ещё {1} требуют входа в Apple ID и пропущены.</sys:String>
 
     <!-- Быстрый перенос: перетащить файл на карточку устройства, а дальше он сам находит,
          куда его положить (фото/видео — в Камеру, .ipa — установить). -->

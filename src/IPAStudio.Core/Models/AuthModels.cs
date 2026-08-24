@@ -37,6 +37,9 @@ public enum AuthFailureReason
     /// <summary>ipatool itself could not run (missing/blocked binary).</summary>
     ToolFailure,
 
+    /// <summary>The bundled ipatool uses an Apple authentication endpoint that is no longer accepted.</summary>
+    ToolOutdated,
+
     /// <summary>Anything we could not classify. The raw text goes to the log.</summary>
     Unknown,
 }

@@ -152,6 +152,7 @@ public sealed partial class AuthService
             "-e", email,
             "-p", password,
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            "--non-interactive",
             "--format", "json",
         };
         if (!string.IsNullOrWhiteSpace(authCode))
@@ -430,6 +431,13 @@ public sealed partial class AuthService
 
         if (IsICloudNotFoundError(output)) return AuthFailureReason.ICloudNotFound;
         if (IsSessionExpiredError(output)) return AuthFailureReason.SessionExpired;
+
+        // Apple retired the endpoint used by older ipatool builds. They fail before
+        // credentials are evaluated with only this status, so calling it a bad password
+        // sends the user in the wrong direction.
+        if (lower.Contains("status=403") || lower.Contains("status 403")
+            || lower.Contains("http 403") || lower.Contains("http status 403"))
+            return AuthFailureReason.ToolOutdated;
 
         if (lower.Contains("too many") || lower.Contains("try again later") || lower.Contains("-20301")
             || lower.Contains("temporarily locked out") || lower.Contains("rate limit"))
