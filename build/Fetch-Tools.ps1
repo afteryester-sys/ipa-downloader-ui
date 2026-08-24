@@ -5,7 +5,8 @@
 # development).
 #
 # Sources:
-#   - ipatool v2/v3 + anisette.exe  -> kda2495/IPA_Downloader (original project)
+#   - ipatool v2/v3 + anisette.exe  -> kda2495/IPA_Downloader, pinned to a commit SHA
+#     because the upstream default branch no longer carries these binaries
 #   - libimobiledevice suite        -> imobiledevice-net GitHub releases
 #     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe,
 #      idevicediagnostics.exe + DLLs)
@@ -21,7 +22,22 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp"
+# The upstream project deleted these binaries from its default branch, so "main" now
+# returns 404 and any build pointing at it fails before it can compile anything. Git
+# history is immutable, so a commit SHA still serves the exact files that shipped in
+# 1.7.1 - never a moved or replaced one. This is the last revision where all three
+# were present; do not "helpfully" change it back to a branch name.
+$LegacyToolsRevision = "e3f14e64d7070d33481919269d4c5929612b1131"
+$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/$LegacyToolsRevision/MainApp"
+
+# Verified against the pinned revision. Raw GitHub answers a missing file with a 200-ish
+# looking 404 body, so without these a deleted binary would ship as a 14-byte text file
+# and only fail once a user tried to log in.
+$LegacyToolHashes = @{
+    "windows_amd64_v2\ipatool.exe"  = "e941416052884e1ad06631f0dc5d16b12e9b25086c2e54bc1e024d195e4603fa"
+    "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
+    "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
+}
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -96,4 +112,17 @@ if ($missing) {
     Write-Error "Missing files:`n$($missing -join "`n")"
     exit 1
 }
+
+# Confirm the pinned binaries are the real thing. Raw GitHub serves a deleted path as a
+# short text body with a 404, and Invoke-WebRequest is happy to write it to disk under an
+# .exe name; checking the content is the only way to catch that at build time.
+foreach ($entry in $LegacyToolHashes.GetEnumerator()) {
+    $path = Join-Path $OutDir $entry.Key
+    $actual = (Get-FileHash -Path $path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $entry.Value) {
+        Write-Error "Checksum mismatch for $($entry.Key): expected $($entry.Value), got $actual"
+        exit 1
+    }
+}
+
 Write-Host "All tools downloaded successfully." -ForegroundColor Green

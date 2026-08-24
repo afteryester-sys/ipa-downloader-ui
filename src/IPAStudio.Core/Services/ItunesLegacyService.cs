@@ -98,6 +98,10 @@ public sealed class ItunesLegacyService
 
     private static string? ReadRegistryPath(string subKey, string valueName)
     {
+        // Same guard the rest of Core uses around the registry: the assembly targets plain
+        // net8.0, so the analyzer has to be told the call is only reached on Windows.
+        if (!OperatingSystem.IsWindows()) return null;
+
         try
         {
             using var key = Registry.LocalMachine.OpenSubKey(subKey);
