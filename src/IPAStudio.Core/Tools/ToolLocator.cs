@@ -21,7 +21,7 @@ public sealed class ToolLocator
     /// </summary>
     public const string KeychainPassphrase = "ipastudio-local-keychain";
 
-    /// <summary>Selected engine slot: 2 is current ipatool-rs; 3 is legacy anisette fallback.</summary>
+    /// <summary>Selected ipatool major version (2 or 3). Default is 2 (no iCloud requirement).</summary>
     public int IpatoolVersion { get; set; } = 2;
 
     public ToolLocator(string? baseDirectory = null)
@@ -42,8 +42,6 @@ public sealed class ToolLocator
         ToolsRoot,
         IpatoolVersion == 3 ? "windows_amd64_v3" : "windows_amd64_v2",
         "ipatool.exe");
-
-    public string IpatoolEngineName => IpatoolVersion == 3 ? "Legacy ipatool + anisette" : "ipatool-rs";
 
     public string AnisettePath => Path.Combine(ToolsRoot, "windows_amd64_v3", "anisette.exe");
 

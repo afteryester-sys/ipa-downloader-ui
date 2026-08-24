@@ -121,45 +121,6 @@ public sealed class QueueService
     }
 
     /// <summary>
-    /// Builds a queue in which each app installs from whichever source can actually deliver it:
-    /// an .ipa already on this machine when one is present, and the App Store otherwise.
-    ///
-    /// This is what a transfer between two phones needs. Asking the store for every app was the
-    /// whole of that failure: an app pulled from sale, restricted by region or distributed
-    /// outside the store is refused on the download step, and the App Store copy is the only
-    /// thing a transfer had to work with. Yet the same app installs from the catalog screen from
-    /// an archive sitting in a folder — which is why "it works there but not here". An entry
-    /// carrying <see cref="AppEntry.LocalIpaPath"/> skips checking, licensing and downloading
-    /// and goes straight to installing, exactly as the catalog screen's own installs do.
-    /// </summary>
-    public void BuildMixed(IEnumerable<AppEntry> apps, Device device)
-    {
-        lock (_items)
-        {
-            _items.Clear();
-            foreach (var app in apps)
-            {
-                // Verified here rather than trusted from the caller: the catalog is a cached
-                // scan of a folder, and an archive deleted since the last scan would otherwise
-                // send the item down the direct-install path with nothing to install.
-                var direct = !string.IsNullOrWhiteSpace(app.LocalIpaPath)
-                             && File.Exists(app.LocalIpaPath);
-
-                // Marks the bytes as already in hand so the install step does not wait on a
-                // download that is never going to run.
-                if (direct) app.IsDownloaded = true;
-
-                _items.Add(new QueueItem
-                {
-                    App = app,
-                    TargetDevice = device,
-                    IsDirectIpaInstall = direct,
-                });
-            }
-        }
-    }
-
-    /// <summary>
     /// Adds one app to the existing queue, leaving what is already there alone.
     ///
     /// Exists because <see cref="Build"/> clears the queue: an app resolved late — such as one
@@ -517,7 +478,7 @@ public sealed class QueueService
         {
             SetStage(item, QueueStage.Licensing, Loc.Get("L.Queue.Status.Licensing"));
             var (ok, licenseError, licenseSessionExpired) =
-                await _download.PurchaseAsync(item.App, ct).ConfigureAwait(false);
+                await _download.PurchaseAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
             if (!ok)
             {
                 if (licenseSessionExpired)

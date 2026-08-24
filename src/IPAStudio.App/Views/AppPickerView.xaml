@@ -233,6 +233,8 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <!-- iTunes route status, below the action bar. -->
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Row 0: Bundle ID input (collapsed until toggled) -->
@@ -305,12 +307,33 @@
                             Style="{StaticResource Button.Secondary}"
                             Padding="16,12" Margin="0,0,8,0"
                             Command="{Binding InstallFromIpaCommand}" />
+                    <!-- Alternative route: fetch through iTunes 12.6.5.3, then install the
+                         file it produced. Offered alongside the normal install, not instead
+                         of it — this one needs a click inside iTunes. -->
+                    <Button Content="{DynamicResource L.Itunes.Button}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            ToolTip="{DynamicResource L.Itunes.ButtonHint}"
+                            Command="{Binding InstallViaItunesCommand}"
+                            Visibility="{Binding IsItunesBusy, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                    <Button Content="{DynamicResource L.Direct.Cancel}"
+                            Style="{StaticResource Button.Danger}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding CancelItunesCommand}"
+                            Visibility="{Binding IsItunesBusy, Converter={StaticResource BoolToVis}}" />
                     <!-- Catalog install -->
                     <Button Content="{DynamicResource L.Picker.Install}" Style="{StaticResource Button.Primary}"
                             Padding="28,12"
                             Command="{Binding InstallSelectedCommand}" />
                 </StackPanel>
             </Grid>
+
+            <!-- What the iTunes route is doing or why it declined. Its own row, because it is
+                 long-lived text: the wait spans a human going and clicking in another app. -->
+            <TextBlock Grid.Row="2" Margin="0,10,0,0"
+                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                       Text="{Binding ItunesStatus}"
+                       Visibility="{Binding ItunesStatus, Converter={StaticResource NullToCollapsed}}" />
         </Grid>
     </Grid>
 </UserControl>

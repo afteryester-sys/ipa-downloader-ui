@@ -7,8 +7,8 @@ using IPAStudio.Core.Tools;
 namespace IPAStudio.Core.Services;
 
 /// <summary>
-/// Apple ID authentication via bundled ipatool. The current v2 binary supports
-/// --non-interactive together with --format and --keychain-passphrase.
+/// Apple ID authentication via the bundled ipatool fork. That fork exposes only two
+/// global flags (--format, --keychain-passphrase) and has NO --non-interactive flag.
 /// Its 2FA handling is:
 ///   1. "auth login" WITHOUT a code -> Apple pushes the code to the trusted device and
 ///      ipatool exits with "two-factor auth code required. Retry with --auth-code CODE".
@@ -51,8 +51,7 @@ public sealed partial class AuthService
         // If the account has 2FA, ipatool asks Apple to push the code (which the user
         // receives on their trusted device) and then exits with:
         //   "Error: two-factor auth code required. Retry with --auth-code CODE"
-        AppLog.Info($"Login: step 1 (no code) for '{email}' using {_tools.IpatoolEngineName}.");
-        RepairIncompatibleCookieJar();
+        AppLog.Info($"Login: step 1 (no code) for '{email}' using ipatool v{_tools.IpatoolVersion}.");
         ProcessResult first;
         try
         {
@@ -141,18 +140,18 @@ public sealed partial class AuthService
 
     /// <summary>
     /// Runs a single "auth login" (optionally with a 2FA code). The bundled ipatool
-    /// v2 supports --non-interactive; stdin is also closed defensively so an unexpected
-    /// interactive prompt cannot leave the desktop application waiting forever.
+    /// fork exposes only --format and --keychain-passphrase as global flags (there is
+    /// no --non-interactive); stdin is closed so its interactive "Enter 2FA code:"
+    /// prompt gets EOF and it falls back to the "--auth-code required" error path.
     /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
         var args = new List<string>
         {
             "auth", "login",
-            "--email", email,
-            "--password", password,
+            "-e", email,
+            "-p", password,
             "--keychain-passphrase", ToolLocator.KeychainPassphrase,
-            "--non-interactive",
             "--format", "json",
         };
         if (!string.IsNullOrWhiteSpace(authCode))
@@ -171,7 +170,6 @@ public sealed partial class AuthService
     {
         try
         {
-            RepairIncompatibleCookieJar();
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
                 new[] { "auth", "info", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
@@ -224,53 +222,6 @@ public sealed partial class AuthService
             _reauth = null;
 
             AccountChanged?.Invoke(this, null);
-        }
-    }
-
-    // ---- Local ipatool state migration ----
-
-    /// <summary>
-    /// ipatool 2.3.x stores cookies as JSON, while the previously bundled fork wrote
-    /// a Netscape-format file beginning with '#'. The new binary panics before executing
-    /// any command when that old file remains in the user's profile. Preserve it as a
-    /// backup and let ipatool create a clean jar; users then sign in normally once.
-    /// </summary>
-    private static void RepairIncompatibleCookieJar()
-    {
-        var cookiePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".ipatool",
-            "cookies");
-
-        if (!File.Exists(cookiePath)) return;
-
-        try
-        {
-            var contents = File.ReadAllText(cookiePath);
-            if (string.IsNullOrWhiteSpace(contents)) return;
-
-            try
-            {
-                using var _ = JsonDocument.Parse(contents);
-                return;
-            }
-            catch (JsonException)
-            {
-                // Legacy Netscape cookie jar or a truncated JSON jar.
-            }
-
-            // Include milliseconds and a random suffix because session restore and a manual
-            // sign-in can overlap; two repairs must never choose the same backup filename.
-            var backupPath = cookiePath + ".legacy-" +
-                DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" +
-                Guid.NewGuid().ToString("N")[..8];
-            File.Move(cookiePath, backupPath, overwrite: false);
-            AppLog.Warn($"Migrated incompatible ipatool cookie jar to '{backupPath}'. A new sign-in is required.");
-        }
-        catch (Exception ex)
-        {
-            // Do not hide the original ipatool result if profile permissions prevent repair.
-            AppLog.Error("Could not migrate the incompatible ipatool cookie jar.", ex);
         }
     }
 
@@ -479,13 +430,6 @@ public sealed partial class AuthService
 
         if (IsICloudNotFoundError(output)) return AuthFailureReason.ICloudNotFound;
         if (IsSessionExpiredError(output)) return AuthFailureReason.SessionExpired;
-
-        // Apple retired the endpoint used by older ipatool builds. They fail before
-        // credentials are evaluated with only this status, so calling it a bad password
-        // sends the user in the wrong direction.
-        if (lower.Contains("status=403") || lower.Contains("status 403")
-            || lower.Contains("http 403") || lower.Contains("http status 403"))
-            return AuthFailureReason.ToolOutdated;
 
         if (lower.Contains("too many") || lower.Contains("try again later") || lower.Contains("-20301")
             || lower.Contains("temporarily locked out") || lower.Contains("rate limit"))

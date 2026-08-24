@@ -59,6 +59,14 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _appsFolder = "";
 
+    /// <summary>
+    /// The iTunes "Mobile Applications" folder, for the iTunes 12.6.5.3 download route.
+    /// Left blank on almost every machine: the default locations under Music are probed
+    /// automatically, and this only matters when the iTunes library has been moved.
+    /// </summary>
+    [ObservableProperty]
+    private string _itunesLibraryFolder = "";
+
     [ObservableProperty]
     private int _maxParallelDownloads = 3;
 
@@ -456,6 +464,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         Theme = _settings.Current.Theme;
         IpatoolVersion = _settings.Current.IpatoolVersion;
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
+        // Blank means "probe the default locations", which is what the service does anyway.
+        ItunesLibraryFolder = _settings.Current.ItunesLibraryFolder ?? "";
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
         MultitaskingEnabled = _settings.Current.MultitaskingEnabled;
         MaxParallelInstallsPerDevice = _settings.Current.MaxParallelInstallsPerDevice;
@@ -615,35 +625,18 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             }
             else
             {
-                // The generic "check failed" text used to hide exactly what went wrong (no
-                // internet, GitHub unreachable, a bad response) — the same reason mapping
-                // UpdaterViewModel already uses for its own copy of this flow.
-                UpdateStatus = FailureText();
-                AppLog.Error($"Update check failed: {_updates.FailureReason} — {_updates.LastErrorDetail}");
+                UpdateStatus = Str("L.Update.Failed");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            UpdateStatus = FailureText();
-            AppLog.Error("Update check failed (unexpected).", ex);
+            UpdateStatus = Str("L.Update.Failed");
         }
         finally
         {
             IsCheckingUpdate = false;
         }
     }
-
-    /// <summary>Maps the updater's last failure reason to user-facing text, same mapping used
-    /// for both the check and the download failure paths.</summary>
-    private string FailureText() => _updates.FailureReason switch
-    {
-        UpdateFailureReason.NoReleases  => Str("L.Update.NoReleases"),
-        UpdateFailureReason.Network     => Str("L.Update.NoConnection"),
-        UpdateFailureReason.Timeout     => Str("L.Update.Timeout"),
-        UpdateFailureReason.ServerError => string.Format(Str("L.Update.ServerError"), _updates.LastErrorDetail),
-        UpdateFailureReason.BadResponse => Str("L.Update.BadResponse"),
-        _                               => Str("L.Update.Failed"),
-    };
 
     [RelayCommand]
     private async Task DownloadUpdateAsync()
@@ -654,15 +647,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         UpdateStatus = Str("L.Update.Downloading");
         try
         {
-            // Ticking the percentage into the status line, not just the bar, means a slow
-            // download still visibly moves — the bar alone froze at whatever fraction the
-            // last progress tick reported and, static text on top of it, looked exactly like
-            // a hang whether or not it actually was one.
-            var progress = new Progress<double>(f =>
-            {
-                UpdateProgress = f;
-                UpdateStatus = $"{Str("L.Update.Downloading")} {f * 100:0}%";
-            });
+            var progress = new Progress<double>(f => UpdateProgress = f);
             var ok = await _updates.DownloadUpdateAsync(progress);
             if (ok)
             {
@@ -670,26 +655,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
                 UpdateAvailable = false;
                 UpdateStatus = Str("L.Update.Ready");
             }
-            else if (_updates.State == UpdateState.Failed)
-            {
-                // The download actually failed (timeout / network / server error) rather than
-                // simply having no direct asset to fetch. Reporting "opened the releases page"
-                // here regardless of which of those happened — the previous behavior — is what
-                // made a real network failure look like a no-op success, so a stalled or
-                // blocked download read as the button silently doing nothing.
-                UpdateStatus = FailureText();
-                AppLog.Error($"Update download failed: {_updates.FailureReason} — {_updates.LastErrorDetail}");
-            }
             else
             {
                 // No direct asset — the releases page was opened in the browser.
                 UpdateStatus = Str("L.Update.OpenedBrowser");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            UpdateStatus = FailureText();
-            AppLog.Error("Update download failed (unexpected).", ex);
+            UpdateStatus = Str("L.Update.Failed");
         }
         finally
         {
@@ -706,15 +680,6 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             _updates.OpenReleasesPage();
     }
 
-    /// <summary>
-    /// Manual escape hatch next to the automated download: some networks throttle or block
-    /// GitHub's CDN without refusing the connection outright, so the in-app download can keep
-    /// failing or crawling while a browser on the same machine — often via a different route or
-    /// with its own retry/resume — fetches the same file fine.
-    /// </summary>
-    [RelayCommand]
-    private void OpenReleasesInBrowser() => _updates.OpenReleasesPage();
-
     private static string Str(string key) =>
         Application.Current.TryFindResource(key) as string ?? key;
 
@@ -729,6 +694,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.Theme = Theme;
         _settings.Current.IpatoolVersion = IpatoolVersion;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
+        _settings.Current.ItunesLibraryFolder =
+            string.IsNullOrWhiteSpace(ItunesLibraryFolder) ? null : ItunesLibraryFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.MultitaskingEnabled = MultitaskingEnabled;
         _settings.Current.MaxParallelInstallsPerDevice = Math.Clamp(MaxParallelInstallsPerDevice, 1, 4);

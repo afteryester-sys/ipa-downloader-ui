@@ -1277,7 +1277,7 @@ public sealed class ICloudService : IDisposable
         }
     }
 
-    // ─────────────────────────── notes ──────────────────────────
+    // ─────────────────────────── notes ───────────��───────────────
 
     /// <summary>
     /// Lists notes with their titles, previews and folders.

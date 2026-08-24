@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -66,8 +67,15 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     private readonly OperationService _operations;
     private readonly AuthService _auth;
 
-    /// <summary>Decides whether the destination device needs a password before an install runs.</summary>
-    private readonly DeviceGuardService _guard;
+    /// <summary>
+    /// The iTunes 12.6.5.3 route, offered here as a second way to obtain an app whose normal
+    /// download fails. Needs no Apple ID on this screen: iTunes brings its own session.
+    /// </summary>
+    private readonly ItunesLegacyService _itunes;
+
+    /// <summary>Holds the iTunes library location, when the user has moved it.</summary>
+    private readonly SettingsService _settings;
+
     private INavigator? _navigator;
 
     public Device? TargetDevice { get; set; }
@@ -113,13 +121,14 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
     public AppPickerViewModel(CatalogService catalog, InstallService install,
                               OperationService operations, AuthService auth,
-                              DeviceGuardService guard)
+                              ItunesLegacyService itunes, SettingsService settings)
     {
         _catalog = catalog;
         _install = install;
         _operations = operations;
         _auth = auth;
-        _guard = guard;
+        _itunes = itunes;
+        _settings = settings;
 
         AppsView = CollectionViewSource.GetDefaultView(Apps);
         AppsView.Filter = FilterApp;
@@ -318,11 +327,6 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
     {
         if (TargetDevice is null) return;
 
-        // Guarded here rather than in each caller for the same reason the operation is registered
-        // here: this is the single funnel every install path passes through, so a new path cannot
-        // be added that quietly skips the password.
-        if (!DeviceGuardPrompt.Allow(_guard, TargetDevice, "L.Guard.Action.Install")) return;
-
         var operation = _operations.StartQueueOperation(
             OperationKind.Install,
             Page.AppPicker,
@@ -452,6 +456,119 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
             IsBundleIdBusy = false;
         }
     }
+
+    // ---- Alternative route: install via iTunes 12.6.5.3 ----
+
+    /// <summary>Why the iTunes route cannot run, or what it is currently waiting for.</summary>
+    [ObservableProperty]
+    private string? _itunesStatus;
+
+    [ObservableProperty]
+    private bool _isItunesBusy;
+
+    private CancellationTokenSource? _itunesCts;
+
+    /// <summary>
+    /// Installs the selected app by fetching it through iTunes instead of ipatool.
+    ///
+    /// Apple moved the authentication endpoint ipatool signs into, so the normal route can fail
+    /// for apps that are otherwise perfectly available. iTunes 12.6.5.3 still has a working
+    /// store session and an App Store tab, so it can produce the archive; once the file exists
+    /// it is installed onto the device through the ordinary IPA install pipeline, which never
+    /// depended on that endpoint.
+    ///
+    /// One app at a time, deliberately: the download is finished by the user clicking inside
+    /// iTunes, and a queue of pages nobody has clicked yet would just be a queue of timeouts.
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallViaItunesAsync()
+    {
+        if (TargetDevice is null) return;
+
+        ItunesStatus = null;
+
+        var selected = Apps.Where(a => a.IsSelected).Select(a => a.App).ToList();
+        if (selected.Count == 0)
+        {
+            ItunesStatus = Loc.Get("L.Itunes.PickOne");
+            return;
+        }
+
+        // iTunes navigates by numeric store id; a bundle id alone cannot open a store page.
+        var app = selected.FirstOrDefault(a => a.AppStoreId > 0);
+        if (app is null)
+        {
+            ItunesStatus = Loc.Get("L.Itunes.NeedStoreId");
+            return;
+        }
+
+        var installation = _itunes.Detect();
+        if (installation is null)
+        {
+            ItunesStatus = Loc.Get("L.Itunes.NotFound");
+            return;
+        }
+
+        if (!installation.SupportsAppStore)
+        {
+            ItunesStatus = Loc.Format("L.Itunes.TooNew", installation.Version.ToString());
+            return;
+        }
+
+        _itunesCts = new CancellationTokenSource();
+        IsItunesBusy = true;
+
+        try
+        {
+            var before = _itunes.ListLibrary(_settings.Current.ItunesLibraryFolder);
+
+            if (!_itunes.OpenStorePage(app.AppStoreId))
+            {
+                ItunesStatus = Loc.Get("L.Itunes.OpenFailed");
+                return;
+            }
+
+            ItunesStatus = Loc.Get("L.Itunes.Instructions");
+
+            var progress = new Progress<string>(name =>
+                ItunesStatus = Loc.Format("L.Itunes.Receiving", name));
+
+            var produced = await _itunes
+                .WaitForNewIpaAsync(before, _settings.Current.ItunesLibraryFolder, progress, _itunesCts.Token)
+                .ConfigureAwait(true);
+
+            if (produced is null)
+            {
+                ItunesStatus = Loc.Get("L.Itunes.Timeout");
+                return;
+            }
+
+            ItunesStatus = null;
+
+            // Handed to the same queue that installs a hand-picked .ipa. The file is already on
+            // disk at this point, so nothing downstream needs an Apple session.
+            StartInstall(q => q.BuildFromIpaFiles(new[] { produced }, TargetDevice));
+        }
+        catch (OperationCanceledException)
+        {
+            ItunesStatus = null;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("iTunes route (picker) threw.", ex);
+            ItunesStatus = Loc.Get("L.Error.Unknown");
+        }
+        finally
+        {
+            IsItunesBusy = false;
+            _itunesCts?.Dispose();
+            _itunesCts = null;
+        }
+    }
+
+    /// <summary>Stops watching the iTunes library. iTunes itself is left alone.</summary>
+    [RelayCommand]
+    private void CancelItunes() => _itunesCts?.Cancel();
 
     private static Task RunOnUiAsync(Action action)
     {

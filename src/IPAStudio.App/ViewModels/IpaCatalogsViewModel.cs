@@ -143,23 +143,18 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     private readonly OperationService _operations;
     private readonly SettingsService _settings;
 
-    /// <summary>Decides whether the chosen device needs a password before an install runs.</summary>
-    private readonly DeviceGuardService _guard;
-
     private INavigator? _navigator;
 
     public IpaCatalogsViewModel(
         IpaCatalogService catalogs,
         DeviceService devices,
         OperationService operations,
-        SettingsService settings,
-        DeviceGuardService guard)
+        SettingsService settings)
     {
         _catalogs = catalogs;
         _devices = devices;
         _operations = operations;
         _settings = settings;
-        _guard = guard;
 
         _isTileView = settings.Current.CatalogTileView;
         _tileSize = Math.Clamp(settings.Current.CatalogTileSize,
@@ -229,7 +224,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _renameText = "";
 
-    // ─────────────────────── list / tile layout ──────────────────────
+    // ─────────────────────── list / tile layout ───────────────���───────
     // The same second view the on-device list has, and for the same reason: with a hundred
     // archives in a folder, the icon is found faster than a name in a column of rows. The
     // bounds and geometry maths are shared with OnDeviceViewModel so the two grids cannot
@@ -709,11 +704,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     /// </summary>
     private void StartInstall(IReadOnlyList<string> paths, Device device)
     {
-        // Installing from a local folder is still installing onto the device, so it is guarded on
-        // the same terms as an App Store install. Nothing about the archive being already on disk
-        // makes the phone at the other end of the cable any less the wrong one.
-        if (!DeviceGuardPrompt.Allow(_guard, device, "L.Guard.Action.Install")) return;
-
         var operation = _operations.StartQueueOperation(
             OperationKind.Install,
             Page.IpaCatalogs,

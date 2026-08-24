@@ -46,6 +46,12 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     /// <summary>Where a download registers itself so leaving the page does not hide it.</summary>
     private readonly OperationService _operations;
 
+    /// <summary>
+    /// The fallback route through iTunes 12.6.5.3. Independent of <see cref="DownloadService"/>
+    /// and of the Apple ID signed in here — that is the entire reason it is worth having.
+    /// </summary>
+    private readonly ItunesLegacyService _itunes;
+
     private INavigator? _navigator;
 
     private CancellationTokenSource? _cts;
@@ -58,8 +64,10 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         DeviceService devices,
         InstallService install,
         OperationService operations,
-        IpaCatalogService ipaCatalogs)
+        IpaCatalogService ipaCatalogs,
+        ItunesLegacyService itunes)
     {
+        _itunes = itunes;
         _ipaCatalogs = ipaCatalogs;
         _catalog = catalog;
         _download = download;
@@ -527,6 +535,156 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     [RelayCommand]
     private void CancelDownload() => _cts?.Cancel();
+
+    // ---- Alternative route: iTunes 12.6.5.3 ----
+
+    /// <summary>
+    /// Explains the state of the iTunes route on this machine: not installed, installed but too
+    /// new to have an App Store, or ready. Shown next to the button so its refusal to work is
+    /// never a mystery.
+    /// </summary>
+    [ObservableProperty]
+    private string? _itunesHint;
+
+    /// <summary>True while the library is being watched for a file iTunes is writing.</summary>
+    [ObservableProperty]
+    private bool _isItunesRunning;
+
+    /// <summary>
+    /// Downloads through iTunes instead of ipatool.
+    ///
+    /// Apple changed the authentication endpoint ipatool signs into, which is why the normal
+    /// route started failing. iTunes 12.6.5.3 has its own store session that still works and
+    /// still contains the App Store tab, so it can fetch an app the normal route cannot.
+    ///
+    /// The sequence is the one described on 4PDA, automated as far as it safely can be: snapshot
+    /// the iTunes library, open the app's store page inside iTunes with an itmss:// link, let the
+    /// user press Download there, then wait for the new .ipa and copy it into the chosen folder.
+    /// The click stays with the user on purpose — iTunes performs its own account and licence
+    /// checks, and driving its UI from outside would break the moment Apple moves a button.
+    /// </summary>
+    [RelayCommand]
+    private async Task DownloadViaItunesAsync()
+    {
+        ItunesHint = null;
+
+        if (FoundApp is null)
+        {
+            // Same courtesy as the main button: find first if they typed and went straight here.
+            await LookupAsync().ConfigureAwait(true);
+            if (FoundApp is null) return;
+        }
+
+        // iTunes is driven by store id: an itmss:// link needs the numeric id, and a bundle id
+        // cannot be turned into one without the very catalog that failed to list the app.
+        if (FoundApp.AppStoreId <= 0)
+        {
+            ItunesHint = Str("L.Itunes.NeedStoreId");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(DestinationFolder))
+        {
+            ErrorText = Str("L.Direct.NeedFolder");
+            return;
+        }
+
+        var installation = _itunes.Detect();
+        if (installation is null)
+        {
+            ItunesHint = Str("L.Itunes.NotFound");
+            return;
+        }
+
+        if (!installation.SupportsAppStore)
+        {
+            ItunesHint = Loc.Format("L.Itunes.TooNew", installation.Version.ToString());
+            return;
+        }
+
+        _cts = new CancellationTokenSource();
+        IsItunesRunning = true;
+        ErrorText = null;
+        SavedPath = null;
+        Progress = 0;
+        IsDownloading = true;
+        StatusText = Str("L.Itunes.Opening");
+
+        var operation = _operations.Start(new Operation(
+            OperationKind.Download,
+            Page.DirectDownload,
+            Loc.Get("L.Itunes.OpKind"),
+            FoundApp.Name,
+            cancel: _cts.Cancel));
+
+        try
+        {
+            // Snapshot first. The watcher works by difference, so anything already in the
+            // library must be recorded before iTunes is allowed to add to it.
+            var before = _itunes.ListLibrary(_settings.Current.ItunesLibraryFolder);
+
+            if (!_itunes.OpenStorePage(FoundApp.AppStoreId))
+            {
+                ItunesHint = Str("L.Itunes.OpenFailed");
+                operation.Finish(OperationState.Failed, ItunesHint);
+                return;
+            }
+
+            StatusText = Str("L.Itunes.Waiting");
+            operation.Detail = StatusText;
+
+            var status = new System.Progress<string>(name =>
+            {
+                // No percentage is available: iTunes reports nothing to us, so the file name
+                // being written is the only honest signal that something is happening.
+                StatusText = Loc.Format("L.Itunes.Receiving", name);
+                operation.Detail = StatusText ?? "";
+            });
+
+            var produced = await _itunes
+                .WaitForNewIpaAsync(before, _settings.Current.ItunesLibraryFolder, status, _cts.Token)
+                .ConfigureAwait(true);
+
+            if (produced is null)
+            {
+                StatusText = null;
+                ErrorText = Str("L.Itunes.Timeout");
+                operation.Finish(OperationState.Failed, ErrorText);
+                return;
+            }
+
+            StatusText = Str("L.Itunes.Copying");
+            var saved = await _itunes
+                .CopyOutAsync(produced, DestinationFolder, _cts.Token)
+                .ConfigureAwait(true);
+
+            SavedPath = saved;
+            Progress = 100;
+            StatusText = $"{Str("L.Direct.Done")} {Path.GetFileName(saved)}";
+            operation.Finish(OperationState.Done, Path.GetFileName(saved));
+            AppLog.Info($"iTunes route finished: {saved}");
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = null;
+            Progress = 0;
+            operation.Finish(OperationState.Cancelled);
+        }
+        catch (Exception ex)
+        {
+            StatusText = null;
+            ErrorText = Loc.Get("L.Error.Unknown");
+            AppLog.Error("iTunes route threw.", ex);
+            operation.Finish(OperationState.Failed, ex.Message);
+        }
+        finally
+        {
+            IsItunesRunning = false;
+            IsDownloading = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
 
     // ---- Helpers ----
 

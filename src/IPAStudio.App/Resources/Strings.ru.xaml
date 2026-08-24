@@ -187,10 +187,12 @@
     <sys:String x:Key="L.Settings.Theme.Dark">Тёмное</sys:String>
     <sys:String x:Key="L.Settings.Theme.Light">Светлое</sys:String>
     <sys:String x:Key="L.Settings.Theme.RestartHint">После смены оформления приложение перезапустится.</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolVersion">Движок App Store</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV2">ipatool-rs — актуальная авторизация Apple (рекомендуется)</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV3">Legacy ipatool + anisette — резервный режим с iCloud</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolder">Библиотека iTunes (папка Mobile Applications)</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolderHint">Нужно только для способа «Через iTunes 12.6.5.3» и только если библиотека iTunes перенесена в другое место. Обычно поле можно оставить пустым — стандартные папки проверяются автоматически.</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple ограничивает скорость каждого соединения отдельно, поэтому один поток обычно не занимает весь канал. Несколько загрузок одновременно повышают суммарную скорость очереди. На скорость одного приложения это не влияет.</sys:String>
     <sys:String x:Key="L.Settings.Throughput">Скорость загрузки</sys:String>
@@ -239,7 +241,22 @@
     <sys:String x:Key="L.Update.Timeout">Превышено время ожидания сервера обновлений. Повторите попытку.</sys:String>
     <sys:String x:Key="L.Update.ServerError">Сервер обновлений вернул ошибку: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Не удалось разобрать ответ сервера обновлений.</sys:String>
-    <sys:String x:Key="L.Update.OpenBrowser">Скачать в браузере</sys:String>
+
+    <!-- Альтернативный способ: iTunes 12.6.5.3 -->
+    <sys:String x:Key="L.Itunes.Button">Через iTunes 12.6.5.3</sys:String>
+    <sys:String x:Key="L.Itunes.ButtonHint">Запасной способ. Apple изменила точку входа, которой пользуется ipatool, поэтому обычная загрузка может не работать. iTunes 12.6.5.3 сохранил вкладку App Store и собственную рабочую сессию, поэтому может выдать файл там, где обычный способ уже отказывает.</sys:String>
+    <sys:String x:Key="L.Itunes.OpKind">Загрузка через iTunes</sys:String>
+    <sys:String x:Key="L.Itunes.NotFound">iTunes на этом компьютере не найден. Нужна версия 12.6.5.3 — только в ней осталась вкладка App Store. В iTunes 12.7 и новее её убрали, и файл .ipa получить нельзя.</sys:String>
+    <sys:String x:Key="L.Itunes.TooNew">Установлен iTunes {0}. В версии 12.7 и новее Apple убрала вкладку App Store, поэтому получить .ipa через него невозможно. Нужен iTunes 12.6.5.3.</sys:String>
+    <sys:String x:Key="L.Itunes.NeedStoreId">Для этого способа нужен числовой ID приложения из App Store: iTunes открывает страницу именно по нему, а по одному Bundle ID её не найти. Вставьте ссылку на приложение или его ID.</sys:String>
+    <sys:String x:Key="L.Itunes.OpenFailed">Не удалось открыть страницу приложения в iTunes. Проверьте, что iTunes 12.6.5.3 установлен и запускается.</sys:String>
+    <sys:String x:Key="L.Itunes.Opening">Открываем страницу приложения в iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Waiting">Ждём файл из iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Instructions">Открылось окно iTunes со страницей приложения. Нажмите там «Загрузить» (при необходимости войдите в свой Apple ID в самом iTunes). Как только iTunes закончит загрузку, программа сама заберёт готовый .ipa из его библиотеки — окно iTunes закрывать не нужно.</sys:String>
+    <sys:String x:Key="L.Itunes.Receiving">iTunes загружает: {0}</sys:String>
+    <sys:String x:Key="L.Itunes.Copying">Забираем файл из библиотеки iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Timeout">Новый .ipa в библиотеке iTunes так и не появился. Загрузка в iTunes могла не начаться или была отменена — попробуйте ещё раз. Если библиотека iTunes перенесена в другое место, укажите её папку в настройках.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">Выберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
 
     <!-- Скачивание IPA по Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
@@ -250,7 +267,7 @@
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
-    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загр��зок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
     <sys:String x:Key="L.Direct.Download">Скачать IPA</sys:String>
     <sys:String x:Key="L.Direct.Cancel">Отменить</sys:String>
@@ -284,7 +301,7 @@
     <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
-    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">��свобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.IpaIcons">Иконки из локальных .ipa</sys:String>
@@ -327,13 +344,13 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
     <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
-    <!-- Восстановление повторяется без успеха: ждать бессмысленно. -->
+    <!-- Восстановлен��е повторяется без успеха: ждать бессмысленно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь под той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
     <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
     <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
-    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. Разные учётные записи: на телефоне не исправить. -->
+    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. ��азные учётные записи: на телефоне не исправить. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
@@ -444,7 +461,6 @@
     <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
-    <sys:String x:Key="L.Login.Error.ToolOutdated">Apple больше не принимает эту версию ipatool. Установите последнее обновление IPA Studio и повторите вход.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
 
     <!-- Поиск приложения (Bundle ID, ID из App Store или ссылка) -->
@@ -461,7 +477,7 @@
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
-    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изме��ение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Detail">Свободно {0} ГБ. Загрузка требует места и под временный файл, и под итоговый архив одновременно.</sys:String>
 
@@ -480,7 +496,7 @@
     <!-- Apple sales-region codes reported in RegionInfo, e.g. "LL/A". -->
     <sys:String x:Key="L.Region.A">Канада</sys:String>
     <sys:String x:Key="L.Region.AB">ОАЭ, Саудовская Аравия, Египет</sys:String>
-    <sys:String x:Key="L.Region.B">Великобритания, Ирландия</sys:String>
+    <sys:String x:Key="L.Region.B">Великобритан��я, Ирландия</sys:String>
     <sys:String x:Key="L.Region.BR">Бразилия</sys:String>
     <sys:String x:Key="L.Region.BZ">Бразилия</sys:String>
     <sys:String x:Key="L.Region.C">Канада</sys:String>
@@ -739,7 +755,7 @@
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
     <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
-    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось пределить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>
@@ -802,39 +818,5 @@
     <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
-
-    <!-- Защищённое устройство: пароль спрашивается перед каждым действием, каждый раз. -->
-    <sys:String x:Key="L.Guard.Title">Требуется пароль</sys:String>
-    <sys:String x:Key="L.Guard.ActionLine">Это устройство защищено. Введите пароль, чтобы продолжить: {0}.</sys:String>
-    <sys:String x:Key="L.Guard.Serial">Серийный номер: {0}</sys:String>
-    <sys:String x:Key="L.Guard.UnknownDevice">Устройство ��ез имени</sys:String>
-    <sys:String x:Key="L.Guard.Confirm">Продолжить</sys:String>
-    <sys:String x:Key="L.Guard.Wrong">Неверный пароль. Попробуйте ещё раз.</sys:String>
-    <sys:String x:Key="L.Guard.Denied">Действие отменено: пароль не введён.</sys:String>
-
-    <!-- Названия действий, подставляемые в запрос пароля. -->
-    <sys:String x:Key="L.Guard.Action.List">просмотр установленных приложений</sys:String>
-    <sys:String x:Key="L.Guard.Action.Download">скачивание IPA</sys:String>
-    <sys:String x:Key="L.Guard.Action.Transfer">перенос приложений на другое устройство</sys:String>
-    <sys:String x:Key="L.Guard.Action.Install">установка приложений</sys:String>
-    <sys:String x:Key="L.Guard.Action.QuickTransfer">быстрый перенос файлов на устройство</sys:String>
-
-    <!-- Быстрый перенос: перетащить файл на карточку устройства, а дальше он сам находит,
-         куда его положить (фото/видео — в Камеру, .ipa — установить). -->
-    <sys:String x:Key="L.Devices.QuickTransfer">Быстрый перенос</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Title">Быстрый перенос</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Device">Устройство: {0}</sys:String>
-    <sys:String x:Key="L.QuickTransfer.DropHint">Перетащите файлы и папки сюда</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Browse">Выбрать…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Filter">Все поддерживаемые файлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.bmp;*.webp;*.tif;*.tiff;*.dng;*.mov;*.mp4;*.m4v;*.avi;*.ipa|Все файлы|*.*</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Supported">Поддерживаются фото, видео и файлы .ipa. Остальные файлы будут пропущены.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Summary">Будет перенесено {0} совместимых файлов.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Photos">Фото</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Apps">Приложения</sys:String>
-    <sys:String x:Key="L.QuickTransfer.FileCount">{0} файл(ов)</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Transfer">Перенос</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Importing">Копирование на устройство…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.ImportingFile">Скопировано {0} из {1}…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Закрыть</sys:String>
 
 </ResourceDictionary>

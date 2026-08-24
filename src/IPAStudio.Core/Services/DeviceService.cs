@@ -31,13 +31,6 @@ public sealed class DeviceService : IAsyncDisposable
     /// </summary>
     private const int NetworkGraceMisses = 5;
 
-    /// <summary>
-    /// A successful empty USB enumeration can still be a transient usbmuxd restart. Require two
-    /// consecutive misses before removing a cabled phone so one three-second polling glitch does
-    /// not make the card disappear and immediately reappear.
-    /// </summary>
-    private const int UsbGraceMisses = 2;
-
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
     private readonly Dictionary<string, Device> _devices = new();
@@ -142,13 +135,13 @@ public sealed class DeviceService : IAsyncDisposable
 
             foreach (var device in _devices.Values.Where(d => !currentUdids.Contains(d.Udid)).ToList())
             {
-                // Both transports can blink during an usbmuxd/Bonjour restart. Wi-Fi gets the
-                // longer grace period because radio sleep is routine; USB still requires two
-                // consecutive successful empty enumerations instead of disappearing on one tick.
-                var misses = _missedPolls.TryGetValue(device.Udid, out var n) ? n + 1 : 1;
-                _missedPolls[device.Udid] = misses;
-                var graceMisses = device.Link == DeviceLink.Network ? NetworkGraceMisses : UsbGraceMisses;
-                if (misses < graceMisses) continue;
+                // USB is reported at once; Wi-Fi is given a few polls to answer again.
+                if (device.Link == DeviceLink.Network)
+                {
+                    var misses = _missedPolls.TryGetValue(device.Udid, out var n) ? n + 1 : 1;
+                    _missedPolls[device.Udid] = misses;
+                    if (misses < NetworkGraceMisses) continue;
+                }
 
                 _missedPolls.Remove(device.Udid);
                 _devices.Remove(device.Udid);

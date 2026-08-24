@@ -9,14 +9,176 @@
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:InitialConverter x:Key="Initial" />
 
-        <!-- Selection styles (Selectable / SelectableTile / SelectedBadge) come from
-             Resources/Theme.xaml so this screen and the on-device list pick things out the
-             same way. They used to be defined here, which is why the two looked different.
-
+        <!-- ===== Picking an archive =====
              In click mode the whole row or tile is the target: a tile is mostly artwork, and
              asking for a 16px box inside it is a worse gesture than clicking the thing itself.
-             The tick is kept as a read-out - it shows what is chosen - but it is not what has
-             to be hit. In checkbox mode a real box appears and the row stops responding. -->
+             The tick is kept as a read-out — it shows what is chosen — but it is not what has
+             to be hit. In checkbox mode a real box appears and the row stops responding.
+
+             Drawn on the container rather than on a Button wrapped around the content, which is
+             what this was. A Button handles the click itself, so the shared click-to-select
+             behaviour — which has to leave buttons inside a tile alone — could never see it,
+             and the row would both toggle and select from one press.
+
+             Selection is drawn as a ring that grows into place rather than appearing instantly,
+             so picking many archives in a row reads as a sequence of deliberate acts instead of
+             a grid flickering between two states. The pop is deliberately small (0.98) and short:
+             at a hundred tiles anything larger turns a sweep of selections into a jelly wobble. -->
+        <Style x:Key="Selectable" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="4,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
+                            </Grid.RenderTransform>
+
+                            <!-- Hover and selected fill share one layer; the ring sits above it
+                                 so the accent edge is never dimmed by the tint underneath. -->
+                            <Border x:Name="Fill" CornerRadius="12" Background="Transparent" />
+
+                            <Border x:Name="Ring" CornerRadius="12" Opacity="0"
+                                    BorderBrush="{StaticResource Brush.Accent}"
+                                    BorderThickness="0" />
+
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+
+                            <!-- Keyboard focus has to be visible on its own: without this a
+                                 tabbed-to tile would look identical to an untouched one. -->
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="Ring" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="2" Duration="0:0:0.18">
+                                                <ThicknessAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </ThicknessAnimation.EasingFunction>
+                                            </ThicknessAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="1" Duration="0:0:0.14" />
+                                            <DoubleAnimationUsingKeyFrames
+                                                Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleX">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                            <DoubleAnimationUsingKeyFrames
+                                                Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleY">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="0" Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+
+                            <!-- An unreadable archive cannot be installed, so it is not offered
+                                 as a target at all: no hand cursor, no hover, no ring. -->
+                            <DataTrigger Binding="{Binding CanSelect}" Value="False">
+                                <Setter Property="Cursor" Value="Arrow" />
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter TargetName="Fill" Property="Background" Value="Transparent" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Same treatment, only spaced as a grid cell rather than as a row. -->
+        <Style x:Key="SelectableTile" TargetType="ListBoxItem" BasedOn="{StaticResource Selectable}">
+            <Setter Property="Margin" Value="5" />
+        </Style>
+
+        <!-- The tick that shows the outcome. Not a control any more: it cannot be clicked, so it
+             never disagrees with the ring about what a click just did. -->
+        <Style x:Key="SelectedBadge" TargetType="Border">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="0:0:0.14" />
+                                <!-- Overshoots to 1.1 before settling: the badge is small, and a
+                                     plain fade at this size is easy to miss entirely. -->
+                                <DoubleAnimationUsingKeyFrames
+                                    Storyboard.TargetProperty="RenderTransform.ScaleX">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                                </DoubleAnimationUsingKeyFrames>
+                                <DoubleAnimationUsingKeyFrames
+                                    Storyboard.TargetProperty="RenderTransform.ScaleY">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                                </DoubleAnimationUsingKeyFrames>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="0:0:0.1" />
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                 To="0.6" Duration="0:0:0.1" />
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 To="0.6" Duration="0:0:0.1" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
 
         <!-- List / tile toggle, matching the on-device and photo screens so every list in
              the app is switched the same way. -->

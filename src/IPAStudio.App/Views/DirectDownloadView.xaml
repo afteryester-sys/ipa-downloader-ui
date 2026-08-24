@@ -187,11 +187,34 @@
                             Command="{Binding CancelDownloadCommand}"
                             Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
 
+                    <!-- The alternative route. Sits beside the main button rather than
+                         replacing it: the normal path is still the faster one when it works,
+                         and this one needs iTunes 12.6.5.3 plus a click inside iTunes. -->
+                    <Button Content="{DynamicResource L.Itunes.Button}"
+                            Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
+                            ToolTip="{DynamicResource L.Itunes.ButtonHint}"
+                            Command="{Binding DownloadViaItunesCommand}"
+                            Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
                     <Button Content="{DynamicResource L.Direct.OpenFolder}"
                             Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
                             Command="{Binding OpenFolderCommand}"
                             Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}" />
                 </StackPanel>
+
+                <!-- Why the iTunes route is refusing, or what it is waiting for. Kept out of
+                     ErrorText so a missing iTunes does not look like a failed download. -->
+                <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,16"
+                        Visibility="{Binding ItunesHint, Converter={StaticResource NullToCollapsed}}">
+                    <TextBlock Text="{Binding ItunesHint}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,16"
+                        Visibility="{Binding IsItunesRunning, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{DynamicResource L.Itunes.Instructions}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+                </Border>
 
                 <!-- ===== Progress + status ===== -->
                 <StackPanel Margin="0,0,0,12"

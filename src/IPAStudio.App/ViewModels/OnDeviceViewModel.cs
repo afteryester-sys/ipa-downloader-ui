@@ -245,17 +245,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     private readonly OperationService _operations;
 
-    /// <summary>
-    /// The scanned .ipa libraries, consulted before a transfer goes anywhere near the App Store.
-    ///
-    /// This is the difference between a transfer that works and one that does not. An app pulled
-    /// from sale, restricted by region or distributed outside the store is refused on the
-    /// download step — yet the very same app installs from the catalog screen, from an archive
-    /// already sitting in a folder on this machine. That archive was simply never looked for
-    /// here.
-    /// </summary>
-    private readonly IpaCatalogService _ipaCatalogs;
-
     private INavigator? _navigator;
 
     /// <summary>
@@ -301,14 +290,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// <summary>Rows in the current batch, for the operation's overall percentage.</summary>
     private List<InstalledAppViewModel> _batchRows = new();
 
-    /// <summary>
-    /// Decides whether the device on this page needs a password first.
-    ///
-    /// Consulted at each action separately — listing, downloading, transferring — rather than once
-    /// when the page opens, because the page opening is not the thing worth guarding.
-    /// </summary>
-    private readonly DeviceGuardService _guard;
-
     public OnDeviceViewModel(
         InstallService install,
         DownloadService download,
@@ -317,9 +298,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         SettingsService settings,
         DeviceService devices,
         OperationService operations,
-        DownloadThrottle throttle,
-        IpaCatalogService ipaCatalogs,
-        DeviceGuardService guard)
+        DownloadThrottle throttle)
     {
         _install = install;
         _download = download;
@@ -329,8 +308,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         _devices = devices;
         _operations = operations;
         _throttle = throttle;
-        _ipaCatalogs = ipaCatalogs;
-        _guard = guard;
 
         DestinationFolder = settings.Current.LastOnDeviceFolder
                             ?? settings.Current.LastDirectDownloadFolder
@@ -610,49 +587,12 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         var selected = Apps.Where(a => a.IsSelected).ToList();
         if (selected.Count == 0) return;
 
-        // A transfer touches two devices, so both are checked: the source, whose apps are being
-        // copied out, and the destination, which is about to have apps installed on it. Either one
-        // being guarded is reason enough to ask, and a guarded destination is asked for separately
-        // because unlocking the source says nothing about where its apps may go.
-        if (!DeviceGuardPrompt.Allow(_guard, TargetDevice, "L.Guard.Action.Transfer") ||
-            !DeviceGuardPrompt.Allow(_guard, destination, "L.Guard.Action.Install"))
+        // The App Store is the source, so an Apple ID is required. Without this the queue
+        // would start and fail every item on the licence step.
+        if (!_auth.IsAuthenticated)
         {
-            ErrorText = Loc.Get("L.Guard.Denied");
+            _navigator?.GoToLoginForDevice(destination);
             return;
-        }
-
-        // An archive already on this machine installs without an Apple ID at all — the catalog
-        // screen has always done exactly that. So the local libraries are searched first, and
-        // sign-in is only demanded for what is genuinely left to fetch from the store. Asking
-        // up front turned a transfer that needed nothing from Apple into a trip to the login
-        // page.
-        var local = new List<AppEntry>(selected.Count);
-        var fromStore = new List<InstalledAppViewModel>(selected.Count);
-
-        foreach (var row in selected)
-        {
-            var archive = FindLocalArchive(row);
-            if (archive is not null) local.Add(archive);
-            else fromStore.Add(row);
-        }
-
-        if (fromStore.Count > 0 && !_auth.IsAuthenticated)
-        {
-            // Nothing local either: this is the old case, and the login page is the only way on.
-            if (local.Count == 0)
-            {
-                _navigator?.GoToLoginForDevice(destination);
-                return;
-            }
-
-            // Some apps are here on disk and some are not. Sending the whole batch to the login
-            // page would hold back installs that need no account, so the local ones go now and
-            // the rest are named as skipped.
-            AppLog.Info($"Transfer: {local.Count} app(s) from local archives, " +
-                        $"{fromStore.Count} skipped - not signed in");
-            ErrorText = string.Format(
-                Loc.Get("L.OnDevice.PartialTransfer"), local.Count, fromStore.Count);
-            fromStore.Clear();
         }
 
         // Resolved the same way a single download is, instead of handing the queue the bare
@@ -662,10 +602,9 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // no longer findable by. The very same apps download from the catalog screen, which
         // asks by catalog id, which is why "it works there but not here".
         var entries = new List<AppEntry>(selected.Count);
-        entries.AddRange(local);
         var needChoosing = new List<InstalledAppViewModel>();
 
-        foreach (var row in fromStore)
+        foreach (var row in selected)
         {
             var entry = await ResolveEntryAsync(row.App, CancellationToken.None).ConfigureAwait(true);
 
@@ -717,22 +656,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         AppLog.Info(
             $"Transferring {entries.Count} app(s) from {DeviceName} to {destination.Name}; " +
-            $"{local.Count} from local archives, " +
-            $"{entries.Count(e => e.LocalIpaPath is null && e.AppStoreId > 0)} resolved to a store id");
+            $"{entries.Count(e => e.AppStoreId > 0)} resolved to a store id");
 
         // One operation for the whole batch, named after both ends: with several transfers
         // running at once, "iPhone → iPad" is the only thing that tells them apart.
-        //
-        // BuildMixed rather than Build: each app installs from whichever source can deliver it,
-        // so an archive already on disk is installed straight away instead of being re-requested
-        // from a store that may well refuse it.
         _pendingTransfer = _operations.StartQueueOperation(
             OperationKind.Transfer,
             Page.OnDevice,
             Loc.Get("L.Ops.Kind.Transfer"),
             $"{DeviceName} → {destination.Name}",
             TargetDevice,
-            q => q.BuildMixed(entries, destination));
+            q => q.Build(entries, destination));
 
         _pendingTransferTo = destination;
 
@@ -782,16 +716,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     private async Task LoadAsync()
     {
         if (TargetDevice is null) return;
-
-        // Guarded before the listing, not just before the destructive actions: what is installed
-        // on a phone is itself the thing being kept private here, and every button on this page
-        // is reachable only once the list is on screen.
-        if (!DeviceGuardPrompt.Allow(_guard, TargetDevice, "L.Guard.Action.List"))
-        {
-            ErrorText = Loc.Get("L.Guard.Denied");
-            IsLoading = false;
-            return;
-        }
 
         IsLoading = true;
         ErrorText = null;
@@ -914,15 +838,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         if (!_auth.IsAuthenticated)
         {
             ErrorText = Loc.Get("L.OnDevice.NeedLogin");
-            return;
-        }
-
-        // Asked again even though the list itself was already unlocked. Reading the list and
-        // pulling copies of the apps off the device are separate decisions, and the second one
-        // is the one that leaves files behind on this machine.
-        if (!DeviceGuardPrompt.Allow(_guard, TargetDevice, "L.Guard.Action.Download"))
-        {
-            ErrorText = Loc.Get("L.Guard.Denied");
             return;
         }
 
@@ -1548,50 +1463,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         BundleId = catalogEntry.BundleId,
         LatestVersion = catalogEntry.LatestVersion ?? app.Version,
     };
-
-    /// <summary>
-    /// The .ipa for an installed app already scanned into one of the local libraries, or null
-    /// when no library holds it.
-    ///
-    /// Matched on the bundle id, and on the store id when the device disclosed one - never on the
-    /// name, because "СберБанк" is nine different apps and installing the wrong one onto a phone
-    /// is not a mistake worth risking to save a download.
-    ///
-    /// The file's own existence is checked because the libraries are a cached scan of a folder:
-    /// an archive deleted since the last Refresh would otherwise send the item down the
-    /// direct-install path with nothing to install.
-    /// </summary>
-    private AppEntry? FindLocalArchive(InstalledAppViewModel row)
-    {
-        try
-        {
-            var found = _ipaCatalogs.FindLocal(row.BundleId, row.App.StoreItemId ?? 0);
-            if (found is null || !File.Exists(found.Path)) return null;
-
-            AppLog.Info($"Transfer: {row.BundleId} will install from {found.Path} " +
-                        $"instead of the App Store");
-
-            return new AppEntry
-            {
-                // The device's name is kept: it is the one the user just ticked in this list, and
-                // an archive's own name is often the file's rather than the app's.
-                Name = row.Name,
-                AppStoreId = found.StoreId ?? row.App.StoreItemId ?? 0,
-                BundleId = string.IsNullOrWhiteSpace(found.BundleId) ? row.BundleId : found.BundleId,
-                LatestVersion = string.IsNullOrWhiteSpace(found.Version) ? row.Version : found.Version,
-                CachedIconPath = found.IconPath,
-                LocalIpaPath = found.Path,
-                IsDownloaded = true,
-            };
-        }
-        catch (Exception ex)
-        {
-            // A library that cannot be read must not stop the transfer: the store path is still
-            // there, and that is exactly what happened before this lookup existed.
-            AppLog.Warn($"Could not search the local libraries for {row.BundleId}: {ex.Message}");
-            return null;
-        }
-    }
 
     private async Task<AppEntry?> ResolveEntryAsync(InstalledApp app, CancellationToken ct)
     {

@@ -151,6 +151,13 @@ public sealed class AppSettings
     public string? LastDirectDownloadFolder { get; set; }
 
     /// <summary>
+    /// Where iTunes keeps its "Mobile Applications" folder, when it is not in the default
+    /// place under Music. Only needed for the iTunes 12.6.5.3 download route, and only when
+    /// the user has moved their iTunes library — the defaults are probed first either way.
+    /// </summary>
+    public string? ItunesLibraryFolder { get; set; }
+
+    /// <summary>
     /// Folder last chosen on the "on the device" screen. Kept apart from
     /// <see cref="LastDirectDownloadFolder"/> because saving copies of installed apps and
     /// grabbing a fresh IPA are different errands that usually target different folders.

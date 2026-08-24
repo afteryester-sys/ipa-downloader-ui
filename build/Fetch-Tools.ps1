@@ -5,8 +5,7 @@
 # development).
 #
 # Sources:
-#   - ipatool-rs v0.1.6             -> Kosthi/ipatool-rs (current Apple auth)
-#   - legacy ipatool v3 + anisette  -> kda2495/IPA_Downloader (fallback mode)
+#   - ipatool v2/v3 + anisette.exe  -> kda2495/IPA_Downloader (original project)
 #   - libimobiledevice suite        -> imobiledevice-net GitHub releases
 #     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe,
 #      idevicediagnostics.exe + DLLs)
@@ -22,13 +21,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-# The upstream project removed its legacy v3 directory on 2026-08-16. Pin the
-# last known revision so release builds remain reproducible instead of returning 404.
-$LegacyToolsRevision = "9e799c58f04a6b47f6b81d261b179dcdc4cbf70f"
-$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/$LegacyToolsRevision/MainApp"
-$IpatoolVersion = "0.1.6"
-$IpatoolRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$($IpatoolVersion)/ipatool-rs-x86_64-pc-windows-msvc.zip"
-$IpatoolSha256 = "bb618026f6026cd31d62497c330bb60d08267d7e2d5b23322da484a282cbed08"
+$RepoRaw = "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -42,30 +35,9 @@ function Download-File {
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 Write-Host "Tools output folder: $OutDir"
 
-# --- ipatool-rs (current Apple auth, no iCloud/anisette requirement) ----------
-# The original Go ipatool receives HTTP 403 from Apple's changed auth service.
-# ipatool-rs is adapted to the current bag-provided endpoint and supports 2FA.
-Write-Host "`n[1/3] ipatool-rs v$IpatoolVersion ..."
-$ipatoolArchive = Join-Path $env:TEMP "ipatool-rs-$IpatoolVersion-windows-x64.zip"
-$ipatoolExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolVersion-windows-x64"
-Download-File $IpatoolRelease $ipatoolArchive
-
-$actualHash = (Get-FileHash -Path $ipatoolArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($actualHash -ne $IpatoolSha256) {
-    throw "ipatool-rs archive checksum mismatch: expected $IpatoolSha256, got $actualHash"
-}
-
-if (Test-Path $ipatoolExtract) { Remove-Item $ipatoolExtract -Recurse -Force }
-Expand-Archive -Path $ipatoolArchive -DestinationPath $ipatoolExtract -Force
-$ipatoolBinary = Get-ChildItem -Path $ipatoolExtract -Recurse -File |
-    Where-Object { $_.Name -eq "ipatool.exe" } |
-    Select-Object -First 1
-if (-not $ipatoolBinary) { throw "ipatool.exe was not found in the ipatool-rs release archive." }
-$ipatoolDestination = Join-Path $OutDir "windows_amd64_v2\ipatool.exe"
-New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolDestination) -Force | Out-Null
-Copy-Item $ipatoolBinary.FullName -Destination $ipatoolDestination -Force
-Remove-Item $ipatoolArchive -Force -ErrorAction SilentlyContinue
-Remove-Item $ipatoolExtract -Recurse -Force -ErrorAction SilentlyContinue
+# --- ipatool v2 (no iCloud/anisette requirement) -----------------------------
+Write-Host "`n[1/3] ipatool v2 ..."
+Download-File "$RepoRaw/windows_amd64_v2/ipatool.exe" (Join-Path $OutDir "windows_amd64_v2\ipatool.exe")
 
 # --- ipatool v3 + anisette ----------------------------------------------------
 Write-Host "`n[2/3] ipatool v3 + anisette ..."

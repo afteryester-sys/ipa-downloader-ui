@@ -187,10 +187,12 @@
     <sys:String x:Key="L.Settings.Theme.Dark">Dark</sys:String>
     <sys:String x:Key="L.Settings.Theme.Light">Light</sys:String>
     <sys:String x:Key="L.Settings.Theme.RestartHint">The app will restart after changing the appearance.</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolVersion">App Store engine</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV2">ipatool-rs — current Apple authentication (recommended)</sys:String>
-    <sys:String x:Key="L.Settings.IpatoolV3">Legacy ipatool + anisette — iCloud fallback</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolder">iTunes library (Mobile Applications folder)</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolderHint">Only needed for the "Via iTunes 12.6.5.3" route, and only if your iTunes library was moved elsewhere. Normally leave this blank — the default locations are probed automatically.</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
     <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple throttles each connection separately, so a single stream rarely saturates your line. Running several downloads at once raises the total speed of a queue. It does not make one app download faster.</sys:String>
     <sys:String x:Key="L.Settings.Throughput">Download speed</sys:String>
@@ -239,7 +241,6 @@
     <sys:String x:Key="L.Update.Timeout">The update server timed out. Please try again.</sys:String>
     <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
-    <sys:String x:Key="L.Update.OpenBrowser">Download in browser</sys:String>
 
     <!-- Rollback -->
     <sys:String x:Key="L.Rollback.Title">Roll back to a previous version</sys:String>
@@ -289,6 +290,22 @@
     <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
+
+    <!-- Alternative route: iTunes 12.6.5.3 -->
+    <sys:String x:Key="L.Itunes.Button">Via iTunes 12.6.5.3</sys:String>
+    <sys:String x:Key="L.Itunes.ButtonHint">Fallback route. Apple changed the endpoint ipatool signs into, so the normal download can fail. iTunes 12.6.5.3 still has the App Store tab and its own working session, so it can hand over a file the normal route no longer can.</sys:String>
+    <sys:String x:Key="L.Itunes.OpKind">Download via iTunes</sys:String>
+    <sys:String x:Key="L.Itunes.NotFound">iTunes was not found on this computer. Version 12.6.5.3 is required — it is the last one with the App Store tab. iTunes 12.7 and newer removed it and cannot produce an .ipa.</sys:String>
+    <sys:String x:Key="L.Itunes.TooNew">iTunes {0} is installed. Apple removed the App Store tab in 12.7, so it cannot produce an .ipa. iTunes 12.6.5.3 is required.</sys:String>
+    <sys:String x:Key="L.Itunes.NeedStoreId">This route needs the numeric App Store ID: iTunes opens a store page by ID, and a Bundle ID alone cannot find it. Paste the app's store link or its ID.</sys:String>
+    <sys:String x:Key="L.Itunes.OpenFailed">Could not open the app's page in iTunes. Check that iTunes 12.6.5.3 is installed and starts.</sys:String>
+    <sys:String x:Key="L.Itunes.Opening">Opening the app's page in iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Waiting">Waiting for the file from iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Instructions">An iTunes window opened on the app's page. Press "Download" there (sign in to your Apple ID inside iTunes if asked). As soon as iTunes finishes, the finished .ipa is picked up from its library automatically — leave the iTunes window open.</sys:String>
+    <sys:String x:Key="L.Itunes.Receiving">iTunes is downloading: {0}</sys:String>
+    <sys:String x:Key="L.Itunes.Copying">Collecting the file from the iTunes library…</sys:String>
+    <sys:String x:Key="L.Itunes.Timeout">No new .ipa appeared in the iTunes library. The download may never have started, or was cancelled — try again. If your iTunes library was moved, set its folder in Settings.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">Select an app in the list. This route takes one app at a time, because the download has to be confirmed inside iTunes.</sys:String>
 
     <!-- Download IPA by Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Download IPA</sys:String>
@@ -493,7 +510,6 @@
     <sys:String x:Key="L.Login.Error.AccountLocked">This Apple ID is locked or needs attention at appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">The saved session is no longer valid. Please sign in again.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">ipatool could not be started. Reinstall the utilities from Settings.</sys:String>
-    <sys:String x:Key="L.Login.Error.ToolOutdated">This ipatool build is no longer accepted by Apple. Install the latest IPA Studio update and try again.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Sign-in failed. See the log for details.</sys:String>
 
     <!-- App lookup (Bundle ID, App Store ID or store link) -->
@@ -804,39 +820,5 @@
     <sys:String x:Key="L.OnDevice.TransferPickTarget">Transfer to:</sys:String>
     <sys:String x:Key="L.OnDevice.TransferNoTargets">No other device is connected. Attach a second iPhone by cable, tap Trust on it, then open this list again.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
-
-    <!-- Guarded device: the password is asked before every action, every time. -->
-    <sys:String x:Key="L.Guard.Title">Password required</sys:String>
-    <sys:String x:Key="L.Guard.ActionLine">This device is guarded. Enter the password to continue: {0}.</sys:String>
-    <sys:String x:Key="L.Guard.Serial">Serial number: {0}</sys:String>
-    <sys:String x:Key="L.Guard.UnknownDevice">Unnamed device</sys:String>
-    <sys:String x:Key="L.Guard.Confirm">Continue</sys:String>
-    <sys:String x:Key="L.Guard.Wrong">Wrong password. Try again.</sys:String>
-    <sys:String x:Key="L.Guard.Denied">Cancelled: no password was entered.</sys:String>
-
-    <!-- Action names substituted into the password prompt. -->
-    <sys:String x:Key="L.Guard.Action.List">listing the installed apps</sys:String>
-    <sys:String x:Key="L.Guard.Action.Download">downloading IPA files</sys:String>
-    <sys:String x:Key="L.Guard.Action.Transfer">transferring apps to another device</sys:String>
-    <sys:String x:Key="L.Guard.Action.Install">installing apps</sys:String>
-    <sys:String x:Key="L.Guard.Action.QuickTransfer">quick-transferring files to the device</sys:String>
-
-    <!-- Quick Transfer: drop a file onto a device card and it works out where it belongs
-         (photos/videos into the Camera Roll, .ipa archives get installed). -->
-    <sys:String x:Key="L.Devices.QuickTransfer">Quick Transfer</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Title">Quick Transfer</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Device">Device: {0}</sys:String>
-    <sys:String x:Key="L.QuickTransfer.DropHint">Drag files and folders here</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Browse">Choose…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Filter">All supported files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.bmp;*.webp;*.tif;*.tiff;*.dng;*.mov;*.mp4;*.m4v;*.avi;*.ipa|All files|*.*</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Supported">Photos, videos and .ipa files are supported. Anything else is skipped.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Summary">{0} compatible file(s) will be transferred.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Photos">Photos</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Apps">Apps</sys:String>
-    <sys:String x:Key="L.QuickTransfer.FileCount">{0} file(s)</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Transfer">Transfer</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Importing">Copying to the device…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.ImportingFile">Copied {0} of {1}…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Close</sys:String>
 
 </ResourceDictionary>

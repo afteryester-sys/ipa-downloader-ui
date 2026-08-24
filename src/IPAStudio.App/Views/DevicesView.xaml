@@ -287,17 +287,6 @@
                                             HorizontalAlignment="Stretch"
                                             Command="{Binding DataContext.OpenOnDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}" />
-
-                                    <!-- Drop-and-go: one file, dropped on this card's own dialog, lands
-                                         in whichever of Photos or the app queue it belongs to. Kept
-                                         separate from "On Device" above because that page browses
-                                         what already exists, while this one is only ever about
-                                         something new arriving. -->
-                                    <Button Content="{DynamicResource L.Devices.QuickTransfer}"
-                                            Style="{StaticResource Button.Ghost}" Margin="0,8,0,0"
-                                            HorizontalAlignment="Stretch"
-                                            Command="{Binding DataContext.OpenQuickTransferCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
                                 </StackPanel>
                                 </Grid>
                             </Border>
