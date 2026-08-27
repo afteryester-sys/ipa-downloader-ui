@@ -77,6 +77,12 @@ public sealed class AppSettings
     /// <summary>ipatool major version: 2 (default, no iCloud needed) or 3.</summary>
     public int IpatoolVersion { get; set; } = 2;
 
+    /// <summary>
+    /// Uses the experimental Windows SAP-signed Apple authentication backend.
+    /// Off by default so existing installations keep their current login and keychain.
+    /// </summary>
+    public bool UseBetaAppleAuthentication { get; set; }
+
     /// <summary>Folder where IPA files are stored.</summary>
     public string? AppsFolder { get; set; }
 
@@ -459,6 +465,7 @@ public sealed class SettingsService
     private void Apply()
     {
         _tools.IpatoolVersion = Current.IpatoolVersion;
+        _tools.UseBetaAppleAuthentication = Current.UseBetaAppleAuthentication;
         if (!string.IsNullOrWhiteSpace(Current.AppsFolder))
             _tools.AppsFolder = Current.AppsFolder;
 

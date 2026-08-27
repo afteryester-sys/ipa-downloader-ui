@@ -68,6 +68,7 @@ public partial class App : Application
             return client;
         });
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<AuthSecretStore>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<CatalogService>();
         services.AddSingleton<DeviceService>();

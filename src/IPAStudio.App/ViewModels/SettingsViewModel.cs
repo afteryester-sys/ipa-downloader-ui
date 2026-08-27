@@ -57,6 +57,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private int _ipatoolVersion = 2;
 
     [ObservableProperty]
+    private bool _useBetaAppleAuthentication;
+
+    [ObservableProperty]
+    private string _betaAuthDiagnostic = "";
+
+    [ObservableProperty]
     private string _appsFolder = "";
 
     /// <summary>
@@ -463,6 +469,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         Language = _settings.Current.Language;
         Theme = _settings.Current.Theme;
         IpatoolVersion = _settings.Current.IpatoolVersion;
+        UseBetaAppleAuthentication = _settings.Current.UseBetaAppleAuthentication;
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
         // Blank means "probe the default locations", which is what the service does anyway.
         ItunesLibraryFolder = _settings.Current.ItunesLibraryFolder ?? "";
@@ -684,6 +691,25 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         Application.Current.TryFindResource(key) as string ?? key;
 
     [RelayCommand]
+    private void CheckBetaAuthentication()
+    {
+        var betaTool = System.IO.File.Exists(_tools.BetaIpatoolPath);
+        var helper = System.IO.File.Exists(_tools.SapHelperPath);
+        var appleDesktop = new[]
+        {
+            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "iTunes", "iTunes.exe"),
+            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "iTunes", "iTunes.exe"),
+        }.Any(System.IO.File.Exists);
+
+        BetaAuthDiagnostic = betaTool && helper && appleDesktop
+            ? Str("L.Settings.BetaAuth.Ready")
+            : string.Format(Str("L.Settings.BetaAuth.Missing"),
+                betaTool ? "OK" : "ipatool.exe",
+                helper ? "OK" : "ipastudio-sap-helper.exe",
+                appleDesktop ? "OK" : "desktop iTunes");
+    }
+
+    [RelayCommand]
     private void Save()
     {
         // Detect a theme change before saving — switching the color theme needs a
@@ -693,6 +719,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.Language = Language;
         _settings.Current.Theme = Theme;
         _settings.Current.IpatoolVersion = IpatoolVersion;
+        _settings.Current.UseBetaAppleAuthentication = UseBetaAppleAuthentication;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.ItunesLibraryFolder =
             string.IsNullOrWhiteSpace(ItunesLibraryFolder) ? null : ItunesLibraryFolder;

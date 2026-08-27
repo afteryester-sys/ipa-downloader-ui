@@ -20,17 +20,23 @@ public sealed partial class AuthService
 {
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
+    private readonly AuthSecretStore _secrets;
 
     public AccountInfo? CurrentAccount { get; private set; }
     public bool IsAuthenticated => CurrentAccount is not null;
 
     public event EventHandler<AccountInfo?>? AccountChanged;
 
-    public AuthService(ToolLocator tools, ProcessRunner runner)
+    public AuthService(ToolLocator tools, ProcessRunner runner, AuthSecretStore secrets)
     {
         _tools = tools;
         _runner = runner;
+        _secrets = secrets;
     }
+
+    public string ActiveKeychainPassphrase => _tools.UseBetaAppleAuthentication
+        ? _secrets.GetBetaKeychainPassphrase()
+        : ToolLocator.KeychainPassphrase;
 
     [GeneratedRegex(@"email[=:]\s*([^\s""]+)", RegexOptions.IgnoreCase)]
     private static partial Regex EmailRegex();
@@ -47,11 +53,27 @@ public sealed partial class AuthService
         Func<CancellationToken, Task<string?>>? twoFactorProvider = null,
         CancellationToken ct = default)
     {
+        if (_tools.UseBetaAppleAuthentication)
+        {
+            var missing = _tools.ValidateTools()
+                .Where(path => string.Equals(path, _tools.BetaIpatoolPath, StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(path, _tools.SapHelperPath, StringComparison.OrdinalIgnoreCase))
+                .Select(Path.GetFileName)
+                .ToArray();
+            if (missing.Length > 0)
+            {
+                var detail = $"SAP BETA dependencies are missing: {string.Join(", ", missing)}";
+                AppLog.Warn(detail);
+                return AuthResult.Fail(AuthFailureReason.ToolFailure, detail);
+            }
+        }
+
         // ---- Step 1: attempt login WITHOUT a 2FA code. ------------------------------
         // If the account has 2FA, ipatool asks Apple to push the code (which the user
         // receives on their trusted device) and then exits with:
         //   "Error: two-factor auth code required. Retry with --auth-code CODE"
-        AppLog.Info($"Login: step 1 (no code) for '{email}' using ipatool v{_tools.IpatoolVersion}.");
+        var backend = _tools.UseBetaAppleAuthentication ? "SAP BETA" : $"ipatool v{_tools.IpatoolVersion}";
+        AppLog.Info($"Login: step 1 (no code) using {backend}.");
         ProcessResult first;
         try
         {
@@ -151,7 +173,7 @@ public sealed partial class AuthService
             "auth", "login",
             "-e", email,
             "-p", password,
-            "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            "--keychain-passphrase", ActiveKeychainPassphrase,
             "--format", "json",
         };
         if (!string.IsNullOrWhiteSpace(authCode))
@@ -172,7 +194,7 @@ public sealed partial class AuthService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "info", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+                new[] { "auth", "info", "--keychain-passphrase", ActiveKeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
                 ct: ct).ConfigureAwait(false);
@@ -207,7 +229,7 @@ public sealed partial class AuthService
         {
             await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "auth", "revoke", "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+                new[] { "auth", "revoke", "--keychain-passphrase", ActiveKeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
                 ct: ct).ConfigureAwait(false);
@@ -315,8 +337,7 @@ public sealed partial class AuthService
             ? $" after {(DateTime.UtcNow - since).TotalMinutes:F0} min"
             : "";
 
-        AppLog.Warn($"Session for '{CurrentAccount.Email}' rejected by Apple{age}; " +
-                    "clearing the cached account.");
+        AppLog.Warn($"Apple rejected the active session{age}; clearing the cached account.");
         CurrentAccount = null;
         AccountChanged?.Invoke(this, null);
     }
@@ -361,7 +382,7 @@ public sealed partial class AuthService
         var creds = _reauth;
         if (creds is null) return false;
 
-        AppLog.Info($"Session for '{creds.Email}' expired; signing in again silently.");
+        AppLog.Info("The active Apple session expired; signing in again silently.");
 
         try
         {

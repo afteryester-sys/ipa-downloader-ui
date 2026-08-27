@@ -145,7 +145,7 @@
     <sys:String x:Key="L.Queue.Done">Готово</sys:String>
     <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
     <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
-    <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Отмен��ть всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredHint">Apple больше не принимает сохранённый вход: срок его действия истёк либо файл авторизации повреждён. Войдите снова, чтобы продолжить.</sys:String>
@@ -190,6 +190,12 @@
     <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth">Авторизация Apple</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Toggle">Новый метод авторизации (BETA)</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Экспериментальный вход с SAP-подписью через компоненты desktop iTunes. Стандартный метод и его сессия остаются без изменений.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Check">Проверить готовность</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">BETA-компоненты и desktop iTunes найдены. Живой вход проверяется только попыткой авторизации.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">Не готово. BETA ipatool: {0}; SAP helper: {1}; iTunes: {2}.</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolder">Библиотека iTunes (папка Mobile Applications)</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolderHint">Нужно только для способа «Через iTunes 12.6.5.3» и только если библиотека iTunes перенесена в другое место. Обычно поле можно оставить пустым — стандартные папки проверяются автоматически.</sys:String>
@@ -475,7 +481,7 @@
     <sys:String x:Key="L.Tuning.Defender.Title">Defender сканирует папку загрузок</sys:String>
     <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
-    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемеще��ие станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изме��ение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
@@ -741,7 +747,7 @@
     <sys:String x:Key="L.OnDevice.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.OnDevice.Loading">Читаем список приложений с устройства…</sys:String>
     <sys:String x:Key="L.OnDevice.LoadFailed">Не удалось получить список приложений с устройства. Проверьте подключение и разблокируйте устройство, затем нажмите «Обновить».</sys:String>
-    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устройстве не найдено.</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устрой��тве не найдено.</sys:String>
     <sys:String x:Key="L.OnDevice.FolderLabel">Папка для сохранения IPA</sys:String>
     <sys:String x:Key="L.OnDevice.ChooseFolder">Выбрать папку…</sys:String>
     <sys:String x:Key="L.OnDevice.Download">Скачать IPA</sys:String>
@@ -789,7 +795,7 @@
 
     <sys:String x:Key="L.MediaExport.Title">Экспорт фото и видео с носителя</sys:String>
     <sys:String x:Key="L.MediaExport.MenuTitle">Фото с носителя</sys:String>
-    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на комп��ютер</sys:String>
     <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
     <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>

@@ -190,6 +190,12 @@
     <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth">Apple authentication</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Toggle">New authentication method (BETA)</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Experimental SAP-signed login using desktop iTunes components. The standard method and its session remain unchanged.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Check">Check readiness</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">BETA components and desktop iTunes were found. A live login can only be verified by signing in.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">Not ready. BETA ipatool: {0}; SAP helper: {1}; iTunes: {2}.</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolder">iTunes library (Mobile Applications folder)</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolderHint">Only needed for the "Via iTunes 12.6.5.3" route, and only if your iTunes library was moved elsewhere. Normally leave this blank — the default locations are probed automatically.</sys:String>
