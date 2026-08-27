@@ -295,7 +295,7 @@ public sealed partial class DownloadService
         {
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+                new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
                 workingDirectory: _tools.IpatoolWorkingDirectory,
@@ -333,7 +333,7 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
@@ -636,7 +636,7 @@ public sealed partial class DownloadService
         args.AddRange(new[]
         {
             "-o", outputPath,
-            "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
         });
         if (autoPurchase) args.Add("--purchase");
 
@@ -1670,7 +1670,7 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "search", term, "-l", limit.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            new[] { "search", term, "-l", limit.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
@@ -1712,7 +1712,7 @@ public sealed partial class DownloadService
     {
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", ToolLocator.KeychainPassphrase,
+            new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
                     "--format", "json" },
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,

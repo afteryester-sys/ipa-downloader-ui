@@ -20,9 +20,17 @@ public sealed class ToolLocator
     /// prompting on a terminal (which deadlocks when stdin is redirected).
     /// </summary>
     public const string KeychainPassphrase = "ipastudio-local-keychain";
+    public const string BetaKeychainPassphrase = "ipastudio-sap-beta-keychain";
+    public string ActiveKeychainPassphrase =>
+        UseBetaAppleAuthentication ? BetaKeychainPassphrase : KeychainPassphrase;
 
     /// <summary>Selected ipatool major version (2 or 3). Default is 2 (no iCloud requirement).</summary>
     public int IpatoolVersion { get; set; } = 2;
+
+    /// <summary>
+    /// Selects the opt-in SAP-signed Windows build. The standard executable remains untouched.
+    /// </summary>
+    public bool UseBetaAppleAuthentication { get; set; }
 
     public ToolLocator(string? baseDirectory = null)
     {
@@ -38,10 +46,17 @@ public sealed class ToolLocator
 
     public string ToolsRoot => ToolsRootOverride ?? Path.Combine(_baseDir, "tools");
 
-    public string IpatoolPath => Path.Combine(
+    public string StandardIpatoolPath => Path.Combine(
         ToolsRoot,
         IpatoolVersion == 3 ? "windows_amd64_v3" : "windows_amd64_v2",
         "ipatool.exe");
+
+    public string BetaToolsFolder => Path.Combine(ToolsRoot, "windows_amd64_sap_beta");
+    public string BetaIpatoolPath => Path.Combine(BetaToolsFolder, "ipatool.exe");
+    public string SapHelperPath => Path.Combine(BetaToolsFolder, "ipastudio-sap-helper.exe");
+
+    /// <summary>The backend snapshot applied by SettingsService for auth and downloads.</summary>
+    public string IpatoolPath => UseBetaAppleAuthentication ? BetaIpatoolPath : StandardIpatoolPath;
 
     public string AnisettePath => Path.Combine(ToolsRoot, "windows_amd64_v3", "anisette.exe");
 
@@ -170,8 +185,10 @@ public sealed class ToolLocator
             IdeviceDiagnosticsPath,
         };
         // ipatool v3 spawns anisette.exe from the same directory; it is mandatory.
-        if (IpatoolVersion == 3)
+        if (!UseBetaAppleAuthentication && IpatoolVersion == 3)
             required.Add(AnisettePath);
+        if (UseBetaAppleAuthentication)
+            required.Add(SapHelperPath);
         return required.Where(p => !File.Exists(p)).ToList();
     }
 

@@ -86,6 +86,26 @@
                 </StackPanel>
             </Border>
 
+            <!-- Experimental SAP-signed Apple authentication. Kept separate from the
+                 ipatool version selector because it chooses a backend, not a major version. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.BetaAuth}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.BetaAuth.Toggle}"
+                              IsChecked="{Binding UseBetaAppleAuthentication}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.BetaAuth.Hint}" />
+                    <Button Content="{DynamicResource L.Settings.BetaAuth.Check}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Margin="0,12,0,0" Command="{Binding CheckBetaAuthenticationCommand}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{StaticResource Brush.Accent}" Text="{Binding BetaAuthDiagnostic}"
+                               Visibility="{Binding BetaAuthDiagnostic, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Border>
+
             <!-- Apps folder -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
