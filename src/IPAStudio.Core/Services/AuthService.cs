@@ -169,14 +169,21 @@ public sealed partial class AuthService
     /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
-        var args = new List<string>
+        var args = new List<string> { "auth", "login" };
+        if (_tools.UseBetaAppleAuthentication)
         {
-            "auth", "login",
-            "-e", email,
-            "-p", password,
+            // ipatool-rs intentionally exposes no short aliases for credentials.
+            args.AddRange(new[] { "--email", email, "--password", password });
+        }
+        else
+        {
+            args.AddRange(new[] { "-e", email, "-p", password });
+        }
+        args.AddRange(new[]
+        {
             "--keychain-passphrase", ActiveKeychainPassphrase,
             "--format", "json",
-        };
+        });
         if (!string.IsNullOrWhiteSpace(authCode))
         {
             args.Add("--auth-code");
