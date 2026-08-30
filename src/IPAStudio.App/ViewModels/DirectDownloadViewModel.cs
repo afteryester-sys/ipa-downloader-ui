@@ -159,14 +159,30 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private double _progress;
 
+    /// <summary>True during the Apple handshake, before any byte exists.</summary>
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
+    [ObservableProperty]
+    private bool _isConnecting;
+
+    /// <summary>True while ipatool repackages the archive after the transfer.</summary>
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
+    [ObservableProperty]
+    private bool _isFinalizing;
+
     /// <summary>
-    /// True while a transfer is running with no percentage to show. Apps missing from
-    /// the App Store catalog have no known size, so ipatool reports bytes only and
-    /// <see cref="Progress"/> stays at 0 for the whole download — a bar that just sat
-    /// empty and looked broken. An animated bar states honestly that work is happening
-    /// but its extent is unknown.
+    /// True while a transfer is running with nothing measurable to show, matching the
+    /// queue screen's rule. Three distinct cases, all genuinely unmeasurable:
+    ///
+    ///  - Connecting: the Apple handshake, no bytes yet.
+    ///  - Finalizing: repackaging, where the byte count no longer moves. This one used
+    ///    to be missed here, so the bar sat frozen at a full 100% through the whole
+    ///    repackaging tail and looked like a download that had hung at the finish line.
+    ///  - Progress &lt;= 0: bytes are moving but no percentage exists, because an app
+    ///    missing from the App Store catalog has no known size, so ipatool reports
+    ///    bytes only and a plain bar would just sit empty and look broken.
     /// </summary>
-    public bool IsProgressIndeterminate => IsDownloading && Progress <= 0;
+    public bool IsProgressIndeterminate =>
+        IsDownloading && (IsConnecting || IsFinalizing || Progress <= 0);
 
     [ObservableProperty]
     private string? _statusText;
@@ -437,6 +453,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         var progress = new System.Progress<DownloadProgress>(p =>
         {
             Progress = p.Percent;
+            IsConnecting = p.Connecting;
+            IsFinalizing = p.Finalizing;
 
             if (p.Connecting)
             {
@@ -528,6 +546,11 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         finally
         {
             IsDownloading = false;
+
+            // Cleared so a cancelled or failed run cannot leave a stale phase behind:
+            // the bar keys off these, and a leftover flag would keep it animating.
+            IsConnecting = false;
+            IsFinalizing = false;
             _cts?.Dispose();
             _cts = null;
         }
@@ -681,6 +704,12 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         {
             IsItunesRunning = false;
             IsDownloading = false;
+
+            // The iTunes route never reports phases, so these are only ever cleared
+            // here — but leaving them untouched would let a phase from a previous
+            // ipatool run bleed into this screen's bar.
+            IsConnecting = false;
+            IsFinalizing = false;
             _cts?.Dispose();
             _cts = null;
         }

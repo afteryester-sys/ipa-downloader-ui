@@ -102,6 +102,20 @@ public sealed class ToolLocator
     public string LocalIpaIconCacheFolder => Path.Combine(DataFolder, "ipa-icons");
 
     /// <summary>
+    /// Home-screen artwork already read from a device over SpringBoard, keyed by device and
+    /// bundle identifier.
+    ///
+    /// Icons were previously fetched again for every app on every visit to the device list.
+    /// Each one is a separate SpringBoard round trip, so a full phone paid a few hundred of
+    /// them each time — the reason the list filled in slowly for apps that had been on screen
+    /// a minute earlier. On disk the artwork survives both navigation and a restart.
+    ///
+    /// Kept apart from the other icon caches: those are store artwork keyed by App Store id
+    /// and .ipa artwork keyed by archive path, and they go stale for different reasons.
+    /// </summary>
+    public string DeviceIconCacheFolder => Path.Combine(DataFolder, "device-icons");
+
+    /// <summary>
     /// Folders the user named and added as IPA libraries ("Денис", "Рабочие"), so the
     /// install-from-file screen can offer them instead of a bare file picker.
     ///

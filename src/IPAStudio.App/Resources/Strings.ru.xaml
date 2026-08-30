@@ -220,7 +220,7 @@
     <sys:String x:Key="L.Settings.ResumeMode">При обрыве загрузки</sys:String>
     <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Начинать заново (как раньше)</sys:String>
     <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Сохранять скачанное</sys:String>
-    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный файл будет скачан заново.</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный фай�� будет скачан заново.</sys:String>
     <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
@@ -236,7 +236,7 @@
     <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
     <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
     <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
-    <sys:String x:Key="L.Update.UpToDate">У вас установлена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас устано��лена последняя версия</sys:String>
     <sys:String x:Key="L.Update.UpToDateVer">У вас установлена последняя версия (v{0})</sys:String>
     <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
     <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
@@ -266,10 +266,10 @@
 
     <!-- Скачивание IPA по Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
-    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения, его ID из App Store или вставьте ссылку, затем выберите папку — файл .ipa будет сохранён туда. Устройство подключать не нужно.</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения, его ID из App Store или вставьте ссылку, затем выберите папку — файл .ipa будет сохранён туда. Устройство п��дключать не нужно.</sys:String>
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, ID из App Store или ссылка</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
-    <sys:String x:Key="L.Direct.Find">Найти</sys:String>
+    <sys:String x:Key="L.Direct.Find">��айти</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
@@ -311,6 +311,7 @@
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.IpaIcons">Иконки из локальных .ipa</sys:String>
+    <sys:String x:Key="L.Cache.Item.DeviceIcons">Иконки, считанные с устройств</sys:String>
     <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
     <sys:String x:Key="L.Cache.Item.PhotoDb">База медиатеки (названия альбомов)</sys:String>
     <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
@@ -368,7 +369,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на страни��е. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
@@ -485,7 +486,7 @@
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
-    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последов��тельную запись в цикл чтение-изменение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Detail">Свободно {0} ГБ. Загрузка требует места и под временный файл, и под итоговый архив одновременно.</sys:String>
 
@@ -801,7 +802,7 @@
     <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
     <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>
-    <sys:String x:Key="L.MediaExport.DestinationHint">Выберите папку, куда будут скопированы найденные файлы.</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationHint">Выберите папку, куда будут скопирован�� найденные файлы.</sys:String>
     <sys:String x:Key="L.MediaExport.Browse">Выбрать…</sys:String>
     <sys:String x:Key="L.MediaExport.PickSourceTitle">Выберите папку-источник</sys:String>
     <sys:String x:Key="L.MediaExport.PickDestinationTitle">Выберите папку назначения</sys:String>

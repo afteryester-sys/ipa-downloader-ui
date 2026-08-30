@@ -174,7 +174,27 @@ public sealed partial class InstalledAppViewModel : ObservableObject, ISelectabl
     /// </summary>
     public CancellationTokenSource? Cancellation { get; set; }
 
-    public bool IsProgressIndeterminate => IsDownloading && Progress <= 0;
+    /// <summary>True during the Apple handshake, before any byte exists.</summary>
+    [ObservableProperty]
+    private bool _isConnecting;
+
+    /// <summary>True while ipatool repackages the archive after the transfer.</summary>
+    [ObservableProperty]
+    private bool _isFinalizing;
+
+    /// <summary>
+    /// True while a transfer is running with nothing measurable to show, matching the
+    /// queue screen's rule. Three distinct cases, all genuinely unmeasurable:
+    ///
+    ///  - Connecting: the Apple handshake, no bytes yet.
+    ///  - Finalizing: repackaging, where the byte count no longer moves. This one used
+    ///    to be missed here, so the bar sat frozen at a full 100% through the whole
+    ///    repackaging tail and looked like a download that had hung at the finish line.
+    ///  - Progress &lt;= 0: bytes are moving but no percentage exists, because a delisted
+    ///    app has no catalog entry and so no known total size.
+    /// </summary>
+    public bool IsProgressIndeterminate =>
+        IsDownloading && (IsConnecting || IsFinalizing || Progress <= 0);
 
     partial void OnIsDownloadingChanged(bool value)
     {
@@ -183,6 +203,10 @@ public sealed partial class InstalledAppViewModel : ObservableObject, ISelectabl
     }
 
     partial void OnProgressChanged(double value) => OnPropertyChanged(nameof(IsProgressIndeterminate));
+
+    partial void OnIsConnectingChanged(bool value) => OnPropertyChanged(nameof(IsProgressIndeterminate));
+
+    partial void OnIsFinalizingChanged(bool value) => OnPropertyChanged(nameof(IsProgressIndeterminate));
 
     /// <summary>True while nothing is happening, so the row can show the button.</summary>
     public bool IsIdle => !IsDownloading;
@@ -1153,9 +1177,46 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             var progress = new Progress<DownloadProgress>(p =>
             {
                 item.Progress = p.Percent;
-                item.StatusText = p.TotalBytes > 0
-                    ? $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}"
-                    : Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes));
+                item.IsConnecting = p.Connecting;
+                item.IsFinalizing = p.Finalizing;
+
+                // Phase-aware, matching the queue and Direct Download screens. Previously
+                // this row only ever formatted bytes, so the whole Apple handshake read as
+                // "Downloaded 0 B" — a real transfer sitting at zero — and the repackaging
+                // tail at the end looked like a download stuck just short of finishing.
+                if (p.Connecting)
+                {
+                    var seconds = (int)p.Elapsed.TotalSeconds;
+                    var status = seconds >= 2
+                        ? Loc.Format("L.Queue.Status.ConnectingElapsed", seconds)
+                        : Loc.Get("L.Queue.Status.Connecting");
+                    // Name the retry: a silent restart is indistinguishable from a hang.
+                    item.StatusText = p.Attempt > 1
+                        ? status + Loc.Format("L.Queue.Status.Attempt", p.Attempt)
+                        : status;
+                }
+                else if (p.Finalizing)
+                {
+                    item.StatusText = Loc.Format("L.Queue.Status.Finalizing", FormatBytes(p.DownloadedBytes));
+                }
+                else if (p.TotalBytes > 0)
+                {
+                    var speed = p.SpeedBps > 0
+                        ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}"
+                        : "";
+                    item.StatusText =
+                        $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed}";
+                }
+                else
+                {
+                    // Total unknown: say so rather than letting the byte count be read as
+                    // a percentage of nothing.
+                    var speed = p.SpeedBps > 0
+                        ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}"
+                        : "";
+                    item.StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
+                        + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
+                }
 
                 // The corner circle is driven from here for this page's operations: they have no
                 // QueueService for OperationService's timer to read progress off.
@@ -1235,6 +1296,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         finally
         {
             item.IsDownloading = false;
+            item.IsConnecting = false;
+            item.IsFinalizing = false;
             item.Cancellation = null;
 
             ownOperation?.Finish(
@@ -1478,6 +1541,29 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
                 Name = app.Name,
                 AppStoreId = app.StoreItemId.Value,
                 BundleId = app.BundleId,
+                LatestVersion = app.Version,
+            };
+        }
+
+        // A recorded bundle -> store id pair comes before any network lookup: these are the
+        // apps the lookup API cannot answer for at all (pulled from every storefront), so
+        // asking first would only add a round trip before the same "not found" that used to
+        // send the download back out as "-b com.inv.gen".
+        if (_catalog.FindKnownAppStoreId(app.BundleId) is { } knownId)
+        {
+            AppLog.Info(
+                $"On-device: {app.BundleId} has no store id of its own; using the known " +
+                $"App Store id {knownId} instead of the bundle id");
+
+            // The device's name and version are kept: they describe the app the user is
+            // looking at, and only the identifier was missing.
+            return new AppEntry
+            {
+                Name = app.Name,
+                AppStoreId = knownId,
+                // Left unset on purpose. The downloader falls back to the bundle id when an
+                // id request fails, and this is the identifier the store has already refused.
+                BundleId = null,
                 LatestVersion = app.Version,
             };
         }

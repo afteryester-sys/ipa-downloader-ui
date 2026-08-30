@@ -417,6 +417,42 @@ public sealed class CatalogService
     }
 
     /// <summary>
+    /// Bundle identifiers whose App Store id cannot be discovered at runtime, mapped to the
+    /// id that does work.
+    ///
+    /// These are apps Apple has pulled from every public storefront: the lookup API answers
+    /// "not found" for the bundle id, the bundled catalog carries no bundle identifiers to
+    /// match against, and the home-screen name is too short or too common to resolve by name
+    /// without risking the wrong app. The numeric id, however, keeps working for an account
+    /// that owns the app — it is exactly what the user types into the working "Download IPA"
+    /// screen — so recording the pair is the only way the device list can reach it.
+    ///
+    /// Deliberately a hard-coded table and not a heuristic: guessing an id would mean
+    /// downloading several hundred megabytes of some other app under the right name.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, long> KnownBundleAppStoreIds =
+        new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase)
+        {
+            // "Онлайн" — Sberbank Online, delisted from the RU storefront. ipatool answers
+            // "app not found for bundle identifier com.inv.gen in storefront RU", while
+            // "-i 6769745089" downloads it.
+            ["com.inv.gen"] = 6769745089,
+        };
+
+    /// <summary>
+    /// The App Store id known to work for <paramref name="bundleId"/>, or null when there is
+    /// no recorded pair. See <see cref="KnownBundleAppStoreIds"/> for why this table exists.
+    /// </summary>
+    public long? FindKnownAppStoreId(string? bundleId)
+    {
+        if (string.IsNullOrWhiteSpace(bundleId)) return null;
+
+        return KnownBundleAppStoreIds.TryGetValue(bundleId.Trim(), out var id) && id > 0
+            ? id
+            : null;
+    }
+
+    /// <summary>
     /// Looks the query up in the bundled and hand-added catalogs. Bundled entries hold a name
     /// and store id only, so a bundle-id query can match nothing but a hand-added app.
     /// </summary>

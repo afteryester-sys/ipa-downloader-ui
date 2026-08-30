@@ -716,6 +716,12 @@ public sealed partial class InstallService
     /// SpringBoard has no icon for are simply absent from the result; the caller keeps its
     /// letter tile for those. Errors are swallowed for the same reason: artwork is a nicety
     /// and must never take the app list down with it.
+    ///
+    /// Artwork already read from this device is served from disk, and only the bundles missing
+    /// from the cache are asked of SpringBoard. Every visit to the device list used to re-read
+    /// all of them — one round trip each, a few hundred on a full phone — which is what made
+    /// the list fill in slowly for apps that had been on screen a minute earlier. When every
+    /// icon is cached the device is not opened at all.
     /// </summary>
     public Task<Dictionary<string, byte[]>> GetAppIconsAsync(
         string udid, IReadOnlyList<string> bundleIds, CancellationToken ct = default)
@@ -724,64 +730,184 @@ public sealed partial class InstallService
             var icons = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             if (bundleIds.Count == 0) return icons;
 
-            try
+            var cacheFolder = DeviceIconCacheFolder(udid);
+
+            // Read the cache first so a device that is busy, locked or unplugged still shows
+            // the artwork it showed last time.
+            var missing = new List<string>();
+            foreach (var bundleId in bundleIds)
             {
-                NativeDevice.EnsureLoaded();
+                ct.ThrowIfCancellationRequested();
 
-                var sb = LibiMobileDevice.Instance.SpringBoardServices;
+                if (TryReadCachedIcon(cacheFolder, bundleId) is { } cached)
+                    icons[bundleId] = cached;
+                else
+                    missing.Add(bundleId);
+            }
 
-                if (NativeDevice.Open(udid, out var device) != iDeviceError.Success)
-                    return icons;
+            var fromCache = icons.Count;
+            var fetched = 0;
 
-                using (device)
+            if (missing.Count > 0)
+            {
+                try
                 {
-                    if (sb.sbservices_client_start_service(device, out var client, "IPAStudio")
-                        != SpringBoardServicesError.Success)
-                    {
-                        AppLog.Info("icons: SpringBoard did not accept a connection");
+                    NativeDevice.EnsureLoaded();
+
+                    var sb = LibiMobileDevice.Instance.SpringBoardServices;
+
+                    if (NativeDevice.Open(udid, out var device) != iDeviceError.Success)
                         return icons;
-                    }
 
-                    using (client)
+                    using (device)
                     {
-                        foreach (var bundleId in bundleIds)
+                        if (sb.sbservices_client_start_service(device, out var client, "IPAStudio")
+                            != SpringBoardServicesError.Success)
                         {
-                            ct.ThrowIfCancellationRequested();
+                            AppLog.Info("icons: SpringBoard did not accept a connection");
+                            return icons;
+                        }
 
-                            var data = IntPtr.Zero;
-                            ulong size = 0;
-                            if (sb.sbservices_get_icon_pngdata(client, bundleId, ref data, ref size)
-                                    != SpringBoardServicesError.Success
-                                || data == IntPtr.Zero || size == 0)
-                                continue;
+                        using (client)
+                        {
+                            foreach (var bundleId in missing)
+                            {
+                                ct.ThrowIfCancellationRequested();
 
-                            try
-                            {
-                                var bytes = new byte[size];
-                                Marshal.Copy(data, bytes, 0, (int)size);
-                                icons[bundleId] = bytes;
-                            }
-                            finally
-                            {
-                                // Allocated by the native library on every success, so it is
-                                // freed here rather than at the end: on a full device this loop
-                                // runs a few hundred times.
-                                Marshal.FreeHGlobal(data);
+                                var data = IntPtr.Zero;
+                                ulong size = 0;
+                                if (sb.sbservices_get_icon_pngdata(client, bundleId, ref data, ref size)
+                                        != SpringBoardServicesError.Success
+                                    || data == IntPtr.Zero || size == 0)
+                                    continue;
+
+                                try
+                                {
+                                    var bytes = new byte[size];
+                                    Marshal.Copy(data, bytes, 0, (int)size);
+                                    icons[bundleId] = bytes;
+                                    fetched++;
+                                    TryWriteCachedIcon(cacheFolder, bundleId, bytes);
+                                }
+                                finally
+                                {
+                                    // Allocated by the native library on every success, so it is
+                                    // freed here rather than at the end: on a full device this loop
+                                    // runs a few hundred times.
+                                    Marshal.FreeHGlobal(data);
+                                }
                             }
                         }
                     }
                 }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    AppLog.Info($"icons: could not read app icons ({ex.Message})");
+                }
+            }
 
-                AppLog.Info($"icons: {icons.Count} of {bundleIds.Count} apps returned artwork");
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                AppLog.Info($"icons: could not read app icons ({ex.Message})");
-            }
+            AppLog.Info(
+                $"icons: {icons.Count} of {bundleIds.Count} apps have artwork " +
+                $"({fromCache} from cache, {fetched} read from the device)");
 
             return icons;
         }, ct);
+
+    /// <summary>Where this device's cached artwork lives. One folder per device.</summary>
+    private string DeviceIconCacheFolder(string? udid)
+        => Path.Combine(_tools.DeviceIconCacheFolder, SanitizeCacheKey(udid));
+
+    /// <summary>
+    /// The cached PNG for this bundle id, or null when it was never read, is empty, or is not
+    /// a PNG any more.
+    ///
+    /// The signature is checked rather than trusted: a write interrupted by a crash or a full
+    /// disk leaves a truncated file behind, and returning that would replace the icon with a
+    /// permanently broken tile. A file that fails the check is deleted so the next listing
+    /// reads it from the device again.
+    /// </summary>
+    private static byte[]? TryReadCachedIcon(string folder, string bundleId)
+    {
+        var path = Path.Combine(folder, SanitizeCacheKey(bundleId) + ".png");
+
+        try
+        {
+            if (!File.Exists(path)) return null;
+
+            var bytes = File.ReadAllBytes(path);
+            if (IsPng(bytes)) return bytes;
+
+            TryDeleteCachedIcon(path);
+            return null;
+        }
+        catch
+        {
+            // An unreadable cache entry is a cache miss, never a failure.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Stores the artwork for this bundle id.
+    ///
+    /// Written to a temporary name and then moved into place, so an interrupted write cannot
+    /// leave a half-file where a valid icon is expected. Failures are ignored: not caching an
+    /// icon costs one more round trip next time, which is far cheaper than failing the list.
+    /// </summary>
+    private static void TryWriteCachedIcon(string folder, string bundleId, byte[] png)
+    {
+        if (png.Length == 0 || !IsPng(png)) return;
+
+        var path = Path.Combine(folder, SanitizeCacheKey(bundleId) + ".png");
+        var temporary = path + ".tmp";
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+            File.WriteAllBytes(temporary, png);
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            TryDeleteCachedIcon(temporary);
+        }
+    }
+
+    private static void TryDeleteCachedIcon(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+
+    /// <summary>True when these bytes start with the PNG signature.</summary>
+    private static bool IsPng(byte[] bytes)
+        => bytes.Length > 8
+           && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47
+           && bytes[4] == 0x0D && bytes[5] == 0x0A && bytes[6] == 0x1A && bytes[7] == 0x0A;
+
+    /// <summary>
+    /// A device udid or bundle identifier reduced to a safe file name.
+    ///
+    /// Bundle identifiers are dotted names and udids are hex, so this is normally a no-op —
+    /// but a name from a device is untrusted input, and one stray separator in it would write
+    /// outside the cache folder.
+    /// </summary>
+    private static string SanitizeCacheKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return "unknown";
+
+        var builder = new StringBuilder(key.Length);
+        foreach (var ch in key)
+        {
+            builder.Append(
+                char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_' ? ch : '_');
+        }
+
+        // Long enough for any real identifier, short enough to stay inside MAX_PATH once the
+        // cache folder and extension are added.
+        var safe = builder.ToString();
+        return safe.Length <= 120 ? safe : safe[..120];
+    }
 
     public async Task<IReadOnlyList<InstalledApp>> GetInstalledAppsAsync(
         string udid, CancellationToken ct = default)

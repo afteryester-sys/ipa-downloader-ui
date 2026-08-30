@@ -511,6 +511,25 @@ public sealed partial class DownloadService
         string? lastError = null;
         var attempts = Math.Max(1, MaxAttempts);
 
+        // One clock for the whole download, started before the first Apple handshake.
+        // The per-attempt loop has its own start time, but every report made *between*
+        // attempts used to send TimeSpan.Zero, which reset the "connecting for Ns"
+        // counter in the UI and made a slow handshake look frozen at 0s. Reporting
+        // against this instead keeps the elapsed time monotonic across renewals,
+        // bundle-id fallbacks and back-off waits.
+        var downloadStartedUtc = DateTimeOffset.UtcNow;
+
+        // Reports the connecting phase with a live elapsed time, so a long store
+        // handshake reads as activity rather than a stalled bar.
+        void ReportConnecting(int attemptNumber) => progress?.Report(new DownloadProgress(
+            0, 0, Volatile.Read(ref sizeHint[0]), 0, DownloadPhase.Connecting,
+            DateTimeOffset.UtcNow - downloadStartedUtc, attemptNumber));
+
+        // Announce the handshake immediately. Until the first ipatool output arrives the
+        // reporter loop below has not started, so without this the UI sat on whatever
+        // the previous item left behind for the first seconds of every download.
+        ReportConnecting(1);
+
         // Guards the bundle-id fallback below so it is attempted once, not on every retry.
         var triedBundleId = false;
 
@@ -570,8 +589,7 @@ public sealed partial class DownloadService
             {
                 sessionRenewed = true;
 
-                progress?.Report(new DownloadProgress(
-                    0, 0, Volatile.Read(ref sizeHint[0]), 0, DownloadPhase.Connecting, TimeSpan.Zero, attempt));
+                ReportConnecting(attempt);
 
                 if (await _auth.TryReauthenticateAsync(ct).ConfigureAwait(false))
                 {
@@ -587,10 +605,16 @@ public sealed partial class DownloadService
 
             // Back off briefly, then start over. Show the user that we are retrying
             // instead of leaving the bar frozen at wherever it died.
-            progress?.Report(new DownloadProgress(
-                0, 0, Volatile.Read(ref sizeHint[0]), 0, DownloadPhase.Connecting, TimeSpan.Zero, attempt + 1));
+            ReportConnecting(attempt + 1);
 
-            await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct).ConfigureAwait(false);
+            // Tick during the back-off too. A silent 2-6 s gap between attempts is
+            // exactly when the user is most likely to think the app has hung.
+            var backoffUntil = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2 * attempt);
+            while (DateTimeOffset.UtcNow < backoffUntil)
+            {
+                await Task.Delay(ReportInterval, ct).ConfigureAwait(false);
+                ReportConnecting(attempt + 1);
+            }
         }
 
         return DownloadResult.Fail(lastError ?? Loc.Get("L.Error.DownloadFailed"));

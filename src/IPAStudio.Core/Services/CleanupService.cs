@@ -81,6 +81,10 @@ public sealed class CleanupService
                 // icons above and simply missing from this list, so it was never scanned
                 // and never cleared however often the user pressed the button.
                 Measure("L.Cache.Item.IpaIcons", _tools.LocalIpaIconCacheFolder, onGroup, ct),
+                // Home-screen artwork read off connected devices. Reportable and clearable
+                // like the rest: it is a pure cache, and dropping it only costs one more
+                // SpringBoard read the next time the device list is opened.
+                Measure("L.Cache.Item.DeviceIcons", _tools.DeviceIconCacheFolder, onGroup, ct),
                 Measure("L.Cache.Item.Thumbs",  _tools.PhotoThumbCacheFolder, onGroup, ct),
                 // The largest single item here by far: one copy of the device Photos library
                 // runs to hundreds of megabytes. It is kept deliberately (re-fetching it is
@@ -161,6 +165,9 @@ public sealed class CleanupService
             // folder tree does not accumulate, then put back the ones the app needs.
             PruneEmptyDirectories(_tools.IconCacheFolder);
             PruneEmptyDirectories(_tools.LocalIpaIconCacheFolder);
+            // One sub-folder per device, so clearing leaves a shell behind for every
+            // iPhone ever plugged in without this.
+            PruneEmptyDirectories(_tools.DeviceIconCacheFolder);
             // The thumbnail cache is sharded into up-to-256 sub-folders, so clearing it
             // leaves that many empty shells behind without this.
             PruneEmptyDirectories(_tools.PhotoThumbCacheFolder);
