@@ -284,6 +284,11 @@
                               IsChecked="{Binding VerboseLogging}" />
                     <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                Text="{DynamicResource L.Settings.VerboseLogging.Hint}" />
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,12,0,0"
+                              Content="{DynamicResource L.Settings.HideDevicePollingLogs}"
+                              IsChecked="{Binding HideDevicePollingLogs}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.HideDevicePollingLogs.Hint}" />
 
                     <!-- Live log from the phone: the only place a failure to launch is
                          actually explained. -->

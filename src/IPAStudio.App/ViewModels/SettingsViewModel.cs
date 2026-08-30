@@ -112,16 +112,24 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _verboseLogging;
 
-    partial void OnVerboseLoggingChanged(bool value)
-    {
-        // Nothing changed in practice (this fires when the page loads and copies the
-        // saved value in), so don't announce anything.
-        if (AppLog.Verbose == value) return;
+    [ObservableProperty]
+    private bool _hideDevicePollingLogs = true;
 
-        AppLog.Verbose = value;
-        AppLog.Info(value
-            ? "Verbose logging enabled."
-            : "Verbose logging disabled - routine calls are no longer written.");
+    partial void OnVerboseLoggingChanged(bool value) => ApplyLoggingPreference();
+
+    partial void OnHideDevicePollingLogsChanged(bool value) => ApplyLoggingPreference();
+
+    private void ApplyLoggingPreference()
+    {
+        // Device polling is tagged as quiet by ProcessRunner. Keeping verbose off hides
+        // its successful RUN/EXIT lines while preserving warnings and real failures.
+        var showRoutineDetail = VerboseLogging && !HideDevicePollingLogs;
+        if (AppLog.Verbose == showRoutineDetail) return;
+
+        AppLog.Verbose = showRoutineDetail;
+        AppLog.Info(showRoutineDetail
+            ? "Verbose logging enabled, including routine device polling."
+            : "Routine device and battery polling is hidden from the log.");
     }
 
     /// <summary>
@@ -499,6 +507,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         InstallMode = _settings.Current.InstallMode;
         ResumeMode = _settings.Current.ResumeMode;
         VerboseLogging = _settings.Current.VerboseLogging;
+        HideDevicePollingLogs = _settings.Current.HideDevicePollingLogs;
         WifiDeviceConnection = _settings.Current.WifiDeviceConnection;
         PhotosSelectionMode = _settings.Current.PhotosSelectionMode;
         OnDeviceSelectionMode = _settings.Current.OnDeviceSelectionMode;
@@ -811,6 +820,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.CatalogCtrlSelects = CatalogCtrlSelects;
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
+        _settings.Current.HideDevicePollingLogs = HideDevicePollingLogs;
         _settings.Save();
 
         // Applied live, without waiting for the current work to end: the throttle can change

@@ -369,7 +369,7 @@ public sealed partial class AuthService
     ///
     /// Needed because the cached account comes from the local keychain, which stays readable
     /// after Apple stops honouring the token in it. Leaving it in place let the window go on
-    /// naming a signed-in Apple ID while every download failed asking the user to sign in ���
+    /// naming a signed-in Apple ID while every download failed asking the user to sign in —
     /// the contradiction that made the message look like a bug rather than an instruction.
     /// The keychain is deliberately left alone so a fresh login can reuse it.
     /// </summary>

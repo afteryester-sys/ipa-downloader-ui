@@ -1486,22 +1486,24 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         if (byBundle.Count > 0) return byBundle[0];
 
         // The bundled catalog is a "name: id" list with no bundle identifiers in it, so an app
-        // listed there cannot be reached by the only identifier a device provides. That was the
-        // whole of this failure: "Сбербанк Онлайн (Оригинал)" downloads on the other screen from
-        // its catalog id, while this one asked the store for ru.sberbank.onlineiphone, which the
-        // store no longer lists, and reported the app as gone.
+        // listed there cannot be reached by the only identifier a device provides. Prefer an
+        // exact normalized name, even when several looser candidates exist. This is the same id
+        // the working "Download IPA" page receives when the user selects that catalog row.
         //
-        // Any match the catalog can only read one way is taken silently, exact or not: the
-        // device shows "Апгрейд" while the catalog says "Альфа-Банк (Апгрейд - Умный помощник)",
-        // which is one app either way. A name that fits several entries is offered to the user
-        // after the attempt fails instead, because "СберБанк" alone is nine different apps.
-        var unique = _catalog.FindLocalUniqueByName(app.Name);
-        if (unique is not null)
+        // In particular, an installed app called "Онлайн" must select the catalog entry named
+        // "Онлайн" instead of retrying its now-unlisted bundle id. Falling back only to a unique
+        // fuzzy match missed that case whenever several unrelated entries also contained the word.
+        var candidates = _catalog.FindLocalCandidatesByName(app.Name);
+        var exact = candidates.FirstOrDefault(candidate =>
+            string.Equals(NormalizeAppName(candidate.Name), NormalizeAppName(app.Name),
+                StringComparison.OrdinalIgnoreCase));
+        var resolved = exact ?? (candidates.Count == 1 ? candidates[0] : null);
+        if (resolved is not null)
         {
             AppLog.Info(
-                $"On-device: {app.BundleId} is not listed; using catalog id {unique.AppStoreId} " +
-                $"for \"{unique.Name}\", the only catalog app named like \"{app.Name}\"");
-            return CatalogEntryFor(app, unique);
+                $"On-device: {app.BundleId} is not listed; using catalog id {resolved.AppStoreId} " +
+                $"for \"{resolved.Name}\" instead of the bundle id");
+            return CatalogEntryFor(app, resolved);
         }
 
         // Nothing in any storefront and no id from the device. The App Store can still hand
@@ -1517,6 +1519,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
             BundleId = app.BundleId,
             LatestVersion = app.Version,
         };
+    }
+
+    private static string NormalizeAppName(string name)
+    {
+        var normalized = new string(name
+            .Where(character => char.IsLetterOrDigit(character) || char.IsWhiteSpace(character))
+            .Select(char.ToLowerInvariant)
+            .ToArray());
+        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     /// <summary>

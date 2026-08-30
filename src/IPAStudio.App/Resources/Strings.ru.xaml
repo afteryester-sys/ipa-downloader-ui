@@ -145,7 +145,7 @@
     <sys:String x:Key="L.Queue.Done">Готово</sys:String>
     <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
     <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
-    <sys:String x:Key="L.Queue.CancelAll">Отмен��ть всё</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredHint">Apple больше не принимает сохранённый вход: срок его действия истёк либо файл авторизации повреждён. Войдите снова, чтобы продолжить.</sys:String>
@@ -273,7 +273,7 @@
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
-    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загр��зок.</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
     <sys:String x:Key="L.Direct.Download">Скачать IPA</sys:String>
     <sys:String x:Key="L.Direct.Cancel">Отменить</sys:String>
@@ -307,7 +307,7 @@
     <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
     <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
     <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
-    <sys:String x:Key="L.Cache.DonePartial">��свобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
     <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
     <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
     <sys:String x:Key="L.Cache.Item.IpaIcons">Иконки из локальных .ipa</sys:String>
@@ -350,13 +350,13 @@
     <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
     <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
-    <!-- Восстановлен��е повторяется без успеха: ждать бессмысленно. -->
+    <!-- Восстановлене повторяется без успеха: ждать бессмысленно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь под той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
     <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
     <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
-    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. ��азные учётные записи: на телефоне не исправить. -->
+    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. азные учётные записи: на телефоне не исправить. -->
     <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
 
     <!-- Диагностика (настройки логирования) -->
@@ -368,7 +368,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и ��крывается.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
@@ -376,7 +376,9 @@
     <sys:String x:Key="L.Settings.Load.Helpers">Вспомогательных процессов</sys:String>
     <sys:String x:Key="L.Settings.Load.Hint">Учитывается сама программа вместе со вспомогательными процессами (ipatool, idevice* и другими) — в диспетчере задач их нагрузка записывается отдельно от IPA Studio. Значение обновляется раз в секунду, пока открыт этот раздел.</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
-    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Пишет в журнал все служебные вызовы, включая опрос устройства каждые несколько секунд. Обычно не нужно: такие строки повторяются постоянно и мешают заметить настоящую ошибку. Включайте, когда нужно разобраться в проблеме.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Записывает дополнительные служебные сведения для диагностики.</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs">Скрывать фоновые проверки устройства и батареи</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs.Hint">Проверки продолжают работать, но их повторяющиеся команды RUN/EXIT не показываются в журнале. Ошибки и предупреждения не скрываются.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Toggle">Искать устройства по Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
@@ -433,7 +435,7 @@
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
-    <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовать папку «{0}»: {1}</sys:String>
+    <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
     <sys:String x:Key="L.Error.IpaNotFound">Файл IPA не найден: {0}</sys:String>
     <sys:String x:Key="L.Error.ToolFailure">Не удалось запустить служебную утилиту. Переустановите утилиты в настройках.</sys:String>
@@ -481,9 +483,9 @@
     <sys:String x:Key="L.Tuning.Defender.Title">Defender сканирует папку загрузок</sys:String>
     <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
-    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемеще��ие станет полным копированием архива вместо мгновенного переименования.</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
-    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изме��ение-запись.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Detail">Свободно {0} ГБ. Загрузка требует места и под временный файл, и под итоговый архив одновременно.</sys:String>
 
@@ -502,7 +504,7 @@
     <!-- Apple sales-region codes reported in RegionInfo, e.g. "LL/A". -->
     <sys:String x:Key="L.Region.A">Канада</sys:String>
     <sys:String x:Key="L.Region.AB">ОАЭ, Саудовская Аравия, Египет</sys:String>
-    <sys:String x:Key="L.Region.B">Великобритан��я, Ирландия</sys:String>
+    <sys:String x:Key="L.Region.B">Великобритания, Ирландия</sys:String>
     <sys:String x:Key="L.Region.BR">Бразилия</sys:String>
     <sys:String x:Key="L.Region.BZ">Бразилия</sys:String>
     <sys:String x:Key="L.Region.C">Канада</sys:String>
@@ -582,7 +584,7 @@
     <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
     <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>
     <sys:String x:Key="L.Photos.AlbumItems">шт.</sys:String>
-    <sys:String x:Key="L.Photos.BackToAlbums">Все альбомы</sys:String>
+    <sys:String x:Key="L.Photos.BackToAlbums">Все альбмы</sys:String>
     <sys:String x:Key="L.Photos.Media.All">Все</sys:String>
     <sys:String x:Key="L.Photos.Media.Photos">Фото</sys:String>
     <sys:String x:Key="L.Photos.Media.Videos">Видео</sys:String>
@@ -747,7 +749,7 @@
     <sys:String x:Key="L.OnDevice.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.OnDevice.Loading">Читаем список приложений с устройства…</sys:String>
     <sys:String x:Key="L.OnDevice.LoadFailed">Не удалось получить список приложений с устройства. Проверьте подключение и разблокируйте устройство, затем нажмите «Обновить».</sys:String>
-    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устрой��тве не найдено.</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устройстве не найдено.</sys:String>
     <sys:String x:Key="L.OnDevice.FolderLabel">Папка для сохранения IPA</sys:String>
     <sys:String x:Key="L.OnDevice.ChooseFolder">Выбрать папку…</sys:String>
     <sys:String x:Key="L.OnDevice.Download">Скачать IPA</sys:String>
@@ -795,7 +797,7 @@
 
     <sys:String x:Key="L.MediaExport.Title">Экспорт фото и видео с носителя</sys:String>
     <sys:String x:Key="L.MediaExport.MenuTitle">Фото с носителя</sys:String>
-    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на комп��ютер</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
     <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
     <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>

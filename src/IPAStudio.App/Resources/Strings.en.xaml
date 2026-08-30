@@ -425,7 +425,9 @@
     <sys:String x:Key="L.Settings.Load.Helpers">Helper processes</sys:String>
     <sys:String x:Key="L.Settings.Load.Hint">Counts the app together with its helper processes (ipatool, idevice* and others) — Task Manager attributes their load separately from IPA Studio. Updated once a second while this section is open.</sys:String>
     <sys:String x:Key="L.Settings.VerboseLogging">Verbose logging</sys:String>
-    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Logs every internal call, including the device poll that runs every few seconds. Normally unnecessary: those lines repeat constantly and bury real errors. Turn it on when diagnosing a problem.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Records additional internal detail for diagnostics.</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs">Hide background device and battery checks</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs.Hint">Checks keep running, but their repetitive RUN/EXIT commands stay out of the log. Errors and warnings are never hidden.</sys:String>
     <sys:String x:Key="L.Settings.Wifi">Wi-Fi connection</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Toggle">Look for devices over Wi-Fi</sys:String>
     <sys:String x:Key="L.Settings.Wifi.Hint">Lets you use a device without a cable. Connect the device by cable once when enabling this — that is the only way to allow the iPhone to respond over the network. After that the device must be on the same network and unlocked. Wi-Fi is markedly slower, so a cable remains more reliable for installing apps and browsing photos.</sys:String>
@@ -502,7 +504,7 @@
     <sys:String x:Key="L.Install.Error.NotPurchased">This app was not purchased with the signed-in Apple ID. Try “Install IPA from file” instead.</sys:String>
     <sys:String x:Key="L.Install.Error.Authenticate">Authentication failed. Unlock the device and check the connection.</sys:String>
     <!-- {0} is the account the file belongs to, {1} the account on the device. Refused up front. -->
-    <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device �� the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
+    <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device — the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
     <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
     <sys:String x:Key="L.Install.Error.NotOnDevice">The installer reported success, but the app is not on the device — and a second attempt did not change that. This happens when the device drops one of several concurrent installs. Set “Concurrent installs per device” to 1 in Settings and try again.</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>

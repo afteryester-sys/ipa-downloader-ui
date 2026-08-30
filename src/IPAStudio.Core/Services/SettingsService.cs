@@ -299,6 +299,13 @@ public sealed class AppSettings
     public bool VerboseLogging { get; set; }
 
     /// <summary>
+    /// Keeps routine device and battery polling out of the log. Enabled by default and
+    /// stored separately from verbose diagnostics so the user's intent is explicit.
+    /// Actual polling continues; only repetitive successful RUN/EXIT detail is hidden.
+    /// </summary>
+    public bool HideDevicePollingLogs { get; set; } = true;
+
+    /// <summary>
     /// When true, devices are also looked for on the local network, so an iPhone that is
     /// not plugged in can be used over Wi-Fi.
     ///
@@ -479,6 +486,10 @@ public sealed class SettingsService
         // never has to read settings itself. Doing it in one place means the flag cannot
         // drift out of step with what was saved.
         DeviceTransport.WifiEnabled = Current.WifiDeviceConnection;
+
+        // Successful background polls are logged at Debug. This gate is applied on startup
+        // as well as Save so the checkbox keeps working after the app is restarted.
+        AppLog.Verbose = Current.VerboseLogging && !Current.HideDevicePollingLogs;
 
         // Last, so a handler sees the mirrored values above already in place.
         Changed?.Invoke(this, EventArgs.Empty);
