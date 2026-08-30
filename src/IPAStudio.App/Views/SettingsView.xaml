@@ -350,6 +350,29 @@
                 </StackPanel>
             </Border>
 
+            <!-- Remote support: intentionally separate from account and disabled by default. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="Удалённая поддержка" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="Администратор увидит имя компьютера, версии Windows, IPA Studio и RustDesk, а подключение будет выполняться через RustDesk. Apple ID, пароли и файлы не передаются."
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding RemoteSupportStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Разрешить удалённую поддержку" Style="{StaticResource Button.Primary}"
+                                Command="{Binding EnableRemoteSupportCommand}" IsEnabled="{Binding CanEnableRemoteSupport}" Margin="0,0,10,0" />
+                        <Button Content="Отозвать доступ" Style="{StaticResource Button.Danger}"
+                                Command="{Binding DisableRemoteSupportCommand}" IsEnabled="{Binding IsRemoteSupportBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding RemoteSupportEnabled, Converter={StaticResource BoolToVis}}" Margin="0,0,10,0" />
+                        <Button Content="Открыть панель администратора" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding OpenAdminPanelCommand}" Margin="0,0,10,0" />
+                        <Button Content="Создать первичный админ-ключ" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding CreateAdminKeyCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Account -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,24">
                 <StackPanel>

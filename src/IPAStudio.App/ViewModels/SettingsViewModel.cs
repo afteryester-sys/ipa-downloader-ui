@@ -17,6 +17,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 {
     private readonly SettingsService _settings;
     private readonly AuthService _auth;
+    private readonly RemoteSupportService _remoteSupport;
 
     // The concurrency limits are applied to the services that own them rather than to a
     // queue: QueueService is per-operation now, so a queue reference here would configure
@@ -58,6 +59,19 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private bool _useBetaAppleAuthentication;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEnableRemoteSupport))]
+    private bool _remoteSupportEnabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEnableRemoteSupport))]
+    private bool _isRemoteSupportBusy;
+
+    [ObservableProperty]
+    private string _remoteSupportStatus = "";
+
+    public bool CanEnableRemoteSupport => !RemoteSupportEnabled && !IsRemoteSupportBusy;
 
     [ObservableProperty]
     private string _betaAuthDiagnostic = "";
@@ -365,7 +379,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     public SettingsViewModel(
         SettingsService settings, AuthService auth, DownloadThrottle throttle,
         InstallService install, ToolLocator tools, LocalizationManager localization,
-        UpdateService updates, DeviceService devices, OperationService operations)
+        UpdateService updates, DeviceService devices, OperationService operations,
+        RemoteSupportService remoteSupport)
     {
         _operations = operations;
         _settings = settings;
@@ -376,6 +391,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _localization = localization;
         _updates = updates;
         _devices = devices;
+        _remoteSupport = remoteSupport;
     }
 
     // ===== Current load =====
@@ -470,6 +486,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         Theme = _settings.Current.Theme;
         IpatoolVersion = _settings.Current.IpatoolVersion;
         UseBetaAppleAuthentication = _settings.Current.UseBetaAppleAuthentication;
+        RemoteSupportEnabled = _remoteSupport.IsEnabled;
+        RemoteSupportStatus = RemoteSupportEnabled ? "Удалённый доступ разрешён для этого компьютера." : "Удалённый доступ выключен.";
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
         // Blank means "probe the default locations", which is what the service does anyway.
         ItunesLibraryFolder = _settings.Current.ItunesLibraryFolder ?? "";
@@ -689,6 +707,69 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     private static string Str(string key) =>
         Application.Current.TryFindResource(key) as string ?? key;
+
+    [RelayCommand]
+    private async Task EnableRemoteSupportAsync()
+    {
+        if (IsRemoteSupportBusy) return;
+        var answer = MessageBox.Show(
+            "Разрешить администратору IPA Studio видеть этот компьютер в панели поддержки и подключаться через RustDesk? Доступ можно отозвать здесь в любой момент. Apple ID, пароли и содержимое файлов не передаются.",
+            "Разрешить удалённую поддержку", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes) return;
+        IsRemoteSupportBusy = true;
+        try
+        {
+            await _remoteSupport.EnableAsync();
+            RemoteSupportEnabled = true;
+            RemoteSupportStatus = "Доступ разрешён. Компьютер появится у администратора после следующего heartbeat.";
+        }
+        catch (Exception ex)
+        {
+            RemoteSupportStatus = $"Не удалось включить поддержку: {ex.Message}";
+        }
+        finally { IsRemoteSupportBusy = false; }
+    }
+
+    [RelayCommand]
+    private async Task DisableRemoteSupportAsync()
+    {
+        if (IsRemoteSupportBusy) return;
+        IsRemoteSupportBusy = true;
+        try
+        {
+            await _remoteSupport.DisableAsync();
+            RemoteSupportEnabled = false;
+            RemoteSupportStatus = "Удалённый доступ отозван. Локальный ключ удалён.";
+        }
+        catch (Exception ex) { RemoteSupportStatus = $"Доступ отключён локально: {ex.Message}"; }
+        finally { IsRemoteSupportBusy = false; }
+    }
+
+    [RelayCommand]
+    private void CreateAdminKey() =>
+        new Views.SupportAdminSetupWindow(_remoteSupport) { Owner = Application.Current.MainWindow }.ShowDialog();
+
+    [RelayCommand]
+    private async Task OpenAdminPanelAsync()
+    {
+        if (!_remoteSupport.HasImportedAdministratorKey)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Импортируйте ключ администратора один раз",
+                Filter = "IPA Studio admin key (*.json)|*.json",
+                CheckFileExists = true,
+            };
+            if (dialog.ShowDialog() != true) return;
+            try { await _remoteSupport.ImportAdministratorKeyAsync(dialog.FileName); }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Импорт ключа", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+        }
+        new Views.SupportAdminWindow(_remoteSupport) { Owner = Application.Current.MainWindow }.ShowDialog();
+    }
 
     [RelayCommand]
     private void CheckBetaAuthentication()
