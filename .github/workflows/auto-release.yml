@@ -77,6 +77,11 @@ jobs:
             Write-Host "Update token injected."
           }
 
+      - name: Validate localization
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: ./build/Check-Localization.ps1
+
       # ---- Restore & Build -------------------------------------------------
       - name: Restore
         if: steps.check_tag.outputs.exists == 'false'

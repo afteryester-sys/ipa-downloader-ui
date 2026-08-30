@@ -13,6 +13,12 @@
     <sys:String x:Key="L.Search">Search…</sys:String>
     <sys:String x:Key="L.Loading">Loading…</sys:String>
     <sys:String x:Key="L.Credit">developed by Poslevcherashniy</sys:String>
+    <sys:String x:Key="L.Guard.Title">Protected device</sys:String>
+    <sys:String x:Key="L.Guard.ActionLine">Enter the device password to “{0}”.</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Unknown device</sys:String>
+    <sys:String x:Key="L.Guard.Serial">Serial number: {0}</sys:String>
+    <sys:String x:Key="L.Guard.Wrong">Incorrect password. Try again.</sys:String>
+    <sys:String x:Key="L.Guard.Confirm">Confirm</sys:String>
 
     <!-- Environment setup -->
     <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
@@ -83,7 +89,7 @@
     <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
-    <sys:String x:Key="L.Photos.Import">Import into DCIM</sys:String>
+    <sys:String x:Key="L.Photos.Import">Sync photos</sys:String>
     <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>

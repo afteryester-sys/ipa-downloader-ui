@@ -33,6 +33,10 @@ jobs:
           "value=$v" >> $env:GITHUB_OUTPUT
           Write-Host "App version: $v"
 
+      - name: Validate localization
+        shell: pwsh
+        run: ./build/Check-Localization.ps1
+
       - name: Restore
         run: dotnet restore IPAStudio.sln
 
