@@ -1440,19 +1440,21 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private async Task Import()
+    private Task Import()
     {
-        if (_device is null) return;
+        if (_device is null) return Task.CompletedTask;
 
-        var dialog = new OpenFileDialog
-        {
-            Title = Loc.Get("L.Photos.PickImportFiles"),
-            Multiselect = true,
-            Filter = Loc.Get("L.Photos.MediaFilter"),
-        };
-        if (dialog.ShowDialog() != true) return;
-
-        await ImportFilesAsync(dialog.FileNames);
+        // AFC can write bytes into DCIM but cannot register a PHAsset on current iOS.
+        // Calling that a successful import left invisible orphan files on the phone, so the
+        // dedicated Photos action now explains the limitation and points at the verified
+        // File Sharing route available from the device card.
+        StatusText = Loc.Get("L.Photos.SystemImportUnavailable");
+        MessageBox.Show(
+            StatusText,
+            Loc.Get("L.Photos.Import"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -1460,38 +1462,16 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// dragging pictures onto the page and picking them through the dialog are the same
     /// operation, including the "copied but not in the library yet" reporting.
     /// </summary>
-    public async Task ImportFilesAsync(IEnumerable<string> paths)
+    public Task ImportFilesAsync(IEnumerable<string> paths)
     {
-        if (_device is null) return;
+        if (_device is null) return Task.CompletedTask;
 
-        var files = paths.Where(PhotoService.IsMediaFile).ToList();
-        if (files.Count == 0)
-        {
-            StatusText = Loc.Get("L.Photos.DropNoMedia");
-            return;
-        }
-
-        await RunTransferAsync(async (progress, ct) =>
-        {
-            ImportNeedsRestart = false;
-
-            var result = await _photos.ImportAsync(_device.Udid, files, progress, ct);
-
-            // Say what actually happened rather than just a count: copying files into DCIM and
-            // having them show up in Photos are different outcomes, and reporting the first as
-            // the second is what made a failed import look successful.
-            StatusText = result.Copied == 0
-                ? Loc.Get("L.Photos.ImportNothingCopied")
-                : result.AppearedInLibrary
-                    ? Loc.Format("L.Photos.Imported", result.Copied, result.Total)
-                    : Loc.Format("L.Photos.ImportedNotInLibrary", result.Copied, result.Total);
-
-            // The banner offers the reboot, so it appears only when the files are on the
-            // device but the library has not picked them up.
-            ImportNeedsRestart = result.Copied > 0 && !result.AppearedInLibrary;
-
-            await LoadAsync();
-        }, "L.Ops.Photos.Import");
+        var hasMedia = paths.Any(PhotoService.IsMediaFile);
+        StatusText = hasMedia
+            ? Loc.Get("L.Photos.SystemImportUnavailable")
+            : Loc.Get("L.Photos.DropNoMedia");
+        ImportNeedsRestart = false;
+        return Task.CompletedTask;
     }
 
     /// <summary>

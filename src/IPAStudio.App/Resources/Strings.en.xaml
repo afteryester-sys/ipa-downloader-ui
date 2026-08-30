@@ -846,5 +846,25 @@
     <sys:String x:Key="L.QuickTransfer.Importing">Importing photos and videos…</sys:String>
     <sys:String x:Key="L.QuickTransfer.ImportingFile">Imported {0} of {1}…</sys:String>
     <sys:String x:Key="L.QuickTransfer.CloseAfterError">Close</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Destination">Destination app</sys:String>
+    <sys:String x:Key="L.QuickTransfer.AllTypes">Transfer photos, videos, audio, books, documents, archives, folders, IPA, and unknown file types.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FilterAll">All files|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanningApps">Finding apps that expose File Sharing…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Files are written and verified in the selected app's Files folder. IPA files are installed separately.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">No installed app exposes Apple File Sharing. Install a file manager, VLC, or another compatible app.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanFailed">Could not inspect installed apps: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeApp">IPA application</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeImage">Image / RAW</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeVideo">Video</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeAudio">Audio</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeBook">Book / PDF</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeDocument">Document</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeArchive">Archive</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeOther">Other file</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoDestination">No destination</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CopyingFile">File {0} of {1}: {2} → {3}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Verified">Done: {0} file(s) verified; {1} IPA file(s) queued.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TransferFailed">Transfer stopped: {0}</sys:String>
+    <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
 
 </ResourceDictionary>

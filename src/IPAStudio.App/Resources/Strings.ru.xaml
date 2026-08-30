@@ -144,7 +144,7 @@
     <sys:String x:Key="L.Queue.Overall">Общий прогресс</sys:String>
     <sys:String x:Key="L.Queue.Done">Готово</sys:String>
     <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
-    <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
+    <sys:String x:Key="L.Queue.Cancelled">О��менено</sys:String>
     <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
     <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
     <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
@@ -338,7 +338,7 @@
     <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
     <sys:String x:Key="L.DeviceLogs.FilterInstall">Только установка и запуск</sys:String>
     <sys:String x:Key="L.DeviceLogs.AutoScroll">Следить за новыми строками</sys:String>
-    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись��</sys:String>
     <sys:String x:Key="L.DeviceLogs.Stopped">Остановлено</sys:String>
     <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
     <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
@@ -635,7 +635,7 @@
     <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>
 
 
-    <!-- Всп��ывающее окно контактов -->
+    <!-- В��п��ывающее окно контактов -->
     <sys:String x:Key="L.Contact.Title">Связаться с разработчиком</sys:String>
     <sys:String x:Key="L.Contact.Email">Скопировать адрес</sys:String>
     <sys:String x:Key="L.Contact.Copied">Адрес скопирован</sys:String>
@@ -844,5 +844,25 @@
     <sys:String x:Key="L.QuickTransfer.Importing">Импортируем фото и видео…</sys:String>
     <sys:String x:Key="L.QuickTransfer.ImportingFile">Импортировано {0} из {1}…</sys:String>
     <sys:String x:Key="L.QuickTransfer.CloseAfterError">Закрыть</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Destination">Приложение-получатель</sys:String>
+    <sys:String x:Key="L.QuickTransfer.AllTypes">Можно переносить фото, видео, музыку, книги, документы, архивы, папки, IPA и файлы неизвестных типов.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FilterAll">Все файлы|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanningApps">Ищем приложения с доступом к файлам…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Файлы будут проверенно записаны в «Файлы» выбранного приложения. IPA устанавливаются отдельно.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">На устройстве нет приложений с включённым общим доступом к файлам. Установите файловый менеджер, VLC или другое совместимое приложение.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanFailed">Не удалось проверить приложения: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeApp">Приложение IPA</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeImage">Изображение / RAW</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeVideo">Видео</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeAudio">Аудио</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeBook">Книга / PDF</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeDocument">Документ</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeArchive">Архив</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeOther">Другой файл</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoDestination">Нет назначения</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CopyingFile">Файл {0} из {1}: {2} → {3}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Verified">Готово: проверено файлов — {0}; IPA добавлено в очередь — {1}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TransferFailed">Перенос остановлен: {0}</sys:String>
+    <sys:String x:Key="L.Photos.SystemImportUnavailable">Прямой импорт в системную медиатеку «Фото» недоступен через открытый протокол Apple на этой версии iOS. Используйте «Быстрый перенос» и выберите совместимое приложение; фиктивное копирование в DCIM отключено.</sys:String>
 
 </ResourceDictionary>
