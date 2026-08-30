@@ -1,4 +1,5 @@
 using System.Text.Json;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
