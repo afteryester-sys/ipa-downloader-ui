@@ -329,14 +329,31 @@ public sealed partial class DownloadService
     /// Obtains a license for a free app (ipatool purchase). <c>Error</c> is already
     /// localized; <c>SessionExpired</c> tells the caller to route the user to sign-in.
     /// </summary>
-    public async Task<(bool Success, string? Error, bool SessionExpired)> PurchaseAsync(long appId, CancellationToken ct = default)
+    public async Task<(bool Success, string? Error, bool SessionExpired)> PurchaseAsync(
+        long appId,
+        string? bundleIdentifier = null,
+        CancellationToken ct = default)
     {
+        if (_tools.UseBetaAppleAuthentication && string.IsNullOrWhiteSpace(bundleIdentifier))
+            return (false, "Для получения лицензии BETA-методу нужен bundle identifier приложения.", false);
+
+        var purchaseTarget = _tools.UseBetaAppleAuthentication
+            ? new[] { "-b", bundleIdentifier! }
+            : new[] { "-i", appId.ToString() };
+        var purchaseArgs = new List<string> { "purchase" };
+        purchaseArgs.AddRange(purchaseTarget);
+        purchaseArgs.AddRange(new[]
+        {
+            "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
+            "--format", "json",
+        });
+
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
-                    "--format", "json" },
+            purchaseArgs,
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
+            environment: _tools.IpatoolEnvironment,
             ct: ct).ConfigureAwait(false);
 
         if (result.Success || result.CombinedOutput.Contains("already", StringComparison.OrdinalIgnoreCase))
@@ -647,7 +664,12 @@ public sealed partial class DownloadService
 
         // Redirect the child's temp directory onto the destination volume so its
         // final move is a rename, not a full-size cross-volume copy.
-        var env = TransferTuning.BuildChildEnvironment(stagingDir);
+        var env = new Dictionary<string, string>(
+            TransferTuning.BuildChildEnvironment(stagingDir),
+            StringComparer.OrdinalIgnoreCase);
+        if (_tools.IpatoolEnvironment is { } toolEnvironment)
+            foreach (var (key, value) in toolEnvironment)
+                env[key] = value;
 
         var state = new TransferState();
         var startedUtc = DateTimeOffset.UtcNow;
@@ -1674,10 +1696,35 @@ public sealed partial class DownloadService
                     "--format", "json" },
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
+            environment: _tools.IpatoolEnvironment,
             ct: ct).ConfigureAwait(false);
 
         var apps = new List<AppEntry>();
         if (!result.Success) return apps;
+
+        if (_tools.UseBetaAppleAuthentication)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(result.StdOut);
+                if (document.RootElement.ValueKind != JsonValueKind.Array) return apps;
+                foreach (var item in document.RootElement.EnumerateArray())
+                {
+                    var id = item.TryGetProperty("id", out var idElement) ? idElement.GetInt64() : 0;
+                    var name = item.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : null;
+                    if (id == 0 || string.IsNullOrWhiteSpace(name)) continue;
+                    apps.Add(new AppEntry
+                    {
+                        Name = name!,
+                        AppStoreId = id,
+                        BundleId = item.TryGetProperty("bundle_id", out var bundle) ? bundle.GetString() : null,
+                        LatestVersion = item.TryGetProperty("version", out var version) ? version.GetString() : null,
+                    });
+                }
+            }
+            catch (JsonException) { }
+            return apps;
+        }
 
         foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -1710,15 +1757,39 @@ public sealed partial class DownloadService
     /// <summary>Lists available external version identifiers (ipatool v3+ only).</summary>
     public async Task<IReadOnlyList<string>> ListVersionsAsync(long appId, CancellationToken ct = default)
     {
+        var args = _tools.UseBetaAppleAuthentication
+            ? new[] { "version", "list", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
+                      "--format", "json" }
+            : new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
+                      "--format", "json" };
         var result = await _runner.RunAsync(
             _tools.IpatoolPath,
-            new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
-                    "--format", "json" },
+            args,
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
+            environment: _tools.IpatoolEnvironment,
             ct: ct).ConfigureAwait(false);
 
         var versions = new List<string>();
+        if (_tools.UseBetaAppleAuthentication && result.Success)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(result.StdOut);
+                if (document.RootElement.TryGetProperty("versions", out var array))
+                {
+                    versions.AddRange(array.EnumerateArray()
+                        .Select(item => item.TryGetProperty("external_version_id", out var id)
+                            ? id.GetString()
+                            : null)
+                        .Where(id => !string.IsNullOrWhiteSpace(id))
+                        .Select(id => id!));
+                }
+            }
+            catch (JsonException) { }
+            return versions;
+        }
+
         foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!line.StartsWith('{')) continue;

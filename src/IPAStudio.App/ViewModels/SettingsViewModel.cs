@@ -694,19 +694,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private void CheckBetaAuthentication()
     {
         var betaTool = System.IO.File.Exists(_tools.BetaIpatoolPath);
-        var helper = System.IO.File.Exists(_tools.SapHelperPath);
-        var appleDesktop = new[]
-        {
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "iTunes", "iTunes.exe"),
-            System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "iTunes", "iTunes.exe"),
-        }.Any(System.IO.File.Exists);
-
-        BetaAuthDiagnostic = betaTool && helper && appleDesktop
+        BetaAuthDiagnostic = betaTool
             ? Str("L.Settings.BetaAuth.Ready")
-            : string.Format(Str("L.Settings.BetaAuth.Missing"),
-                betaTool ? "OK" : "ipatool.exe",
-                helper ? "OK" : "ipastudio-sap-helper.exe",
-                appleDesktop ? "OK" : "desktop iTunes");
+            : Str("L.Settings.BetaAuth.Missing");
     }
 
     [RelayCommand]

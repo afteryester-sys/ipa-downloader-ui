@@ -7,6 +7,7 @@
 # Sources:
 #   - ipatool v2/v3 + anisette.exe  -> kda2495/IPA_Downloader, pinned to a commit SHA
 #     because the upstream default branch no longer carries these binaries
+#   - ipatool-rs v0.1.7             -> Kosthi/ipatool-rs (SAP-signed BETA auth)
 #   - libimobiledevice suite        -> imobiledevice-net GitHub releases
 #     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe,
 #      idevicediagnostics.exe + DLLs)
@@ -38,6 +39,9 @@ $LegacyToolHashes = @{
     "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
     "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
 }
+$IpatoolRsVersion = "0.1.7"
+$IpatoolRsRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$IpatoolRsVersion/ipatool-rs-x86_64-pc-windows-msvc.zip"
+$IpatoolRsSha256 = "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -60,8 +64,27 @@ Write-Host "`n[2/3] ipatool v3 + anisette ..."
 Download-File "$RepoRaw/windows_amd64_v3/ipatool.exe"  (Join-Path $OutDir "windows_amd64_v3\ipatool.exe")
 Download-File "$RepoRaw/windows_amd64_v3/anisette.exe" (Join-Path $OutDir "windows_amd64_v3\anisette.exe")
 
+# --- ipatool-rs SAP BETA ------------------------------------------------------
+Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA) ..."
+$ipatoolRsZip = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64.zip"
+$ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64"
+Download-File $IpatoolRsRelease $ipatoolRsZip
+$ipatoolRsActualHash = (Get-FileHash -Path $ipatoolRsZip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($ipatoolRsActualHash -ne $IpatoolRsSha256) {
+    throw "ipatool-rs archive checksum mismatch: expected $IpatoolRsSha256, got $ipatoolRsActualHash"
+}
+if (Test-Path $ipatoolRsExtract) { Remove-Item $ipatoolRsExtract -Recurse -Force }
+Expand-Archive -Path $ipatoolRsZip -DestinationPath $ipatoolRsExtract -Force
+$ipatoolRsBinary = Join-Path $ipatoolRsExtract "ipatool.exe"
+if (-not (Test-Path $ipatoolRsBinary)) { throw "ipatool.exe was not found in the ipatool-rs archive." }
+$ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
+New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
+Copy-Item $ipatoolRsBinary -Destination $ipatoolRsDestination -Force
+Remove-Item $ipatoolRsZip -Force -ErrorAction SilentlyContinue
+Remove-Item $ipatoolRsExtract -Recurse -Force -ErrorAction SilentlyContinue
+
 # --- libimobiledevice suite ----------------------------------------------------
-Write-Host "`n[3/3] libimobiledevice suite (ideviceinstaller, idevice_id, ideviceinfo) ..."
+Write-Host "`n[4/4] libimobiledevice suite (ideviceinstaller, idevice_id, ideviceinfo) ..."
 $zipPath = Join-Path $env:TEMP "imobiledevice-net.zip"
 $extractPath = Join-Path $env:TEMP "imobiledevice-net"
 Download-File $ImobiledeviceRelease $zipPath
@@ -100,6 +123,7 @@ $required = @(
     (Join-Path $OutDir "windows_amd64_v2\ipatool.exe"),
     (Join-Path $OutDir "windows_amd64_v3\ipatool.exe"),
     (Join-Path $OutDir "windows_amd64_v3\anisette.exe"),
+    (Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"),
     (Join-Path $imobileDir "ideviceinstaller.exe"),
     (Join-Path $imobileDir "idevice_id.exe"),
     (Join-Path $imobileDir "ideviceinfo.exe"),

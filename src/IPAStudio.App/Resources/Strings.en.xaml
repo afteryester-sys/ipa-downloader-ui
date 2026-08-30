@@ -192,10 +192,10 @@
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth">Apple authentication</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth.Toggle">New authentication method (BETA)</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Hint">Experimental SAP-signed login using desktop iTunes components. The standard method and its session remain unchanged.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Experimental login through ipatool-rs with the current SAP signature. iTunes and iCloud are not required; the standard method and its session remain unchanged.</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth.Check">Check readiness</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Ready">BETA components and desktop iTunes were found. A live login can only be verified by signing in.</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Missing">Not ready. BETA ipatool: {0}; SAP helper: {1}; iTunes: {2}.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">ipatool-rs was found. Required Apple support components will be downloaded and verified automatically on first login.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">ipatool-rs is missing. Use “Reinstall tools”, then restart the application.</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolder">iTunes library (Mobile Applications folder)</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolderHint">Only needed for the "Via iTunes 12.6.5.3" route, and only if your iTunes library was moved elsewhere. Normally leave this blank — the default locations are probed automatically.</sys:String>
@@ -502,7 +502,7 @@
     <sys:String x:Key="L.Install.Error.NotPurchased">This app was not purchased with the signed-in Apple ID. Try “Install IPA from file” instead.</sys:String>
     <sys:String x:Key="L.Install.Error.Authenticate">Authentication failed. Unlock the device and check the connection.</sys:String>
     <!-- {0} is the account the file belongs to, {1} the account on the device. Refused up front. -->
-    <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device — the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
+    <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device �� the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
     <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
     <sys:String x:Key="L.Install.Error.NotOnDevice">The installer reported success, but the app is not on the device — and a second attempt did not change that. This happens when the device drops one of several concurrent installs. Set “Concurrent installs per device” to 1 in Settings and try again.</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>

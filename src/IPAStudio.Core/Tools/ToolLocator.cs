@@ -53,7 +53,6 @@ public sealed class ToolLocator
 
     public string BetaToolsFolder => Path.Combine(ToolsRoot, "windows_amd64_sap_beta");
     public string BetaIpatoolPath => Path.Combine(BetaToolsFolder, "ipatool.exe");
-    public string SapHelperPath => Path.Combine(BetaToolsFolder, "ipastudio-sap-helper.exe");
 
     /// <summary>The backend snapshot applied by SettingsService for auth and downloads.</summary>
     public string IpatoolPath => UseBetaAppleAuthentication ? BetaIpatoolPath : StandardIpatoolPath;
@@ -77,6 +76,20 @@ public sealed class ToolLocator
 
     public string IconCacheFolder => Path.Combine(DataFolder, "icons");
     public string CatalogCacheFile => Path.Combine(DataFolder, "catalog-cache.json");
+
+    /// <summary>
+    /// ipatool-rs resolves its profile through HOME even on Windows. Give the BETA
+    /// backend a writable, private profile instead of letting it fall back to the
+    /// executable directory under Program Files or share the legacy keychain.
+    /// </summary>
+    public string BetaHomeFolder => Path.Combine(DataFolder, "ipatool-rs");
+    public IReadOnlyDictionary<string, string>? IpatoolEnvironment =>
+        UseBetaAppleAuthentication
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["HOME"] = BetaHomeFolder,
+            }
+            : null;
 
     /// <summary>
     /// Artwork lifted out of local .ipa files, for the folders the user added on the
@@ -167,6 +180,8 @@ public sealed class ToolLocator
         Directory.CreateDirectory(AppsFolder);
         Directory.CreateDirectory(DataFolder);
         Directory.CreateDirectory(IconCacheFolder);
+        if (UseBetaAppleAuthentication)
+            Directory.CreateDirectory(BetaHomeFolder);
     }
 
     /// <summary>Verifies that the required tool binaries exist; returns missing paths.</summary>
@@ -187,8 +202,6 @@ public sealed class ToolLocator
         // ipatool v3 spawns anisette.exe from the same directory; it is mandatory.
         if (!UseBetaAppleAuthentication && IpatoolVersion == 3)
             required.Add(AnisettePath);
-        if (UseBetaAppleAuthentication)
-            required.Add(SapHelperPath);
         return required.Where(p => !File.Exists(p)).ToList();
     }
 

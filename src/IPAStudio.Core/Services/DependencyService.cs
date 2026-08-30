@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Security.Cryptography;
 using IPAStudio.Core.Tools;
 using Microsoft.Win32;
 
@@ -55,6 +56,11 @@ public sealed class DependencyService
 
     private const string RepoRaw =
         "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp";
+
+    private const string IpatoolRsZipUrl =
+        "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";
+    private const string IpatoolRsZipSha256 =
+        "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77";
 
     private const string ImobiledeviceZipUrl =
         "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip";
@@ -490,7 +496,38 @@ public sealed class DependencyService
 
                 var step = i; // capture
                 await DownloadWithProgressAsync(url, dest,
-                    f => progress?.Report(((step + f) / 4.0, "tools")), ct);
+                    f => progress?.Report(((step + f) / 5.0, "tools")), ct);
+            }
+
+            // ipatool-rs contains the current SAP request signer. It is self-contained:
+            // no iTunes/iCloud DLLs or helper executable are required. Verify the pinned
+            // release archive before extracting so a changed upstream asset never runs.
+            var betaPath = Path.Combine(root, @"windows_amd64_sap_beta\ipatool.exe");
+            if (!File.Exists(betaPath))
+            {
+                var betaZip = Path.Combine(Path.GetTempPath(), "ipatool-rs-0.1.7-windows-x64.zip");
+                await DownloadWithProgressAsync(IpatoolRsZipUrl, betaZip,
+                    f => progress?.Report(((3 + f) / 5.0, "tools")), ct);
+
+                await using (var stream = File.OpenRead(betaZip))
+                {
+                    var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct))
+                        .ToLowerInvariant();
+                    if (!string.Equals(actualHash, IpatoolRsZipSha256, StringComparison.Ordinal))
+                        throw new InvalidDataException(
+                            $"ipatool-rs checksum mismatch: expected {IpatoolRsZipSha256}, got {actualHash}");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(betaPath)!);
+                using (var archive = ZipFile.OpenRead(betaZip))
+                {
+                    var executable = archive.Entries.FirstOrDefault(entry =>
+                        string.Equals(entry.Name, "ipatool.exe", StringComparison.OrdinalIgnoreCase));
+                    if (executable is null)
+                        throw new InvalidDataException("ipatool.exe is missing from the ipatool-rs archive.");
+                    executable.ExtractToFile(betaPath, overwrite: true);
+                }
+                try { File.Delete(betaZip); } catch { /* best effort */ }
             }
 
             // libimobiledevice suite — zip that we extract selectively.
