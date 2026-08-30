@@ -151,7 +151,7 @@
     <sys:String x:Key="L.Queue.SessionExpiredHint">Apple больше не принимает сохранённый вход: срок его действия истёк либо файл авторизации повреждён. Войдите снова, чтобы продолжить.</sys:String>
     <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
     <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
-    <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
+    <sys:String x:Key="L.Stage.Checking">Пров��рка</sys:String>
     <sys:String x:Key="L.Stage.Licensing">Лицензия</sys:String>
     <sys:String x:Key="L.Stage.Downloading">Загрузка</sys:String>
     <sys:String x:Key="L.Stage.Installing">Установка</sys:String>
@@ -220,7 +220,7 @@
     <sys:String x:Key="L.Settings.ResumeMode">При обрыве загрузки</sys:String>
     <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Начинать заново (как раньше)</sys:String>
     <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Сохранять скачанное</sys:String>
-    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный файл будет скачан заново.</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный фай�� будет скачан заново.</sys:String>
     <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
@@ -236,7 +236,7 @@
     <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
     <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
     <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
-    <sys:String x:Key="L.Update.UpToDate">У вас установлена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас устано��лена последняя версия</sys:String>
     <sys:String x:Key="L.Update.UpToDateVer">У вас установлена последняя версия (v{0})</sys:String>
     <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
     <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
@@ -266,10 +266,10 @@
 
     <!-- Скачивание IPA по Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
-    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения, его ID из App Store или вставьте ссылку, затем выберите папку — файл .ipa будет сохранён туда. Устройство подключать не нужно.</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения, его ID из App Store или вставьте ссылку, затем выберите папку — файл .ipa будет сохранён туда. Устройство подк��ючать не нужно.</sys:String>
     <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, ID из App Store или ссылка</sys:String>
     <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
-    <sys:String x:Key="L.Direct.Find">Найти</sys:String>
+    <sys:String x:Key="L.Direct.Find">��айти</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
@@ -338,7 +338,7 @@
     <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
     <sys:String x:Key="L.DeviceLogs.FilterInstall">Только установка и запуск</sys:String>
     <sys:String x:Key="L.DeviceLogs.AutoScroll">Следить за новыми строками</sys:String>
-    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись��</sys:String>
     <sys:String x:Key="L.DeviceLogs.Stopped">Остановлено</sys:String>
     <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
     <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
@@ -369,7 +369,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открыва��т элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
@@ -434,7 +434,7 @@
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
     <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
-    <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
+    <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте е��ё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
@@ -477,7 +477,7 @@
     <sys:String x:Key="L.Direct.LookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdEmpty">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdNotFound">Приложение для «{0}» не найдено в App Store.</sys:String>
-    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти приложение в App Store. Пр��верьте подключение и попробуйте снова.</sys:String>
 
 
     <!-- Советы по скорости -->
@@ -486,7 +486,7 @@
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
-    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэт��му сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
     <sys:String x:Key="L.Tuning.LowSpace.Detail">Свободно {0} ГБ. Загрузка требует места и под временный файл, и под итоговый архив одновременно.</sys:String>
 
@@ -581,7 +581,7 @@
     <sys:String x:Key="L.Photos.Albums.All">Все фото</sys:String>
     <sys:String x:Key="L.Photos.Albums.Videos">Видео</sys:String>
     <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Недавно удалённые</sys:String>
-    <sys:String x:Key="L.Photos.Albums.Screenshots">Снимки экрана</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Screenshots">Снимки экра��а</sys:String>
     <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
     <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>
     <sys:String x:Key="L.Photos.AlbumItems">шт.</sys:String>
@@ -635,7 +635,7 @@
     <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>
 
 
-    <!-- Всплывающее окно контактов -->
+    <!-- Всплывающе�� окно контактов -->
     <sys:String x:Key="L.Contact.Title">Связаться с разработчиком</sys:String>
     <sys:String x:Key="L.Contact.Email">Скопировать адрес</sys:String>
     <sys:String x:Key="L.Contact.Copied">Адрес скопирован</sys:String>
@@ -662,7 +662,7 @@
     <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>
 
 
-    <!-- Добавление в каталог (экран загрузки) -->
+    <!-- Добавление в к��талог (экран загрузки) -->
     <sys:String x:Key="L.Direct.AddToCatalog">Добавить в каталог</sys:String>
     <sys:String x:Key="L.Direct.AddToCatalogHint">Сохранить приложение в каталог, чтобы позже установить его без повторного поиска</sys:String>
     <sys:String x:Key="L.Direct.InCatalog">Уже в каталоге</sys:String>
@@ -848,9 +848,11 @@
     <sys:String x:Key="L.QuickTransfer.AllTypes">Можно переносить фото, видео, музыку, книги, документы, архивы, папки, IPA и файлы неизвестных типов.</sys:String>
     <sys:String x:Key="L.QuickTransfer.FilterAll">Все файлы|*.*</sys:String>
     <sys:String x:Key="L.QuickTransfer.ScanningApps">Ищем приложения с доступом к файлам…</sys:String>
-    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Файлы будут проверенно записаны в «Файлы» выбранного приложения. IPA устанавливаются отдельно.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">На устройстве нет приложений с включённым общим доступом к файлам. Установите файловый менеджер, VLC или другое совместимое приложение.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.ScanFailed">Не удалось проверить приложения: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Файлы будут записаны и проверены в папке Documents выбранного приложения. IPA устанавливаются отдельно.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">Совместимых приложений не найдено. Установите VLC, Documents или файловый менеджер с Apple File Sharing. MP3 и другие файлы переносятся в папку Documents такого приложения, а не напрямую в системную «Музыку».</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanFailed">Не удалось надёжно проверить приложения: {0}. Проверьте подключение, разблокируйте iPhone и подтвердите «Доверять».</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanPartial">Найдено приложений: {0} (проверено: {1}), но часть списка проверить не удалось: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.UnknownScanError">неизвестная ошибка устройства</sys:String>
     <sys:String x:Key="L.QuickTransfer.TypeApp">Приложение IPA</sys:String>
     <sys:String x:Key="L.QuickTransfer.TypeImage">Изображение / RAW</sys:String>
     <sys:String x:Key="L.QuickTransfer.TypeVideo">Видео</sys:String>

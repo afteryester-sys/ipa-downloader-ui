@@ -46,12 +46,19 @@ public partial class QuickTransferDialog : Window
         DestinationHint.Text = Loc.Get("L.QuickTransfer.ScanningApps");
         try
         {
-            _destinations = await _sharing.GetAvailableAppsAsync(_device.Udid, _cts.Token);
+            var scan = await _sharing.GetAvailableAppsAsync(_device.Udid, _cts.Token);
+            _destinations = scan.Apps;
             DestinationPicker.ItemsSource = _destinations;
             if (_destinations.Count > 0) DestinationPicker.SelectedIndex = 0;
+
             DestinationHint.Text = _destinations.Count > 0
-                ? Loc.Get("L.QuickTransfer.FileSharingHint")
-                : Loc.Get("L.QuickTransfer.NoFileSharingApps");
+                ? scan.HasInfrastructureErrors
+                    ? Loc.Format("L.QuickTransfer.ScanPartial", _destinations.Count,
+                        scan.CheckedApps, FirstScanError(scan))
+                    : Loc.Get("L.QuickTransfer.FileSharingHint")
+                : scan.HasInfrastructureErrors
+                    ? Loc.Format("L.QuickTransfer.ScanFailed", FirstScanError(scan))
+                    : Loc.Get("L.QuickTransfer.NoFileSharingApps");
             DestinationPicker.IsEnabled = _destinations.Count > 0;
             RefreshState();
         }
@@ -60,6 +67,13 @@ public partial class QuickTransferDialog : Window
         {
             DestinationHint.Text = Loc.Format("L.QuickTransfer.ScanFailed", ex.Message);
         }
+    }
+
+    private static string FirstScanError(FileSharingScanResult scan)
+    {
+        const int maxLength = 180;
+        var error = scan.InfrastructureErrors.FirstOrDefault() ?? Loc.Get("L.QuickTransfer.UnknownScanError");
+        return error.Length <= maxLength ? error : error[..maxLength] + "…";
     }
 
     private void OnDragOver(object sender, DragEventArgs e)

@@ -6,11 +6,22 @@ using iMobileDevice;
 using iMobileDevice.Afc;
 using iMobileDevice.HouseArrest;
 using iMobileDevice.iDevice;
+using iMobileDevice.Plist;
 
 namespace IPAStudio.Core.Services;
 
 /// <summary>An installed app whose Documents directory is exposed by Apple File Sharing.</summary>
 public sealed record FileSharingApp(string BundleId, string Name);
+
+/// <summary>Result of probing installed applications for Apple File Sharing support.</summary>
+public sealed record FileSharingScanResult(
+    IReadOnlyList<FileSharingApp> Apps,
+    int CheckedApps,
+    int RejectedApps,
+    IReadOnlyList<string> InfrastructureErrors)
+{
+    public bool HasInfrastructureErrors => InfrastructureErrors.Count > 0;
+}
 
 /// <summary>Verified progress for a file copied into an application's Documents directory.</summary>
 public sealed record FileSharingProgress(string FileName, long BytesWritten, long TotalBytes)
@@ -36,29 +47,41 @@ public sealed class FileSharingService
     /// the source of truth. Probes are sequential because lockdown services on one USB session
     /// become unreliable when several are opened concurrently.
     /// </summary>
-    public async Task<IReadOnlyList<FileSharingApp>> GetAvailableAppsAsync(
+    public async Task<FileSharingScanResult> GetAvailableAppsAsync(
         string udid, CancellationToken ct = default)
     {
         var installed = await _install.GetInstalledAppsAsync(udid, ct).ConfigureAwait(false);
-        return await Task.Run<IReadOnlyList<FileSharingApp>>(() =>
+        return await Task.Run(() =>
         {
-            var result = new List<FileSharingApp>();
+            var apps = new List<FileSharingApp>();
+            var infrastructureErrors = new List<string>();
+            var rejected = 0;
+
             foreach (var app in installed)
             {
                 ct.ThrowIfCancellationRequested();
                 try
                 {
                     using var session = OpenDocuments(udid, app.BundleId);
-                    result.Add(new FileSharingApp(app.BundleId, app.Name));
+                    apps.Add(new FileSharingApp(app.BundleId, app.Name));
+                }
+                catch (FileSharingUnavailableException ex)
+                {
+                    rejected++;
+                    AppLog.Info($"File sharing: {app.BundleId} does not expose Documents ({ex.Message})");
                 }
                 catch (Exception ex)
                 {
-                    AppLog.Info($"File sharing: {app.BundleId} rejected VendDocuments ({ex.Message})");
+                    var detail = $"{app.BundleId}: {ex.Message}";
+                    infrastructureErrors.Add(detail);
+                    AppLog.Warn($"File sharing probe failed: {detail}");
                 }
             }
 
-            AppLog.Info($"File sharing: {result.Count} of {installed.Count} apps expose Documents");
-            return result.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var ordered = apps.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+            AppLog.Info($"File sharing: {ordered.Count} available, {rejected} rejected, " +
+                        $"{infrastructureErrors.Count} probe errors among {installed.Count} apps");
+            return new FileSharingScanResult(ordered, installed.Count, rejected, infrastructureErrors);
         }, ct).ConfigureAwait(false);
     }
 
@@ -150,7 +173,10 @@ public sealed class FileSharingService
             {
                 lib.HouseArrest.house_arrest_send_command(house, "VendDocuments", bundleId).ThrowOnError();
                 lib.HouseArrest.house_arrest_get_result(house, out var response).ThrowOnError();
-                response.Dispose();
+                using (response)
+                {
+                    ValidateVendDocumentsResponse(lib.Plist, response, bundleId);
+                }
                 lib.HouseArrest.afc_client_new_from_house_arrest_client(house, out var afc).ThrowOnError();
                 return new DocumentsSession(lib.Afc, device, house, afc);
             }
@@ -164,6 +190,37 @@ public sealed class FileSharingService
         {
             device.Dispose();
             throw;
+        }
+    }
+
+    private static void ValidateVendDocumentsResponse(IPlistApi plist, PlistHandle response, string bundleId)
+    {
+        var status = ReadPlistString(plist, response, "Status");
+        if (string.Equals(status, "Complete", StringComparison.OrdinalIgnoreCase)) return;
+
+        var error = ReadPlistString(plist, response, "Error");
+        var detail = !string.IsNullOrWhiteSpace(error)
+            ? error
+            : !string.IsNullOrWhiteSpace(status)
+                ? $"unexpected status '{status}'"
+                : "the device returned no completion status";
+        throw new FileSharingUnavailableException($"{bundleId}: {detail}");
+    }
+
+    private static string? ReadPlistString(IPlistApi plist, PlistHandle dictionary, string key)
+    {
+        var item = plist.plist_dict_get_item(dictionary, key);
+        if (item is null || item.IsInvalid || item.IsClosed) return null;
+
+        try
+        {
+            plist.plist_get_string_val(item, out var value);
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        finally
+        {
+            // plist_dict_get_item returns a borrowed child. The response owns and frees it.
+            item.SetHandleAsInvalid();
         }
     }
 
@@ -197,6 +254,11 @@ public sealed class FileSharingService
     private static void TryRemove(IAfcApi afc, AfcClientHandle client, string path)
     {
         try { afc.afc_remove_path(client, path); } catch { }
+    }
+
+    private sealed class FileSharingUnavailableException : Exception
+    {
+        public FileSharingUnavailableException(string message) : base(message) { }
     }
 
     private sealed class DocumentsSession : IDisposable
