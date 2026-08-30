@@ -539,7 +539,7 @@ public sealed class DependencyService
             {
                 var zipPath = Path.Combine(Path.GetTempPath(), "imobiledevice-net.zip");
                 await DownloadWithProgressAsync(ImobiledeviceZipUrl, zipPath,
-                    f => progress?.Report(((3 + f) / 4.0, "tools")), ct);
+                    f => progress?.Report(((4 + f) / 5.0, "tools")), ct);
 
                 Directory.CreateDirectory(imobileDir);
                 using (var archive = ZipFile.OpenRead(zipPath))

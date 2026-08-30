@@ -163,9 +163,9 @@ public sealed partial class AuthService
 
     /// <summary>
     /// Runs a single "auth login" (optionally with a 2FA code). The bundled ipatool
-    /// fork exposes only --format and --keychain-passphrase as global flags (there is
-    /// no --non-interactive); stdin is closed so its interactive "Enter 2FA code:"
-    /// prompt gets EOF and it falls back to the "--auth-code required" error path.
+    /// legacy fork exposes only --format and --keychain-passphrase as global flags;
+    /// ipatool-rs additionally receives --non-interactive. In both cases stdin is
+    /// closed so authentication can never hang on a hidden console prompt.
     /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
@@ -362,7 +362,7 @@ public sealed partial class AuthService
     ///
     /// Needed because the cached account comes from the local keychain, which stays readable
     /// after Apple stops honouring the token in it. Leaving it in place let the window go on
-    /// naming a signed-in Apple ID while every download failed asking the user to sign in —
+    /// naming a signed-in Apple ID while every download failed asking the user to sign in ���
     /// the contradiction that made the message look like a bug rather than an instruction.
     /// The keychain is deliberately left alone so a fresh login can reuse it.
     /// </summary>
