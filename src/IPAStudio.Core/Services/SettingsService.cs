@@ -83,6 +83,12 @@ public sealed class AppSettings
     /// </summary>
     public bool UseBetaAppleAuthentication { get; set; }
 
+    /// <summary>Remote support is strictly opt-in and can be revoked locally at any time.</summary>
+    public bool RemoteSupportEnabled { get; set; }
+
+    /// <summary>HTTPS control-plane URL. Kept configurable for self-hosting and staging.</summary>
+    public string SupportServerUrl { get; set; } = "https://itunes-installer.vercel.app";
+
     /// <summary>Folder where IPA files are stored.</summary>
     public string? AppsFolder { get; set; }
 

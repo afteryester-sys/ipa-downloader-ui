@@ -68,6 +68,7 @@ public partial class App : Application
             return client;
         });
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<RemoteSupportService>();
         services.AddSingleton<AuthSecretStore>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<CatalogService>();
@@ -165,6 +166,21 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<ShellViewModel>(),
         };
         window.Show();
+
+        // Presence contains only coarse device/app metadata and is sent only after explicit
+        // consent in Settings. A failed heartbeat never interrupts normal IPA Studio work.
+        var remoteSupport = Services.GetRequiredService<RemoteSupportService>();
+        var supportTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30),
+        };
+        supportTimer.Tick += async (_, _) =>
+        {
+            try { await remoteSupport.SendHeartbeatAsync(); }
+            catch (Exception ex) { IPAStudio.Core.Diagnostics.AppLog.Warn($"Remote support heartbeat failed: {ex.Message}"); }
+        };
+        supportTimer.Start();
+        _ = remoteSupport.SendHeartbeatAsync();
 
         var downloads = Services.GetRequiredService<DownloadService>();
 

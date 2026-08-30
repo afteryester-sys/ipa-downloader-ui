@@ -1,0 +1,22 @@
+<Window x:Class="IPAStudio.App.Views.SupportAdminSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Первичный ключ администратора" Width="520" Height="430"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource Brush.Background}">
+    <StackPanel Margin="28">
+        <TextBlock Text="Создать ключ администратора" Style="{StaticResource Text.Title}" />
+        <TextBlock Text="Операция доступна только один раз. Закрытый ключ будет зашифрован паролем и сохранён в выбранный файл. Bootstrap-секрет после регистрации больше не используется."
+                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,20" />
+        <TextBlock Text="Bootstrap-секрет" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="BootstrapSecret" Padding="10" Margin="0,6,0,14" />
+        <TextBlock Text="Новый пароль (не менее 12 символов)" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="Password" Padding="10" Margin="0,6,0,14" />
+        <TextBlock Text="Повторите пароль" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="PasswordAgain" Padding="10" Margin="0,6,0,18" />
+        <StackPanel Orientation="Horizontal">
+            <Button Content="Создать и сохранить" Style="{StaticResource Button.Primary}" Click="Create_Click" Margin="0,0,10,0" />
+            <Button Content="Отмена" Style="{StaticResource Button.Secondary}" IsCancel="True" />
+        </StackPanel>
+        <TextBlock x:Name="StatusText" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
+    </StackPanel>
+</Window>
