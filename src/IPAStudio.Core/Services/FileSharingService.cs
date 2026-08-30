@@ -5,6 +5,7 @@ using IPAStudio.Core.Tools;
 using iMobileDevice;
 using iMobileDevice.Afc;
 using iMobileDevice.HouseArrest;
+using iMobileDevice.iDevice;
 
 namespace IPAStudio.Core.Services;
 
