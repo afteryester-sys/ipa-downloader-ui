@@ -13,7 +13,7 @@
 #define MyAppName "IPA Studio"
 ; MyAppVersion may be provided by the build pipeline via /DMyAppVersion=x.y.z
 #ifndef MyAppVersion
-  #define MyAppVersion "1.7.14"
+  #define MyAppVersion "1.7.15"
 #endif
 #define MyAppPublisher "IPA Studio"
 ; Must match <AssemblyName> in IPAStudio.App.csproj (currently "IPAStudio"),

@@ -25,12 +25,19 @@ public partial class SupportAdminSetupWindow : Window
             StatusText.Text = "Пароли не совпадают.";
             return;
         }
+        if (string.IsNullOrWhiteSpace(BootstrapSecret.Password))
+        {
+            StatusText.Text = "Введите bootstrap-секрет.";
+            return;
+        }
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            Title = "Сохранить ключ администратора",
-            Filter = "IPA Studio admin key (*.json)|*.json",
-            FileName = "ipa-studio-admin-key.json",
+            Title = "Сохранить зашифрованный ключ администратора",
+            Filter = "Зашифрованный ключ IPA Studio (*.txt)|*.txt",
+            DefaultExt = ".txt",
+            FileName = "ipa-studio-admin-key.txt",
             AddExtension = true,
+            OverwritePrompt = true,
         };
         if (dialog.ShowDialog(this) != true) return;
         IsEnabled = false;
@@ -38,7 +45,9 @@ public partial class SupportAdminSetupWindow : Window
         try
         {
             await _support.CreateAdministratorKeyAsync(dialog.FileName, BootstrapSecret.Password, Password.Password);
-            MessageBox.Show(this, "Ключ создан. Храните файл отдельно от пароля; восстановить его невозможно.",
+            await _support.ImportAdministratorKeyAsync(dialog.FileName);
+            MessageBox.Show(this,
+                "Ключ создан и безопасно импортирован на этот ПК. Сохраните TXT-файл как резервную копию отдельно от пароля.",
                 "Ключ администратора готов", MessageBoxButton.OK, MessageBoxImage.Information);
             DialogResult = true;
         }

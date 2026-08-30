@@ -746,8 +746,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private void CreateAdminKey() =>
-        new Views.SupportAdminSetupWindow(_remoteSupport) { Owner = Application.Current.MainWindow }.ShowDialog();
+    private void CreateAdminKey()
+    {
+        var setup = new Views.SupportAdminSetupWindow(_remoteSupport) { Owner = Application.Current.MainWindow };
+        if (setup.ShowDialog() == true)
+            new Views.SupportAdminWindow(_remoteSupport) { Owner = Application.Current.MainWindow }.ShowDialog();
+    }
 
     [RelayCommand]
     private async Task OpenAdminPanelAsync()
@@ -757,7 +761,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Title = "Импортируйте ключ администратора один раз",
-                Filter = "IPA Studio admin key (*.json)|*.json",
+                Filter = "Зашифрованный ключ IPA Studio (*.txt)|*.txt|Старый формат ключа (*.json)|*.json",
                 CheckFileExists = true,
             };
             if (dialog.ShowDialog() != true) return;
