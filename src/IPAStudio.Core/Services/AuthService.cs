@@ -53,11 +53,12 @@ public sealed partial class AuthService
         Func<CancellationToken, Task<string?>>? twoFactorProvider = null,
         CancellationToken ct = default)
     {
+        _tools.EnsureFolders();
+
         if (_tools.UseBetaAppleAuthentication)
         {
             var missing = _tools.ValidateTools()
-                .Where(path => string.Equals(path, _tools.BetaIpatoolPath, StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(path, _tools.SapHelperPath, StringComparison.OrdinalIgnoreCase))
+                .Where(path => string.Equals(path, _tools.BetaIpatoolPath, StringComparison.OrdinalIgnoreCase))
                 .Select(Path.GetFileName)
                 .ToArray();
             if (missing.Length > 0)
@@ -162,9 +163,9 @@ public sealed partial class AuthService
 
     /// <summary>
     /// Runs a single "auth login" (optionally with a 2FA code). The bundled ipatool
-    /// fork exposes only --format and --keychain-passphrase as global flags (there is
-    /// no --non-interactive); stdin is closed so its interactive "Enter 2FA code:"
-    /// prompt gets EOF and it falls back to the "--auth-code required" error path.
+    /// legacy fork exposes only --format and --keychain-passphrase as global flags;
+    /// ipatool-rs additionally receives --non-interactive. In both cases stdin is
+    /// closed so authentication can never hang on a hidden console prompt.
     /// </summary>
     private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
@@ -181,7 +182,16 @@ public sealed partial class AuthService
             args.Add("--auth-code");
             args.Add(authCode!.Trim());
         }
-        return _runner.RunAsync(_tools.IpatoolPath, args, closeStdin: true, ct: ct);
+        if (_tools.UseBetaAppleAuthentication)
+            args.Add("--non-interactive");
+
+        return _runner.RunAsync(
+            _tools.IpatoolPath,
+            args,
+            closeStdin: true,
+            workingDirectory: _tools.IpatoolWorkingDirectory,
+            environment: _tools.IpatoolEnvironment,
+            ct: ct);
     }
 
     /// <summary>
@@ -197,6 +207,8 @@ public sealed partial class AuthService
                 new[] { "auth", "info", "--keychain-passphrase", ActiveKeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
+                workingDirectory: _tools.IpatoolWorkingDirectory,
+                environment: _tools.IpatoolEnvironment,
                 ct: ct).ConfigureAwait(false);
 
             // The keychain file exists but is unprotected / created with a different
@@ -232,6 +244,8 @@ public sealed partial class AuthService
                 new[] { "auth", "revoke", "--keychain-passphrase", ActiveKeychainPassphrase,
                         "--format", "json" },
                 closeStdin: true,
+                workingDirectory: _tools.IpatoolWorkingDirectory,
+                environment: _tools.IpatoolEnvironment,
                 ct: ct).ConfigureAwait(false);
         }
         finally
@@ -251,6 +265,33 @@ public sealed partial class AuthService
 
     private static AccountInfo? ParseAccount(string output)
     {
+        // ipatool-rs prints pretty (multi-line) JSON and returns the account object
+        // directly. Parse that complete document before trying the legacy JSON-lines
+        // envelopes used by the Go backends.
+        var start = output.IndexOf('{');
+        var end = output.LastIndexOf('}');
+        if (start >= 0 && end > start)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(output[start..(end + 1)]);
+                var root = document.RootElement;
+                var account = root.TryGetProperty("account", out var nested) ? nested : root;
+                var email = account.TryGetProperty("email", out var emailElement)
+                    ? emailElement.GetString()
+                    : null;
+                var name = account.TryGetProperty("name", out var nameElement)
+                    ? nameElement.GetString()
+                    : null;
+                if (!string.IsNullOrWhiteSpace(email))
+                    return new AccountInfo { Email = email!, Name = name ?? "" };
+            }
+            catch (JsonException)
+            {
+                // Fall through to the legacy line-by-line parser.
+            }
+        }
+
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!line.StartsWith('{'))
@@ -321,7 +362,7 @@ public sealed partial class AuthService
     ///
     /// Needed because the cached account comes from the local keychain, which stays readable
     /// after Apple stops honouring the token in it. Leaving it in place let the window go on
-    /// naming a signed-in Apple ID while every download failed asking the user to sign in —
+    /// naming a signed-in Apple ID while every download failed asking the user to sign in ���
     /// the contradiction that made the message look like a bug rather than an instruction.
     /// The keychain is deliberately left alone so a fresh login can reuse it.
     /// </summary>

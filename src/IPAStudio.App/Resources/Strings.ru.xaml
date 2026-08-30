@@ -192,10 +192,10 @@
     <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth">Авторизация Apple</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth.Toggle">Новый метод авторизации (BETA)</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Hint">Экспериментальный вход с SAP-подписью через компоненты desktop iTunes. Стандартный метод и его сессия остаются без изменений.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Экспериментальный вход через ipatool-rs с актуальной SAP-подписью. iTunes и iCloud не требуются; стандартный метод и его сессия остаются без изменений.</sys:String>
     <sys:String x:Key="L.Settings.BetaAuth.Check">Проверить готовность</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Ready">BETA-компоненты и desktop iTunes найдены. Живой вход проверяется только попыткой авторизации.</sys:String>
-    <sys:String x:Key="L.Settings.BetaAuth.Missing">Не готово. BETA ipatool: {0}; SAP helper: {1}; iTunes: {2}.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">ipatool-rs найден. При первом входе служебные компоненты Apple будут автоматически загружены и проверены.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">ipatool-rs не найден. Нажмите «Переустановить утилиты», затем перезапустите приложение.</sys:String>
     <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolder">Библиотека iTunes (папка Mobile Applications)</sys:String>
     <sys:String x:Key="L.Settings.ItunesFolderHint">Нужно только для способа «Через iTunes 12.6.5.3» и только если библиотека iTunes перенесена в другое место. Обычно поле можно оставить пустым — стандартные папки проверяются автоматически.</sys:String>
@@ -368,7 +368,7 @@
     <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и ��крывается.</sys:String>
     <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
