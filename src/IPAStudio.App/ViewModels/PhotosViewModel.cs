@@ -200,6 +200,7 @@ public sealed partial class PhotoAlbumViewModel : ObservableObject
 public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 {
     private readonly PhotoService _photos;
+    private readonly ApplePhotoSyncService _applePhotoSync;
 
     /// <summary>
     /// Thumbnails kept on disk between visits, so reopening an album does not pay for the
@@ -545,10 +546,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     private CancellationTokenSource? _thumbCts;
 
-    public PhotosViewModel(PhotoService photos, PhotoThumbnailCache thumbCache, OperationService operations,
-        SettingsService settings)
+    public PhotosViewModel(PhotoService photos, ApplePhotoSyncService applePhotoSync,
+        PhotoThumbnailCache thumbCache, OperationService operations, SettingsService settings)
     {
         _photos = photos;
+        _applePhotoSync = applePhotoSync;
         _thumbCache = thumbCache;
         _operations = operations;
         _settings = settings;
@@ -1440,72 +1442,88 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private Task Import()
+    private async Task Import()
     {
-        if (_device is null) return Task.CompletedTask;
+        if (_device is null || IsTransferring) return;
 
-        // AFC can write bytes into DCIM but cannot register a PHAsset on current iOS.
-        // Calling that a successful import left invisible orphan files on the phone, so the
-        // dedicated Photos action now explains the limitation and points at the verified
-        // File Sharing route available from the device card.
-        StatusText = Loc.Get("L.Photos.SystemImportUnavailable");
+        var dialog = new OpenFileDialog
+        {
+            Title = Loc.Get("L.Photos.PickImportFiles"),
+            Filter = Loc.Get("L.Photos.MediaFilter"),
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        await ImportFilesAsync(dialog.FileNames);
+    }
+
+    /// <summary>
+    /// Stages local media in a persistent folder and opens Apple's supported Windows sync
+    /// client. Direct writes to DCIM are deliberately not used: current iOS does not create
+    /// Photos-library assets for files placed there by AFC.
+    /// </summary>
+    public async Task ImportFilesAsync(IEnumerable<string> paths)
+    {
+        if (_device is null || IsTransferring) return;
+
+        var files = ExpandImportPaths(paths)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (!files.Any(ApplePhotoSyncService.IsSupportedMedia))
+        {
+            StatusText = Loc.Get("L.Photos.DropNoMedia");
+            return;
+        }
+
+        ApplePhotoSyncResult? result = null;
+        await RunTransferAsync(async (progress, ct) =>
+        {
+            result = await _applePhotoSync.PrepareAsync(_device.Udid, files, progress, ct);
+        }, "L.Ops.Photos.Import");
+        if (result is null || result.Prepared == 0) return;
+
+        var clientName = result.Client switch
+        {
+            ApplePhotoClient.AppleDevices => Loc.Get("L.Photos.AppleDevices"),
+            ApplePhotoClient.ITunes => "iTunes",
+            _ => Loc.Get("L.Photos.AppleClient"),
+        };
+        StatusText = Loc.Format("L.Photos.SyncPrepared", result.Prepared, result.Total);
+
+        var bodyKey = result.Client == ApplePhotoClient.None
+            ? "L.Photos.SyncClientMissing"
+            : result.ClientOpened
+                ? "L.Photos.SyncInstructions"
+                : "L.Photos.SyncClientOpenFailed";
         MessageBox.Show(
-            StatusText,
-            Loc.Get("L.Photos.Import"),
+            Loc.Format(bodyKey, result.Prepared, result.Total, result.Folder, clientName),
+            Loc.Get("L.Photos.SyncTitle"),
             MessageBoxButton.OK,
-            MessageBoxImage.Information);
-        return Task.CompletedTask;
+            result.Client == ApplePhotoClient.None ? MessageBoxImage.Warning : MessageBoxImage.Information);
     }
 
-    /// <summary>
-    /// Copies the given local files onto the device. Split out from the file dialog so
-    /// dragging pictures onto the page and picking them through the dialog are the same
-    /// operation, including the "copied but not in the library yet" reporting.
-    /// </summary>
-    public Task ImportFilesAsync(IEnumerable<string> paths)
+    private static IEnumerable<string> ExpandImportPaths(IEnumerable<string> paths)
     {
-        if (_device is null) return Task.CompletedTask;
+        foreach (var path in paths)
+        {
+            if (File.Exists(path))
+            {
+                yield return path;
+                continue;
+            }
 
-        var hasMedia = paths.Any(PhotoService.IsMediaFile);
-        StatusText = hasMedia
-            ? Loc.Get("L.Photos.SystemImportUnavailable")
-            : Loc.Get("L.Photos.DropNoMedia");
-        ImportNeedsRestart = false;
-        return Task.CompletedTask;
-    }
+            if (!Directory.Exists(path)) continue;
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                AppLog.Warn($"Photos import: cannot enumerate {path} ({ex.Message})");
+                continue;
+            }
 
-    /// <summary>
-    /// True while imported files are on the device but not in the Camera Roll, which is the
-    /// only situation where offering a reboot makes sense.
-    /// </summary>
-    [ObservableProperty]
-    private bool _importNeedsRestart;
-
-    [RelayCommand]
-    private void DismissImportHint() => ImportNeedsRestart = false;
-
-    /// <summary>
-    /// Reboots the device so Photos re-scans DCIM on the way up. Confirmed first: this
-    /// interrupts whatever the user is doing on the phone.
-    /// </summary>
-    [RelayCommand]
-    private async Task RestartDevice()
-    {
-        if (_device is null) return;
-
-        var confirm = MessageBox.Show(
-            Loc.Get("L.Photos.RestartConfirm"),
-            Loc.Get("L.Photos.RestartDevice"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (confirm != MessageBoxResult.Yes) return;
-
-        var restarted = await _photos.RestartDeviceAsync(_device.Udid);
-        StatusText = Loc.Get(restarted ? "L.Photos.Restarting" : "L.Photos.RestartFailed");
-
-        // The device is going away; keeping the banner would invite a second reboot.
-        if (restarted) ImportNeedsRestart = false;
+            foreach (var file in files) yield return file;
+        }
     }
 
     [RelayCommand]

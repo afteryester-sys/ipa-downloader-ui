@@ -94,6 +94,12 @@ public sealed class AppSettings
     public string? AppsFolder { get; set; }
 
     /// <summary>
+    /// Stable local folder offered to Apple Devices/iTunes for supported photo synchronization.
+    /// Kept between runs because changing the source makes Apple's client remove the old album.
+    /// </summary>
+    public string? ApplePhotoSyncFolder { get; set; }
+
+    /// <summary>
     /// Number of parallel downloads (1-6). Default 3.
     ///
     /// Apple shapes each connection individually, so one stream usually cannot

@@ -174,7 +174,7 @@
     <sys:String x:Key="L.Ops.Kind.MediaExport">Exporting media</sys:String>
     <sys:String x:Key="L.Ops.Photos.Export">Saving photos to computer</sys:String>
     <sys:String x:Key="L.Ops.Photos.Delete">Deleting photos from device</sys:String>
-    <sys:String x:Key="L.Ops.Photos.Import">Importing photos to device</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Preparing photos for Apple sync</sys:String>
     <sys:String x:Key="L.Ops.ExitTitle">Operations still running</sys:String>
     <sys:String x:Key="L.Ops.ExitBody">These operations have not finished. Closing now interrupts them — an install onto a device is a particularly bad moment to cut off.</sys:String>
     <sys:String x:Key="L.Ops.ExitConfirm">Close anyway</sys:String>
@@ -657,9 +657,16 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Choose photos or videos to transfer</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
-    <sys:String x:Key="L.Photos.DropHint">Drop to copy to the device</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Drop to prepare Apple photo sync</sys:String>
     <sys:String x:Key="L.Photos.DropHintSub">Photos and videos; folders are searched through</sys:String>
-    <sys:String x:Key="L.Photos.DropNoMedia">None of those files are photos or videos</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">None of those files are supported photos or videos</sys:String>
+    <sys:String x:Key="L.Photos.SyncTitle">Sync photos with Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncPrepared">Prepared for sync: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
+    <sys:String x:Key="L.Photos.AppleClient">Apple Devices or iTunes</sys:String>
+    <sys:String x:Key="L.Photos.SyncInstructions">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;In {3}, select the iPhone → Photos → “Sync photos from”, choose this folder, then click Apply/Sync. The files appear in a separate synced album. If iCloud Photos is enabled, Apple may disable USB photo sync; turn it off on the iPhone or use iCloud instead.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientMissing">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;Install Apple Devices from Microsoft Store or classic iTunes. Then choose this folder in the device's Photos section and click Apply/Sync.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;{3} could not be opened automatically. Start it manually, select the iPhone → Photos, choose the open folder, then click Apply/Sync.</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">No files could be copied</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. They will not appear in Photos — iOS only shows its own library there</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are on the device in DCIM and readable by anything that reads that folder directly. They will not appear in Photos: iOS keeps its library in a separate closed database and does not pick up files added from outside. Restarting the device does not change this.</sys:String>

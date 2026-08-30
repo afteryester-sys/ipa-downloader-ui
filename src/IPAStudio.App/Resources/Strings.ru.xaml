@@ -174,7 +174,7 @@
     <sys:String x:Key="L.Ops.Kind.MediaExport">Экспорт медиа</sys:String>
     <sys:String x:Key="L.Ops.Photos.Export">Сохранение фото на компьютер</sys:String>
     <sys:String x:Key="L.Ops.Photos.Delete">Удаление фото с устройства</sys:String>
-    <sys:String x:Key="L.Ops.Photos.Import">Загрузка фото на устройство</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Подготовка фото для Apple-синхронизации</sys:String>
     <sys:String x:Key="L.Ops.ExitTitle">Есть незавершённые операции</sys:String>
     <sys:String x:Key="L.Ops.ExitBody">Эти операции ещё не закончились. Если закрыть программу сейчас, они будут прерваны — установка на устройство прерывается особенно неудачно.</sys:String>
     <sys:String x:Key="L.Ops.ExitConfirm">Всё равно закрыть</sys:String>
@@ -220,7 +220,7 @@
     <sys:String x:Key="L.Settings.ResumeMode">При обрыве загрузки</sys:String>
     <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Начинать заново (как раньше)</sys:String>
     <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Сохранять скачанное</sys:String>
-    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный фай�� будет скачан заново.</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный ф��й�� будет скачан заново.</sys:String>
     <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
@@ -236,7 +236,7 @@
     <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
     <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
     <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
-    <sys:String x:Key="L.Update.UpToDate">У вас устано��лена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас ус��ано��лена последняя версия</sys:String>
     <sys:String x:Key="L.Update.UpToDateVer">У вас установлена последняя версия (v{0})</sys:String>
     <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
     <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
@@ -370,7 +370,7 @@
     <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
     <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открыва��т элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
-    <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Settings.Diagnostics">Диаг��остика</sys:String>
     <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
     <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
     <sys:String x:Key="L.Settings.Load.Memory">Память</sys:String>
@@ -434,7 +434,7 @@
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
     <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
-    <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте е��ё раз через минуту.</sys:String>
+    <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответи��. Попробуйте е��ё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
@@ -477,7 +477,7 @@
     <sys:String x:Key="L.Direct.LookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdEmpty">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
     <sys:String x:Key="L.Picker.BundleIdNotFound">Приложение для «{0}» не найдено в App Store.</sys:String>
-    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти приложение в App Store. Пр��верьте подключение и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти прил��жение в App Store. Пр��верьте подключение и попробуйте снова.</sys:String>
 
 
     <!-- Советы по скорости -->
@@ -608,9 +608,16 @@
     <sys:String x:Key="L.Photos.PickImportFiles">Выберите фото или видео для переноса</sys:String>
     <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
     <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
-    <sys:String x:Key="L.Photos.DropHint">Отпустите, чтобы перенести на устройство</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Отпустите, чтобы подготовить Apple-синхронизацию</sys:String>
     <sys:String x:Key="L.Photos.DropHintSub">Фото и видео; папки будут просмотрены целиком</sys:String>
-    <sys:String x:Key="L.Photos.DropNoMedia">Среди перенесённых файлов нет фото и видео</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">Среди выбранных файлов нет поддерживаемых фото и видео</sys:String>
+    <sys:String x:Key="L.Photos.SyncTitle">Синхронизация фото через Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncPrepared">Подготовлено для синхронизации: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
+    <sys:String x:Key="L.Photos.AppleClient">Apple Devices или iTunes</sys:String>
+    <sys:String x:Key="L.Photos.SyncInstructions">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;В {3} выберите iPhone → «Фото» → «Синхронизировать фото из папки», укажите эту папку и нажмите «Применить»/«Синхронизировать». Фото появятся в отдельном синхронизированном альбоме. Если включены «Фото iCloud», Apple может запретить USB-синхронизацию — тогда её нужно отключить на iPhone либо использовать iCloud.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientMissing">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Установите Apple Devices из Microsoft Store или классический iTunes. Затем выберите эту папку в разделе фото устройства и нажмите «Применить»/«Синхронизировать».</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Не удалось автоматически открыть {3}. Запустите его вручную, выберите iPhone → «Фото», укажите открытую папку и нажмите «Применить»/«Синхронизировать».</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там только свою медиатеку</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>
@@ -662,7 +669,7 @@
     <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>
 
 
-    <!-- Добавление в к��талог (экран загрузки) -->
+    <!-- Доб��вление в к��талог (экран загрузки) -->
     <sys:String x:Key="L.Direct.AddToCatalog">Добавить в каталог</sys:String>
     <sys:String x:Key="L.Direct.AddToCatalogHint">Сохранить приложение в каталог, чтобы позже установить его без повторного поиска</sys:String>
     <sys:String x:Key="L.Direct.InCatalog">Уже в каталоге</sys:String>
@@ -736,7 +743,7 @@
     <sys:String x:Key="L.ICloud.ContactsExported">Сохранено контактов: {0}.</sys:String>
     <sys:String x:Key="L.ICloud.ExportFailed">Не удалось сохранить файл.</sys:String>
     <sys:String x:Key="L.ICloud.SelectAll">Выбрать все</sys:String>
-    <sys:String x:Key="L.ICloud.Download">Скачать выбранные</sys:String>
+    <sys:String x:Key="L.ICloud.Download">Скачать выбр��нные</sys:String>
     <sys:String x:Key="L.ICloud.PickDownloadFolder">Куда сохранить фото</sys:String>
     <sys:String x:Key="L.ICloud.Downloading">Скачиваем {0} из {1}…</sys:String>
     <sys:String x:Key="L.ICloud.Downloaded">Скачано фото: {0}.</sys:String>
@@ -801,7 +808,7 @@
     <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
     <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
     <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
-    <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationLabel">��уда сохранить</sys:String>
     <sys:String x:Key="L.MediaExport.DestinationHint">Выберите папку, куда будут скопированы найденные файлы.</sys:String>
     <sys:String x:Key="L.MediaExport.Browse">Выбрать…</sys:String>
     <sys:String x:Key="L.MediaExport.PickSourceTitle">Выберите папку-источник</sys:String>

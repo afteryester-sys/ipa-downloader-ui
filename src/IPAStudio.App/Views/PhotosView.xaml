@@ -540,30 +540,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Shown when files reached DCIM but Photos has not ingested them. On firmware
-                 that ignores the sync notifications a reboot is the only way in, so it is
-                 offered here instead of leaving the user with files they cannot find. -->
-            <Border Margin="0,0,0,12"
-                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
-                    Visibility="{Binding ImportNeedsRestart, Converter={StaticResource BoolToVis}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                               Foreground="{StaticResource Brush.Accent}"
-                               VerticalAlignment="Center" Margin="0,0,10,0" />
-                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                               VerticalAlignment="Center" MaxWidth="640"
-                               Text="{DynamicResource L.Photos.ImportNeedsRestart}" />
-                    <Button Style="{StaticResource Button.Ghost}" Margin="12,0,0,0"
-                            VerticalAlignment="Center"
-                            Content="{DynamicResource L.Photos.RestartDevice}"
-                            Command="{Binding RestartDeviceCommand}" />
-                    <Button Style="{StaticResource Button.Ghost}" Margin="4,0,0,0"
-                            VerticalAlignment="Center"
-                            Content="{DynamicResource L.Photos.DismissHint}"
-                            Command="{Binding DismissImportHintCommand}" />
-                </StackPanel>
-            </Border>
-
             </StackPanel>
 
             <!-- Album tiles: the first thing shown, like a phone gallery. Spans the preview

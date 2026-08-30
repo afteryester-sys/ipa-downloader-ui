@@ -203,20 +203,9 @@ public partial class PhotosView : UserControl
         if (!vm.CanAcceptDrop) return;
         if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
 
-        // Folders are expanded rather than ignored: dragging a folder of holiday pictures is
-        // the obvious thing to try, and refusing it would look like the drop failed. Recursive,
-        // because camera imports and phone backups both nest by date.
-        var files = new List<string>();
-        foreach (var path in paths)
-        {
-            if (Directory.Exists(path))
-                files.AddRange(Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories));
-            else if (File.Exists(path))
-                files.Add(path);
-        }
-
-        // The view model drops anything that is not media and reports it.
-        await vm.ImportFilesAsync(files);
+        // The view model expands folders with per-folder error handling, filters media and uses
+        // the same Apple-sync path as the file picker.
+        await vm.ImportFilesAsync(paths);
     }
 
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
