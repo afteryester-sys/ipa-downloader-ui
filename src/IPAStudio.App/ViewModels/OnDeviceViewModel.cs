@@ -174,6 +174,12 @@ public sealed partial class InstalledAppViewModel : ObservableObject, ISelectabl
     /// </summary>
     public CancellationTokenSource? Cancellation { get; set; }
 
+    /// <summary>
+    /// Identifies the current attempt. Progress callbacks are posted to the UI dispatcher and can
+    /// arrive after cancellation; a new attempt must ignore callbacks left by the previous one.
+    /// </summary>
+    public int DownloadGeneration { get; set; }
+
     /// <summary>True during the Apple handshake, before any byte exists.</summary>
     [ObservableProperty]
     private bool _isConnecting;
@@ -1127,12 +1133,17 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         item.ErrorText = null;
         item.SavedPath = null;
+        // Invalidate dispatcher callbacks still queued by an earlier cancelled attempt before
+        // resetting the row. Otherwise stale byte counts can overwrite this attempt's progress.
+        var generation = unchecked(++item.DownloadGeneration);
         // The offer belongs to the failure that produced it; leaving it on screen through the
         // next attempt would let a stale list be clicked after a success.
         item.ClearCandidates();
-        item.IsDownloading = true;
+        item.IsConnecting = true;
+        item.IsFinalizing = false;
         item.Progress = 0;
         item.StatusText = Loc.Get("L.Queue.Status.Connecting");
+        item.IsDownloading = true;
         OnPropertyChanged(nameof(CanMinimize));
 
         // Linked to the batch when there is one, so cancelling the operation stops this row
@@ -1176,6 +1187,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
             var progress = new Progress<DownloadProgress>(p =>
             {
+                if (generation != item.DownloadGeneration || !item.IsDownloading) return;
+
                 item.Progress = p.Percent;
                 item.IsConnecting = p.Connecting;
                 item.IsFinalizing = p.Finalizing;

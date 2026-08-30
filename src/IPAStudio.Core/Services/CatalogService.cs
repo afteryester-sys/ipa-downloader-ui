@@ -437,6 +437,9 @@ public sealed class CatalogService
             // "app not found for bundle identifier com.inv.gen in storefront RU", while
             // "-i 6769745089" downloads it.
             ["com.inv.gen"] = 6769745089,
+            // «Купер»: the public lookup no longer resolves ru.moiseev by bundle id,
+            // while the numeric id is accepted by the same account and storefront.
+            ["ru.moiseev"] = 6505025679,
         };
 
     /// <summary>
