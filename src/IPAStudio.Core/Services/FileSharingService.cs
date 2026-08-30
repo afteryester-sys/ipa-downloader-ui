@@ -139,7 +139,9 @@ public sealed class FileSharingService
     {
         NativeDevice.EnsureLoaded();
         var lib = LibiMobileDevice.Instance;
-        NativeDevice.Open(udid, out var device).ThrowOnError();
+        var openError = NativeDevice.Open(udid, out var device);
+        if (openError != iDeviceError.Success)
+            throw new InvalidOperationException($"Could not open device: {openError}");
         try
         {
             lib.HouseArrest.house_arrest_client_start_service(device, out var house, "IPAStudio").ThrowOnError();
