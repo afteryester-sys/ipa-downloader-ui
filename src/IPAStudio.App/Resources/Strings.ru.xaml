@@ -445,7 +445,7 @@
     <sys:String x:Key="L.Install.Error.CoordinatedInstall">На устройстве осталась незавершённая загрузка этого приложения из App Store. Удалите значок приложения с экрана «Домой» — в том числе тусклый или наполовину установленный — и повторите попытку.</sys:String>
     <sys:String x:Key="L.Install.Error.NoSpace">На устройстве недостаточно свободного места.</sys:String>
     <sys:String x:Key="L.Install.Error.ExtractionFailed">Устройству не удалось распаковать приложение. Почти всегда причина — нехватка места: при установке нужен запас в 2–3 размера приложения, поэтому ошибка появляется, даже когда немного свободного места ещё показано. Освободите место в «Настройки — Основные — Хранилище iPhone» и повторите.</sys:String>
-    <sys:String x:Key="L.Install.Error.Verification">Проверка приложения не пройдена: IPA повреждён или его подпись недействительна.</sys:String>
+    <sys:String x:Key="L.Install.Error.Verification">Проверка приложения не пройдена: IPA повреждён или его ��одпись недействительна.</sys:String>
     <sys:String x:Key="L.Install.Error.CertRevoked">Сертификат подписи отозван. Используйте другой IPA.</sys:String>
     <sys:String x:Key="L.Install.Error.Incompatible">IPA несовместим с версией iOS на устройстве.</sys:String>
     <sys:String x:Key="L.Install.Error.AlreadyInstalled">Это приложение уже установлено на устройстве.</sys:String>
@@ -635,7 +635,7 @@
     <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>
 
 
-    <!-- Всплывающее окно контактов -->
+    <!-- Всп��ывающее окно контактов -->
     <sys:String x:Key="L.Contact.Title">Связаться с разработчиком</sys:String>
     <sys:String x:Key="L.Contact.Email">Скопировать адрес</sys:String>
     <sys:String x:Key="L.Contact.Copied">Адрес скопирован</sys:String>
@@ -827,5 +827,22 @@
     <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
+
+    <!-- Quick Transfer -->
+    <sys:String x:Key="L.QuickTransfer.Open">Быстрый перенос</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Title">Быстрый перенос</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Device">На устройство: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DropHint">Перетащите сюда фото, видео или IPA</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Browse">Выбрать файлы…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Supported">Фото и видео попадут в «Фото», IPA будут установлены автоматически.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Filter">Поддерживаемые файлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.tif;*.tiff;*.bmp;*.mov;*.mp4;*.m4v;*.3gp;*.avi;*.ipa|Все файлы|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Summary">Распознано файлов: {0}. Проверьте назначения.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Photos">Фото</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Apps">Приложения</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileCount">Файлов: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Transfer">Перенести</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Importing">Импортируем фото и видео…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingFile">Импортировано {0} из {1}…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Закрыть</sys:String>
 
 </ResourceDictionary>

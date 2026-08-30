@@ -281,6 +281,20 @@
                                                 CommandParameter="{Binding}" />
                                     </Grid>
 
+                                    <!-- Quick Transfer is deliberately a compact secondary action inside
+                                         the device card: the destination device is never ambiguous. -->
+                                    <Button Style="{StaticResource Button.Secondary}" Margin="0,8,0,0"
+                                            HorizontalAlignment="Stretch"
+                                            Click="OnQuickTransferClicked"
+                                            Tag="{Binding}">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                                       VerticalAlignment="Center" Margin="0,0,7,0" />
+                                            <TextBlock Text="{DynamicResource L.QuickTransfer.Open}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
                                     <!-- What is already installed here, as opposed to the catalog -->
                                     <Button Content="{DynamicResource L.OnDevice.Open}"
                                             Style="{StaticResource Button.Ghost}" Margin="0,8,0,0"

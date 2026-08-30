@@ -2,6 +2,10 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using IPAStudio.App.Services;
+using IPAStudio.App.ViewModels;
+using IPAStudio.Core.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace IPAStudio.App.Views;
 
@@ -11,6 +15,20 @@ public partial class DevicesView : UserControl
     {
         InitializeComponent();
         Loaded += (_, _) => StartPulseAnimation();
+    }
+
+    private void OnQuickTransferClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: DeviceViewModel device }) return;
+
+        var dialog = new QuickTransferDialog(
+            device.Device,
+            App.Services.GetRequiredService<PhotoService>(),
+            App.Services.GetRequiredService<OperationService>())
+        {
+            Owner = Window.GetWindow(this),
+        };
+        dialog.ShowDialog();
     }
 
     /// <summary>

@@ -830,4 +830,21 @@
     <sys:String x:Key="L.OnDevice.TransferNoTargets">No other device is connected. Attach a second iPhone by cable, tap Trust on it, then open this list again.</sys:String>
     <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
 
+    <!-- Quick Transfer -->
+    <sys:String x:Key="L.QuickTransfer.Open">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Title">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Device">To device: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DropHint">Drop photos, videos, or IPA files here</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Browse">Choose files…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Supported">Photos and videos go to Photos; IPA files are installed automatically.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Filter">Supported files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.tif;*.tiff;*.bmp;*.mov;*.mp4;*.m4v;*.3gp;*.avi;*.ipa|All files|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Summary">Recognized {0} file(s). Review the destinations.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Photos">Photos</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Apps">Apps</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileCount">{0} file(s)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Transfer">Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Importing">Importing photos and videos…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingFile">Imported {0} of {1}…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Close</sys:String>
+
 </ResourceDictionary>
