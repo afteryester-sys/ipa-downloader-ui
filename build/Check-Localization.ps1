@@ -26,6 +26,7 @@ foreach ($language in $resourceFiles.Keys) {
     [xml]$xml = [System.IO.File]::ReadAllText($resourceFiles[$language], $utf8Strict)
     $entries = @{}
     foreach ($node in $xml.ResourceDictionary.ChildNodes) {
+        if ($node.NodeType -ne [System.Xml.XmlNodeType]::Element) { continue }
         $key = $node.GetAttribute("Key", "http://schemas.microsoft.com/winfx/2006/xaml")
         if ([string]::IsNullOrWhiteSpace($key)) { continue }
         if ($entries.ContainsKey($key)) { throw "Duplicate localization key '$key' in $language" }
