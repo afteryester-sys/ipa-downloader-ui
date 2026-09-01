@@ -34,24 +34,13 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="5*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="7*"/></Grid.ColumnDefinitions>
             <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                        <RowDefinition Height="110"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="{DynamicResource L.Firmware.Catalog}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Row="1" Text="{DynamicResource L.Firmware.CatalogHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                    <TextBox Grid.Row="2" Style="{StaticResource Input.TextBox}" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
-                    <ListBox Grid.Row="3" ItemsSource="{Binding CatalogDevices}" SelectedItem="{Binding SelectedCatalogDevice}" DisplayMemberPath="DisplayName" BorderThickness="0" Background="Transparent" Margin="0,8,0,8"/>
-                    <Button Grid.Row="4" Content="{DynamicResource L.Firmware.AddDevice}" Style="{StaticResource Button.Primary}" Command="{Binding AddDeviceCommand}" HorizontalAlignment="Stretch"/>
-                    <Grid Grid.Row="5" Margin="0,18,0,0">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                        <DockPanel Margin="0,0,0,8">
-                            <TextBlock Text="{DynamicResource L.Firmware.MyDevices}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
-                            <Border DockPanel.Dock="Right" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="10" Padding="8,2"><TextBlock Text="{Binding MyDevices.Count}" Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold"/></Border>
-                        </DockPanel>
-                        <ListBox Grid.Row="1" ItemsSource="{Binding MyDevices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName" BorderThickness="0" Background="Transparent"/>
-                    </Grid>
-                    <Button Grid.Row="6" Content="{DynamicResource L.Firmware.RemoveDevice}" Style="{StaticResource Button.Secondary}" Command="{Binding RemoveDeviceCommand}" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <DockPanel Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Firmware.MyDevices}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
+                        <Border DockPanel.Dock="Right" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="10" Padding="8,2"><TextBlock Text="{Binding MyDevices.Count}" Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold"/></Border>
+                    </DockPanel>
+                    <ListBox Grid.Row="1" ItemsSource="{Binding MyDevices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName" BorderThickness="0" Background="Transparent"/>
+                    <Button Grid.Row="2" Content="{DynamicResource L.Firmware.RemoveDevice}" Style="{StaticResource Button.Secondary}" Command="{Binding RemoveDeviceCommand}" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
                 </Grid>
             </Border>
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
@@ -76,29 +65,16 @@
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0"><TextBlock Text="{DynamicResource L.Firmware.Interval}" VerticalAlignment="Center"/><Slider Width="160" Minimum="1" Maximum="168" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding AutoCheckIntervalHours}" Margin="12,0,0,0"/><TextBlock Text="{Binding AutoCheckIntervalHours}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel>
                         </StackPanel>
                     </Border>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                        <Button Style="{StaticResource FirmwareActionButton}" Command="{Binding ToggleDownloadCommand}">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="ActionBackground" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock x:Name="ActionIcon" Text="▶" FontSize="13" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                            <TextBlock x:Name="ActionText" Text="{DynamicResource L.Firmware.StartDownload}" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding IsDownloading}" Value="True">
-                                            <Setter TargetName="ActionIcon" Property="Text" Value="■"/>
-                                            <Setter TargetName="ActionText" Property="Text" Value="{DynamicResource L.Firmware.StopDownload}"/>
-                                        </DataTrigger>
-                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ActionBackground" Property="Opacity" Value="0.88"/></Trigger>
-                                        <Trigger Property="IsPressed" Value="True"><Setter TargetName="ActionBackground" Property="Opacity" Value="0.72"/></Trigger>
-                                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ActionBackground" Property="Opacity" Value="0.4"/></Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
-                        <Button Content="{DynamicResource L.Direct.OpenFolder}" Style="{StaticResource Button.Secondary}" Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"/>
+                    <StackPanel Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="{DynamicResource L.Firmware.StartDownload}" Style="{StaticResource FirmwareActionButton}" Command="{Binding DownloadCommand}"/>
+                            <Button Content="{DynamicResource L.Firmware.AddDevicesTitle}" Style="{StaticResource Button.Secondary}" Click="AddDevices_Click" Margin="8,0,0,0"/>
+                            <Button Content="{DynamicResource L.Direct.OpenFolder}" Style="{StaticResource Button.Secondary}" Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}">
+                            <Button Content="{DynamicResource L.Firmware.Pause}" Style="{StaticResource Button.Secondary}" Command="{Binding PauseCommand}"/>
+                            <Button Content="{DynamicResource L.Firmware.StopAndDelete}" Style="{StaticResource Button.Primary}" Background="{DynamicResource Brush.Danger}" Command="{Binding StopAndDeleteCommand}" Margin="8,0,0,0"/>
+                        </StackPanel>
                     </StackPanel>
                     <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="100" Value="{Binding Progress}" Margin="0,0,0,8"/>
                     <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"/>
