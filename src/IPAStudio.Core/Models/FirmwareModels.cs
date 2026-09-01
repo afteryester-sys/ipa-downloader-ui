@@ -37,6 +37,23 @@ public sealed class FirmwareSubscription
     public string DeviceName { get; set; } = "";
     public string? LastBuildId { get; set; }
     public string? LastFilePath { get; set; }
+    /// <summary>When the auto-updater last asked Apple about this model.</summary>
+    public DateTimeOffset? LastCheckUtc { get; set; }
+    /// <summary>When a firmware for this model was last downloaded to the end.</summary>
+    public DateTimeOffset? LastDownloadUtc { get; set; }
+}
+
+/// <summary>An interrupted download found on disk, described purely by its manifest.</summary>
+public sealed record FirmwarePendingDownload(
+    string ManifestPath,
+    string DestinationPath,
+    string FileName,
+    string Url,
+    string? Sha1,
+    long Total,
+    long Downloaded)
+{
+    public double Percent => Total <= 0 ? 0 : Math.Clamp(Downloaded * 100d / Total, 0, 100);
 }
 
 public sealed class FirmwareDownloadManifest

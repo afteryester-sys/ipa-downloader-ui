@@ -1,87 +1,473 @@
 <UserControl x:Class="IPAStudio.App.Views.FirmwareView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:vm="clr-namespace:IPAStudio.App.ViewModels">
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
-        <Style x:Key="FirmwareActionButton" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
-            <Setter Property="MinWidth" Value="210" />
-            <Setter Property="Padding" Value="22,12" />
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="Background" Value="{DynamicResource Brush.Success}" />
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsDownloading}" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource Brush.Danger}" />
-                </DataTrigger>
-            </Style.Triggers>
+
+        <!-- Same selection treatment as the .ipa catalog lists: hover fill, accent ring on
+             the selected row, and a short pop. Repeated here rather than shared because the
+             catalog style also keys off CanSelect, which firmware rows do not have. -->
+        <Style x:Key="FirmwareSelectable" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="2,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
+                            </Grid.RenderTransform>
+                            <Border x:Name="Fill" CornerRadius="10" Background="Transparent" />
+                            <Border x:Name="Ring" CornerRadius="10" Opacity="0"
+                                    BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{DynamicResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="Ring" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{DynamicResource Brush.AccentSoft}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="2" Duration="0:0:0.18">
+                                                <ThicknessAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </ThicknessAnimation.EasingFunction>
+                                            </ThicknessAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="1" Duration="0:0:0.14" />
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleX">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleY">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="0" Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Queue rows are not selectable: every action lives on its own button, so a
+             selection highlight here would only suggest a click target that does nothing. -->
+        <Style x:Key="QueueRow" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Compact icon-sized action button. A fixed square keeps pause/stop from growing
+             with their glyph and shoving each other out of the row on narrow windows. -->
+        <Style x:Key="RowAction" TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+
+        <Style x:Key="RowActionDanger" TargetType="Button" BasedOn="{StaticResource RowAction}">
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
         </Style>
     </UserControl.Resources>
+
     <Grid Margin="32,24,32,32">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
         <Grid Grid.Row="0" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal" Margin="0,0,56,0">
-                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}" Command="{Binding GoBackCommand}" Margin="0,0,8,0"/>
-                <Button Style="{StaticResource Button.Home}" Command="{Binding GoHomeCommand}" Margin="0,0,16,0"/>
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding GoBackCommand}" Margin="0,0,8,0" />
+                <Button Style="{StaticResource Button.Home}" Command="{Binding GoHomeCommand}" Margin="0,0,16,0" />
                 <StackPanel>
-                    <TextBlock Text="{DynamicResource L.Firmware.Title}" Style="{StaticResource Text.Title}"/>
-                    <TextBlock Text="{DynamicResource L.Firmware.Subtitle}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                    <TextBlock Text="{DynamicResource L.Firmware.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{DynamicResource L.Firmware.Subtitle}" Style="{StaticResource Text.Subtitle}"
+                               Margin="0,2,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </StackPanel>
         </Grid>
+
+        <!-- Left: pick what to download. Right: what is downloading, overall then per item. -->
         <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="5*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="7*"/></Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16">
-                <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <DockPanel Margin="0,0,0,10">
-                        <TextBlock Text="{DynamicResource L.Firmware.MyDevices}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
-                        <Border DockPanel.Dock="Right" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="10" Padding="8,2"><TextBlock Text="{Binding MyDevices.Count}" Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold"/></Border>
-                    </DockPanel>
-                    <ListBox Grid.Row="1" ItemsSource="{Binding MyDevices}" SelectedItem="{Binding SelectedDevice}" DisplayMemberPath="DisplayName" BorderThickness="0" Background="Transparent"/>
-                    <Button Grid.Row="2" Content="{DynamicResource L.Firmware.RemoveDevice}" Style="{StaticResource Button.Secondary}" Command="{Binding RemoveDeviceCommand}" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
-                </Grid>
-            </Border>
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="5*" MinWidth="300" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="7*" MinWidth="360" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ============================ left column ============================ -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
                 <StackPanel>
+                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <DockPanel Margin="0,0,0,10">
+                                <TextBlock Text="{DynamicResource L.Firmware.MyDevices}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                                <Border DockPanel.Dock="Right" Background="{DynamicResource Brush.AccentSoft}"
+                                        CornerRadius="10" Padding="8,2">
+                                    <TextBlock Text="{Binding MyDevices.Count}"
+                                               Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" />
+                                </Border>
+                            </DockPanel>
+                            <ListBox Grid.Row="1" ItemsSource="{Binding MyDevices}"
+                                     SelectedItem="{Binding SelectedDevice}"
+                                     ItemContainerStyle="{StaticResource FirmwareSelectable}"
+                                     MinHeight="120" MaxHeight="220"
+                                     BorderThickness="0" Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="10,7">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Identifier}" Style="{StaticResource Text.Caption}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <!-- Wrapped so three buttons cannot overlap when the column narrows. -->
+                            <WrapPanel Grid.Row="2" Margin="0,10,0,0">
+                                <Button Content="{DynamicResource L.Firmware.AddDevicesTitle}"
+                                        Style="{StaticResource Button.Secondary}" Click="AddDevices_Click"
+                                        Margin="0,0,8,0" />
+                                <Button Content="{DynamicResource L.Firmware.RemoveDevice}"
+                                        Style="{StaticResource Button.Secondary}"
+                                        Command="{Binding RemoveDeviceCommand}" Margin="0,0,8,0" />
+                                <Button Content="{DynamicResource L.Refresh}"
+                                        Style="{StaticResource Button.Ghost}" Command="{Binding RefreshCommand}" />
+                            </WrapPanel>
+                        </Grid>
+                    </Border>
+
                     <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
                         <StackPanel>
                             <DockPanel Margin="0,0,0,10">
-                                <TextBlock Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
-                                <CheckBox DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.SignedOnly}" IsChecked="{Binding SignedOnly}" HorizontalAlignment="Right"/>
+                                <TextBlock Text="{DynamicResource L.Firmware.Release}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                                <CheckBox DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.SignedOnly}"
+                                          Style="{StaticResource Check.Base}" IsChecked="{Binding SignedOnly}" />
                             </DockPanel>
-                            <ListBox ItemsSource="{Binding Firmwares}" SelectedItem="{Binding SelectedFirmware}" MinHeight="150" MaxHeight="260" BorderThickness="0" Background="Transparent">
-                                <ListBox.ItemTemplate><DataTemplate><Grid Margin="4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="{Binding Version}" FontWeight="SemiBold"/><TextBlock Text="{Binding BuildId}" Style="{StaticResource Text.Caption}"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="{Binding SizeText}" HorizontalAlignment="Right"/><TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}" HorizontalAlignment="Right"/></StackPanel></Grid></DataTemplate></ListBox.ItemTemplate>
+                            <ListBox ItemsSource="{Binding Firmwares}" SelectedItem="{Binding SelectedFirmware}"
+                                     ItemContainerStyle="{StaticResource FirmwareSelectable}"
+                                     MinHeight="150" MaxHeight="240" BorderThickness="0" Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="10,7">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Version}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding BuildId}" Style="{StaticResource Text.Caption}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding SizeText}" HorizontalAlignment="Right" />
+                                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                                                           HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
                             </ListBox>
-                            <Button Content="{DynamicResource L.Firmware.AutoUpdate}" Style="{StaticResource Button.Secondary}" Command="{Binding ToggleAutoUpdateCommand}" Margin="0,10,0,0"/>
+                            <Button Content="{DynamicResource L.Firmware.StartDownload}"
+                                    Style="{StaticResource Button.Primary}"
+                                    Background="{DynamicResource Brush.Success}"
+                                    Command="{Binding EnqueueDownloadCommand}"
+                                    HorizontalAlignment="Stretch" Padding="18,12" Margin="0,12,0,0" />
+                            <Button Content="{DynamicResource L.Firmware.AutoUpdate}"
+                                    Style="{StaticResource Button.Secondary}"
+                                    Command="{Binding ToggleAutoUpdateCommand}"
+                                    HorizontalAlignment="Stretch" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+
+                    <Border Style="{StaticResource Card}" Padding="16">
                         <StackPanel>
-                            <TextBlock Text="{DynamicResource L.Firmware.Folder}" Style="{StaticResource Text.Body}" FontWeight="SemiBold"/>
-                            <Grid Margin="0,8,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox Style="{StaticResource Input.TextBox}" Text="{Binding DestinationFolder}"/><Button Grid.Column="1" Content="{DynamicResource L.Direct.Browse}" Style="{StaticResource Button.Secondary}" Command="{Binding BrowseFolderCommand}" Margin="8,0,0,0"/></Grid>
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="{DynamicResource L.Firmware.Threads}" VerticalAlignment="Center"/><Slider Width="160" Minimum="1" Maximum="8" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding SegmentCount}" Margin="12,0,0,0"/><TextBlock Text="{Binding SegmentCount}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0"><TextBlock Text="{DynamicResource L.Firmware.Interval}" VerticalAlignment="Center"/><Slider Width="160" Minimum="1" Maximum="168" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding AutoCheckIntervalHours}" Margin="12,0,0,0"/><TextBlock Text="{Binding AutoCheckIntervalHours}" VerticalAlignment="Center" Margin="8,0,0,0"/></StackPanel>
+                            <TextBlock Text="{DynamicResource L.Firmware.Folder}"
+                                       Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            <Grid Margin="0,8,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Style="{StaticResource Input.TextBox}" Text="{Binding DestinationFolder}" />
+                                <Button Grid.Column="1" Content="{DynamicResource L.Direct.Browse}"
+                                        Style="{StaticResource Button.Secondary}"
+                                        Command="{Binding BrowseFolderCommand}" Margin="8,0,0,0" />
+                            </Grid>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{DynamicResource L.Firmware.Threads}" VerticalAlignment="Center" />
+                                <Slider Grid.Column="1" Minimum="1" Maximum="8" TickFrequency="1"
+                                        IsSnapToTickEnabled="True" Value="{Binding SegmentCount}"
+                                        Margin="12,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding SegmentCount}" VerticalAlignment="Center"
+                                           MinWidth="18" TextAlignment="Right" />
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{DynamicResource L.Firmware.Interval}" VerticalAlignment="Center" />
+                                <Slider Grid.Column="1" Minimum="1" Maximum="168" TickFrequency="1"
+                                        IsSnapToTickEnabled="True" Value="{Binding AutoCheckIntervalHours}"
+                                        Margin="12,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{Binding AutoCheckIntervalHours}"
+                                           VerticalAlignment="Center" MinWidth="26" TextAlignment="Right" />
+                            </Grid>
+                            <Button Content="{DynamicResource L.Direct.OpenFolder}"
+                                    Style="{StaticResource Button.Ghost}"
+                                    Command="{Binding OpenFolderCommand}"
+                                    HorizontalAlignment="Left" Margin="0,10,0,0" />
                         </StackPanel>
                     </Border>
-                    <StackPanel Margin="0,0,0,12">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="{DynamicResource L.Firmware.StartDownload}" Style="{StaticResource FirmwareActionButton}" Command="{Binding DownloadCommand}"/>
-                            <Button Content="{DynamicResource L.Firmware.AddDevicesTitle}" Style="{StaticResource Button.Secondary}" Click="AddDevices_Click" Margin="8,0,0,0"/>
-                            <Button Content="{DynamicResource L.Direct.OpenFolder}" Style="{StaticResource Button.Secondary}" Command="{Binding OpenFolderCommand}" Margin="8,0,0,0"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}">
-                            <Button Content="{DynamicResource L.Firmware.Pause}" Style="{StaticResource Button.Secondary}" Command="{Binding PauseCommand}"/>
-                            <Button Content="{DynamicResource L.Firmware.StopAndDelete}" Style="{StaticResource Button.Primary}" Background="{DynamicResource Brush.Danger}" Command="{Binding StopAndDeleteCommand}" Margin="8,0,0,0"/>
-                        </StackPanel>
-                    </StackPanel>
-                    <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="100" Value="{Binding Progress}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding ErrorText}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}"/>
                 </StackPanel>
             </ScrollViewer>
-            <ProgressBar Grid.ColumnSpan="3" IsIndeterminate="True" VerticalAlignment="Top" Height="3" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+
+            <!-- ============================ right column ============================ -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Overall progress across the whole queue, byte-weighted. -->
+                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,10">
+                            <TextBlock Text="{DynamicResource L.Firmware.Overall}"
+                                       Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding OverallSpeedText}"
+                                       Style="{StaticResource Text.Caption}" HorizontalAlignment="Right" />
+                        </DockPanel>
+                        <ProgressBar Style="{StaticResource Progress.Slim}" Height="8"
+                                     Value="{Binding OverallProgress}" Maximum="100" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock Text="{DynamicResource L.Firmware.ActiveLabel}"
+                                           Style="{StaticResource Text.Caption}" />
+                                <TextBlock Text="{Binding ActiveCount}" Style="{StaticResource Text.Caption}"
+                                           FontWeight="SemiBold" Margin="4,0,10,0" />
+                                <TextBlock Text="{DynamicResource L.Firmware.DoneLabel}"
+                                           Style="{StaticResource Text.Caption}" />
+                                <TextBlock Text="{Binding FinishedCount}" Style="{StaticResource Text.Caption}"
+                                           FontWeight="SemiBold" Margin="4,0,0,0" />
+                            </StackPanel>
+                        </Grid>
+                        <WrapPanel Margin="0,12,0,0" Visibility="{Binding HasJobs, Converter={StaticResource BoolToVis}}">
+                            <Button Content="{DynamicResource L.Firmware.PauseAll}"
+                                    Style="{StaticResource Button.Secondary}"
+                                    Command="{Binding PauseAllCommand}" Margin="0,0,8,0" />
+                            <Button Content="{DynamicResource L.Firmware.ResumeAll}"
+                                    Style="{StaticResource Button.Secondary}"
+                                    Command="{Binding ResumeAllCommand}" Margin="0,0,8,0" />
+                            <Button Content="{DynamicResource L.Firmware.StopAll}"
+                                    Style="{StaticResource Button.Secondary}"
+                                    Foreground="{DynamicResource Brush.Danger}"
+                                    Command="{Binding StopAllCommand}" Margin="0,0,8,0" />
+                            <Button Content="{DynamicResource L.Firmware.ClearFinished}"
+                                    Style="{StaticResource Button.Ghost}"
+                                    Command="{Binding ClearFinishedCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Auto-update bookkeeping: when it last looked, when it last pulled. -->
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="16" Margin="0,0,0,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource L.Firmware.LastCheck}" Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LastCheckText}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{DynamicResource L.Firmware.LastDownload}" Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LastDownloadText}" FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Per-firmware rows, each with its own progress and its own controls. -->
+                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{DynamicResource L.Firmware.Queue}"
+                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                        <TextBlock Grid.Row="1" Text="{DynamicResource L.Firmware.QueueEmpty}"
+                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                   VerticalAlignment="Top"
+                                   Visibility="{Binding HasJobs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
+                        <ListBox Grid.Row="1" ItemsSource="{Binding Jobs}"
+                                 ItemContainerStyle="{StaticResource QueueRow}"
+                                 BorderThickness="0" Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding HasJobs, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:FirmwareDownloadJob}">
+                                    <Border Background="{DynamicResource Brush.Surface}"
+                                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                            CornerRadius="10" Padding="12">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <!-- Actions pinned right in their own auto column so the
+                                                 title can never grow underneath them. -->
+                                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
+                                                        VerticalAlignment="Top">
+                                                <Button Style="{StaticResource RowAction}" Content="&#xE769;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        ToolTip="{DynamicResource L.Firmware.Pause}"
+                                                        Command="{Binding PauseCommand}"
+                                                        Visibility="{Binding CanPause, Converter={StaticResource BoolToVis}}" />
+                                                <Button Style="{StaticResource RowAction}" Content="&#xE768;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        ToolTip="{DynamicResource L.Firmware.Resume}"
+                                                        Command="{Binding ResumeCommand}"
+                                                        Visibility="{Binding CanResume, Converter={StaticResource BoolToVis}}" />
+                                                <Button Style="{StaticResource RowActionDanger}" Content="&#xE711;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        ToolTip="{DynamicResource L.Firmware.StopAndDelete}"
+                                                        Command="{Binding StopCommand}" />
+                                            </StackPanel>
+
+                                            <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
+                                                         Style="{StaticResource Progress.Slim}"
+                                                         Value="{Binding Progress}" Maximum="100" Margin="0,10,0,0" />
+
+                                            <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                                    <TextBlock Text="{Binding SpeedText}" Style="{StaticResource Text.Caption}" />
+                                                    <TextBlock Text="{Binding RemainingText}" Style="{StaticResource Text.Caption}"
+                                                               Margin="8,0,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding ErrorText}"
+                                                       Foreground="{DynamicResource Brush.Danger}"
+                                                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                                       Margin="0,6,0,0"
+                                                       Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                    <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True"
+                                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
+                    <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                               Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource Brush.Danger}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>
