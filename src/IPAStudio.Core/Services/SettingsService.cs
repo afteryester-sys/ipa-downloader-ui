@@ -125,7 +125,7 @@ public sealed class AppSettings
     /// Different devices always install in parallel; this only caps a single device. Above
     /// 2 rarely helps, because the limit is the USB link rather than the phone.
     /// </summary>
-    public int MaxParallelInstallsPerDevice { get; set; } = 2;
+    public int MaxParallelInstallsPerDevice { get; set; } = 1;
 
     /// <summary>
     /// When true, the app checks on startup for local conditions that throttle
@@ -324,6 +324,18 @@ public sealed class AppSettings
     /// be acted on. So it stays something the user turns on knowingly.
     /// </summary>
     public bool WifiDeviceConnection { get; set; }
+
+    /// <summary>Destination used by the resumable IPSW downloader.</summary>
+    public string? FirmwareFolder { get; set; }
+
+    /// <summary>Parallel HTTP Range segments used for one IPSW (1-8).</summary>
+    public int FirmwareDownloadThreads { get; set; } = 4;
+
+    /// <summary>How often subscribed devices are checked for a new signed IPSW.</summary>
+    public int FirmwareCheckIntervalHours { get; set; } = 6;
+
+    /// <summary>Devices monitored for automatic firmware downloads.</summary>
+    public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>

@@ -882,4 +882,22 @@
     <sys:String x:Key="L.QuickTransfer.TransferFailed">Transfer stopped: {0}</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
 
+    <!-- IPSW firmware -->
+    <sys:String x:Key="L.Firmware.Title">Firmware</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Apple IPSW catalog with pause, multi-threaded downloads, and resume support</sys:String>
+    <sys:String x:Key="L.Firmware.Device">Device</sys:String>
+    <sys:String x:Key="L.Firmware.Release">Firmware release</sys:String>
+    <sys:String x:Key="L.Firmware.SignedOnly">Signed only</sys:String>
+    <sys:String x:Key="L.Firmware.AutoUpdate">Toggle automatic updates for the selected device</sys:String>
+    <sys:String x:Key="L.Firmware.Folder">Firmware folder</sys:String>
+    <sys:String x:Key="L.Firmware.Threads">Download threads</sys:String>
+    <sys:String x:Key="L.Firmware.Interval">Check for updates every, hours</sys:String>
+    <sys:String x:Key="L.Firmware.Download">Download / resume</sys:String>
+    <sys:String x:Key="L.Firmware.Pause">Pause</sys:String>
+    <sys:String x:Key="L.Firmware.Operation">Firmware download</sys:String>
+    <sys:String x:Key="L.Firmware.Done">Firmware downloaded and verified.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>
+    <sys:String x:Key="L.Firmware.Failed">Firmware download failed.</sys:String>
+    <sys:String x:Key="L.Firmware.DevicesLoaded">Devices loaded: {0}</sys:String>
+
 </ResourceDictionary>
