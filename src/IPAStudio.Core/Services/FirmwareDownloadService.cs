@@ -164,11 +164,19 @@ public sealed class FirmwareDownloadService
         catch { return null; }
     }
 
-    private static async Task SaveManifestAsync(string path, FirmwareDownloadManifest manifest, CancellationToken ct)
+    private async Task SaveManifestAsync(string path, FirmwareDownloadManifest manifest, CancellationToken ct)
     {
-        var temp = path + ".tmp";
-        await using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true))
-            await JsonSerializer.SerializeAsync(stream, manifest, JsonOptions, ct).ConfigureAwait(false);
-        File.Move(temp, path, true);
+        await _manifestGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var temp = path + ".tmp";
+            await using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 64 * 1024, true))
+                await JsonSerializer.SerializeAsync(stream, manifest, JsonOptions, ct).ConfigureAwait(false);
+            File.Move(temp, path, true);
+        }
+        finally
+        {
+            _manifestGate.Release();
+        }
     }
 }
