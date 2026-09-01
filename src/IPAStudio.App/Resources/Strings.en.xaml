@@ -911,5 +911,29 @@
     <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Firmware download failed.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Devices loaded: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.PickerHint">Search for models and highlight the ones you need: Ctrl-click or Shift-click to pick several.</sys:String>
+    <sys:String x:Key="L.Firmware.PickerCount">Shown: {0} · selected: {1}</sys:String>
+    <sys:String x:Key="L.Firmware.Queue">Downloads</sys:String>
+    <sys:String x:Key="L.Firmware.QueueEmpty">The queue is empty. Pick a device and choose Download firmware.</sys:String>
+    <sys:String x:Key="L.Firmware.Job">Firmware</sys:String>
+    <sys:String x:Key="L.Firmware.Overall">Overall progress</sys:String>
+    <sys:String x:Key="L.Firmware.ActiveLabel">Active</sys:String>
+    <sys:String x:Key="L.Firmware.DoneLabel">Done</sys:String>
+    <sys:String x:Key="L.Firmware.Resume">Resume</sys:String>
+    <sys:String x:Key="L.Firmware.PauseAll">Pause all</sys:String>
+    <sys:String x:Key="L.Firmware.ResumeAll">Resume all</sys:String>
+    <sys:String x:Key="L.Firmware.StopAll">Stop all</sys:String>
+    <sys:String x:Key="L.Firmware.ClearFinished">Clear finished</sys:String>
+    <sys:String x:Key="L.Firmware.LastCheck">Last check</sys:String>
+    <sys:String x:Key="L.Firmware.LastDownload">Last download</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePromptTitle">Resume download?</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePrompt">Unfinished firmware downloads were found ({0}). Resume them now? If you decline, the temporary files will be deleted.</sys:String>
+    <sys:String x:Key="L.Firmware.Never">never</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Queued">Queued…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Running">Downloading…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Recovered">Recovered after restart</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftHours">{0} h {1} min left</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftMinutes">{0} min left</sys:String>
+    <sys:String x:Key="L.Refresh">Refresh</sys:String>
 
 </ResourceDictionary>
