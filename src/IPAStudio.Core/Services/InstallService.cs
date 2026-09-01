@@ -381,6 +381,17 @@ public sealed partial class InstallService
     /// <summary>Pause before each listing, to let installd register the new bundle.</summary>
     private static readonly TimeSpan ConfirmProbeDelay = TimeSpan.FromMilliseconds(1200);
 
+    private static string DescribeDeviceConnectionFailure(string line)
+    {
+        if (line.Contains("Pairing dialog response pending", StringComparison.OrdinalIgnoreCase) || line.Contains("-19"))
+            return "Unlock the device, tap Trust, enter the device passcode, and retry the installation.";
+        if (line.Contains("Invalid HostID", StringComparison.OrdinalIgnoreCase) || line.Contains("-21"))
+            return "The saved pairing record is no longer valid. Reconnect the device, tap Trust, and retry.";
+        if (line.Contains("lockdownd", StringComparison.OrdinalIgnoreCase) || line.Contains("SSL", StringComparison.OrdinalIgnoreCase))
+            return "The device connection was interrupted. Keep it unlocked, reconnect the USB cable, and retry.";
+        return line;
+    }
+
     /// <summary>
     /// Runs ideviceinstaller once and reports what it said. Knows nothing about retries or
     /// about whether the app really arrived — see <see cref="ConfirmInstalledAsync"/> for that.
@@ -453,10 +464,15 @@ public sealed partial class InstallService
                 }
 
                 if (line.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("failed", StringComparison.OrdinalIgnoreCase))
+                    line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Pairing dialog response pending", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Invalid HostID", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("Could not connect to lockdownd", StringComparison.OrdinalIgnoreCase))
                 {
                     failed = true;
-                    errorLine = line;
+                    // Keep the first concrete failure. Later generic cleanup lines must not
+                    // overwrite the actionable pairing/lockdown reason shown to the user.
+                    errorLine ??= DescribeDeviceConnectionFailure(line);
                 }
             }
 

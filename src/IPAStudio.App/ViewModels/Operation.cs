@@ -23,6 +23,9 @@ public enum OperationKind
 
     /// <summary>Scanning or copying media off a drive or a mounted device.</summary>
     MediaExport,
+
+    /// <summary>Downloading an Apple IPSW firmware archive.</summary>
+    Firmware,
 }
 
 public enum OperationState

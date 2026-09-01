@@ -78,6 +78,8 @@ public partial class App : Application
         services.AddSingleton<PhotoThumbnailCache>();
         services.AddSingleton<DownloadService>();
         services.AddSingleton<InstallService>();
+        services.AddSingleton<FirmwareCatalogService>();
+        services.AddSingleton<FirmwareDownloadService>();
 
         // Shared across every queue: the parallel-download slider is one global budget, so
         // five simultaneous operations must not each open their own three connections.
@@ -103,6 +105,7 @@ public partial class App : Application
         // App
         services.AddSingleton<LocalizationManager>();
         services.AddSingleton<OperationService>();
+        services.AddSingleton<FirmwareAutoUpdateService>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<UpdaterViewModel>();
         services.AddSingleton<SetupViewModel>();
@@ -118,6 +121,7 @@ public partial class App : Application
         services.AddSingleton<ICloudViewModel>();
         services.AddSingleton<IpaCatalogsViewModel>();
         services.AddSingleton<MediaExportViewModel>();
+        services.AddSingleton<FirmwareViewModel>();
 
         Services = services.BuildServiceProvider();
 
@@ -168,6 +172,10 @@ public partial class App : Application
             DataContext = Services.GetRequiredService<ShellViewModel>(),
         };
         window.Show();
+
+        // Starts after the window exists so automatic downloads can safely publish into
+        // the shared operations UI. The first check is delayed and never blocks startup.
+        Services.GetRequiredService<FirmwareAutoUpdateService>().Start();
 
         // Presence contains only coarse device/app metadata and is sent only after explicit
         // consent in Settings. A failed heartbeat never interrupts normal IPA Studio work.
@@ -298,6 +306,9 @@ public partial class App : Application
             if (Services.GetService<DeviceService>() is IAsyncDisposable disposable)
                 disposable.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
         }
+        catch { /* best effort */ }
+
+        try { Services.GetService<FirmwareAutoUpdateService>()?.Dispose(); }
         catch { /* best effort */ }
 
         try

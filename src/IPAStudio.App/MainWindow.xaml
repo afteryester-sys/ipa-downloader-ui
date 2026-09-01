@@ -55,6 +55,9 @@
         <DataTemplate DataType="{x:Type vm:MediaExportViewModel}">
             <views:MediaExportView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FirmwareViewModel}">
+            <views:FirmwareView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -338,7 +341,9 @@
                                 HorizontalAlignment="Stretch" Click="OpenICloud_Click"
                                 Margin="0,0,0,8" />
                         <Button Content="{DynamicResource L.MediaExport.MenuTitle}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenMediaExport_Click" />
+                                HorizontalAlignment="Stretch" Click="OpenMediaExport_Click" Margin="0,0,0,8" />
+                        <Button Content="{DynamicResource L.Firmware.Title}" Style="{StaticResource Button.Secondary}"
+                                HorizontalAlignment="Stretch" Click="OpenFirmware_Click" />
 
                         <!-- Divider -->
                         <Border Height="1" Background="{StaticResource Brush.Border}"

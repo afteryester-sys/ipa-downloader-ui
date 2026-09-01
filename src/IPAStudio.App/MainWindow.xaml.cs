@@ -151,6 +151,13 @@ public partial class MainWindow : Window
         shell.GoTo(Page.MediaExport);
     }
 
+    private void OpenFirmware_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.GoTo(Page.Firmware);
+    }
+
     /// <summary>
     /// Feeds the rollback password box into the Updater view model. PasswordBox.Password is
     /// deliberately not bindable in WPF (so it can't be dumped to a binding trace or a

@@ -45,6 +45,9 @@ public enum Page
     /// mounted as a plain file system. Needs no connected iOS device.
     /// </summary>
     MediaExport,
+
+    /// <summary>IPSW catalog and resumable firmware downloads.</summary>
+    Firmware,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -265,6 +268,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.OnDevice => Resolve<OnDeviceViewModel>(),
             Page.IpaCatalogs => Resolve<IpaCatalogsViewModel>(),
             Page.MediaExport => Resolve<MediaExportViewModel>(),
+            Page.Firmware => Resolve<FirmwareViewModel>(),
             _ => CurrentViewModel,
         };
 

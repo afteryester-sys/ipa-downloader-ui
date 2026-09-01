@@ -880,4 +880,22 @@
     <sys:String x:Key="L.QuickTransfer.TransferFailed">Перенос остановлен: {0}</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Прямой импорт в системную медиатеку «Фото» недоступен через открытый протокол Apple на этой версии iOS. Используйте «Быстрый перенос» и выберите совместимое приложение; фиктивное копирование в DCIM отключено.</sys:String>
 
+    <!-- Прошивки IPSW -->
+    <sys:String x:Key="L.Firmware.Title">Прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Каталог IPSW для устройств Apple с паузой, многопоточной загрузкой и докачкой</sys:String>
+    <sys:String x:Key="L.Firmware.Device">Устройство</sys:String>
+    <sys:String x:Key="L.Firmware.Release">Версия прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.SignedOnly">Только подписываемые</sys:String>
+    <sys:String x:Key="L.Firmware.AutoUpdate">Включить или выключить автообновление выбранного устройства</sys:String>
+    <sys:String x:Key="L.Firmware.Folder">Папка для прошивок</sys:String>
+    <sys:String x:Key="L.Firmware.Threads">Потоков загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Interval">Проверять обновления каждые, ч</sys:String>
+    <sys:String x:Key="L.Firmware.Download">Скачать / продолжить</sys:String>
+    <sys:String x:Key="L.Firmware.Pause">Пауза</sys:String>
+    <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
+    <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
+    <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
+
 </ResourceDictionary>
