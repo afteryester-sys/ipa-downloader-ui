@@ -64,17 +64,77 @@ public sealed class FirmwareDownloadService
             catch { }
     }
 
-    public async Task<string> DownloadAsync(
+    /// <summary>
+    /// Lists downloads that were interrupted, read straight from the manifests left on disk.
+    /// Used at startup to offer resuming instead of silently leaving half a firmware behind.
+    /// </summary>
+    public IReadOnlyList<FirmwarePendingDownload> FindPendingDownloads(string folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return Array.Empty<FirmwarePendingDownload>();
+        var pending = new List<FirmwarePendingDownload>();
+        foreach (var manifestPath in Directory.EnumerateFiles(folder, "*.download.json"))
+        {
+            try
+            {
+                var manifest = JsonSerializer.Deserialize<FirmwareDownloadManifest>(File.ReadAllText(manifestPath), JsonOptions);
+                if (manifest is null || manifest.ExpectedLength <= 0 || manifest.Segments.Count == 0) continue;
+                // The destination already existing means the run finished after the manifest
+                // was written; there is nothing left to resume.
+                if (File.Exists(manifest.DestinationPath) &&
+                    new FileInfo(manifest.DestinationPath).Length == manifest.ExpectedLength) continue;
+                var downloaded = manifest.Segments.Sum(s =>
+                {
+                    var expected = s.End - s.Start + 1;
+                    var onDisk = File.Exists(s.PartPath) ? new FileInfo(s.PartPath).Length : 0;
+                    return Math.Clamp(onDisk, 0, expected);
+                });
+                pending.Add(new FirmwarePendingDownload(manifestPath, manifest.DestinationPath,
+                    Path.GetFileName(manifest.DestinationPath), manifest.Url, manifest.Sha1,
+                    manifest.ExpectedLength, downloaded));
+            }
+            catch { /* a corrupt manifest is handled by CleanupInvalidTemporaryFiles */ }
+        }
+        return pending.OrderBy(p => p.FileName, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>Resumes an interrupted download using only what its manifest recorded.</summary>
+    public Task<string> ResumeAsync(
+        FirmwarePendingDownload pending,
+        int segmentCount,
+        IProgress<FirmwareDownloadProgress>? progress,
+        CancellationToken ct)
+    {
+        var folder = Path.GetDirectoryName(pending.DestinationPath);
+        if (string.IsNullOrWhiteSpace(folder)) throw new InvalidDataException("The interrupted download has no folder.");
+        var firmware = new FirmwareRelease
+        {
+            Url = pending.Url,
+            Sha1 = pending.Sha1,
+            FileSize = pending.Total,
+        };
+        return DownloadToAsync(firmware, folder, pending.DestinationPath, segmentCount, progress, ct);
+    }
+
+    public Task<string> DownloadAsync(
         FirmwareDevice device,
         FirmwareRelease firmware,
         string folder,
+        int segmentCount,
+        IProgress<FirmwareDownloadProgress>? progress,
+        CancellationToken ct) =>
+        DownloadToAsync(firmware, folder, Path.Combine(folder, BuildFileName(device.Name, firmware.Version)),
+            segmentCount, progress, ct);
+
+    private async Task<string> DownloadToAsync(
+        FirmwareRelease firmware,
+        string folder,
+        string destination,
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
         CancellationToken ct)
     {
         Directory.CreateDirectory(folder);
         segmentCount = Math.Clamp(segmentCount, 1, 8);
-        var destination = Path.Combine(folder, BuildFileName(device.Name, firmware.Version));
         var manifestPath = destination + ".download.json";
 
         CleanupInvalidTemporaryFiles(folder);

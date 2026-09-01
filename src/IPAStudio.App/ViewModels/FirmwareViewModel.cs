@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -20,14 +22,25 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private readonly OperationService _operations;
     private INavigator? _navigator;
     private CancellationTokenSource? _loadCts;
-    private CancellationTokenSource? _downloadCts;
-    private Operation? _operation;
     private List<FirmwareDevice> _allDevices = new();
+    private List<FirmwareRelease> _deviceFirmwares = new();
+    private readonly Dictionary<FirmwareDownloadJob, Operation> _jobOperations = new();
+    private bool _startupResumeAsked;
+
     public IReadOnlyList<FirmwareDevice> AllDevices => _allDevices;
 
     public ObservableCollection<FirmwareDevice> CatalogDevices { get; } = new();
     public ObservableCollection<FirmwareDevice> MyDevices { get; } = new();
     public ObservableCollection<FirmwareRelease> Firmwares { get; } = new();
+
+    /// <summary>Live download queue: one row per firmware, each independently controllable.</summary>
+    public ObservableCollection<FirmwareDownloadJob> Jobs { get; } = new();
+
+    /// <summary>
+    /// Asked by the view when interrupted downloads are found at startup. Returning true
+    /// resumes them. Kept as a hook so the ViewModel never talks to MessageBox directly.
+    /// </summary>
+    public Func<IReadOnlyList<FirmwarePendingDownload>, bool>? ConfirmResumePending { get; set; }
 
     public FirmwareViewModel(FirmwareCatalogService catalog, FirmwareDownloadService downloads,
         SettingsService settings, OperationService operations)
@@ -40,6 +53,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
         SegmentCount = Math.Clamp(settings.Current.FirmwareDownloadThreads, 1, 8);
         AutoCheckIntervalHours = Math.Clamp(settings.Current.FirmwareCheckIntervalHours, 1, 168);
+        Jobs.CollectionChanged += OnJobsChanged;
+        RefreshAutoUpdateTimestamps();
     }
 
     [ObservableProperty] private string _searchText = "";
@@ -50,14 +65,24 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private int _segmentCount = 4;
     [ObservableProperty] private bool _signedOnly = true;
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private bool _isDownloading;
-    [ObservableProperty] private bool _isPaused;
-    [ObservableProperty] private double _progress;
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string? _errorText;
-    [ObservableProperty] private string? _savedPath;
     [ObservableProperty] private bool _autoUpdateSelected;
     [ObservableProperty] private int _autoCheckIntervalHours = 6;
+
+    // Aggregate state for the right-hand overall panel.
+    [ObservableProperty] private double _overallProgress;
+    [ObservableProperty] private string _overallSizeText = "";
+    [ObservableProperty] private string _overallSpeedText = "";
+    [ObservableProperty] private int _activeCount;
+    [ObservableProperty] private int _finishedCount;
+    [ObservableProperty] private string _lastCheckText = "—";
+    [ObservableProperty] private string _lastDownloadText = "—";
+
+    public bool HasJobs => Jobs.Count > 0;
+    public bool HasActiveJobs => ActiveCount > 0;
+
+    partial void OnActiveCountChanged(int value) => OnPropertyChanged(nameof(HasActiveJobs));
 
     partial void OnAutoCheckIntervalHoursChanged(int value)
     {
@@ -67,16 +92,19 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     partial void OnSearchTextChanged(string value) => ApplyDeviceFilter();
     partial void OnSignedOnlyChanged(bool value) => ApplyFirmwareFilter();
-    partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => ToggleDownloadCommand.NotifyCanExecuteChanged();
+    partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => EnqueueDownloadCommand.NotifyCanExecuteChanged();
+
     partial void OnSelectedDeviceChanged(FirmwareDevice? value)
     {
-        AutoUpdateSelected = value is not null;
+        var subscription = value is null
+            ? null
+            : _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == value.Identifier);
+        AutoUpdateSelected = subscription is not null;
         RemoveDeviceCommand.NotifyCanExecuteChanged();
-        ToggleDownloadCommand.NotifyCanExecuteChanged();
+        EnqueueDownloadCommand.NotifyCanExecuteChanged();
+        RefreshAutoUpdateTimestamps();
         _ = LoadFirmwaresAsync(value);
     }
-
-    partial void OnIsDownloadingChanged(bool value) => ToggleDownloadCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedCatalogDeviceChanged(FirmwareDevice? value) => AddDeviceCommand.NotifyCanExecuteChanged();
 
@@ -84,9 +112,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     {
         _navigator = navigator;
         if (_allDevices.Count == 0) await LoadDevicesAsync();
+        OfferPendingResume();
     }
 
-    [RelayCommand] private void GoBack() => _navigator?.GoBack();
     [RelayCommand] private void GoHome() => _navigator?.GoHome();
 
     [RelayCommand]
@@ -103,103 +131,302 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         await LoadDevicesAsync();
     }
 
-    [RelayCommand(CanExecute = nameof(CanDownload))]
-    private async Task DownloadAsync()
+    [RelayCommand] private void OpenFolder()
+    {
+        if (Directory.Exists(DestinationFolder))
+            Process.Start(new ProcessStartInfo("explorer.exe", DestinationFolder) { UseShellExecute = true });
+    }
+
+    // ---------------------------------------------------------------- queue
+
+    private bool CanEnqueueDownload() => SelectedDevice is not null && SelectedFirmware is not null;
+
+    [RelayCommand(CanExecute = nameof(CanEnqueueDownload))]
+    private void EnqueueDownload()
     {
         if (SelectedDevice is null || SelectedFirmware is null) return;
-        Directory.CreateDirectory(DestinationFolder);
-        _settings.Current.FirmwareFolder = DestinationFolder;
-        _settings.Current.FirmwareDownloadThreads = SegmentCount;
-        _settings.Save();
+        PersistDownloadSettings();
+        var destination = Path.Combine(DestinationFolder,
+            FirmwareDownloadService.BuildFileName(SelectedDevice.Name, SelectedFirmware.Version));
 
-        _downloadCts?.Dispose();
-        _downloadCts = new CancellationTokenSource();
-        IsDownloading = true;
-        IsPaused = false;
-        ErrorText = null;
-        SavedPath = null;
-        Progress = 0;
-        var device = SelectedDevice;
-        var firmware = SelectedFirmware;
-        _operation = _operations.Start(new Operation(OperationKind.Firmware, Page.Firmware,
-            Loc.Get("L.Firmware.Operation"), $"{device.Name} {firmware.Version}", cancel: Pause));
+        // Re-queuing the same file should revive the existing row rather than duplicate it,
+        // otherwise two runners would fight over the same manifest and part files.
+        var existing = Jobs.FirstOrDefault(j =>
+            string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.CanResume) ResumeJob(existing);
+            return;
+        }
+
+        var job = new FirmwareDownloadJob(SelectedDevice, SelectedFirmware, destination, PauseJob, ResumeJob, StopJob);
+        Jobs.Add(job);
+        _ = RunJobAsync(job);
+    }
+
+    [RelayCommand]
+    private void PauseAll()
+    {
+        foreach (var job in Jobs.Where(j => j.CanPause).ToList()) PauseJob(job);
+    }
+
+    [RelayCommand]
+    private async Task StopAllAsync()
+    {
+        foreach (var job in Jobs.ToList()) await StopJobCoreAsync(job);
+    }
+
+    [RelayCommand]
+    private void ResumeAll()
+    {
+        foreach (var job in Jobs.Where(j => j.CanResume).ToList()) ResumeJob(job);
+    }
+
+    [RelayCommand]
+    private void ClearFinished()
+    {
+        foreach (var job in Jobs.Where(j => j.IsFinished).ToList()) Jobs.Remove(job);
+        RecomputeAggregate();
+    }
+
+    private void PauseJob(FirmwareDownloadJob job)
+    {
+        if (job.State is FirmwareJobState.Queued)
+        {
+            // Not started yet: park it without spinning up a request at all.
+            job.State = FirmwareJobState.Paused;
+            job.StatusText = Loc.Get("L.Firmware.Paused");
+            RecomputeAggregate();
+            return;
+        }
+        job.Cts?.Cancel();
+    }
+
+    private void ResumeJob(FirmwareDownloadJob job)
+    {
+        if (job.IsActive) return;
+        job.ErrorText = null;
+        _ = RunJobAsync(job);
+    }
+
+    private void StopJob(FirmwareDownloadJob job) => _ = StopJobCoreAsync(job);
+
+    private async Task StopJobCoreAsync(FirmwareDownloadJob job)
+    {
+        job.Cts?.Cancel();
+        // Wait for the runner to release the part files before deleting them, otherwise
+        // the delete races the still-open FileStreams and silently leaves garbage behind.
+        for (var i = 0; i < 200 && job.IsActive; i++) await Task.Delay(25);
+        _downloads.DeleteTemporaryFiles(job.DestinationPath);
+        Jobs.Remove(job);
+        if (_jobOperations.Remove(job, out var operation)) operation.Finish(OperationState.Cancelled, Loc.Get("L.Firmware.Stopped"));
+        StatusText = Loc.Get("L.Firmware.Stopped");
+        RecomputeAggregate();
+    }
+
+    private async Task RunJobAsync(FirmwareDownloadJob job)
+    {
+        job.Cts?.Dispose();
+        job.Cts = new CancellationTokenSource();
+        job.State = FirmwareJobState.Running;
+        job.StatusText = Loc.Get("L.Firmware.Job.Running");
+        job.ErrorText = null;
+        RecomputeAggregate();
+
+        if (!_jobOperations.TryGetValue(job, out var operation))
+        {
+            operation = _operations.Start(new Operation(OperationKind.Firmware, Page.Firmware,
+                Loc.Get("L.Firmware.Operation"), job.Title, cancel: () => PauseJob(job)));
+            _jobOperations[job] = operation;
+        }
 
         var reporter = new Progress<FirmwareDownloadProgress>(p =>
         {
-            Progress = p.Percent;
-            var speed = p.BytesPerSecond / 1024d / 1024d;
-            StatusText = $"{p.Downloaded / 1024d / 1024d:F0} / {p.Total / 1024d / 1024d:F0} MB · {speed:F1} MB/s";
-            if (_operation is not null) { _operation.Progress = p.Percent; _operation.Detail = StatusText; }
+            job.Downloaded = p.Downloaded;
+            job.Total = p.Total;
+            job.BytesPerSecond = p.BytesPerSecond;
+            job.Progress = p.Percent;
+            job.StatusText = job.SizeText;
+            operation.Progress = p.Percent;
+            operation.Detail = $"{job.SizeText} · {job.SpeedText}";
+            RecomputeAggregate();
         });
 
         try
         {
+            string savedPath;
             for (var attempt = 0; ; attempt++)
             {
                 try
                 {
-                    SavedPath = await _downloads.DownloadAsync(device, firmware, DestinationFolder, SegmentCount, reporter, _downloadCts.Token);
+                    savedPath = await _downloads.DownloadAsync(job.Device, job.Firmware, DestinationFolder,
+                        SegmentCount, reporter, job.Cts.Token);
                     break;
                 }
-                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException) && attempt < 12 && !_downloadCts.IsCancellationRequested)
+                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException)
+                                           && attempt < 12 && !job.Cts.IsCancellationRequested)
                 {
-                    StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), Math.Min(30, 1 << Math.Min(attempt, 5)));
-                    await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, 1 << Math.Min(attempt, 5))), _downloadCts.Token);
+                    var wait = Math.Min(30, 1 << Math.Min(attempt, 5));
+                    job.State = FirmwareJobState.Reconnecting;
+                    job.StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), wait);
+                    RecomputeAggregate();
+                    await Task.Delay(TimeSpan.FromSeconds(wait), job.Cts.Token);
+                    job.State = FirmwareJobState.Running;
                 }
             }
-            StatusText = Loc.Get("L.Firmware.Done");
-            _operation?.Finish(OperationState.Done, StatusText);
-            RecordCompletedAutoUpdate(device, firmware, SavedPath);
+
+            job.State = FirmwareJobState.Done;
+            job.Progress = 100;
+            job.BytesPerSecond = 0;
+            job.StatusText = Loc.Get("L.Firmware.Done");
+            operation.Finish(OperationState.Done, job.StatusText);
+            _jobOperations.Remove(job);
+            RecordCompletedDownload(job.Device, job.Firmware, savedPath);
         }
         catch (OperationCanceledException)
         {
-            IsPaused = true;
-            StatusText = Loc.Get("L.Firmware.Paused");
-            _operation?.Finish(OperationState.Cancelled, StatusText);
+            job.State = FirmwareJobState.Paused;
+            job.BytesPerSecond = 0;
+            job.StatusText = Loc.Get("L.Firmware.Paused");
+            operation.Finish(OperationState.Cancelled, job.StatusText);
+            _jobOperations.Remove(job);
         }
         catch (Exception ex)
         {
-            ErrorText = ex.Message;
-            StatusText = Loc.Get("L.Firmware.Failed");
-            _operation?.Finish(OperationState.Failed, ex.Message);
+            job.State = FirmwareJobState.Failed;
+            job.BytesPerSecond = 0;
+            job.ErrorText = ex.Message;
+            job.StatusText = Loc.Get("L.Firmware.Failed");
+            operation.Finish(OperationState.Failed, ex.Message);
+            _jobOperations.Remove(job);
         }
         finally
         {
-            IsDownloading = false;
-            DownloadCommand.NotifyCanExecuteChanged();
-            ToggleDownloadCommand.NotifyCanExecuteChanged();
+            RecomputeAggregate();
         }
     }
 
-    private bool CanDownload() => SelectedDevice is not null && SelectedFirmware is not null && !IsDownloading;
-
-    private bool CanToggleDownload() => IsDownloading || (SelectedDevice is not null && SelectedFirmware is not null);
-
-    [RelayCommand(CanExecute = nameof(CanToggleDownload))]
-    private async Task ToggleDownloadAsync()
+    /// <summary>
+    /// Resumes a download whose device or release is no longer selected, using only the
+    /// manifest left on disk. This is what the startup prompt drives.
+    /// </summary>
+    private async Task RunPendingAsync(FirmwarePendingDownload pending)
     {
-        if (IsDownloading) Pause();
-        else await DownloadAsync();
-    }
-
-    [RelayCommand] private void Pause() => _downloadCts?.Cancel();
-
-    [RelayCommand]
-    private async Task StopAndDeleteAsync()
-    {
-        var device = SelectedDevice;
-        var firmware = SelectedFirmware;
-        _downloadCts?.Cancel();
-        while (IsDownloading) await Task.Delay(50);
-        if (device is not null && firmware is not null)
+        var device = new FirmwareDevice { Name = pending.FileName, Identifier = "" };
+        var firmware = new FirmwareRelease { Url = pending.Url, Sha1 = pending.Sha1, FileSize = pending.Total };
+        var job = new FirmwareDownloadJob(device, firmware, pending.DestinationPath, PauseJob, ResumeJob, StopJob)
         {
-            var destination = Path.Combine(DestinationFolder, FirmwareDownloadService.BuildFileName(device.Name, firmware.Version));
-            _downloads.DeleteTemporaryFiles(destination);
+            Title = pending.FileName,
+            Subtitle = Loc.Get("L.Firmware.Job.Recovered"),
+            Total = pending.Total,
+            Downloaded = pending.Downloaded,
+            Progress = pending.Percent,
+            State = FirmwareJobState.Running,
+        };
+        Jobs.Add(job);
+        job.Cts = new CancellationTokenSource();
+        var operation = _operations.Start(new Operation(OperationKind.Firmware, Page.Firmware,
+            Loc.Get("L.Firmware.Operation"), job.Title, cancel: () => PauseJob(job)));
+        _jobOperations[job] = operation;
+
+        var reporter = new Progress<FirmwareDownloadProgress>(p =>
+        {
+            job.Downloaded = p.Downloaded;
+            job.Total = p.Total;
+            job.BytesPerSecond = p.BytesPerSecond;
+            job.Progress = p.Percent;
+            job.StatusText = job.SizeText;
+            operation.Progress = p.Percent;
+            RecomputeAggregate();
+        });
+
+        try
+        {
+            await _downloads.ResumeAsync(pending, SegmentCount, reporter, job.Cts.Token);
+            job.State = FirmwareJobState.Done;
+            job.Progress = 100;
+            job.StatusText = Loc.Get("L.Firmware.Done");
+            operation.Finish(OperationState.Done, job.StatusText);
+            TouchLastDownload();
         }
-        IsPaused = false;
-        Progress = 0;
-        StatusText = Loc.Get("L.Firmware.Stopped");
+        catch (OperationCanceledException)
+        {
+            job.State = FirmwareJobState.Paused;
+            job.StatusText = Loc.Get("L.Firmware.Paused");
+            operation.Finish(OperationState.Cancelled, job.StatusText);
+        }
+        catch (Exception ex)
+        {
+            job.State = FirmwareJobState.Failed;
+            job.ErrorText = ex.Message;
+            job.StatusText = Loc.Get("L.Firmware.Failed");
+            operation.Finish(OperationState.Failed, ex.Message);
+        }
+        finally
+        {
+            job.BytesPerSecond = 0;
+            _jobOperations.Remove(job);
+            RecomputeAggregate();
+        }
     }
+
+    /// <summary>Offers to continue interrupted downloads, once per app run.</summary>
+    public void OfferPendingResume()
+    {
+        if (_startupResumeAsked) return;
+        _startupResumeAsked = true;
+        var pending = _downloads.FindPendingDownloads(DestinationFolder)
+            .Where(p => Jobs.All(j => !string.Equals(j.DestinationPath, p.DestinationPath, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        if (pending.Count == 0) return;
+        if (ConfirmResumePending?.Invoke(pending) != true) return;
+        foreach (var item in pending) _ = RunPendingAsync(item);
+    }
+
+    private void OnJobsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+            foreach (FirmwareDownloadJob job in e.OldItems) job.PropertyChanged -= OnJobPropertyChanged;
+        if (e.NewItems is not null)
+            foreach (FirmwareDownloadJob job in e.NewItems) job.PropertyChanged += OnJobPropertyChanged;
+        OnPropertyChanged(nameof(HasJobs));
+        RecomputeAggregate();
+    }
+
+    private void OnJobPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(FirmwareDownloadJob.State)) RecomputeAggregate();
+    }
+
+    /// <summary>
+    /// Overall progress is byte-weighted rather than a mean of percentages, so a small
+    /// firmware finishing early cannot make a multi-GB queue look almost done.
+    /// </summary>
+    private void RecomputeAggregate()
+    {
+        long downloaded = 0, total = 0;
+        double speed = 0;
+        var active = 0;
+        var finished = 0;
+        foreach (var job in Jobs)
+        {
+            var jobTotal = job.ExpectedTotal;
+            total += jobTotal;
+            downloaded += job.IsFinished && jobTotal > 0 ? jobTotal : Math.Min(job.Downloaded, jobTotal);
+            if (job.IsActive) { speed += job.BytesPerSecond; active++; }
+            if (job.IsFinished) finished++;
+        }
+        OverallProgress = total > 0 ? Math.Clamp(downloaded * 100d / total, 0, 100) : 0;
+        OverallSizeText = total > 0
+            ? $"{downloaded / 1024d / 1024d / 1024d:F2} / {total / 1024d / 1024d / 1024d:F2} GB"
+            : "—";
+        OverallSpeedText = speed > 0 ? $"{speed / 1024d / 1024d:F1} MB/s" : "";
+        ActiveCount = active;
+        FinishedCount = finished;
+        ResumeAllCommand.NotifyCanExecuteChanged();
+    }
+
+    // ---------------------------------------------------------------- devices
 
     public void AddDevices(IEnumerable<FirmwareDevice> devices)
     {
@@ -210,13 +437,6 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
         _settings.Save();
         SelectedDevice ??= MyDevices.FirstOrDefault();
-    }
-
-    [RelayCommand]
-    private void OpenFolder()
-    {
-        if (Directory.Exists(DestinationFolder))
-            Process.Start(new ProcessStartInfo("explorer.exe", DestinationFolder) { UseShellExecute = true });
     }
 
     private bool CanAddDevice() => SelectedCatalogDevice is not null &&
@@ -283,13 +503,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             var details = await _catalog.GetDeviceAsync(device.Identifier, _loadCts.Token);
             _deviceFirmwares = details.Firmwares.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate).ToList();
             ApplyFirmwareFilter();
+            TouchLastCheck(device.Identifier);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { ErrorText = ex.Message; }
         finally { IsLoading = false; }
     }
-
-    private List<FirmwareRelease> _deviceFirmwares = new();
 
     private void RestoreMyDevices()
     {
@@ -326,20 +545,68 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         Firmwares.Clear();
         foreach (var firmware in _deviceFirmwares.Where(f => !SignedOnly || f.Signed)) Firmwares.Add(firmware);
         SelectedFirmware = Firmwares.FirstOrDefault();
-        DownloadCommand.NotifyCanExecuteChanged();
+        EnqueueDownloadCommand.NotifyCanExecuteChanged();
     }
 
-    private void RecordCompletedAutoUpdate(FirmwareDevice device, FirmwareRelease firmware, string path)
+    private void PersistDownloadSettings()
+    {
+        Directory.CreateDirectory(DestinationFolder);
+        _settings.Current.FirmwareFolder = DestinationFolder;
+        _settings.Current.FirmwareDownloadThreads = SegmentCount;
+        _settings.Save();
+    }
+
+    private void RecordCompletedDownload(FirmwareDevice device, FirmwareRelease firmware, string path)
     {
         var subscription = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == device.Identifier);
-        if (subscription is null) return;
+        if (subscription is null) { TouchLastDownload(); return; }
         var oldPath = subscription.LastFilePath;
         subscription.LastBuildId = firmware.BuildId;
         subscription.LastFilePath = path;
+        subscription.LastDownloadUtc = DateTimeOffset.UtcNow;
         _settings.Save();
+        RefreshAutoUpdateTimestamps();
         if (!string.IsNullOrWhiteSpace(oldPath) && !string.Equals(oldPath, path, StringComparison.OrdinalIgnoreCase) && File.Exists(oldPath))
         {
             try { File.Delete(oldPath); } catch { }
         }
+    }
+
+    private void TouchLastCheck(string identifier)
+    {
+        var subscription = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == identifier);
+        if (subscription is null) return;
+        subscription.LastCheckUtc = DateTimeOffset.UtcNow;
+        _settings.Save();
+        RefreshAutoUpdateTimestamps();
+    }
+
+    private void TouchLastDownload()
+    {
+        var subscription = SelectedDevice is null
+            ? null
+            : _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == SelectedDevice.Identifier);
+        if (subscription is null) return;
+        subscription.LastDownloadUtc = DateTimeOffset.UtcNow;
+        _settings.Save();
+        RefreshAutoUpdateTimestamps();
+    }
+
+    /// <summary>
+    /// Surfaces when the auto-updater last looked and last actually pulled a build, so an
+    /// idle schedule is distinguishable from a broken one.
+    /// </summary>
+    public void RefreshAutoUpdateTimestamps()
+    {
+        var subscriptions = _settings.Current.FirmwareSubscriptions;
+        var scoped = SelectedDevice is null
+            ? subscriptions
+            : subscriptions.Where(s => s.Identifier == SelectedDevice.Identifier).ToList();
+        var source = scoped.Count > 0 ? scoped : subscriptions;
+        LastCheckText = Format(source.Select(s => s.LastCheckUtc).Where(d => d.HasValue).Max());
+        LastDownloadText = Format(source.Select(s => s.LastDownloadUtc).Where(d => d.HasValue).Max());
+
+        static string Format(DateTimeOffset? value) =>
+            value is null ? "—" : value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
     }
 }

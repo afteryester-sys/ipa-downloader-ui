@@ -81,7 +81,7 @@
     <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
     <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
-    <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">��ранилище</sys:String>
     <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
 
     <!-- Фото (Фотоплёнка) -->
@@ -268,7 +268,7 @@
     <sys:String x:Key="L.Itunes.Receiving">iTunes загружает: {0}</sys:String>
     <sys:String x:Key="L.Itunes.Copying">Забираем файл из библиотеки iTunes…</sys:String>
     <sys:String x:Key="L.Itunes.Timeout">Новый .ipa в библиотеке iTunes так и не появился. Загрузка в iTunes могла не начаться или была отменена — попробуйте ещё раз. Если библиотека iTunes перенесена в другое место, укажите её папку в настройках.</sys:String>
-    <sys:String x:Key="L.Itunes.PickOne">Выберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">��ыберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
 
     <!-- Скачивание IPA по Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
@@ -398,7 +398,7 @@
     <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
 
 
-    <!-- Заголовки диалогов и фильтры -->
+    <!-- Заг��ловки диалогов и фильтры -->
     <sys:String x:Key="L.Dialog.PickFolderTitle">Куда сохранить IPA</sys:String>
     <sys:String x:Key="L.Dialog.PickIpaTitle">Выберите IPA для установки</sys:String>
     <sys:String x:Key="L.Dialog.IpaFilter">Файлы IPA|*.ipa|Все файлы|*.*</sys:String>
@@ -438,7 +438,7 @@
     <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
-    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось ��не App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
@@ -625,7 +625,7 @@
     <sys:String x:Key="L.Photos.SyncClientMissing">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Установите Apple Devices из Microsoft Store или классический iTunes. Затем выберите эту папку в разделе фото устройства и нажмите «Применить»/«Синхронизировать».</sys:String>
     <sys:String x:Key="L.Photos.SyncClientOpenFailed">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Не удалось автоматически открыть {3}. Запустите его вручную, выберите iPhone → «Фото», укажите открытую папку и нажмите «Применить»/«Синхронизировать».</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
-    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там только свою медиатеку</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там то��ько свою медиатеку</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>
     <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
     <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
@@ -636,7 +636,7 @@
     <sys:String x:Key="L.Photos.TransferFailed">Ошибка переноса: {0}</sys:String>
 
     <!-- Диалог конфликта файлов -->
-    <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано ранее. Выберите, что сделать с существующим файлом.</sys:String>
+    <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано ранее. Выберите, что сделать с существующим файл��м.</sys:String>
     <sys:String x:Key="L.Conflict.FileMeta">{0} · сохранён {1}</sys:String>
     <sys:String x:Key="L.Conflict.SizeUnknown">размер неизвестен</sys:String>
 
@@ -777,7 +777,7 @@
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
     <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
-    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных прилож��ний, они добавятся к тому же переносу.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
     <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>
@@ -792,7 +792,7 @@
     <sys:String x:Key="L.OnDevice.TransferSelected">Перенести на другой iPhone ({0})</sys:String>
     <sys:String x:Key="L.OnDevice.TransferPickTarget">Куда перенести:</sys:String>
     <sys:String x:Key="L.OnDevice.TransferNoTargets">Других подключённых устройств нет. Подключите второй iPhone кабелем, нажмите на нём «Доверять» и откройте этот список снова.</sys:String>
-    <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачиваются из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачиваютс�� из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
 
     <sys:String x:Key="L.Rollback.Title">Откат к предыдущей версии</sys:String>
     <sys:String x:Key="L.Rollback.PasswordHint">Введите пароль для доступа к откату</sys:String>
@@ -862,7 +862,7 @@
     <sys:String x:Key="L.QuickTransfer.FilterAll">Все файлы|*.*</sys:String>
     <sys:String x:Key="L.QuickTransfer.ScanningApps">Ищем приложения с доступом к файлам…</sys:String>
     <sys:String x:Key="L.QuickTransfer.FileSharingHint">Файлы будут записаны и проверены в папке Documents выбранного приложения. IPA устанавливаются отдельно.</sys:String>
-    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">Совместимых приложений не найдено. Установите VLC, Documents или файловый менеджер с Apple File Sharing. MP3 и другие файлы переносятся в папку Documents такого приложения, а не напрямую в системную «Музыку».</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">Совместимых приложений не найдено. Установите VLC, Documents или файлов��й менеджер с Apple File Sharing. MP3 и другие файлы переносятся в папку Documents такого приложения, а не напрямую в системную «Музыку».</sys:String>
     <sys:String x:Key="L.QuickTransfer.ScanFailed">Не удалось надёжно проверить приложения: {0}. Проверьте подключение, разблокируйте iPhone и подтвердите «Доверять».</sys:String>
     <sys:String x:Key="L.QuickTransfer.ScanPartial">Найдено приложений: {0} (проверено: {1}), но часть списка проверить не удалось: {2}</sys:String>
     <sys:String x:Key="L.QuickTransfer.UnknownScanError">неизвестная ошибка устройства</sys:String>
@@ -909,5 +909,29 @@
     <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
+    <sys:String x:Key="L.Firmware.PickerCount">Показано: {0} · выбрано: {1}</sys:String>
+    <sys:String x:Key="L.Firmware.Queue">Загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.QueueEmpty">Очередь пуста. Выберите устройство и нажмите «Скачать прошивку».</sys:String>
+    <sys:String x:Key="L.Firmware.Job">Прошивка</sys:String>
+    <sys:String x:Key="L.Firmware.Overall">Общий прогресс</sys:String>
+    <sys:String x:Key="L.Firmware.ActiveLabel">Активных</sys:String>
+    <sys:String x:Key="L.Firmware.DoneLabel">Готово</sys:String>
+    <sys:String x:Key="L.Firmware.Resume">Продолжить</sys:String>
+    <sys:String x:Key="L.Firmware.PauseAll">Пауза для всех</sys:String>
+    <sys:String x:Key="L.Firmware.ResumeAll">Продолжить все</sys:String>
+    <sys:String x:Key="L.Firmware.StopAll">Остановить все</sys:String>
+    <sys:String x:Key="L.Firmware.ClearFinished">Очистить завершённые</sys:String>
+    <sys:String x:Key="L.Firmware.LastCheck">Последняя проверка</sys:String>
+    <sys:String x:Key="L.Firmware.LastDownload">Последняя загрузка</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePromptTitle">Продолжить загрузку?</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePrompt">Найдены незавершённые загрузки прошивок ({0}). Продолжить их сейчас? Если отказаться, временные файлы будут удалены.</sys:String>
+    <sys:String x:Key="L.Firmware.Never">не выполнялась</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Queued">В очереди…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Running">Загрузка…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Recovered">Восстановлена после перезапуска</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftHours">осталось {0} ч {1} мин</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftMinutes">осталось {0} мин</sys:String>
+    <sys:String x:Key="L.Refresh">Обновить</sys:String>
 
 </ResourceDictionary>
