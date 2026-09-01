@@ -1,0 +1,903 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Common -->
+    <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
+    <sys:String x:Key="L.Back">Back</sys:String>
+    <sys:String x:Key="L.Home">Home</sys:String>
+    <sys:String x:Key="L.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Retry">Retry</sys:String>
+    <sys:String x:Key="L.Settings">Settings</sys:String>
+    <sys:String x:Key="L.Search">Search…</sys:String>
+    <sys:String x:Key="L.Loading">Loading…</sys:String>
+    <sys:String x:Key="L.Credit">developed by Poslevcherashniy</sys:String>
+    <sys:String x:Key="L.Guard.Title">Protected device</sys:String>
+    <sys:String x:Key="L.Guard.ActionLine">Enter the device password to “{0}”.</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Unknown device</sys:String>
+    <sys:String x:Key="L.Guard.Serial">Serial number: {0}</sys:String>
+    <sys:String x:Key="L.Guard.Wrong">Incorrect password. Try again.</sys:String>
+    <sys:String x:Key="L.Guard.Confirm">Confirm</sys:String>
+
+    <!-- Environment setup -->
+    <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Making sure everything needed to work with your iPhone is installed</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Apple drivers (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Required for Windows to detect a connected iPhone. Installed together with iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Recommended. Provides drivers and reliable device connectivity.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Helper utilities (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Downloaded automatically. Needed to download and install apps.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Install</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Installing… A User Account Control (UAC) prompt may appear.</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Check again</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Skip</sys:String>
+    <sys:String x:Key="L.Setup.AllReady">Everything is ready — opening sign-in…</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Could not install iTunes automatically. Please install it manually from apple.com and click "Check again".</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Could not download the helper utilities. Check your internet connection and retry.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Apple drivers not found. Install iTunes — it includes all required drivers.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Download iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Or download manually:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud for Windows (required for ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 uses iCloud to obtain anisette data when signing into Apple ID. Click the button — the app will download the classic iCloud installer straight from Apple's servers and launch it. If sign-in still fails, switch to ipatool v2 (no iCloud needed).</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Download &amp; install iCloud</sys:String>
+
+    <!-- Login -->
+    <sys:String x:Key="L.Login.Title">Sign in with Apple ID</sys:String>
+    <sys:String x:Key="L.Login.Subtitle">Sign in to download apps from the App Store</sys:String>
+    <sys:String x:Key="L.Login.Email">Apple ID (email)</sys:String>
+    <sys:String x:Key="L.Login.Password">Password</sys:String>
+    <sys:String x:Key="L.Login.SignIn">Sign In</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorTitle">Two-Factor Authentication</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorHint">Enter the 6-digit code sent to your Apple devices</sys:String>
+    <sys:String x:Key="L.Login.Confirm">Confirm</sys:String>
+    <sys:String x:Key="L.Login.SigningIn">Signing in…</sys:String>
+    <sys:String x:Key="L.Login.RestoringSession">Checking saved session…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Skip sign-in</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">You can go straight to your devices. Apple ID sign-in is only required when installing apps.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">Couldn't read iCloud data</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 gets sign-in data from Apple iCloud for Windows. The Microsoft Store version often doesn't work — you need the classic version from apple.com/icloud. The easiest option is to switch to ipatool v2 — it doesn't need iCloud and works right away.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
+    <sys:String x:Key="L.Login.CodeNotArrived">Code didn&apos;t arrive?</sys:String>
+    <sys:String x:Key="L.Login.ResendCode">Resend</sys:String>
+
+    <!-- Devices -->
+    <sys:String x:Key="L.Devices.Title">Devices</sys:String>
+    <sys:String x:Key="L.Devices.Subtitle">Connect an iPhone or iPad via USB and select it</sys:String>
+    <sys:String x:Key="L.Devices.Empty">Waiting for a device…</sys:String>
+    <sys:String x:Key="L.Devices.EmptyHint">Make sure Apple Mobile Device Support (iTunes) is installed and the device is unlocked. Tap "Trust" on the device.</sys:String>
+    <sys:String x:Key="L.Devices.Battery">Battery</sys:String>
+    <sys:String x:Key="L.Devices.Select">Select</sys:String>
+    <sys:String x:Key="L.Devices.Connected">Connected</sys:String>
+    <sys:String x:Key="L.Devices.Catalog">App Catalog</sys:String>
+    <sys:String x:Key="L.Devices.CatalogApps">apps in catalog</sys:String>
+    <sys:String x:Key="L.Devices.SignOut">Sign Out</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Sign in to Apple ID</sys:String>
+
+    <!-- Device info -->
+    <sys:String x:Key="L.Devices.Info">Info</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Photos</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Device Information</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">The Apple ID is not exposed by the device. Recent iOS versions hide it for privacy.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Storage</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Battery</sys:String>
+
+    <!-- Photos (Camera Roll) -->
+    <sys:String x:Key="L.Photos.Title">Photos</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
+    <sys:String x:Key="L.Photos.Import">Sync photos</sys:String>
+    <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Select a file from the list to see details and a preview.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">No preview is available for this file.</sys:String>
+    <sys:String x:Key="L.Photos.HeicMissing">HEIC photos aren't shown because Windows is missing the component that reads them. It's free — previews will appear once it's installed. You can still copy these files to your PC without it.</sys:String>
+    <sys:String x:Key="L.Photos.HeicInstall">Install component</sys:String>
+
+    <!-- App picker -->
+    <sys:String x:Key="L.Picker.Title">Choose Apps</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Search</sys:String>
+    <sys:String x:Key="L.Picker.SelectedCount">Selected:</sys:String>
+    <sys:String x:Key="L.Picker.Install">Install Selected</sys:String>
+    <sys:String x:Key="L.Picker.SelectAll">Select All</sys:String>
+    <sys:String x:Key="L.Picker.ClearAll">Clear Selection</sys:String>
+    <sys:String x:Key="L.Picker.All">All</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Refreshing statuses…</sys:String>
+    <sys:String x:Key="L.Picker.InstallIpa">Install IPA from file</sys:String>
+    <sys:String x:Key="L.Picker.InstallByBundleId">Install by Bundle ID or link</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdHint">Enter a Bundle ID (com.apple.mobilemail), an App Store ID (389801252), or paste a store link. The app is found on the App Store and installed.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdInstall">Find &amp; Install</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatch">The signed-in Apple ID and the device Apple ID differ. Are you sure you want to install?</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchContinue">Continue</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchCancel">Cancel</sys:String>
+    <sys:String x:Key="L.Status.Downloaded">Downloaded</sys:String>
+    <sys:String x:Key="L.Status.Licensed">Licensed</sys:String>
+    <sys:String x:Key="L.Status.NotLicensed">No License</sys:String>
+    <sys:String x:Key="L.Status.Installed">Installed</sys:String>
+
+    <!-- IPA libraries: folders of local .ipa files the user named themselves -->
+    <sys:String x:Key="L.Catalogs.Title">Install from File</sys:String>
+    <sys:String x:Key="L.Catalogs.Subtitle">Pick an .ipa directly, or add a folder as a library</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFiles">Pick .ipa file</sys:String>
+    <sys:String x:Key="L.Catalogs.Add">Add library</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFolder">Choose a folder containing .ipa files</sys:String>
+    <sys:String x:Key="L.Catalogs.Rename">Rename</sys:String>
+    <sys:String x:Key="L.Catalogs.Save">Save</sys:String>
+    <sys:String x:Key="L.Catalogs.Remove">Remove</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveTitle">Remove library</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveBody">Remove the library “{0}” from the list? The folder itself and the .ipa files in it stay on disk.</sys:String>
+    <sys:String x:Key="L.Catalogs.OpenFolder">Open folder</sys:String>
+    <sys:String x:Key="L.Catalogs.Rescan">Refresh</sys:String>
+    <sys:String x:Key="L.Catalogs.Scanning">Scanning…</sys:String>
+    <sys:String x:Key="L.Catalogs.NoCatalogs">No libraries yet. Add a folder of .ipa files — their names and icons are read from the archives.</sys:String>
+    <sys:String x:Key="L.Catalogs.EmptyFolder">No .ipa files in this folder</sys:String>
+    <sys:String x:Key="L.Catalogs.Unreadable">File cannot be read — damaged, or not an .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.FolderMissing">Folder unavailable — it may have been moved, or it is on a removable drive</sys:String>
+    <sys:String x:Key="L.Catalogs.NeverScanned">Not scanned yet</sys:String>
+    <sys:String x:Key="L.Catalogs.ScannedAt">Refreshed: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.Count">Apps: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.Catalogs.ClearSelection">Clear selection</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallTo">Install to:</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallSelected">Install selected ({0})</sys:String>
+
+    <!-- Queue -->
+    <sys:String x:Key="L.Queue.Title">Installing Apps</sys:String>
+    <sys:String x:Key="L.Queue.Overall">Overall Progress</sys:String>
+    <sys:String x:Key="L.Queue.Done">Done</sys:String>
+    <sys:String x:Key="L.Queue.Failed">Failed</sys:String>
+    <sys:String x:Key="L.Queue.Cancelled">Cancelled</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Cancel All</sys:String>
+    <sys:String x:Key="L.Queue.Finish">Finish</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Apple ID session expired</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Apple no longer accepts the saved sign-in: it has expired, or the auth file is damaged. Sign in again to continue.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Sign in again</sys:String>
+    <sys:String x:Key="L.Stage.Pending">Queued</sys:String>
+    <sys:String x:Key="L.Stage.Checking">Checking</sys:String>
+    <sys:String x:Key="L.Stage.Licensing">License</sys:String>
+    <sys:String x:Key="L.Stage.Downloading">Download</sys:String>
+    <sys:String x:Key="L.Stage.Installing">Install</sys:String>
+
+    <!-- Operations (multitasking mode) -->
+    <sys:String x:Key="L.Ops.Minimize">Send to background</sys:String>
+    <sys:String x:Key="L.Ops.Title">Current operations</sys:String>
+    <sys:String x:Key="L.Ops.Empty">No active operations.</sys:String>
+    <sys:String x:Key="L.Ops.Return">Return</sys:String>
+    <sys:String x:Key="L.Ops.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Ops.ClearFinished">Clear finished</sys:String>
+    <sys:String x:Key="L.Ops.State.Running">Running</sys:String>
+    <sys:String x:Key="L.Ops.State.Done">Done</sys:String>
+    <sys:String x:Key="L.Ops.State.Failed">Failed</sys:String>
+    <sys:String x:Key="L.Ops.State.Cancelled">Cancelled</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Install">Installing apps</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Transfer">Transferring apps</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Download">Downloading IPA</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Ops.Kind.MediaExport">Exporting media</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Export">Saving photos to computer</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Delete">Deleting photos from device</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Preparing photos for Apple sync</sys:String>
+    <sys:String x:Key="L.Ops.ExitTitle">Operations still running</sys:String>
+    <sys:String x:Key="L.Ops.ExitBody">These operations have not finished. Closing now interrupts them — an install onto a device is a particularly bad moment to cut off.</sys:String>
+    <sys:String x:Key="L.Ops.ExitConfirm">Close anyway</sys:String>
+    <sys:String x:Key="L.Ops.ExitCancel">Keep open</sys:String>
+
+    <!-- Settings -->
+    <sys:String x:Key="L.Settings.Title">Settings</sys:String>
+    <sys:String x:Key="L.Settings.Language">Interface Language</sys:String>
+    <sys:String x:Key="L.Settings.Theme">Appearance</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Dark">Dark</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Light">Light</sys:String>
+    <sys:String x:Key="L.Settings.Theme.RestartHint">The app will restart after changing the appearance.</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">ipatool version</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — no iCloud required (recommended)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — requires iCloud installed</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth">Apple authentication</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Toggle">New authentication method (BETA)</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Experimental login through ipatool-rs with the current SAP signature. iTunes and iCloud are not required; the standard method and its session remain unchanged.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Check">Check readiness</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">ipatool-rs was found. Required Apple support components will be downloaded and verified automatically on first login.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">ipatool-rs is missing. Use “Reinstall tools”, then restart the application.</sys:String>
+    <sys:String x:Key="L.Settings.AppsFolder">IPA download folder</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolder">iTunes library (Mobile Applications folder)</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolderHint">Only needed for the "Via iTunes 12.6.5.3" route, and only if your iTunes library was moved elsewhere. Normally leave this blank — the default locations are probed automatically.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads">Parallel downloads</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple throttles each connection separately, so a single stream rarely saturates your line. Running several downloads at once raises the total speed of a queue. It does not make one app download faster.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput">Download speed</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Scanning">Checking…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Clean">No local bottlenecks found.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Rescan">Check again</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fix">Fix</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fixing">Applying…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Dismiss">Hide</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Could not apply. Please try again.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixCancelled">The administrator prompt was dismissed. Click Fix and approve the Windows prompt.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixBlocked">Defender rejected the change: exclusions are most likely locked by policy or tamper protection. Add the folder manually in Windows Security.</sys:String>
+    <sys:String x:Key="L.Settings.Account">Account</sys:String>
+    <sys:String x:Key="L.Settings.SignOut">Sign out of Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.InstallMode">Install Mode</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Download and install (default)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Download IPA only (do not install)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Install existing IPA only (skip download)</sys:String>
+    <sys:String x:Key="L.Settings.ResumeMode">When a download is interrupted</sys:String>
+    <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Start over (previous behaviour)</sys:String>
+    <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Keep what was downloaded</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">With "Keep what was downloaded", finished files are not fetched twice: close the program mid-queue and the apps already downloaded are reused. Size and licence are verified first, so an incomplete file is still downloaded again.</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking">Multitasking mode</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Toggle">Enable multitasking</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Hint">Each action becomes a separate operation: send it to the background and start the next one without waiting for the first to finish. Background operations collect in a circle in the corner of the window, and you can return to any of them from there. With the mode off everything works as before — one operation at a time.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls">Simultaneous installs per device</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Different devices always install in parallel; this only caps a single device. Above 2 rarely helps: the limit is the USB link, not the phone.</sys:String>
+    <sys:String x:Key="L.Settings.Save">Save</sys:String>
+
+    <!-- Updates -->
+    <sys:String x:Key="L.Update.Title">Updates</sys:String>
+    <sys:String x:Key="L.Update.Version">Current version:</sys:String>
+    <sys:String x:Key="L.Update.Check">Check for updates</sys:String>
+    <sys:String x:Key="L.Update.Download">Download update</sys:String>
+    <sys:String x:Key="L.Update.Install">Install and restart</sys:String>
+    <sys:String x:Key="L.Update.Checking">Checking for updates…</sys:String>
+    <sys:String x:Key="L.Update.Available">A new version {0} is available</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">You are running the latest version</sys:String>
+    <sys:String x:Key="L.Update.UpToDateVer">You are running the latest version (v{0})</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Downloading update…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Update downloaded. Click "Install and restart".</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">The releases page was opened in your browser — download the installer manually.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Could not check for updates.</sys:String>
+    <sys:String x:Key="L.Update.NoReleases">No updates: no release has been published on the server yet.</sys:String>
+    <sys:String x:Key="L.Update.NoConnection">Could not reach the update server. Check your internet connection.</sys:String>
+    <sys:String x:Key="L.Update.Timeout">The update server timed out. Please try again.</sys:String>
+    <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
+    <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
+
+    <!-- Rollback -->
+    <sys:String x:Key="L.Rollback.Title">Roll back to a previous version</sys:String>
+    <sys:String x:Key="L.Rollback.PasswordHint">Enter the password to access rollback</sys:String>
+    <sys:String x:Key="L.Rollback.Unlock">Unlock</sys:String>
+    <sys:String x:Key="L.Rollback.WrongPassword">Wrong password.</sys:String>
+    <sys:String x:Key="L.Rollback.Loading">Loading version list…</sys:String>
+    <sys:String x:Key="L.Rollback.LoadFailed">Could not load the version list.</sys:String>
+    <sys:String x:Key="L.Rollback.NoReleases">No other versions found.</sys:String>
+    <sys:String x:Key="L.Rollback.PickVersion">Choose a version:</sys:String>
+    <sys:String x:Key="L.Rollback.Button">Roll back</sys:String>
+    <sys:String x:Key="L.Rollback.Downloading">Downloading the installer for the selected version…</sys:String>
+    <sys:String x:Key="L.Rollback.Failed">Rollback failed. Please try again.</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmTitle">Roll back to version {0}?</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmBody">The app will close and reinstall as version {0}. Continue?</sys:String>
+    <sys:String x:Key="L.Rollback.Lock">Hide</sys:String>
+
+    <!-- Media export: photos/videos from a drive, folder, or Android phone -->
+    <sys:String x:Key="L.MediaExport.Title">Export Photos &amp; Videos</sys:String>
+    <sys:String x:Key="L.MediaExport.MenuTitle">Photos from Media</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Scan a drive, folder, or Android phone mounted as a file system, then copy what it finds to your PC</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceLabel">Source</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceHint">Choose the drive or folder to scan for photos and videos.</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationLabel">Destination</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationHint">Choose where the found files should be copied.</sys:String>
+    <sys:String x:Key="L.MediaExport.Browse">Browse…</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceTitle">Choose a source folder</sys:String>
+    <sys:String x:Key="L.MediaExport.PickDestinationTitle">Choose a destination folder</sys:String>
+    <sys:String x:Key="L.MediaExport.OptionsLabel">Options</sys:String>
+    <sys:String x:Key="L.MediaExport.ByFolder">Keep one folder per source group</sys:String>
+    <sys:String x:Key="L.MediaExport.SingleFolder">Copy everything into one folder</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunk">Skip tiny files (thumbnails, previews)</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunkHint">Files smaller than the threshold below are treated as junk and left out of the scan.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scan">Scan</sys:String>
+    <sys:String x:Key="L.MediaExport.Export">Export</sys:String>
+    <sys:String x:Key="L.MediaExport.OpenDestination">Open destination</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedSource">Choose a source folder first.</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedDestination">Choose a destination folder first.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scanning">Scanning…</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanningGroup">Scanning: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.Cancelled">Cancelled.</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanFailed">Scan failed: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.RootGroup">(root)</sys:String>
+    <sys:String x:Key="L.MediaExport.NothingFound">No photos or videos were found.</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundTotal">Found {0} photo(s) and {1} video(s), {2} total</sys:String>
+    <sys:String x:Key="L.MediaExport.SkippedJunk">Skipped {0} tiny file(s) as junk.</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
+    <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
+    <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
+
+    <!-- Alternative route: iTunes 12.6.5.3 -->
+    <sys:String x:Key="L.Itunes.Button">Via iTunes 12.6.5.3</sys:String>
+    <sys:String x:Key="L.Itunes.ButtonHint">Fallback route. Apple changed the endpoint ipatool signs into, so the normal download can fail. iTunes 12.6.5.3 still has the App Store tab and its own working session, so it can hand over a file the normal route no longer can.</sys:String>
+    <sys:String x:Key="L.Itunes.OpKind">Download via iTunes</sys:String>
+    <sys:String x:Key="L.Itunes.NotFound">iTunes was not found on this computer. Version 12.6.5.3 is required — it is the last one with the App Store tab. iTunes 12.7 and newer removed it and cannot produce an .ipa.</sys:String>
+    <sys:String x:Key="L.Itunes.TooNew">iTunes {0} is installed. Apple removed the App Store tab in 12.7, so it cannot produce an .ipa. iTunes 12.6.5.3 is required.</sys:String>
+    <sys:String x:Key="L.Itunes.NeedStoreId">This route needs the numeric App Store ID: iTunes opens a store page by ID, and a Bundle ID alone cannot find it. Paste the app's store link or its ID.</sys:String>
+    <sys:String x:Key="L.Itunes.OpenFailed">Could not open the app's page in iTunes. Check that iTunes 12.6.5.3 is installed and starts.</sys:String>
+    <sys:String x:Key="L.Itunes.Opening">Opening the app's page in iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Waiting">Waiting for the file from iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Instructions">An iTunes window opened on the app's page. Press "Download" there (sign in to your Apple ID inside iTunes if asked). As soon as iTunes finishes, the finished .ipa is picked up from its library automatically — leave the iTunes window open.</sys:String>
+    <sys:String x:Key="L.Itunes.Receiving">iTunes is downloading: {0}</sys:String>
+    <sys:String x:Key="L.Itunes.Copying">Collecting the file from the iTunes library…</sys:String>
+    <sys:String x:Key="L.Itunes.Timeout">No new .ipa appeared in the iTunes library. The download may never have started, or was cancelled — try again. If your iTunes library was moved, set its folder in Settings.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">Select an app in the list. This route takes one app at a time, because the download has to be confirmed inside iTunes.</sys:String>
+
+    <!-- Download IPA by Bundle ID -->
+    <sys:String x:Key="L.Direct.Title">Download IPA</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Enter an app's Bundle ID, its App Store ID, or paste a store link, then choose a folder — the .ipa file is saved there. No device needs to be connected.</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, App Store ID or link</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdHint">For example: com.burbn.instagram, 389801252, or https://apps.apple.com/us/app/instagram/id389801252</sys:String>
+    <sys:String x:Key="L.Direct.Find">Find</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedKnown">This app is not in the public App Store catalog — it was most likely withdrawn from sale. Its name and icon come from local data, so the size cannot be shown. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
+    <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
+    <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>
+    <sys:String x:Key="L.Direct.Download">Download IPA</sys:String>
+    <sys:String x:Key="L.Direct.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Direct.OpenFolder">Open folder</sys:String>
+    <sys:String x:Key="L.Direct.Searching">Looking up app…</sys:String>
+    <sys:String x:Key="L.Direct.Downloading">Preparing download…</sys:String>
+    <sys:String x:Key="L.Direct.Done">Saved:</sys:String>
+    <sys:String x:Key="L.Direct.NotFound">No app found for that Bundle ID, App Store ID or link. Check the spelling.</sys:String>
+    <sys:String x:Key="L.Direct.NeedFolder">Choose a destination folder.</sys:String>
+    <sys:String x:Key="L.Direct.NeedLogin">Apple ID sign-in required</sys:String>
+    <sys:String x:Key="L.Direct.NeedLoginHint">The IPA is downloaded and signed with your Apple ID, so signing in is required.</sys:String>
+
+    <!-- Menu (gear) -->
+    <sys:String x:Key="L.Menu.Title">Menu</sys:String>
+    <sys:String x:Key="L.Menu.Tools">Tools</sys:String>
+    <sys:String x:Key="L.Menu.Diagnostics">Diagnostics</sys:String>
+    <sys:String x:Key="L.Menu.Logs">Show log</sys:String>
+    <sys:String x:Key="L.Menu.Maintenance">Maintenance</sys:String>
+    <sys:String x:Key="L.Menu.ClearCache">Clear cache</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmTitle">Clear cache?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">This will delete downloaded apps (.ipa), including partial downloads, the icon and catalog caches, temporary files and logs from previous days — about {0}. Your settings and sign-in will be kept. Continue?</sys:String>
+    <sys:String x:Key="L.Cache.Clearing">Clearing…</sys:String>
+    <sys:String x:Key="L.Cache.Done">Done. Freed {0}.</sys:String>
+    <sys:String x:Key="L.Cache.Failed">Couldn't clear the cache. See the log for details.</sys:String>
+    <sys:String x:Key="L.Cache.BusyDownloading">A download is in progress. Wait for it to finish or cancel the queue.</sys:String>
+    <sys:String x:Key="L.Menu.CheckCache">Check cache size</sys:String>
+    <sys:String x:Key="L.Cache.Scanning">Measuring…</sys:String>
+    <sys:String x:Key="L.Cache.ScanningGroup">Measuring: {0}…</sys:String>
+    <sys:String x:Key="L.Cache.ScanDone">Checked.</sys:String>
+    <sys:String x:Key="L.Cache.ScanTotal">Total {0} in {1} files</sys:String>
+    <sys:String x:Key="L.Cache.ScanFailed">Couldn't measure the cache. See the log for details.</sys:String>
+    <sys:String x:Key="L.Cache.AlreadyEmpty">Nothing to clear.</sys:String>
+    <sys:String x:Key="L.Cache.ClearingProgress">Clearing… {0} of {1}</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Freed {0}. {1} file(s) were in use and were kept.</sys:String>
+    <sys:String x:Key="L.Cache.Item.Apps">Downloaded apps (.ipa)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">App icons</sys:String>
+    <sys:String x:Key="L.Cache.Item.IpaIcons">Icons from local .ipa files</sys:String>
+    <sys:String x:Key="L.Cache.Item.DeviceIcons">Icons read from devices</sys:String>
+    <sys:String x:Key="L.Cache.Item.Thumbs">Photo thumbnails</sys:String>
+    <sys:String x:Key="L.Cache.Item.PhotoDb">Photo library database (album names)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Catalog">Catalog cache</sys:String>
+    <sys:String x:Key="L.Cache.Item.Temp">Temporary files</sys:String>
+    <sys:String x:Key="L.Cache.Item.Installers">Update installers</sys:String>
+    <sys:String x:Key="L.Cache.Item.Logs">Logs from previous days</sys:String>
+
+    <!-- Logs -->
+    <sys:String x:Key="L.Logs.Title">Application log</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Detailed activity log. Copy it and send it to the developer to help diagnose an error.</sys:String>
+    <sys:String x:Key="L.Logs.Copy">Copy all</sys:String>
+    <sys:String x:Key="L.Logs.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.Logs.OpenFile">Open file</sys:String>
+    <sys:String x:Key="L.Logs.Clear">Clear</sys:String>
+    <sys:String x:Key="L.Logs.File">Log file:</sys:String>
+
+    <!-- Device log (live syslog off the iPhone) -->
+    <sys:String x:Key="L.DeviceLogs.Title">Device log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint">Live log from the iPhone itself. Use it when an app installs but will not open: the reason is reported by the device and appears nowhere in the application log.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Open">Open device log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Start the capture, then reproduce the problem on the phone — install the app and tap its icon. Save the log afterwards and send it over.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Start">Start capture</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stop">Stop</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Save">Save to file</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterInstall">Install and launch only</sys:String>
+    <sys:String x:Key="L.DeviceLogs.AutoScroll">Follow new lines</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Capturing…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stopped">Stopped</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Idle">Ready</sys:String>
+    <sys:String x:Key="L.DeviceLogs.NoDevice">No device connected</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Saved">Log saved</sys:String>
+    <sys:String x:Key="L.DeviceLogs.SaveFailed">Could not save the log</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterChanged">The filter applies to new lines; lines already collected are unchanged.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint.Reproduce">Now reproduce the problem on the phone: install the app and tap its icon.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Footer">Red lines name a failure outright. Save the file and send it over if the cause is not obvious.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Title">The device rejected the app's FairPlay licence</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">This is why the app shows a white screen and closes: it installed correctly, but the device cannot decrypt it. Open the App Store on the phone, sign in with the same Apple ID the app was downloaded with, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
+    <!-- {0} is the Apple ID. Accounts match, so the licence just has not been issued yet. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">The app installed correctly but the device cannot decrypt it. The Apple ID matches ({0}), so the account is not the problem: the phone has not yet been issued a licence by the App Store. Open the App Store on the phone, confirm it is signed in as {0}, and start downloading any free app — beginning the download is enough, it need not finish. Then try the installed app again.</sys:String>
+    <!-- Recovery kept being retried and kept failing, so waiting is not the answer. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">The phone has now asked the App Store for this app's licence several times over and been refused every time — waiting longer, or opening the App Store, will not change that. A FairPlay licence belongs to the account the file was downloaded under, and the phone can only ask for one for the account it is signed in to. The way out is to download this app here under the account the phone is signed in to, then install it again.</sys:String>
+    <!-- {0} is the Apple ID on the phone. Same as above, but able to name the account. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">The phone has asked the App Store for this app's licence several times over — as {0} — and been refused every time. That means {0} does not own this app: the licence belongs to whichever account the file was downloaded under. Waiting and opening the App Store will not help. Download this app here under {0} and install it again, or sign the phone in as the account that owns the licence.</sys:String>
+    <!-- The phone asked for the licence itself, so the manual App Store trip is unnecessary. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">The app installed correctly, but the phone had no licence for it yet at that first launch. There is no need to open the App Store: the device has already requested one by itself — the log shows "fairplay recovery". Wait 10-20 seconds with the phone online, then tap the app on the home screen again. If it is still a white screen after two or three tries the request did not get through, and that is when starting any free App Store download helps.</sys:String>
+    <!-- {0} is the download account, {1} the account on the phone. Nothing on the phone fixes this. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">The app was downloaded under Apple ID {0}, but the phone is signed in as {1}. A FairPlay licence is issued to one account, so this copy will not launch on this phone whatever you do in the App Store. Either sign the phone in as {0}, or download the app again here under {1} and reinstall it.</sys:String>
+
+    <!-- Diagnostics (logging settings) -->
+    <sys:String x:Key="L.Settings.Selection">Selecting in lists</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">How several items are marked for a batch action. Selecting by click puts a "Select" button on the page: while it is on, a click marks an item and Shift marks a run. Tick boxes are slower but a stray click cannot undo them.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Settings.Selection.OnDevice">Apps on the device</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Catalog">.ipa catalogs</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByClick">By click</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByCheckbox">With tick boxes</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl">Select with Ctrl</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">On: a click opens an item, and you mark items with Ctrl or the page's "Select" button. Off: a click marks items straight away, so the "Select" button is not needed and is hidden.</sys:String>
+    <sys:String x:Key="L.Settings.Diagnostics">Diagnostics</sys:String>
+    <sys:String x:Key="L.Settings.Load">Current load</sys:String>
+    <sys:String x:Key="L.Settings.Load.Cpu">Processor</sys:String>
+    <sys:String x:Key="L.Settings.Load.Memory">Memory</sys:String>
+    <sys:String x:Key="L.Settings.Load.Helpers">Helper processes</sys:String>
+    <sys:String x:Key="L.Settings.Load.Hint">Counts the app together with its helper processes (ipatool, idevice* and others) — Task Manager attributes their load separately from IPA Studio. Updated once a second while this section is open.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging">Verbose logging</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Records additional internal detail for diagnostics.</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs">Hide background device and battery checks</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs.Hint">Checks keep running, but their repetitive RUN/EXIT commands stay out of the log. Errors and warnings are never hidden.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi">Wi-Fi connection</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Toggle">Look for devices over Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Hint">Lets you use a device without a cable. Connect the device by cable once when enabling this — that is the only way to allow the iPhone to respond over the network. After that the device must be on the same network and unlocked. Wi-Fi is markedly slower, so a cable remains more reliable for installing apps and browsing photos.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Preparing">Preparing devices…</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi enabled on {0} device(s). You can unplug the cable now.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">No cabled device found. Connect the iPhone by cable and turn this on again, otherwise the device will not respond over the network.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Failed">Could not prepare the device for Wi-Fi. Check that it is unlocked and that you tapped Trust. See the log for details.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoBonjour">The Apple Bonjour service is missing or disabled. Devices cannot be found over the network without it — Bonjour is what reports which iPhones are responding. Reinstall iTunes from apple.com; its installer includes Bonjour.</sys:String>
+    <sys:String x:Key="L.Devices.Link.Usb">Cable</sys:String>
+    <sys:String x:Key="L.Devices.Link.Wifi">Wi-Fi</sys:String>
+
+
+    <!-- Dialog titles and filters -->
+    <sys:String x:Key="L.Dialog.PickFolderTitle">Where to save the IPA</sys:String>
+    <sys:String x:Key="L.Dialog.PickIpaTitle">Choose an IPA to install</sys:String>
+    <sys:String x:Key="L.Dialog.IpaFilter">IPA files|*.ipa|All files|*.*</sys:String>
+
+    <!-- Units -->
+    <sys:String x:Key="L.Unit.B">B</sys:String>
+    <sys:String x:Key="L.Unit.KB">KB</sys:String>
+    <sys:String x:Key="L.Unit.MB">MB</sys:String>
+    <sys:String x:Key="L.Unit.GB">GB</sys:String>
+    <sys:String x:Key="L.Unit.PerSecond">/s</sys:String>
+    <sys:String x:Key="L.Unit.Seconds">s</sys:String>
+    <sys:String x:Key="L.Unit.Minutes">min</sys:String>
+    <sys:String x:Key="L.Unit.Hours">h</sys:String>
+
+    <!-- Queue progress -->
+    <sys:String x:Key="L.Queue.Status.Checking">Checking local files…</sys:String>
+    <sys:String x:Key="L.Queue.Status.Connecting">Connecting to the App Store…</sys:String>
+    <sys:String x:Key="L.Queue.Status.ConnectingElapsed">Connecting to the App Store… {0} s</sys:String>
+    <sys:String x:Key="L.Queue.Status.Licensing">Obtaining a license…</sys:String>
+    <sys:String x:Key="L.Queue.Status.Attempt"> · attempt {0}</sys:String>
+    <sys:String x:Key="L.Queue.Status.Finalizing">Packaging and signing… ({0})</sys:String>
+    <sys:String x:Key="L.Queue.Status.Downloaded">Downloaded {0}</sys:String>
+    <sys:String x:Key="L.Queue.Status.TotalUnknown">total unknown</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingDevice">Waiting for the device…</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingSlot">Waiting for a free download slot…</sys:String>
+    <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Downloaded (install skipped)</sys:String>
+
+    <!-- Install progress -->
+    <sys:String x:Key="L.Install.Status.Preparing">Preparing the file</sys:String>
+    <sys:String x:Key="L.Install.Status.Copying">Copying to the device</sys:String>
+    <sys:String x:Key="L.Install.Status.Installing">Installing</sys:String>
+    <sys:String x:Key="L.Install.Status.Complete">Complete</sys:String>
+
+    <!-- Download and store errors -->
+    <sys:String x:Key="L.Error.Unknown">Something went wrong. See the log for details.</sys:String>
+    <sys:String x:Key="L.Error.Network">No connection to Apple. Check your internet connection and try again.</sys:String>
+    <sys:String x:Key="L.Error.SessionExpired">The Apple ID session is no longer valid. Please sign in again.</sys:String>
+    <sys:String x:Key="L.Error.DownloadFailed">The download could not be completed.</sys:String>
+    <sys:String x:Key="L.Error.LicenseFailed">Could not obtain a license for this app on the current Apple ID.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">The App Store did not hand this app over for the current request. That usually means it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). Retrying, or using the other kind of identifier, is worth a go: delisted apps often do download.</sys:String>
+    <sys:String x:Key="L.Error.NotPurchased">The signed-in Apple ID does not own this app, and the license could not be obtained automatically.</sys:String>
+    <sys:String x:Key="L.Error.StoreUnavailable">The App Store did not respond. Please try again in a moment.</sys:String>
+    <sys:String x:Key="L.Error.ConnectionStalled">The connection stalled; retrying…</sys:String>
+    <sys:String x:Key="L.Error.FolderUnusable">Couldn't use the folder “{0}”: {1}</sys:String>
+    <sys:String x:Key="L.Error.FileExists">Skipped: the file “{0}” already exists.</sys:String>
+    <sys:String x:Key="L.Error.IpaNotFound">IPA file not found: {0}</sys:String>
+    <sys:String x:Key="L.Error.ToolFailure">The helper utility could not be started. Reinstall the utilities from Settings.</sys:String>
+
+    <!-- Install errors -->
+    <sys:String x:Key="L.Install.Error.CoordinatedInstall">The device is still holding an unfinished App Store download of this app. Delete the app's icon from the home screen — including a dimmed or half-installed one — then try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoSpace">Not enough free space on the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.ExtractionFailed">The device could not unpack the app. This is nearly always a space problem: installing needs room for two to three times the app's size, so it fails even while the phone still shows some space free. Free up space in Settings — General — iPhone Storage, then try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.Verification">App verification failed: the IPA is damaged or its signature is invalid.</sys:String>
+    <sys:String x:Key="L.Install.Error.CertRevoked">The signing certificate has been revoked. Use a different IPA.</sys:String>
+    <sys:String x:Key="L.Install.Error.Incompatible">This IPA is not compatible with the iOS version on the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.AlreadyInstalled">This app is already installed on the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.BundleIdInUse">The bundle ID is already used by another app on the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.DeviceDisconnected">The device disconnected during installation. Reconnect it and try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.InstallDaemon">The install service on the device is not responding. Restart the device.</sys:String>
+    <sys:String x:Key="L.Install.Error.MissingEntitlement">The IPA requires entitlements that need a paid Apple Developer account.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotPurchased">This app was not purchased with the signed-in Apple ID. Try “Install IPA from file” instead.</sys:String>
+    <sys:String x:Key="L.Install.Error.Authenticate">Authentication failed. Unlock the device and check the connection.</sys:String>
+    <!-- {0} is the account the file belongs to, {1} the account on the device. Refused up front. -->
+    <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device — the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotOnDevice">The installer reported success, but the app is not on the device — and a second attempt did not change that. This happens when the device drops one of several concurrent installs. Set “Concurrent installs per device” to 1 in Settings and try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>
+
+    <!-- Sign-in errors -->
+    <sys:String x:Key="L.Login.Error.BadCredentials">Incorrect Apple ID or password.</sys:String>
+    <sys:String x:Key="L.Login.Error.WrongCode">That verification code was not accepted. Please try again.</sys:String>
+    <sys:String x:Key="L.Login.Error.Cancelled">Sign-in was cancelled.</sys:String>
+    <sys:String x:Key="L.Login.Error.Network">Couldn't reach Apple. Check your internet connection.</sys:String>
+    <sys:String x:Key="L.Login.Error.RateLimited">Too many attempts. Wait a few minutes and try again.</sys:String>
+    <sys:String x:Key="L.Login.Error.AccountLocked">This Apple ID is locked or needs attention at appleid.apple.com.</sys:String>
+    <sys:String x:Key="L.Login.Error.SessionExpired">The saved session is no longer valid. Please sign in again.</sys:String>
+    <sys:String x:Key="L.Login.Error.ToolFailure">ipatool could not be started. Reinstall the utilities from Settings.</sys:String>
+    <sys:String x:Key="L.Login.Error.Unknown">Sign-in failed. See the log for details.</sys:String>
+
+    <!-- App lookup (Bundle ID, App Store ID or store link) -->
+    <sys:String x:Key="L.Direct.NeedQuery">Enter a Bundle ID, an App Store ID, or a link to the app.</sys:String>
+    <sys:String x:Key="L.Direct.LookupFailed">Couldn't look the app up in the App Store. Check your connection and try again.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdEmpty">Enter a Bundle ID, an App Store ID, or a link to the app.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdNotFound">No app found in the App Store for “{0}”.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Couldn't look the app up in the App Store. Check your connection and try again.</sys:String>
+
+
+    <!-- Throughput advisor -->
+    <sys:String x:Key="L.Tuning.Defender.Title">Defender is scanning the download folder</sys:String>
+    <sys:String x:Key="L.Tuning.Defender.Detail">Every block written into the IPA is checked by the antivirus, and the finished archive is scanned again in full. On multi-gigabyte files this is usually the largest loss of speed. Adding the folder to the exclusion list requires administrator rights.</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Title">Temporary folder is on a different drive</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Staging is on {0} while the destination folder is on {1}. The final move becomes a full copy of the archive instead of an instant rename.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Title">The download folder is NTFS-compressed</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">An IPA is already compressed, so NTFS compression saves no space but turns sequential writes into read-modify-write cycles.</sys:String>
+    <sys:String x:Key="L.Tuning.LowSpace.Title">Low disk space</sys:String>
+    <sys:String x:Key="L.Tuning.LowSpace.Detail">{0} GB free. A download needs room for the temporary file and the final archive at the same time.</sys:String>
+
+    <!-- Device info -->
+    <sys:String x:Key="L.DeviceInfo.Detecting">Detecting…</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdHidden">Unavailable (iOS hides the Apple ID)</sys:String>
+    <sys:String x:Key="L.DeviceInfo.BatteryCapacity">Battery capacity</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Model">Model</sys:String>
+    <sys:String x:Key="L.DeviceInfo.ModelIdentifier">Model identifier</sys:String>
+    <sys:String x:Key="L.DeviceInfo.OsVersion">iOS version</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Build">Build</sys:String>
+    <sys:String x:Key="L.DeviceInfo.DeviceClass">Device type</sys:String>
+    <sys:String x:Key="L.DeviceInfo.SerialNumber">Serial number</sys:String>
+    <sys:String x:Key="L.DeviceInfo.PhoneNumber">Phone number</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Region">Region</sys:String>
+    <!-- Apple sales-region codes reported in RegionInfo, e.g. "LL/A". -->
+    <sys:String x:Key="L.Region.A">Canada</sys:String>
+    <sys:String x:Key="L.Region.AB">UAE, Saudi Arabia, Egypt</sys:String>
+    <sys:String x:Key="L.Region.B">United Kingdom, Ireland</sys:String>
+    <sys:String x:Key="L.Region.BR">Brazil</sys:String>
+    <sys:String x:Key="L.Region.BZ">Brazil</sys:String>
+    <sys:String x:Key="L.Region.C">Canada</sys:String>
+    <sys:String x:Key="L.Region.CH">China</sys:String>
+    <sys:String x:Key="L.Region.CL">Canada</sys:String>
+    <sys:String x:Key="L.Region.CZ">Czechia</sys:String>
+    <sys:String x:Key="L.Region.D">Germany, Austria, Netherlands</sys:String>
+    <sys:String x:Key="L.Region.E">Mexico</sys:String>
+    <sys:String x:Key="L.Region.FB">France</sys:String>
+    <sys:String x:Key="L.Region.FD">Austria, Switzerland, Liechtenstein</sys:String>
+    <sys:String x:Key="L.Region.FS">Finland</sys:String>
+    <sys:String x:Key="L.Region.GR">Greece</sys:String>
+    <sys:String x:Key="L.Region.HB">Israel</sys:String>
+    <sys:String x:Key="L.Region.HN">India</sys:String>
+    <sys:String x:Key="L.Region.IN">India</sys:String>
+    <sys:String x:Key="L.Region.IP">Italy, Portugal</sys:String>
+    <sys:String x:Key="L.Region.J">Japan</sys:String>
+    <sys:String x:Key="L.Region.KH">South Korea, China</sys:String>
+    <sys:String x:Key="L.Region.LA">Latin America</sys:String>
+    <sys:String x:Key="L.Region.LE">Argentina</sys:String>
+    <sys:String x:Key="L.Region.LL">USA</sys:String>
+    <sys:String x:Key="L.Region.LZ">Chile, Paraguay, Uruguay</sys:String>
+    <sys:String x:Key="L.Region.MY">Malaysia</sys:String>
+    <sys:String x:Key="L.Region.ND">Netherlands</sys:String>
+    <sys:String x:Key="L.Region.NF">France, Luxembourg</sys:String>
+    <sys:String x:Key="L.Region.PL">Poland</sys:String>
+    <sys:String x:Key="L.Region.PP">Philippines</sys:String>
+    <sys:String x:Key="L.Region.QN">Denmark, Norway, Sweden</sys:String>
+    <sys:String x:Key="L.Region.RM">Russia</sys:String>
+    <sys:String x:Key="L.Region.RP">Russia</sys:String>
+    <sys:String x:Key="L.Region.RR">Russia</sys:String>
+    <sys:String x:Key="L.Region.RS">Russia</sys:String>
+    <sys:String x:Key="L.Region.RU">Russia</sys:String>
+    <sys:String x:Key="L.Region.SL">Slovakia</sys:String>
+    <sys:String x:Key="L.Region.SO">South Africa</sys:String>
+    <sys:String x:Key="L.Region.T">Italy</sys:String>
+    <sys:String x:Key="L.Region.TA">Taiwan</sys:String>
+    <sys:String x:Key="L.Region.TH">Thailand</sys:String>
+    <sys:String x:Key="L.Region.TU">Turkey</sys:String>
+    <sys:String x:Key="L.Region.VC">Canada</sys:String>
+    <sys:String x:Key="L.Region.VN">Vietnam</sys:String>
+    <sys:String x:Key="L.Region.X">Australia, New Zealand</sys:String>
+    <sys:String x:Key="L.Region.Y">Spain</sys:String>
+    <sys:String x:Key="L.Region.ZA">Singapore</sys:String>
+    <sys:String x:Key="L.Region.ZP">Hong Kong, Macau</sys:String>
+    <sys:String x:Key="L.DeviceInfo.WifiAddress">Wi-Fi address</sys:String>
+    <sys:String x:Key="L.DeviceInfo.BluetoothAddress">Bluetooth address</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Cycles">{0} cycles</sys:String>
+    <sys:String x:Key="L.DeviceInfo.StorageSummary">{0} used of {1} · {2} free</sys:String>
+    <sys:String x:Key="L.Unit.TB">TB</sys:String>
+
+    <!-- Battery capacity readout -->
+    <sys:String x:Key="L.Battery.Unavailable">Unavailable — unlock the device and allow access</sys:String>
+    <sys:String x:Key="L.Battery.UnavailableReason">Unavailable — {0}</sys:String>
+    <sys:String x:Key="L.Battery.Error.ToolMissing">the diagnostics tool is not installed</sys:String>
+    <sys:String x:Key="L.Battery.Error.Timeout">timed out</sys:String>
+    <sys:String x:Key="L.Battery.Error.NoCapacity">the device does not report capacity</sys:String>
+    <sys:String x:Key="L.Battery.Error.NoResponse">no response from the device</sys:String>
+    <sys:String x:Key="L.Battery.Error.ReadFailed">read error</sys:String>
+
+    <!-- Photos -->
+    <sys:String x:Key="L.Photos.Hidden">Hidden</sys:String>
+    <sys:String x:Key="L.Photos.NoAlbum">Not in an album</sys:String>
+    <sys:String x:Key="L.Photos.Today">Today</sys:String>
+    <sys:String x:Key="L.Photos.Yesterday">Yesterday</sys:String>
+    <sys:String x:Key="L.Common.Select">Select</sys:String>
+    <sys:String x:Key="L.Common.Select.Hint">Mark items by clicking, without Ctrl</sys:String>
+    <sys:String x:Key="L.Photos.ShowDates.Hint">Show dates</sys:String>
+    <sys:String x:Key="L.Photos.NoDate">Date unknown</sys:String>
+    <sys:String x:Key="L.Photos.TileSize">Tile size</sys:String>
+    <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS did not allow reading album titles from this device, so photos are shown as one group.</sys:String>
+    <sys:String x:Key="L.Photos.LoadingAlbums">Reading album names from the device. Only the first time is slow — after that they come from the cache. The photos are already usable.</sys:String>
+    <sys:String x:Key="L.Photos.Albums.All">All photos</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Videos">Videos</sys:String>
+    <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Recently Deleted</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Screenshots">Screenshots</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.Photos.AlbumItems">items</sys:String>
+    <sys:String x:Key="L.Photos.BackToAlbums">Albums</sys:String>
+    <sys:String x:Key="L.Photos.Media.All">All</sys:String>
+    <sys:String x:Key="L.Photos.Media.Photos">Photos</sys:String>
+    <sys:String x:Key="L.Photos.Media.Videos">Videos</sys:String>
+    <sys:String x:Key="L.Photos.Reading">Reading the media library…</sys:String>
+    <sys:String x:Key="L.Photos.Empty">No media found. Make sure the device is unlocked and you granted access.</sys:String>
+    <sys:String x:Key="L.Photos.Found">Media files found: {0}</sys:String>
+    <sys:String x:Key="L.Photos.ReadFailed">Couldn't read the media library: {0}</sys:String>
+    <sys:String x:Key="L.Photos.PickExportFolder">Choose a folder to save into</sys:String>
+    <sys:String x:Key="L.Photos.Exported">Copied to the computer: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbum">Save album</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumTooltip">Save every file in "{0}" to the computer</sys:String>
+    <sys:String x:Key="L.Photos.ExportingAlbum">Saving "{0}"…</sys:String>
+    <sys:String x:Key="L.Photos.ExportedAlbum">"{0}": saved {1} of {2} into {3}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumEmpty">"{0}" holds no files matching the current filter.</sys:String>
+    <sys:String x:Key="L.Photos.Delete">Delete</sys:String>
+    <sys:String x:Key="L.Photos.Deleted">Deleted {0} of {1}.</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Delete from device?</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteBody">{0} item(s) selected. They will be removed from the device immediately, bypassing "Recently Deleted", and cannot be restored from the phone. Continue?</sys:String>
+    <sys:String x:Key="L.Photos.SearchHint">Search by file name</sys:String>
+    <sys:String x:Key="L.Photos.PickImportFiles">Choose photos or videos to transfer</sys:String>
+    <sys:String x:Key="L.Photos.MediaFilter">Media files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|All files|*.*</sys:String>
+    <sys:String x:Key="L.Photos.Imported">Transferred to the device: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Drop to prepare Apple photo sync</sys:String>
+    <sys:String x:Key="L.Photos.DropHintSub">Photos and videos; folders are searched through</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">None of those files are supported photos or videos</sys:String>
+    <sys:String x:Key="L.Photos.SyncTitle">Sync photos with Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncPrepared">Prepared for sync: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
+    <sys:String x:Key="L.Photos.AppleClient">Apple Devices or iTunes</sys:String>
+    <sys:String x:Key="L.Photos.SyncInstructions">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;In {3}, select the iPhone → Photos → “Sync photos from”, choose this folder, then click Apply/Sync. The files appear in a separate synced album. If iCloud Photos is enabled, Apple may disable USB photo sync; turn it off on the iPhone or use iCloud instead.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientMissing">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;Install Apple Devices from Microsoft Store or classic iTunes. Then choose this folder in the device's Photos section and click Apply/Sync.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Prepared {0} of {1} file(s). The folder is open: {2}&#10;&#10;{3} could not be opened automatically. Start it manually, select the iPhone → Photos, choose the open folder, then click Apply/Sync.</sys:String>
+    <sys:String x:Key="L.Photos.ImportNothingCopied">No files could be copied</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Copied to the device: {0} of {1}. They will not appear in Photos — iOS only shows its own library there</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">The files are on the device in DCIM and readable by anything that reads that folder directly. They will not appear in Photos: iOS keeps its library in a separate closed database and does not pick up files added from outside. Restarting the device does not change this.</sys:String>
+    <sys:String x:Key="L.Photos.RestartDevice">Restart iPhone</sys:String>
+    <sys:String x:Key="L.Photos.DismissHint">Dismiss</sys:String>
+    <sys:String x:Key="L.Photos.RestartConfirm">Restart the device now? Unsaved data in apps on the iPhone may be lost.</sys:String>
+    <sys:String x:Key="L.Photos.Restarting">The device is restarting</sys:String>
+    <sys:String x:Key="L.Photos.RestartFailed">The device refused to restart. Please restart it by hand.</sys:String>
+    <sys:String x:Key="L.Photos.Cancelled">Operation cancelled.</sys:String>
+    <sys:String x:Key="L.Photos.TransferFailed">Transfer error: {0}</sys:String>
+
+    <!-- File conflict dialog -->
+    <sys:String x:Key="L.Conflict.AppLine">“{0}” has already been downloaded. Choose what to do with the existing file.</sys:String>
+    <sys:String x:Key="L.Conflict.FileMeta">{0} · saved {1}</sys:String>
+    <sys:String x:Key="L.Conflict.SizeUnknown">size unknown</sys:String>
+
+    <!-- Shared -->
+    <sys:String x:Key="L.Common.Copied">Copied</sys:String>
+    <sys:String x:Key="L.Common.CopyFailed">Couldn't copy</sys:String>
+    <sys:String x:Key="L.Logs.Copied">Copied to the clipboard</sys:String>
+    <sys:String x:Key="L.Crash.Recovered">Something went wrong, but the app will keep running.</sys:String>
+    <sys:String x:Key="L.Crash.SeeLog">The details were saved to the log (menu button in the top-right corner → Log).</sys:String>
+
+
+    <!-- Contact popup -->
+    <sys:String x:Key="L.Contact.Title">Contact the developer</sys:String>
+    <sys:String x:Key="L.Contact.Email">Copy the address</sys:String>
+    <sys:String x:Key="L.Contact.Copied">Address copied</sys:String>
+    <sys:String x:Key="L.Contact.Telegram">Message on Telegram</sys:String>
+
+    <!-- Picker header -->
+    <sys:String x:Key="L.Picker.AccountLabel">Account: </sys:String>
+    <sys:String x:Key="L.Picker.DeviceLabel">   |   Device: </sys:String>
+
+    <!-- File conflict dialog chrome -->
+    <sys:String x:Key="L.Conflict.Title">The file already exists</sys:String>
+    <sys:String x:Key="L.Conflict.ApplyToAll">Apply to all remaining files in this queue</sys:String>
+    <sys:String x:Key="L.Conflict.Skip">Skip</sys:String>
+    <sys:String x:Key="L.Conflict.Replace">Replace</sys:String>
+    <sys:String x:Key="L.Conflict.KeepBoth">Keep both</sys:String>
+
+    <!-- Photos view toggles -->
+    <sys:String x:Key="L.Photos.ViewList">List</sys:String>
+    <sys:String x:Key="L.Photos.ViewGrid">Grid</sys:String>
+
+    <!-- Shared controls -->
+    <sys:String x:Key="L.Common.Close">Close</sys:String>
+    <sys:String x:Key="L.Common.Copy">Copy</sys:String>
+    <sys:String x:Key="L.Common.CopyToClipboard">Copy to the clipboard</sys:String>
+
+
+    <!-- Add to catalog (download screen) -->
+    <sys:String x:Key="L.Direct.AddToCatalog">Add to catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddToCatalogHint">Save this app to the catalog so you can install it later without searching again</sys:String>
+    <sys:String x:Key="L.Direct.InCatalog">Already in the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddedToCatalog">"{0}" has been added to the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AlreadyInCatalog">This app is already in the catalog</sys:String>
+    <sys:String x:Key="L.Direct.AddFailed">Couldn't save the app to the catalog</sys:String>
+
+    <!-- ===== iCloud page ===== -->
+    <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.Subtitle">Sign in to your Apple ID to browse contacts, photos and notes stored in iCloud.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHeader">Sign in to iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHint">Use the Apple ID whose iCloud data you want to open.</sys:String>
+    <sys:String x:Key="L.ICloud.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.Password">Password</sys:String>
+    <sys:String x:Key="L.ICloud.PrivacyNote">Your password is used once, on this computer, to prove your identity to Apple — it is never sent anywhere else and never saved. Only Apple's session tokens are stored, encrypted for your Windows account.</sys:String>
+    <sys:String x:Key="L.ICloud.SignIn">Sign in</sys:String>
+    <sys:String x:Key="L.ICloud.SigningIn">Signing in…</sys:String>
+    <sys:String x:Key="L.ICloud.Resuming">Restoring your previous session…</sys:String>
+    <sys:String x:Key="L.ICloud.SessionExpired">Your saved session expired. Please sign in again.</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHeader">Two-factor code</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHint">Enter the six-digit code shown on your iPhone, iPad or Mac.</sys:String>
+    <sys:String x:Key="L.ICloud.EnterCode">Waiting for the six-digit code.</sys:String>
+    <sys:String x:Key="L.ICloud.SubmitCode">Confirm</sys:String>
+    <sys:String x:Key="L.ICloud.StartOver">Use a different Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.VerifyingCode">Checking the code…</sys:String>
+    <sys:String x:Key="L.ICloud.BadCode">That code was not accepted. Try the newest one.</sys:String>
+    <sys:String x:Key="L.ICloud.ResendCode">Send the code again</sys:String>
+    <sys:String x:Key="L.ICloud.SendingCode">Requesting a new code…</sys:String>
+    <sys:String x:Key="L.ICloud.SendSms">Text the code instead</sys:String>
+    <sys:String x:Key="L.ICloud.SendingSms">Sending the code by text…</sys:String>
+    <sys:String x:Key="L.ICloud.AllPhotos">All photos</sys:String>
+    <sys:String x:Key="L.ICloud.CloseNote">Close</sys:String>
+    <sys:String x:Key="L.ICloud.NoteBodyFailed">The note text could not be loaded</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResent">A new code was sent. Enter that one.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResendFailed">Apple did not send a code. Wait a minute and try again.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentDevice">The code was sent to your Apple devices signed in to this Apple ID.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentSms">The code was texted to {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentCall">The code will be read out in a call to {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentPhone">The code was sent to your trusted phone number.</sys:String>
+    <sys:String x:Key="L.ICloud.BadCredentials">Apple ID or password is incorrect.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInFailed">Apple refused the sign-in. Try again later, or check the account at icloud.com.</sys:String>
+    <sys:String x:Key="L.ICloud.SignOut">Sign out</sys:String>
+    <sys:String x:Key="L.ICloud.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.ICloud.TabContacts">Contacts</sys:String>
+    <sys:String x:Key="L.ICloud.TabPhotos">Photos</sys:String>
+    <sys:String x:Key="L.ICloud.TabNotes">Notes</sys:String>
+    <sys:String x:Key="L.ICloud.Loading">Loading from iCloud…</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailed">iCloud did not return this data. Apple may be limiting access; try again later.</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailedCode">iCloud rejected the request (code {0}). Try Refresh again later.</sys:String>
+    <sys:String x:Key="L.ICloud.ContactCount">{0} contacts</sys:String>
+    <sys:String x:Key="L.ICloud.PhotoCount">{0} photos</sys:String>
+    <sys:String x:Key="L.ICloud.NoteCount">{0} notes</sys:String>
+    <sys:String x:Key="L.ICloud.NoContacts">No contacts in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Favourites">Favourites</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Videos">Videos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Screenshots">Screenshots</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Selfies">Selfies</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Panoramas">Panoramas</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.SloMo">Slo-mo</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.TimeLapse">Time-lapse</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Hidden">Hidden</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Deleted">Recently Deleted</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadAlbum">Download the whole album</sys:String>
+    <sys:String x:Key="L.ICloud.AlbumEmpty">“{0}” has no photos to download.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadingAlbum">{0} — downloading {1} of {2}…</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">No photos in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">No notes in this iCloud account.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportContacts">Export contacts</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone and Android (*.vcf)|*.vcf|CSV — Google Contacts, Excel (*.csv)|*.csv</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsExported">Saved {0} contacts.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportFailed">Could not save the file.</sys:String>
+    <sys:String x:Key="L.ICloud.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.ICloud.Download">Download selected</sys:String>
+    <sys:String x:Key="L.ICloud.PickDownloadFolder">Choose where to save the photos</sys:String>
+    <sys:String x:Key="L.ICloud.Downloading">Downloading {0} of {1}…</sys:String>
+    <sys:String x:Key="L.ICloud.Downloaded">Downloaded {0} photos.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadedWithErrors">Downloaded {0} photos, {1} failed.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadFailed">The download failed.</sys:String>
+
+
+    <!-- ===== On the device (apps installed on the connected iPhone/iPad) ===== -->
+    <sys:String x:Key="L.OnDevice.Open">On the device</sys:String>
+    <sys:String x:Key="L.OnDevice.Title">Apps on the device</sys:String>
+    <sys:String x:Key="L.OnDevice.Refresh">Refresh</sys:String>
+    <sys:String x:Key="L.OnDevice.Loading">Reading the app list from the device…</sys:String>
+    <sys:String x:Key="L.OnDevice.LoadFailed">Could not read the app list from the device. Check the connection, unlock the device, then press Refresh.</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">No user apps found on the device.</sys:String>
+    <sys:String x:Key="L.OnDevice.FolderLabel">Folder for saved IPAs</sys:String>
+    <sys:String x:Key="L.OnDevice.ChooseFolder">Choose folder…</sys:String>
+    <sys:String x:Key="L.OnDevice.Download">Download IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.Reveal">Show file</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLogin">Sign in with an Apple ID to download IPAs</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLoginHint">The file comes from the App Store, not from the device: a copy can only be fetched by the Apple ID that owns the app.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotFromStore">Not installed from the App Store — cannot be downloaded</sys:String>
+    <sys:String x:Key="L.OnDevice.OtherAccount">Bought with a different Apple ID ({0}) — cannot be downloaded</sys:String>
+    <sys:String x:Key="L.OnDevice.AccountUnverified">The device does not report which Apple ID bought this app. If it was not the current account, the App Store will refuse the download.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotOwned">The current Apple ID does not own this app, so the App Store refused the download.</sys:String>
+    <sys:String x:Key="L.OnDevice.PickCatalogMatch">The App Store would not serve this app by its bundle id. The catalog holds similar names — pick the right one and the download will use its id:</sys:String>
+    <sys:String x:Key="L.OnDevice.NotInStore">This app is not on the App Store, so it cannot be downloaded.</sys:String>
+    <!-- {0} is how many apps are already transferring, {1} how many await a chosen match. -->
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Transfer started with {0} app(s). {1} more could not be identified by bundle id — pick a catalog match on the apps marked below and they will join the same transfer.</sys:String>
+    <sys:String x:Key="L.OnDevice.SelectAll">Select all</sys:String>
+    <sys:String x:Key="L.OnDevice.ClearSelection">Clear selection</sys:String>
+    <sys:String x:Key="L.OnDevice.DownloadSelected">Download selected ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchRunning">Downloading: {0} of {1} done…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchSubtitle">{0} app(s) · {1}</sys:String>
+    <sys:String x:Key="L.OnDevice.Queued">Queued…</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewList">Show as a list</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewTiles">Show as tiles</sys:String>
+    <sys:String x:Key="L.OnDevice.TileSize">Tile size</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDone">Saved {0} IPA file(s).</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Saved {0}, failed {1}.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferSelected">Transfer to another iPhone ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferPickTarget">Transfer to:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferNoTargets">No other device is connected. Attach a second iPhone by cable, tap Trust on it, then open this list again.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferHint">The apps are downloaded from the App Store again and installed on the chosen device. The copy on this iPhone is signed for it and will not run elsewhere.</sys:String>
+
+    <!-- Quick Transfer -->
+    <sys:String x:Key="L.QuickTransfer.Open">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Title">Quick Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Device">To device: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DropHint">Drop photos, videos, or IPA files here</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Browse">Choose files…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Supported">Photos and videos go to Photos; IPA files are installed automatically.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Filter">Supported files|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.tif;*.tiff;*.bmp;*.mov;*.mp4;*.m4v;*.3gp;*.avi;*.ipa|All files|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Summary">Recognized {0} file(s). Review the destinations.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Photos">Photos</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Apps">Apps</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileCount">{0} file(s)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Transfer">Transfer</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Importing">Importing photos and videos…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingFile">Imported {0} of {1}…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Close</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Destination">Destination app</sys:String>
+    <sys:String x:Key="L.QuickTransfer.AllTypes">Transfer photos, videos, audio, books, documents, archives, folders, IPA, and unknown file types.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FilterAll">All files|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanningApps">Finding apps that expose File Sharing…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Files are written and verified in the selected app's Documents folder. IPA files are installed separately.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">No compatible app was found. Install VLC, Documents, or a file manager with Apple File Sharing. MP3 and other files are transferred to that app's Documents folder, not directly to the system Music library.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanFailed">Apps could not be inspected reliably: {0}. Check the connection, unlock the iPhone, and confirm Trust.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanPartial">Found {0} app(s) out of {1} checked, but part of the list could not be inspected: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.UnknownScanError">unknown device error</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeApp">IPA application</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeImage">Image / RAW</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeVideo">Video</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeAudio">Audio</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeBook">Book / PDF</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeDocument">Document</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeArchive">Archive</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeOther">Other file</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoDestination">No destination</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CopyingFile">File {0} of {1}: {2} → {3}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Verified">Done: {0} file(s) verified; {1} IPA file(s) queued.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TransferFailed">Transfer stopped: {0}</sys:String>
+    <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
+
+    <!-- IPSW firmware -->
+    <sys:String x:Key="L.Firmware.Title">Firmware</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Apple IPSW catalog with pause, multi-threaded downloads, and resume support</sys:String>
+    <sys:String x:Key="L.Firmware.Device">Device</sys:String>
+    <sys:String x:Key="L.Firmware.Release">Firmware release</sys:String>
+    <sys:String x:Key="L.Firmware.SignedOnly">Signed only</sys:String>
+    <sys:String x:Key="L.Firmware.AutoUpdate">Toggle automatic updates for the selected device</sys:String>
+    <sys:String x:Key="L.Firmware.Folder">Firmware folder</sys:String>
+    <sys:String x:Key="L.Firmware.Threads">Download threads</sys:String>
+    <sys:String x:Key="L.Firmware.Interval">Check for updates every, hours</sys:String>
+    <sys:String x:Key="L.Firmware.Download">Download / resume</sys:String>
+    <sys:String x:Key="L.Firmware.Pause">Pause</sys:String>
+    <sys:String x:Key="L.Firmware.Operation">Firmware download</sys:String>
+    <sys:String x:Key="L.Firmware.Done">Firmware downloaded and verified.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>
+    <sys:String x:Key="L.Firmware.Failed">Firmware download failed.</sys:String>
+    <sys:String x:Key="L.Firmware.DevicesLoaded">Devices loaded: {0}</sys:String>
+
+</ResourceDictionary>

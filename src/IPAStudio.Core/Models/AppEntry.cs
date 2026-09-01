@@ -1,0 +1,102 @@
+namespace IPAStudio.Core.Models;
+
+/// <summary>
+/// An App Store application entry from the bundled catalog, enriched with
+/// metadata from the iTunes Lookup API.
+/// </summary>
+public sealed class AppEntry
+{
+    /// <summary>Display name from the catalog file.</summary>
+    public required string Name { get; init; }
+
+    /// <summary>Numeric App Store (Adam) ID.</summary>
+    public required long AppStoreId { get; init; }
+
+    // ---- Enriched from iTunes Lookup API (nullable until loaded) ----
+
+    /// <summary>Bundle identifier, e.g. "com.example.app".</summary>
+    public string? BundleId { get; set; }
+
+    /// <summary>URL of the 100x100 artwork icon.</summary>
+    public string? IconUrl { get; set; }
+
+    /// <summary>URL of the 512x512 artwork icon.</summary>
+    public string? IconUrlLarge { get; set; }
+
+    /// <summary>Primary genre, e.g. "Social Networking".</summary>
+    public string? Category { get; set; }
+
+    /// <summary>Latest version string on the App Store.</summary>
+    public string? LatestVersion { get; set; }
+
+    /// <summary>App Store seller / developer name.</summary>
+    public string? Developer { get; set; }
+
+    /// <summary>File size in bytes as reported by the store.</summary>
+    public long? FileSizeBytes { get; set; }
+
+    /// <summary>Minimum supported iOS version.</summary>
+    public string? MinimumOsVersion { get; set; }
+
+    /// <summary>Local path to the cached icon file (if downloaded).</summary>
+    public string? CachedIconPath { get; set; }
+
+    // ---- Local/account status flags (computed at runtime) ----
+
+    /// <summary>Whether an IPA for this app already exists in the local Apps folder.</summary>
+    public bool IsDownloaded { get; set; }
+
+    /// <summary>Path to the local IPA file, when <see cref="IsDownloaded"/> is true.</summary>
+    public string? LocalIpaPath { get; set; }
+
+    /// <summary>
+    /// License state on the signed-in Apple ID ("signed by the account / iCloud").
+    /// </summary>
+    public LicenseState License { get; set; } = LicenseState.Unknown;
+
+    /// <summary>Whether the app is already installed on the currently selected device.</summary>
+    public bool IsInstalledOnDevice { get; set; }
+
+    /// <summary>
+    /// True when the public iTunes Lookup API returned nothing for this app and the entry
+    /// was built from what the user typed instead.
+    ///
+    /// The lookup API only lists apps currently on sale, so it answers "no such app" for
+    /// anything pulled from sale, restricted to a storefront it was not asked about, or
+    /// never listed publicly — all of which the App Store still hands to an Apple ID that
+    /// owns them. Everything except the identifier is therefore unknown here, which is why
+    /// the flag exists: the UI must not present a guessed name as confirmed store metadata.
+    /// </summary>
+    public bool IsProvisional { get; set; }
+
+    /// <summary>
+    /// True when a provisional entry's name and artwork were recovered locally — from the
+    /// bundled catalog, the hand-added catalog, or an app installed on a connected device —
+    /// instead of being left as the raw identifier.
+    ///
+    /// Kept separate from <see cref="IsProvisional"/> because the two answer different
+    /// questions: that one says the store did not confirm the app, this one says whether
+    /// there is a real name to show. The UI needs both, or it ends up telling the user its
+    /// name cannot be shown directly above the name.
+    /// </summary>
+    public bool HasLocalMetadata { get; set; }
+}
+
+public enum LicenseState
+{
+    /// <summary>Not checked yet.</summary>
+    Unknown,
+
+    /// <summary>The Apple ID owns a license for this app (previously "purchased"/obtained).</summary>
+    Owned,
+
+    /// <summary>The Apple ID has no license; a purchase (free "Get") is required first.</summary>
+    NotOwned,
+
+    /// <summary>License check failed (network / tool error).</summary>
+    CheckFailed,
+
+    /// <summary>The ipatool session has expired (keychain unprotected / wrong passphrase).
+    /// The user must sign in again before the download can proceed.</summary>
+    SessionExpired,
+}

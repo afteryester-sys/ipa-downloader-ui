@@ -1,0 +1,132 @@
+<Window x:Class="IPAStudio.App.Views.DeviceLogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+        Title="{DynamicResource L.DeviceLogs.Title}"
+        Width="900" Height="620" MinWidth="620" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:SyslogSeverityToBrushConverter x:Key="SeverityToBrush" />
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,4">
+            <TextBlock Text="{DynamicResource L.DeviceLogs.Title}" Style="{StaticResource Text.Body}"
+                       FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="{DynamicResource L.DeviceLogs.Hint}" Style="{StaticResource Text.Caption}"
+                       TextWrapping="Wrap" Margin="0,4,0,0" />
+        </StackPanel>
+
+        <!-- Toolbar -->
+        <Grid Grid.Row="1" Margin="0,12,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <ComboBox Style="{StaticResource Input.ComboBox}" MinWidth="190"
+                          ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                          DisplayMemberPath="DisplayLabel" Margin="0,0,8,0"
+                          IsEnabled="{Binding IsStreaming, Converter={StaticResource InverseBool}}" />
+
+                <Button Content="{DynamicResource L.DeviceLogs.Start}" Style="{StaticResource Button.Primary}"
+                        Command="{Binding StartCommand}" MinWidth="130" Margin="0,0,8,0"
+                        Visibility="{Binding IsStreaming, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                <Button Content="{DynamicResource L.DeviceLogs.Stop}" Style="{StaticResource Button.Danger}"
+                        Command="{Binding StopCommand}" MinWidth="130" Margin="0,0,8,0"
+                        Visibility="{Binding IsStreaming, Converter={StaticResource BoolToVis}}" />
+
+                <Button Content="{DynamicResource L.DeviceLogs.Save}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding SaveCommand}" MinWidth="130" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource L.Logs.Copy}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding CopyCommand}" MinWidth="110" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource L.Logs.Clear}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding ClearLinesCommand}" MinWidth="90" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" Margin="0,0,4,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Options + FairPlay banner -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,20,0"
+                          Content="{DynamicResource L.DeviceLogs.FilterInstall}"
+                          IsChecked="{Binding InstallAndLaunchOnly}" />
+                <CheckBox Style="{StaticResource Check.Base}"
+                          Content="{DynamicResource L.DeviceLogs.AutoScroll}"
+                          IsChecked="{Binding AutoScroll}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding HintText}" Style="{StaticResource Text.Caption}"
+                       Foreground="{StaticResource Brush.Accent}" TextWrapping="Wrap"
+                       Visibility="{Binding HintText, Converter={StaticResource NullToCollapsed}}" />
+
+            <!-- Only appears once the device has actually said FairPlay failed, so it is a
+                 finding rather than a guess. -->
+            <Border Background="{StaticResource Brush.DangerSoft}" CornerRadius="8" Padding="12"
+                    Margin="0,8,0,0"
+                    Visibility="{Binding FairPlayDetected, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.DeviceLogs.FairPlay.Title}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" />
+                    <!-- Names the accounts involved when the device disclosed one, so the
+                         advice is specific rather than "use the right Apple ID". -->
+                    <TextBlock Text="{Binding FairPlayDetail}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Log body -->
+        <Border Grid.Row="3" CornerRadius="10" Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1" Padding="2">
+            <ListBox x:Name="LinesList" ItemsSource="{Binding Lines}"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     VirtualizingPanel.IsVirtualizing="True"
+                     VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Padding" Value="6,1" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock FontFamily="Consolas, Cascadia Mono, monospace" FontSize="12"
+                                   TextWrapping="NoWrap"
+                                   Foreground="{Binding Severity, Converter={StaticResource SeverityToBrush}}"
+                                   Text="{Binding Text}" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Footer -->
+        <TextBlock Grid.Row="4" Margin="2,10,0,0" Style="{StaticResource Text.Caption}"
+                   TextWrapping="Wrap" Text="{DynamicResource L.DeviceLogs.Footer}" />
+    </Grid>
+</Window>

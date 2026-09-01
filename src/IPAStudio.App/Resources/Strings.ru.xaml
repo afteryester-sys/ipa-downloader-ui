@@ -1,0 +1,901 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!-- Общее -->
+    <sys:String x:Key="L.AppTitle">IPA Studio</sys:String>
+    <sys:String x:Key="L.Back">Назад</sys:String>
+    <sys:String x:Key="L.Home">На главную</sys:String>
+    <sys:String x:Key="L.Cancel">Отмена</sys:String>
+    <sys:String x:Key="L.Retry">Повторить</sys:String>
+    <sys:String x:Key="L.Settings">Настройки</sys:String>
+    <sys:String x:Key="L.Search">Поиск…</sys:String>
+    <sys:String x:Key="L.Loading">Загрузка…</sys:String>
+    <sys:String x:Key="L.Credit">разработано Послевчерашним</sys:String>
+    <sys:String x:Key="L.Guard.Title">Защищённое устройство</sys:String>
+    <sys:String x:Key="L.Guard.ActionLine">Для действия «{0}» введите пароль устройства.</sys:String>
+    <sys:String x:Key="L.Guard.UnknownDevice">Неизвестное устройство</sys:String>
+    <sys:String x:Key="L.Guard.Serial">Серийный номер: {0}</sys:String>
+    <sys:String x:Key="L.Guard.Wrong">Неверный пароль. Попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Guard.Confirm">Подтвердить</sys:String>
+
+    <!-- Проверка окружения -->
+    <sys:String x:Key="L.Setup.Title">Проверка окружения</sys:String>
+    <sys:String x:Key="L.Setup.Subtitle">Убедимся, что всё необходимое для работы с iPhone установлено</sys:String>
+    <sys:String x:Key="L.Setup.Drivers">Драйверы Apple (Apple Mobile Device Support)</sys:String>
+    <sys:String x:Key="L.Setup.DriversHint">Нужны, чтобы Windows видел подключённый iPhone. Устанавливаются вместе с iTunes.</sys:String>
+    <sys:String x:Key="L.Setup.ITunes">iTunes</sys:String>
+    <sys:String x:Key="L.Setup.ITunesHint">Рекомендуется. Обеспечивает драйверы и корректное подключение устройств.</sys:String>
+    <sys:String x:Key="L.Setup.Tools">Служебные утилиты (ipatool, libimobiledevice)</sys:String>
+    <sys:String x:Key="L.Setup.ToolsHint">Загружаются автоматически. Нужны для загрузки и установки приложений.</sys:String>
+    <sys:String x:Key="L.Setup.Install">Установить</sys:String>
+    <sys:String x:Key="L.Setup.Installing">Идёт установка… Может открыться окно контроля учётных записей (UAC).</sys:String>
+    <sys:String x:Key="L.Setup.Recheck">Проверить снова</sys:String>
+    <sys:String x:Key="L.Setup.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Setup.AllReady">Всё готово — открываем вход…</sys:String>
+    <sys:String x:Key="L.Setup.ITunesFailed">Не удалось установить iTunes автоматически. Установите его вручную с сайта apple.com и нажмите «Проверить снова».</sys:String>
+    <sys:String x:Key="L.Setup.ToolsFailed">Не удалось загрузить служебные утилиты. Проверьте подключение к интернету и повторите.</sys:String>
+    <sys:String x:Key="L.Setup.DriversInstallNote">Драйверы Apple не найдены. Установите iTunes — он включает все необходимые драйверы.</sys:String>
+    <sys:String x:Key="L.Setup.InstallITunesLink">Скачать iTunes</sys:String>
+    <sys:String x:Key="L.Setup.OrDownloadManual">Или скачайте вручную:</sys:String>
+    <sys:String x:Key="L.Setup.ICloud">iCloud для Windows (требуется для ipatool v3)</sys:String>
+    <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID. Нажмите кнопку — приложение само скачает классический установщик iCloud с серверов Apple и запустит его. Если вход не заработает — переключитесь на ipatool v2 (iCloud не требуется).</sys:String>
+    <sys:String x:Key="L.Setup.OpenICloudPage">Скачать и установить iCloud</sys:String>
+
+    <!-- Авторизация -->
+    <sys:String x:Key="L.Login.Title">Вход в Apple ID</sys:String>
+    <sys:String x:Key="L.Login.Subtitle">Авторизуйтесь, чтобы загружать приложения из App Store</sys:String>
+    <sys:String x:Key="L.Login.Email">Apple ID (email)</sys:String>
+    <sys:String x:Key="L.Login.Password">Пароль</sys:String>
+    <sys:String x:Key="L.Login.SignIn">Войти</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorTitle">Двухфакторная аутентификация</sys:String>
+    <sys:String x:Key="L.Login.TwoFactorHint">Введите 6-значный код, отправленный на ваши устройства Apple</sys:String>
+    <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
+    <sys:String x:Key="L.Login.CodeNotArrived">Код не пришёл?</sys:String>
+    <sys:String x:Key="L.Login.ResendCode">Отправить снова</sys:String>
+    <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
+    <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
+    <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>
+    <sys:String x:Key="L.Login.SkipHint">Можно сразу перейти к устройствам. Вход в Apple ID потребуется только при установке приложений.</sys:String>
+    <sys:String x:Key="L.Login.ICloudTitle">Не удалось получить данные iCloud</sys:String>
+    <sys:String x:Key="L.Login.ICloudHint">ipatool v3 берёт данные для входа из Apple iCloud для Windows. Версия из Microsoft Store часто не подходит — нужна классическая версия с apple.com/icloud. Проще всего переключиться на ipatool v2 — он не требует iCloud и работает сразу.</sys:String>
+    <sys:String x:Key="L.Login.SwitchToV2">Переключить на ipatool v2</sys:String>
+
+    <!-- Устройства -->
+    <sys:String x:Key="L.Devices.Title">Устройства</sys:String>
+    <sys:String x:Key="L.Devices.Subtitle">Подключите iPhone или iPad по USB и выберите его</sys:String>
+    <sys:String x:Key="L.Devices.Empty">Ожидание подключения устройства…</sys:String>
+    <sys:String x:Key="L.Devices.EmptyHint">Убедитесь, что установлен Apple Mobile Device Support (iTunes) и устройство разблокировано. Нажмите «Доверять» на устройстве.</sys:String>
+    <sys:String x:Key="L.Devices.Battery">Батарея</sys:String>
+    <sys:String x:Key="L.Devices.Select">Выбрать</sys:String>
+    <sys:String x:Key="L.Devices.Connected">Подключено</sys:String>
+    <sys:String x:Key="L.Devices.Catalog">Каталог приложений</sys:String>
+    <sys:String x:Key="L.Devices.CatalogApps">приложений в каталоге</sys:String>
+    <sys:String x:Key="L.Devices.SignOut">Выйти</sys:String>
+    <sys:String x:Key="L.Devices.SignInPrompt">Войти в Apple ID</sys:String>
+
+    <!-- Информация об устройстве -->
+    <sys:String x:Key="L.Devices.Info">Информация</sys:String>
+    <sys:String x:Key="L.Devices.Photos">Фото</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Title">Информация об устройстве</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdUnknown">Apple ID не отображается устройством. Современные версии iOS скрывают его в целях конфиденциальности.</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Storage">Хранилище</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Battery">Батарея</sys:String>
+
+    <!-- Фото (Фотоплёнка) -->
+    <sys:String x:Key="L.Photos.Title">Фотографии</sys:String>
+    <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
+    <sys:String x:Key="L.Photos.Import">Синхронизировать фото</sys:String>
+    <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
+    <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Photos.NoSelection">Выберите файл в списке, чтобы увидеть подробности и предпросмотр.</sys:String>
+    <sys:String x:Key="L.Photos.PreviewUnavailable">Предпросмотр для этого файла недоступен.</sys:String>
+    <sys:String x:Key="L.Photos.HeicMissing">Фотографии в формате HEIC не показываются: в Windows не установлен компонент для их чтения. Он бесплатный — после установки превью появятся. Копировать такие файлы на компьютер можно и без него.</sys:String>
+    <sys:String x:Key="L.Photos.HeicInstall">Установить компонент</sys:String>
+
+    <!-- Выбор приложений -->
+    <sys:String x:Key="L.Picker.Title">Выбор приложений</sys:String>
+    <sys:String x:Key="L.Picker.SearchPlaceholder">Поиск</sys:String>
+    <sys:String x:Key="L.Picker.SelectedCount">Выбрано:</sys:String>
+    <sys:String x:Key="L.Picker.Install">Установить выбранные</sys:String>
+    <sys:String x:Key="L.Picker.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Picker.ClearAll">Снять выбор</sys:String>
+    <sys:String x:Key="L.Picker.All">Все</sys:String>
+    <sys:String x:Key="L.Picker.RefreshingStatuses">Обновление статусов…</sys:String>
+    <sys:String x:Key="L.Picker.InstallIpa">Установить IPA из файла</sys:String>
+    <sys:String x:Key="L.Picker.InstallByBundleId">Установить по Bundle ID или ссылке</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdHint">Введите Bundle ID (com.apple.mobilemail), ID из App Store (389801252) или вставьте ссылку. Приложение будет найдено в App Store и установлено.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdInstall">Найти и установить</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatch">Авторизованный Apple ID и Apple ID на устройстве отличаются. Уверены, что хотите установить?</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchContinue">Продолжить</sys:String>
+    <sys:String x:Key="L.Picker.AppleIdMismatchCancel">Отмена</sys:String>
+    <sys:String x:Key="L.Status.Downloaded">Загружено</sys:String>
+    <sys:String x:Key="L.Status.Licensed">Есть лицензия</sys:String>
+    <sys:String x:Key="L.Status.NotLicensed">Нет лицензии</sys:String>
+    <sys:String x:Key="L.Status.Installed">Установлено</sys:String>
+
+    <!-- Каталоги IPA: папки с локальными файлами .ipa, которые пользователь назвал сам -->
+    <sys:String x:Key="L.Catalogs.Title">Установка из файла</sys:String>
+    <sys:String x:Key="L.Catalogs.Subtitle">Выберите .ipa напрямую или добавьте папку как каталог</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFiles">Выбрать файл .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.Add">Добавить каталог</sys:String>
+    <sys:String x:Key="L.Catalogs.PickFolder">Выберите папку с файлами .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.Rename">Переименовать</sys:String>
+    <sys:String x:Key="L.Catalogs.Save">Сохранить</sys:String>
+    <sys:String x:Key="L.Catalogs.Remove">Убрать</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveTitle">Убрать каталог</sys:String>
+    <sys:String x:Key="L.Catalogs.RemoveBody">Убрать каталог «{0}» из списка? Сама папка и файлы .ipa в ней останутся на диске.</sys:String>
+    <sys:String x:Key="L.Catalogs.OpenFolder">Открыть папку</sys:String>
+    <sys:String x:Key="L.Catalogs.Rescan">Обновить</sys:String>
+    <sys:String x:Key="L.Catalogs.Scanning">Сканирование…</sys:String>
+    <sys:String x:Key="L.Catalogs.NoCatalogs">Каталогов пока нет. Добавьте папку с файлами .ipa — приложение прочитает из них названия и иконки.</sys:String>
+    <sys:String x:Key="L.Catalogs.EmptyFolder">В этой папке нет файлов .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.Unreadable">Файл не читается — повреждён или это не .ipa</sys:String>
+    <sys:String x:Key="L.Catalogs.FolderMissing">Папка недоступна — возможно, её переместили или это съёмный диск</sys:String>
+    <sys:String x:Key="L.Catalogs.NeverScanned">Ещё не сканировался</sys:String>
+    <sys:String x:Key="L.Catalogs.ScannedAt">Обновлён: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.Count">Приложений: {0}</sys:String>
+    <sys:String x:Key="L.Catalogs.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.Catalogs.ClearSelection">Снять выбор</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallTo">Установить на:</sys:String>
+    <sys:String x:Key="L.Catalogs.InstallSelected">Установить выбранные ({0})</sys:String>
+
+    <!-- Очередь -->
+    <sys:String x:Key="L.Queue.Title">Установка приложений</sys:String>
+    <sys:String x:Key="L.Queue.Overall">Общий прогресс</sys:String>
+    <sys:String x:Key="L.Queue.Done">Готово</sys:String>
+    <sys:String x:Key="L.Queue.Failed">Ошибка</sys:String>
+    <sys:String x:Key="L.Queue.Cancelled">Отменено</sys:String>
+    <sys:String x:Key="L.Queue.CancelAll">Отменить всё</sys:String>
+    <sys:String x:Key="L.Queue.Finish">Завершить</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredTitle">Сессия Apple ID истекла</sys:String>
+    <sys:String x:Key="L.Queue.SessionExpiredHint">Apple больше не принимает сохранённый вход: срок его действия истёк либо файл авторизации повреждён. Войдите снова, чтобы продолжить.</sys:String>
+    <sys:String x:Key="L.Queue.SignInAgain">Войти снова</sys:String>
+    <sys:String x:Key="L.Stage.Pending">В очереди</sys:String>
+    <sys:String x:Key="L.Stage.Checking">Проверка</sys:String>
+    <sys:String x:Key="L.Stage.Licensing">Лицензия</sys:String>
+    <sys:String x:Key="L.Stage.Downloading">Загрузка</sys:String>
+    <sys:String x:Key="L.Stage.Installing">Установка</sys:String>
+
+    <!-- Операции (режим многозадачности) -->
+    <sys:String x:Key="L.Ops.Minimize">Свернуть в фон</sys:String>
+    <sys:String x:Key="L.Ops.Title">Текущие операции</sys:String>
+    <sys:String x:Key="L.Ops.Empty">Нет активных операций.</sys:String>
+    <sys:String x:Key="L.Ops.Return">Вернуться</sys:String>
+    <sys:String x:Key="L.Ops.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Ops.ClearFinished">Убрать завершённые</sys:String>
+    <sys:String x:Key="L.Ops.State.Running">Выполняется</sys:String>
+    <sys:String x:Key="L.Ops.State.Done">Готово</sys:String>
+    <sys:String x:Key="L.Ops.State.Failed">Ошибка</sys:String>
+    <sys:String x:Key="L.Ops.State.Cancelled">Отменено</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Install">Установка приложений</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Transfer">Перенос приложений</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Download">Загрузка IPA</sys:String>
+    <sys:String x:Key="L.Ops.Kind.Photos">Фотографии</sys:String>
+    <sys:String x:Key="L.Ops.Kind.MediaExport">Экспорт медиа</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Export">Сохранение фото на компьютер</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Delete">Удаление фото с устройства</sys:String>
+    <sys:String x:Key="L.Ops.Photos.Import">Подготовка фото для Apple-синхронизации</sys:String>
+    <sys:String x:Key="L.Ops.ExitTitle">Есть незавершённые операции</sys:String>
+    <sys:String x:Key="L.Ops.ExitBody">Эти операции ещё не закончились. Если закрыть программу сейчас, они будут прерваны — установка на устройство прерывается особенно неудачно.</sys:String>
+    <sys:String x:Key="L.Ops.ExitConfirm">Всё равно закрыть</sys:String>
+    <sys:String x:Key="L.Ops.ExitCancel">Не закрывать</sys:String>
+
+    <!-- Настройки -->
+    <sys:String x:Key="L.Settings.Title">Настройки</sys:String>
+    <sys:String x:Key="L.Settings.Language">Язык интерфейса</sys:String>
+    <sys:String x:Key="L.Settings.Theme">Оформление</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Dark">Тёмное</sys:String>
+    <sys:String x:Key="L.Settings.Theme.Light">Светлое</sys:String>
+    <sys:String x:Key="L.Settings.Theme.RestartHint">После смены оформления приложение перезапустится.</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolVersion">Версия ipatool</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV2">v2 — не требует iCloud (рекомендуется)</sys:String>
+    <sys:String x:Key="L.Settings.IpatoolV3">v3 — требуется установленный iCloud</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth">Авторизация Apple</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Toggle">Новый метод авторизации (BETA)</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Hint">Экспериментальный вход через ipatool-rs с актуальной SAP-подписью. iTunes и iCloud не требуются; стандартный метод и его сессия остаются без изменений.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Check">Проверить готовность</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Ready">ipatool-rs найден. При первом входе служебные компоненты Apple будут автоматически загружены и проверены.</sys:String>
+    <sys:String x:Key="L.Settings.BetaAuth.Missing">ipatool-rs не найден. Нажмите «Переустановить утилиты», затем перезапустите приложение.</sys:String>
+    <sys:String x:Key="L.Settings.AppsFolder">Папка загрузок IPA</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolder">Библиотека iTunes (папка Mobile Applications)</sys:String>
+    <sys:String x:Key="L.Settings.ItunesFolderHint">Нужно только для способа «Через iTunes 12.6.5.3» и только если библиотека iTunes перенесена в другое место. Обычно поле можно оставить пустым — стандартные папки проверяются автоматически.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads">Параллельные загрузки</sys:String>
+    <sys:String x:Key="L.Settings.ParallelDownloads.Hint">Apple ограничивает скорость каждого соединения отдельно, поэтому один поток обычно не занимает весь канал. Несколько загрузок одновременно повышают суммарную скорость очереди. На скорость одного приложения это не влияет.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput">Скорость загрузки</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Scanning">Проверка…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Clean">Локальных ограничений не найдено.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Rescan">Проверить снова</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fix">Исправить</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Fixing">Применение…</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.Dismiss">Скрыть</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixFailed">Не удалось применить. Попробуйте ещё раз.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixCancelled">Запрос прав администратора отклонён. Нажмите «Исправить» и подтвердите запрос Windows.</sys:String>
+    <sys:String x:Key="L.Settings.Throughput.FixBlocked">Defender отклонил изменение: скорее всего, исключения заблокированы политикой или защитой от подделки. Добавьте папку в исключения вручную в «Безопасность Windows».</sys:String>
+    <sys:String x:Key="L.Settings.Account">Аккаунт</sys:String>
+    <sys:String x:Key="L.Settings.SignOut">Выйти из Apple ID</sys:String>
+    <sys:String x:Key="L.Settings.InstallMode">Режим установки</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadAndInstall">Скачать и установить (по умолчанию)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.DownloadOnly">Только скачать IPA (не устанавливать)</sys:String>
+    <sys:String x:Key="L.Settings.Mode.InstallExistingOnly">Только установить уже скачанный IPA</sys:String>
+    <sys:String x:Key="L.Settings.ResumeMode">При обрыве загрузки</sys:String>
+    <sys:String x:Key="L.Settings.Resume.RestartFromScratch">Начинать заново (как раньше)</sys:String>
+    <sys:String x:Key="L.Settings.Resume.KeepPartialFiles">Сохранять скачанное</sys:String>
+    <sys:String x:Key="L.Settings.Resume.Hint">В режиме «Сохранять скачанное» готовые файлы не скачиваются повторно: если закрыть программу посреди очереди, уже загруженные приложения будут переиспользованы. Проверяются размер и лицензия — недокачанный файл будет скачан заново.</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
+    <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls">Одновременных установок на устройство</sys:String>
+    <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Разные устройства всегда устанавливают приложения параллельно; эта настройка ограничивает только одно устройство. Больше 2 обычно не ускоряет: предел задаёт не телефон, а USB-соединение.</sys:String>
+    <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>
+
+    <!-- Обновления -->
+    <sys:String x:Key="L.Update.Title">Обновления</sys:String>
+    <sys:String x:Key="L.Update.Version">Текущая версия:</sys:String>
+    <sys:String x:Key="L.Update.Check">Проверить обновления</sys:String>
+    <sys:String x:Key="L.Update.Download">Скачать обновление</sys:String>
+    <sys:String x:Key="L.Update.Install">Установить и перезапустить</sys:String>
+    <sys:String x:Key="L.Update.Checking">Проверка обновлений…</sys:String>
+    <sys:String x:Key="L.Update.Available">Доступна новая версия {0}</sys:String>
+    <sys:String x:Key="L.Update.UpToDate">У вас установлена последняя версия</sys:String>
+    <sys:String x:Key="L.Update.UpToDateVer">У вас установлена последняя версия (v{0})</sys:String>
+    <sys:String x:Key="L.Update.Downloading">Загрузка обновления…</sys:String>
+    <sys:String x:Key="L.Update.Ready">Обновление загружено. Нажмите «Установить и перезапустить».</sys:String>
+    <sys:String x:Key="L.Update.OpenedBrowser">Страница релизов открыта в браузере — скачайте установщик вручную.</sys:String>
+    <sys:String x:Key="L.Update.Failed">Не удалось проверить обновления.</sys:String>
+    <sys:String x:Key="L.Update.NoReleases">Обновлений нет: на сервере ещё не опубликован ни один релиз.</sys:String>
+    <sys:String x:Key="L.Update.NoConnection">Не удалось подключиться к серверу обновлений. Проверьте подключение к интернету.</sys:String>
+    <sys:String x:Key="L.Update.Timeout">Превышено время ожидания сервера обновлений. Повторите попытку.</sys:String>
+    <sys:String x:Key="L.Update.ServerError">Сервер обновлений вернул ошибку: {0}</sys:String>
+    <sys:String x:Key="L.Update.BadResponse">Не удалось разобрать ответ сервера обновлений.</sys:String>
+
+    <!-- Альтернативный способ: iTunes 12.6.5.3 -->
+    <sys:String x:Key="L.Itunes.Button">Через iTunes 12.6.5.3</sys:String>
+    <sys:String x:Key="L.Itunes.ButtonHint">Запасной способ. Apple изменила точку входа, которой пользуется ipatool, поэтому обычная загрузка может не работать. iTunes 12.6.5.3 сохранил вкладку App Store и собственную рабочую сессию, поэтому может выдать файл там, где обычный способ уже отказывает.</sys:String>
+    <sys:String x:Key="L.Itunes.OpKind">Загрузка через iTunes</sys:String>
+    <sys:String x:Key="L.Itunes.NotFound">iTunes на этом компьютере не найден. Нужна версия 12.6.5.3 — только в ней осталась вкладка App Store. В iTunes 12.7 и новее её убрали, и файл .ipa получить нельзя.</sys:String>
+    <sys:String x:Key="L.Itunes.TooNew">Установлен iTunes {0}. В версии 12.7 и новее Apple убрала вкладку App Store, поэтому получить .ipa через него невозможно. Нужен iTunes 12.6.5.3.</sys:String>
+    <sys:String x:Key="L.Itunes.NeedStoreId">Для этого способа нужен числовой ID приложения из App Store: iTunes открывает страницу именно по нему, а по одному Bundle ID её не найти. Вставьте ссылку на приложение или его ID.</sys:String>
+    <sys:String x:Key="L.Itunes.OpenFailed">Не удалось открыть страницу приложения в iTunes. Проверьте, что iTunes 12.6.5.3 установлен и запускается.</sys:String>
+    <sys:String x:Key="L.Itunes.Opening">Открываем страницу приложения в iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Waiting">Ждём файл из iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Instructions">Открылось окно iTunes со страницей приложения. Нажмите там «Загрузить» (при необходимости войдите в свой Apple ID в самом iTunes). Как только iTunes закончит загрузку, программа сама заберёт готовый .ipa из его библиотеки — окно iTunes закрывать не нужно.</sys:String>
+    <sys:String x:Key="L.Itunes.Receiving">iTunes загружает: {0}</sys:String>
+    <sys:String x:Key="L.Itunes.Copying">Забираем файл из библиотеки iTunes…</sys:String>
+    <sys:String x:Key="L.Itunes.Timeout">Новый .ipa в библиотеке iTunes так и не появился. Загрузка в iTunes могла не начаться или была отменена — попробуйте ещё раз. Если библиотека iTunes перенесена в другое место, укажите её папку в настройках.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">��ыберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
+
+    <!-- Скачивание IPA по Bundle ID -->
+    <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
+    <sys:String x:Key="L.Direct.Subtitle">Введите Bundle ID приложения, его ID из App Store или вставьте ссылку, затем выберите папку — файл .ipa будет сохранён туда. Устройство подключать не нужно.</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdLabel">Bundle ID, ID из App Store или ссылка</sys:String>
+    <sys:String x:Key="L.Direct.BundleIdHint">Например: com.burbn.instagram, 389801252 или https://apps.apple.com/ru/app/instagram/id389801252</sys:String>
+    <sys:String x:Key="L.Direct.Find">Найти</sys:String>
+    <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
+    <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
+    <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
+    <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
+    <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
+    <sys:String x:Key="L.Direct.Download">Скачать IPA</sys:String>
+    <sys:String x:Key="L.Direct.Cancel">Отменить</sys:String>
+    <sys:String x:Key="L.Direct.OpenFolder">Открыть папку</sys:String>
+    <sys:String x:Key="L.Direct.Searching">Поиск приложения…</sys:String>
+    <sys:String x:Key="L.Direct.Downloading">Подготовка загрузки…</sys:String>
+    <sys:String x:Key="L.Direct.Done">Сохранено:</sys:String>
+    <sys:String x:Key="L.Direct.NotFound">Приложение по такому Bundle ID, ID или ссылке не найдено. Проверьте написание.</sys:String>
+    <sys:String x:Key="L.Direct.NeedFolder">Выберите папку для сохранения.</sys:String>
+    <sys:String x:Key="L.Direct.NeedLogin">Нужен вход в Apple ID</sys:String>
+    <sys:String x:Key="L.Direct.NeedLoginHint">IPA скачивается и подписывается вашим Apple ID, поэтому без входа загрузка невозможна.</sys:String>
+
+    <!-- Меню (шестерёнка) -->
+    <sys:String x:Key="L.Menu.Title">Меню</sys:String>
+    <sys:String x:Key="L.Menu.Tools">Инструменты</sys:String>
+    <sys:String x:Key="L.Menu.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Menu.Logs">Показать журнал (логи)</sys:String>
+    <sys:String x:Key="L.Menu.Maintenance">Обслуживание</sys:String>
+    <sys:String x:Key="L.Menu.ClearCache">Очистить кэш</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmTitle">Очистить кэш?</sys:String>
+    <sys:String x:Key="L.Cache.ConfirmBody">Будут удалены загруженные приложения (.ipa), включая недокачанные, кэш иконок и каталога, временные файлы и журналы за прошлые дни — примерно {0}. Настройки и вход сохранятся. Продолжить?</sys:String>
+    <sys:String x:Key="L.Cache.Clearing">Очистка…</sys:String>
+    <sys:String x:Key="L.Cache.Done">Готово. Освобождено {0}.</sys:String>
+    <sys:String x:Key="L.Cache.Failed">Не удалось очистить кэш. Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Cache.BusyDownloading">Сейчас идёт загрузка. Дождитесь её окончания или отмените очередь.</sys:String>
+    <sys:String x:Key="L.Menu.CheckCache">Проверить размер кэша</sys:String>
+    <sys:String x:Key="L.Cache.Scanning">Подсчёт…</sys:String>
+    <sys:String x:Key="L.Cache.ScanningGroup">Считаем: {0}…</sys:String>
+    <sys:String x:Key="L.Cache.ScanDone">Проверено.</sys:String>
+    <sys:String x:Key="L.Cache.ScanTotal">Всего {0} в {1} файлах</sys:String>
+    <sys:String x:Key="L.Cache.ScanFailed">Не удалось посчитать размер кэша. Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Cache.AlreadyEmpty">Очищать нечего.</sys:String>
+    <sys:String x:Key="L.Cache.ClearingProgress">Очистка… {0} из {1}</sys:String>
+    <sys:String x:Key="L.Cache.DonePartial">Освобождено {0}. Файлов занято и оставлено: {1}.</sys:String>
+    <sys:String x:Key="L.Cache.Item.Apps">Загруженные приложения (.ipa)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Icons">Иконки приложений</sys:String>
+    <sys:String x:Key="L.Cache.Item.IpaIcons">Иконки из локальных .ipa</sys:String>
+    <sys:String x:Key="L.Cache.Item.DeviceIcons">Иконки, считанные с устройств</sys:String>
+    <sys:String x:Key="L.Cache.Item.Thumbs">Миниатюры фотографий</sys:String>
+    <sys:String x:Key="L.Cache.Item.PhotoDb">База медиатеки (названия альбомов)</sys:String>
+    <sys:String x:Key="L.Cache.Item.Catalog">Кэш каталога</sys:String>
+    <sys:String x:Key="L.Cache.Item.Temp">Временные файлы</sys:String>
+    <sys:String x:Key="L.Cache.Item.Installers">Установщики обновлений</sys:String>
+    <sys:String x:Key="L.Cache.Item.Logs">Журналы за прошлые дни</sys:String>
+
+    <!-- Журнал -->
+    <sys:String x:Key="L.Logs.Title">Журнал приложения</sys:String>
+    <sys:String x:Key="L.Logs.Hint">Подробный журнал работы программы. Скопируйте его и отправьте разработчику, чтобы помочь найти причину ошибки.</sys:String>
+    <sys:String x:Key="L.Logs.Copy">Копировать всё</sys:String>
+    <sys:String x:Key="L.Logs.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.Logs.OpenFile">Открыть файл</sys:String>
+    <sys:String x:Key="L.Logs.Clear">Очистить</sys:String>
+    <sys:String x:Key="L.Logs.File">Файл журнала:</sys:String>
+
+    <!-- Журнал устройства (живой syslog с iPhone) -->
+    <sys:String x:Key="L.DeviceLogs.Title">Журнал устройства</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint">Живой журнал с самого iPhone. Нужен, когда приложение установилось, но не открывается: причину сообщает устройство, и в журнале программы её нет.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Open">Открыть журнал устройства</sys:String>
+    <sys:String x:Key="L.DeviceLogs.OpenHint">Запустите запись, затем воспроизведите проблему на телефоне — установите приложение и нажмите на его значок. После этого сохраните журнал и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Start">Начать запись</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stop">Остановить</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Save">Сохранить в файл</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterInstall">Только установка и запуск</sys:String>
+    <sys:String x:Key="L.DeviceLogs.AutoScroll">Следить за новыми строками</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Streaming">Идёт запись…</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Stopped">Остановлено</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Idle">Готово к записи</sys:String>
+    <sys:String x:Key="L.DeviceLogs.NoDevice">Устройство не подключено</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Saved">Журнал сохранён</sys:String>
+    <sys:String x:Key="L.DeviceLogs.SaveFailed">Не удалось сохранить журнал</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FilterChanged">Фильтр действует на новые строки; уже собранные остаются как есть.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Hint.Reproduce">Теперь воспроизведите проблему на телефоне: установите приложение и нажмите на его значок.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.Footer">Красные строки прямо называют сбой. Если причина не очевидна — сохраните файл и пришлите его.</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Title">Устройство отклонило лицензию FairPlay</sys:String>
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Detail">Именно поэтому приложение показывает белый экран и закрывается: оно установилось верно, но устройство не может его расшифровать. Откройте на телефоне App Store, войдите под тем же Apple ID, с которого скачивалось приложение, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- {0} — Apple ID. Учётные записи совпадают: лицензия на телефоне просто не активирована. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.SameAccount">Приложение установилось верно, но устройство не может его расшифровать. Apple ID совпадает ({0}), поэтому дело не в учётной записи: телефон ещё не получил лицензию от App Store. Откройте на телефоне App Store, убедитесь, что вход выполнен под {0}, и начните загрузку любого бесплатного приложения — достаточно начать, докачивать не нужно. После этого запустите установленное приложение снова.</sys:String>
+    <!-- Восстановлене повторяется без успеха: ждать бессмысленно. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefused">Телефон уже несколько раз просил у App Store лицензию для этого приложения и каждый раз получал отказ — ждать дальше и заходить в App Store бесполезно. Лицензия FairPlay принадлежит той учётной записи, под которой скачивали файл, а телефон запрашивает её для своей. Выход один: скачать это приложение здесь под той учётной записью, под которой сейчас работает телефон, и установить заново.</sys:String>
+    <!-- {0} — Apple ID на телефоне. То же, но с указанием учётной записи. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.RecoveryRefusedFor">Телефон уже несколько раз просил у App Store лицензию для этого приложения — от имени {0} — и каждый раз получал отказ. Значит, у {0} этого приложения нет: лицензия принадлежит той учётной записи, под которой скачивали файл. Ждать и заходить в App Store бесполезно. Скачайте это приложение здесь под {0} и установите заново — либо войдите на телефоне под той учётной записью, которой принадлежит лицензия.</sys:String>
+    <!-- Телефон сам запросил лицензию: заходить в App Store вручную не нужно. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.Recovering">Приложение установилось верно, но при первом запуске лицензии у телефона ещё не было. Заходить в App Store не нужно: устройство уже запросило её само — в журнале видно «fairplay recovery». Подождите 10–20 секунд при работающем интернете и запустите приложение с домашнего экрана ещё раз. Если после двух-трёх попыток экран остаётся белым, значит запрос не дошёл — вот тогда поможет начать загрузку любого бесплатного приложения в App Store.</sys:String>
+    <!-- {0} — Apple ID загрузки, {1} — Apple ID на телефоне. азные учётные записи: на телефоне не исправить. -->
+    <sys:String x:Key="L.DeviceLogs.FairPlay.OtherAccount">Приложение скачано под Apple ID {0}, а телефон работает под {1}. Лицензия FairPlay выдаётся одной учётной записи, поэтому это приложение на данном телефоне не запустится, что бы вы ни делали в App Store. Либо войдите на телефоне под {0}, либо скачайте приложение здесь заново под {1} и установите снова.</sys:String>
+
+    <!-- Диагностика (настройки логирования) -->
+    <sys:String x:Key="L.Settings.Selection">Выделение в списках</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом на странице появляется кнопка «Выбрать»: пока она нажата, клик отмечает элемент, а Shift отмечает подряд. Галочки медленнее, зато их не сбить случайным кликом.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Photos">Фото</sys:String>
+    <sys:String x:Key="L.Settings.Selection.OnDevice">Приложения на устройстве</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Catalog">Каталоги .ipa</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByClick">Кликом</sys:String>
+    <sys:String x:Key="L.Settings.Selection.ByCheckbox">Галочками</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl">Выделять по Ctrl</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Ctrl.Hint">Включено: клик открывает элемент, а отмечать можно с Ctrl или кнопкой «Выбрать» на странице. Выключено: клик сразу отмечает элементы, кнопка «Выбрать» не нужна и скрывается.</sys:String>
+    <sys:String x:Key="L.Settings.Diagnostics">Диагностика</sys:String>
+    <sys:String x:Key="L.Settings.Load">Текущая нагрузка</sys:String>
+    <sys:String x:Key="L.Settings.Load.Cpu">Процессор</sys:String>
+    <sys:String x:Key="L.Settings.Load.Memory">Память</sys:String>
+    <sys:String x:Key="L.Settings.Load.Helpers">Вспомогательных процессов</sys:String>
+    <sys:String x:Key="L.Settings.Load.Hint">Учитывается сама программа вместе со вспомогательными процессами (ipatool, idevice* и другими) — в диспетчере задач их нагрузка записывается отдельно от IPA Studio. Значение обновляется раз в секунду, пока открыт этот раздел.</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging">Подробные логи</sys:String>
+    <sys:String x:Key="L.Settings.VerboseLogging.Hint">Записывает дополнительные служебные сведения для диагностики.</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs">Скрывать фоновые проверки устройства и батареи</sys:String>
+    <sys:String x:Key="L.Settings.HideDevicePollingLogs.Hint">Проверки продолжают работать, но их повторяющиеся команды RUN/EXIT не показываются в журнале. Ошибки и предупреждения не скрываются.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi">Подключение по Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Toggle">Искать устройства по Wi-Fi</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Hint">Позволяет работать с устройством без кабеля. Подключите устройство кабелем один раз при включении этой настройки — только так iPhone можно разрешить откликаться по сети. Дальше устройство должно быть в той же сети и разблокировано. По Wi-Fi всё идёт заметно медленнее, поэтому для установки приложений и работы с фото кабель надёжнее.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Preparing">Настраиваю устройства…</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Ready">Wi-Fi включён на устройствах: {0}. Теперь кабель можно отключить.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoDevices">Нет устройства на кабеле. Подключите iPhone кабелем и включите настройку заново — иначе устройство не станет откликаться по сети.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.Failed">Не удалось настроить устройство для Wi-Fi. Проверьте, что оно разблокировано и вы нажали «Доверять». Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Settings.Wifi.NoBonjour">Служба Apple Bonjour не установлена или отключена. Без неё устройства по сети найти невозможно: именно она сообщает, какие iPhone откликаются. Переустановите iTunes с apple.com — Bonjour входит в состав установщика.</sys:String>
+    <sys:String x:Key="L.Devices.Link.Usb">По кабелю</sys:String>
+    <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
+
+
+    <!-- Заг��ловки диалогов и фильтры -->
+    <sys:String x:Key="L.Dialog.PickFolderTitle">Куда сохранить IPA</sys:String>
+    <sys:String x:Key="L.Dialog.PickIpaTitle">Выберите IPA для установки</sys:String>
+    <sys:String x:Key="L.Dialog.IpaFilter">Файлы IPA|*.ipa|Все файлы|*.*</sys:String>
+
+    <!-- Единицы измерения -->
+    <sys:String x:Key="L.Unit.B">Б</sys:String>
+    <sys:String x:Key="L.Unit.KB">КБ</sys:String>
+    <sys:String x:Key="L.Unit.MB">МБ</sys:String>
+    <sys:String x:Key="L.Unit.GB">ГБ</sys:String>
+    <sys:String x:Key="L.Unit.PerSecond">/с</sys:String>
+    <sys:String x:Key="L.Unit.Seconds">с</sys:String>
+    <sys:String x:Key="L.Unit.Minutes">мин</sys:String>
+    <sys:String x:Key="L.Unit.Hours">ч</sys:String>
+
+    <!-- Прогресс очереди -->
+    <sys:String x:Key="L.Queue.Status.Checking">Проверка локальных файлов…</sys:String>
+    <sys:String x:Key="L.Queue.Status.Connecting">Соединение с App Store…</sys:String>
+    <sys:String x:Key="L.Queue.Status.ConnectingElapsed">Соединение с App Store… {0} с</sys:String>
+    <sys:String x:Key="L.Queue.Status.Licensing">Получение лицензии…</sys:String>
+    <sys:String x:Key="L.Queue.Status.Attempt"> · попытка {0}</sys:String>
+    <sys:String x:Key="L.Queue.Status.Finalizing">Упаковка и подпись… ({0})</sys:String>
+    <sys:String x:Key="L.Queue.Status.Downloaded">Скачано {0}</sys:String>
+    <sys:String x:Key="L.Queue.Status.TotalUnknown">всего неизвестно</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingDevice">Ожидание устройства…</sys:String>
+    <sys:String x:Key="L.Queue.Status.WaitingSlot">Ожидание свободной загрузки…</sys:String>
+    <sys:String x:Key="L.Queue.Status.DownloadOnlyDone">Загружено (установка пропущена)</sys:String>
+
+    <!-- Прогресс установки -->
+    <sys:String x:Key="L.Install.Status.Preparing">Подготовка файла</sys:String>
+    <sys:String x:Key="L.Install.Status.Copying">Копирование на устройство</sys:String>
+    <sys:String x:Key="L.Install.Status.Installing">Установка</sys:String>
+    <sys:String x:Key="L.Install.Status.Complete">Готово</sys:String>
+
+    <!-- Ошибки загрузки и App Store -->
+    <sys:String x:Key="L.Error.Unknown">Что-то пошло не так. Подробности в журнале.</sys:String>
+    <sys:String x:Key="L.Error.Network">Нет связи с Apple. Проверьте подключение к интернету и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
+    <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
+    <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось ��не App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
+    <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
+    <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
+    <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
+    <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
+    <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
+    <sys:String x:Key="L.Error.IpaNotFound">Файл IPA не найден: {0}</sys:String>
+    <sys:String x:Key="L.Error.ToolFailure">Не удалось запустить служебную утилиту. Переустановите утилиты в настройках.</sys:String>
+
+    <!-- Ошибки установки -->
+    <sys:String x:Key="L.Install.Error.CoordinatedInstall">На устройстве осталась незавершённая загрузка этого приложения из App Store. Удалите значок приложения с экрана «Домой» — в том числе тусклый или наполовину установленный — и повторите попытку.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoSpace">На устройстве недостаточно свободного места.</sys:String>
+    <sys:String x:Key="L.Install.Error.ExtractionFailed">Устройству не удалось распаковать приложение. Почти всегда причина — нехватка места: при установке нужен запас в 2–3 размера приложения, поэтому ошибка появляется, даже когда немного свободного места ещё показано. Освободите место в «Настройки — Основные — Хранилище iPhone» и повторите.</sys:String>
+    <sys:String x:Key="L.Install.Error.Verification">Проверка приложения не пройдена: IPA повреждён или его подпись недействительна.</sys:String>
+    <sys:String x:Key="L.Install.Error.CertRevoked">Сертификат подписи отозван. Используйте другой IPA.</sys:String>
+    <sys:String x:Key="L.Install.Error.Incompatible">IPA несовместим с версией iOS на устройстве.</sys:String>
+    <sys:String x:Key="L.Install.Error.AlreadyInstalled">Это приложение уже установлено на устройстве.</sys:String>
+    <sys:String x:Key="L.Install.Error.BundleIdInUse">Bundle ID уже занят другим приложением на устройстве.</sys:String>
+    <sys:String x:Key="L.Install.Error.DeviceDisconnected">Устройство отключилось во время установки. Подключите его и повторите.</sys:String>
+    <sys:String x:Key="L.Install.Error.InstallDaemon">Служба установки на устройстве не отвечает. Перезагрузите устройство.</sys:String>
+    <sys:String x:Key="L.Install.Error.MissingEntitlement">IPA требует прав, для которых нужен платный аккаунт Apple Developer.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotPurchased">Это приложение не куплено текущим Apple ID. Попробуйте «Установить IPA из файла».</sys:String>
+    <sys:String x:Key="L.Install.Error.Authenticate">Не удалось пройти проверку. Разблокируйте устройство и проверьте подключение.</sys:String>
+    <!-- {0} — Apple ID файла, {1} — Apple ID устройства. Отказ до отправки файла на телефон. -->
+    <sys:String x:Key="L.Install.Error.WrongAccount">Файл скачан под Apple ID {0}, а на устройстве выполнен вход под {1}. Лицензия App Store принадлежит одной учётной записи, поэтому на этом устройстве приложение не запустится — установка отменена, чтобы не тратить время на приложение с белым экраном. Скачайте его заново под {1}: программа сама получит лицензию для этой учётной записи, и приложение запустится сразу, без App Store на телефоне.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotOnDevice">Установщик сообщил об успехе, но приложения на устройстве нет — повторная попытка тоже не помогла. Так бывает, когда устройство обрывает одну из одновременных установок. Уменьшите значение «Одновременных установок на устройство» до 1 в настройках и повторите.</sys:String>
+    <sys:String x:Key="L.Install.Error.NoLicense">У этого IPA нет лицензии App Store — приложение установится, но не запустится. Скачайте его заново под тем Apple ID, которому оно принадлежит, и убедитесь, что этот же Apple ID выполнил вход на устройстве в «Настройки › App Store».</sys:String>
+    <sys:String x:Key="L.Install.Error.Unknown">Не удалось установить приложение. Подробности в журнале.</sys:String>
+
+    <!-- Ошибки входа -->
+    <sys:String x:Key="L.Login.Error.BadCredentials">Неверный Apple ID или пароль.</sys:String>
+    <sys:String x:Key="L.Login.Error.WrongCode">Код подтверждения не принят. Попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Login.Error.Cancelled">Вход отменён.</sys:String>
+    <sys:String x:Key="L.Login.Error.Network">Не удалось связаться с Apple. Проверьте подключение к интернету.</sys:String>
+    <sys:String x:Key="L.Login.Error.RateLimited">Слишком много попыток. Подождите несколько минут и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
+    <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
+    <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
+    <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
+
+    <!-- Поиск приложения (Bundle ID, ID из App Store или ссылка) -->
+    <sys:String x:Key="L.Direct.NeedQuery">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
+    <sys:String x:Key="L.Direct.LookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdEmpty">Введите Bundle ID, ID из App Store или ссылку на приложение.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdNotFound">Приложение для «{0}» не найдено в App Store.</sys:String>
+    <sys:String x:Key="L.Picker.BundleIdLookupFailed">Не удалось найти приложение в App Store. Проверьте подключение и попробуйте снова.</sys:String>
+
+
+    <!-- Советы по скорости -->
+    <sys:String x:Key="L.Tuning.Defender.Title">Defender сканирует папку загрузок</sys:String>
+    <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
+    <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
+    <sys:String x:Key="L.Tuning.Compressed.Detail">IPA уже сжат, поэтому сжатие NTFS не даёт выигрыша в размере, но превращает последовательную запись в цикл чтение-изменение-запись.</sys:String>
+    <sys:String x:Key="L.Tuning.LowSpace.Title">Мало свободного места</sys:String>
+    <sys:String x:Key="L.Tuning.LowSpace.Detail">Свободно {0} ГБ. Загрузка требует места и под временный файл, и под итоговый архив одновременно.</sys:String>
+
+    <!-- Информация об устройстве -->
+    <sys:String x:Key="L.DeviceInfo.Detecting">Определение…</sys:String>
+    <sys:String x:Key="L.DeviceInfo.AppleIdHidden">Недоступно (iOS скрывает Apple ID)</sys:String>
+    <sys:String x:Key="L.DeviceInfo.BatteryCapacity">Ёмкость аккумулятора</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Model">Модель</sys:String>
+    <sys:String x:Key="L.DeviceInfo.ModelIdentifier">Идентификатор модели</sys:String>
+    <sys:String x:Key="L.DeviceInfo.OsVersion">Версия iOS</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Build">Сборка</sys:String>
+    <sys:String x:Key="L.DeviceInfo.DeviceClass">Тип устройства</sys:String>
+    <sys:String x:Key="L.DeviceInfo.SerialNumber">Серийный номер</sys:String>
+    <sys:String x:Key="L.DeviceInfo.PhoneNumber">Номер телефона</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Region">Регион</sys:String>
+    <!-- Apple sales-region codes reported in RegionInfo, e.g. "LL/A". -->
+    <sys:String x:Key="L.Region.A">Канада</sys:String>
+    <sys:String x:Key="L.Region.AB">ОАЭ, Саудовская Аравия, Египет</sys:String>
+    <sys:String x:Key="L.Region.B">Великобритания, Ирландия</sys:String>
+    <sys:String x:Key="L.Region.BR">Бразилия</sys:String>
+    <sys:String x:Key="L.Region.BZ">Бразилия</sys:String>
+    <sys:String x:Key="L.Region.C">Канада</sys:String>
+    <sys:String x:Key="L.Region.CH">Китай</sys:String>
+    <sys:String x:Key="L.Region.CL">Канада</sys:String>
+    <sys:String x:Key="L.Region.CZ">Чехия</sys:String>
+    <sys:String x:Key="L.Region.D">Германия, Австрия, Нидерланды</sys:String>
+    <sys:String x:Key="L.Region.E">Мексика</sys:String>
+    <sys:String x:Key="L.Region.FB">Франция</sys:String>
+    <sys:String x:Key="L.Region.FD">Австрия, Швейцария, Лихтенштейн</sys:String>
+    <sys:String x:Key="L.Region.FS">Финляндия</sys:String>
+    <sys:String x:Key="L.Region.GR">Греция</sys:String>
+    <sys:String x:Key="L.Region.HB">Израиль</sys:String>
+    <sys:String x:Key="L.Region.HN">Индия</sys:String>
+    <sys:String x:Key="L.Region.IN">Индия</sys:String>
+    <sys:String x:Key="L.Region.IP">Италия, Португалия</sys:String>
+    <sys:String x:Key="L.Region.J">Япония</sys:String>
+    <sys:String x:Key="L.Region.KH">Южная Корея, Китай</sys:String>
+    <sys:String x:Key="L.Region.LA">Латинская Америка</sys:String>
+    <sys:String x:Key="L.Region.LE">Аргентина</sys:String>
+    <sys:String x:Key="L.Region.LL">США</sys:String>
+    <sys:String x:Key="L.Region.LZ">Чили, Парагвай, Уругвай</sys:String>
+    <sys:String x:Key="L.Region.MY">Малайзия</sys:String>
+    <sys:String x:Key="L.Region.ND">Нидерланды</sys:String>
+    <sys:String x:Key="L.Region.NF">Франция, Люксембург</sys:String>
+    <sys:String x:Key="L.Region.PL">Польша</sys:String>
+    <sys:String x:Key="L.Region.PP">Филиппины</sys:String>
+    <sys:String x:Key="L.Region.QN">Дания, Норвегия, Швеция</sys:String>
+    <sys:String x:Key="L.Region.RM">Россия</sys:String>
+    <sys:String x:Key="L.Region.RP">Россия</sys:String>
+    <sys:String x:Key="L.Region.RR">Россия</sys:String>
+    <sys:String x:Key="L.Region.RS">Россия</sys:String>
+    <sys:String x:Key="L.Region.RU">Россия</sys:String>
+    <sys:String x:Key="L.Region.SL">Словакия</sys:String>
+    <sys:String x:Key="L.Region.SO">ЮАР</sys:String>
+    <sys:String x:Key="L.Region.T">Италия</sys:String>
+    <sys:String x:Key="L.Region.TA">Тайвань</sys:String>
+    <sys:String x:Key="L.Region.TH">Таиланд</sys:String>
+    <sys:String x:Key="L.Region.TU">Турция</sys:String>
+    <sys:String x:Key="L.Region.VC">Канада</sys:String>
+    <sys:String x:Key="L.Region.VN">Вьетнам</sys:String>
+    <sys:String x:Key="L.Region.X">Австралия, Новая Зеландия</sys:String>
+    <sys:String x:Key="L.Region.Y">Испания</sys:String>
+    <sys:String x:Key="L.Region.ZA">Сингапур</sys:String>
+    <sys:String x:Key="L.Region.ZP">Гонконг, Макао</sys:String>
+    <sys:String x:Key="L.DeviceInfo.WifiAddress">Wi-Fi адрес</sys:String>
+    <sys:String x:Key="L.DeviceInfo.BluetoothAddress">Bluetooth адрес</sys:String>
+    <sys:String x:Key="L.DeviceInfo.Cycles">{0} циклов</sys:String>
+    <sys:String x:Key="L.DeviceInfo.StorageSummary">Занято {0} из {1} · свободно {2}</sys:String>
+    <sys:String x:Key="L.Unit.TB">ТБ</sys:String>
+
+    <!-- Ёмкость аккумулятора -->
+    <sys:String x:Key="L.Battery.Unavailable">Недоступно — разблокируйте устройство и разрешите доступ</sys:String>
+    <sys:String x:Key="L.Battery.UnavailableReason">Недоступно — {0}</sys:String>
+    <sys:String x:Key="L.Battery.Error.ToolMissing">инструмент диагностики не установлен</sys:String>
+    <sys:String x:Key="L.Battery.Error.Timeout">таймаут</sys:String>
+    <sys:String x:Key="L.Battery.Error.NoCapacity">устройство не сообщает ёмкость</sys:String>
+    <sys:String x:Key="L.Battery.Error.NoResponse">нет ответа от устройства</sys:String>
+    <sys:String x:Key="L.Battery.Error.ReadFailed">ошибка чтения</sys:String>
+
+    <!-- Фото -->
+    <sys:String x:Key="L.Photos.Hidden">Скрытые</sys:String>
+    <sys:String x:Key="L.Photos.NoAlbum">Без альбома</sys:String>
+    <sys:String x:Key="L.Photos.Today">Сегодня</sys:String>
+    <sys:String x:Key="L.Photos.Yesterday">Вчера</sys:String>
+    <sys:String x:Key="L.Common.Select">Выбрать</sys:String>
+    <sys:String x:Key="L.Common.Select.Hint">Отмечать элементы кликом, без Ctrl</sys:String>
+    <sys:String x:Key="L.Photos.ShowDates.Hint">Показывать даты</sys:String>
+    <sys:String x:Key="L.Photos.NoDate">Дата неизвестна</sys:String>
+    <sys:String x:Key="L.Photos.TileSize">Размер плитки</sys:String>
+    <sys:String x:Key="L.Photos.AlbumNamesUnavailable">iOS не дала прочитать названия альбомов с этого устройства, поэтому фото показаны одной группой.</sys:String>
+    <sys:String x:Key="L.Photos.LoadingAlbums">Читаем названия альбомов с устройства. Медленно только в первый раз — дальше они берутся из кэша. Фото уже можно смотреть.</sys:String>
+    <sys:String x:Key="L.Photos.Albums.All">Все фото</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Videos">Видео</sys:String>
+    <sys:String x:Key="L.Photos.Albums.RecentlyDeleted">Недавно удалённые</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Screenshots">Снимки экрана</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Raw">RAW</sys:String>
+    <sys:String x:Key="L.Photos.Albums.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.Photos.AlbumItems">шт.</sys:String>
+    <sys:String x:Key="L.Photos.BackToAlbums">Все альбмы</sys:String>
+    <sys:String x:Key="L.Photos.Media.All">Все</sys:String>
+    <sys:String x:Key="L.Photos.Media.Photos">Фото</sys:String>
+    <sys:String x:Key="L.Photos.Media.Videos">Видео</sys:String>
+    <sys:String x:Key="L.Photos.Reading">Чтение медиатеки…</sys:String>
+    <sys:String x:Key="L.Photos.Empty">Медиафайлы не найдены. Убедитесь, что устройство разблокировано и вы разрешили доступ.</sys:String>
+    <sys:String x:Key="L.Photos.Found">Найдено медиафайлов: {0}</sys:String>
+    <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
+    <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
+    <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbum">Скачать альбом</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumTooltip">Сохранить все файлы альбома «{0}» на компьютер</sys:String>
+    <sys:String x:Key="L.Photos.ExportingAlbum">Сохранение альбома «{0}»…</sys:String>
+    <sys:String x:Key="L.Photos.ExportedAlbum">Альбом «{0}»: сохранено {1} из {2} в папку {3}</sys:String>
+    <sys:String x:Key="L.Photos.ExportAlbumEmpty">В альбоме «{0}» нет файлов, подходящих под текущий фильтр.</sys:String>
+    <sys:String x:Key="L.Photos.Delete">Удалить</sys:String>
+    <sys:String x:Key="L.Photos.Deleted">Удалено {0} из {1}.</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteTitle">Удалить с устройства?</sys:String>
+    <sys:String x:Key="L.Photos.ConfirmDeleteBody">Выбрано объектов: {0}. Они будут удалены с устройства сразу, минуя «Недавно удалённые», и восстановить их с телефона не получится. Продолжить?</sys:String>
+    <sys:String x:Key="L.Photos.SearchHint">Поиск по имени файла</sys:String>
+    <sys:String x:Key="L.Photos.PickImportFiles">Выберите фото или видео для переноса</sys:String>
+    <sys:String x:Key="L.Photos.MediaFilter">Медиафайлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.mov;*.mp4;*.m4v|Все файлы|*.*</sys:String>
+    <sys:String x:Key="L.Photos.Imported">Перенесено на устройство: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.DropHint">Отпустите, чтобы подготовить Apple-синхронизацию</sys:String>
+    <sys:String x:Key="L.Photos.DropHintSub">Фото и видео; папки будут просмотрены целиком</sys:String>
+    <sys:String x:Key="L.Photos.DropNoMedia">Среди выбранных файлов нет поддерживаемых фото и видео</sys:String>
+    <sys:String x:Key="L.Photos.SyncTitle">Синхронизация фото через Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncPrepared">Подготовлено для синхронизации: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
+    <sys:String x:Key="L.Photos.AppleClient">Apple Devices или iTunes</sys:String>
+    <sys:String x:Key="L.Photos.SyncInstructions">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;В {3} выберите iPhone → «Фото» → «Синхронизировать фото из папки», укажите эту папку и нажмите «Применить»/«Синхронизировать». Фото появятся в отдельном синхронизированном альбоме. Если включены «Фото iCloud», Apple может запретить USB-синхронизацию — тогда её нужно отключить на iPhone либо использовать iCloud.</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientMissing">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Установите Apple Devices из Microsoft Store или классический iTunes. Затем выберите эту папку в разделе фото устройства и нажмите «Применить»/«Синхронизировать».</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Не удалось автоматически открыть {3}. Запустите его вручную, выберите iPhone → «Фото», укажите открытую папку и нажмите «Применить»/«Синхронизировать».</sys:String>
+    <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
+    <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там то��ько свою медиатеку</sys:String>
+    <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>
+    <sys:String x:Key="L.Photos.RestartDevice">Перезагрузить iPhone</sys:String>
+    <sys:String x:Key="L.Photos.DismissHint">Скрыть</sys:String>
+    <sys:String x:Key="L.Photos.RestartConfirm">Перезагрузить устройство сейчас? Несохранённые данные в приложениях на iPhone могут быть потеряны.</sys:String>
+    <sys:String x:Key="L.Photos.Restarting">Устройство перезагружается</sys:String>
+    <sys:String x:Key="L.Photos.RestartFailed">Устройство отказалось перезагружаться. Перезагрузите его вручную.</sys:String>
+    <sys:String x:Key="L.Photos.Cancelled">Операция отменена.</sys:String>
+    <sys:String x:Key="L.Photos.TransferFailed">Ошибка переноса: {0}</sys:String>
+
+    <!-- Диалог конфликта файлов -->
+    <sys:String x:Key="L.Conflict.AppLine">Приложение «{0}» уже было скачано ранее. Выберите, что сделать с существующим файл��м.</sys:String>
+    <sys:String x:Key="L.Conflict.FileMeta">{0} · сохранён {1}</sys:String>
+    <sys:String x:Key="L.Conflict.SizeUnknown">размер неизвестен</sys:String>
+
+    <!-- Общее -->
+    <sys:String x:Key="L.Common.Copied">Скопировано</sys:String>
+    <sys:String x:Key="L.Common.CopyFailed">Не удалось скопировать</sys:String>
+    <sys:String x:Key="L.Logs.Copied">Скопировано в буфер обмена</sys:String>
+    <sys:String x:Key="L.Crash.Recovered">Произошла ошибка, но приложение продолжит работу.</sys:String>
+    <sys:String x:Key="L.Crash.SeeLog">Подробности сохранены в журнале (кнопка меню в правом верхнем углу → Журнал).</sys:String>
+
+
+    <!-- Всплывающее окно контактов -->
+    <sys:String x:Key="L.Contact.Title">Связаться с разработчиком</sys:String>
+    <sys:String x:Key="L.Contact.Email">Скопировать адрес</sys:String>
+    <sys:String x:Key="L.Contact.Copied">Адрес скопирован</sys:String>
+    <sys:String x:Key="L.Contact.Telegram">Написать в Telegram</sys:String>
+
+    <!-- Заголовок выбора приложений -->
+    <sys:String x:Key="L.Picker.AccountLabel">Аккаунт: </sys:String>
+    <sys:String x:Key="L.Picker.DeviceLabel">   |   Устройство: </sys:String>
+
+    <!-- Диалог конфликта файлов -->
+    <sys:String x:Key="L.Conflict.Title">Файл уже существует</sys:String>
+    <sys:String x:Key="L.Conflict.ApplyToAll">Применить ко всем остальным файлам в этой очереди</sys:String>
+    <sys:String x:Key="L.Conflict.Skip">Пропустить</sys:String>
+    <sys:String x:Key="L.Conflict.Replace">Заменить</sys:String>
+    <sys:String x:Key="L.Conflict.KeepBoth">Сохранить оба</sys:String>
+
+    <!-- Режимы просмотра фото -->
+    <sys:String x:Key="L.Photos.ViewList">Список</sys:String>
+    <sys:String x:Key="L.Photos.ViewGrid">Плитка</sys:String>
+
+    <!-- Общие элементы -->
+    <sys:String x:Key="L.Common.Close">Закрыть</sys:String>
+    <sys:String x:Key="L.Common.Copy">Копировать</sys:String>
+    <sys:String x:Key="L.Common.CopyToClipboard">Скопировать в буфер обмена</sys:String>
+
+
+    <!-- Добавление в каталог (экран загрузки) -->
+    <sys:String x:Key="L.Direct.AddToCatalog">Добавить в каталог</sys:String>
+    <sys:String x:Key="L.Direct.AddToCatalogHint">Сохранить приложение в каталог, чтобы позже установить его без повторного поиска</sys:String>
+    <sys:String x:Key="L.Direct.InCatalog">Уже в каталоге</sys:String>
+    <sys:String x:Key="L.Direct.AddedToCatalog">«{0}» добавлено в каталог</sys:String>
+    <sys:String x:Key="L.Direct.AlreadyInCatalog">Это приложение уже есть в каталоге</sys:String>
+    <sys:String x:Key="L.Direct.AddFailed">Не удалось сохранить приложение в каталог</sys:String>
+
+    <!-- ===== iCloud page ===== -->
+    <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.Subtitle">Войдите в Apple ID, чтобы посмотреть контакты, фото и заметки из iCloud.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHeader">Вход в iCloud</sys:String>
+    <sys:String x:Key="L.ICloud.SignInHint">Укажите Apple ID, данные которого нужно открыть.</sys:String>
+    <sys:String x:Key="L.ICloud.AppleId">Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.Password">Пароль</sys:String>
+    <sys:String x:Key="L.ICloud.PrivacyNote">Пароль используется один раз на этом компьютере, чтобы подтвердить вашу личность перед Apple, — он никуда не отправляется и не сохраняется. Хранятся только сессионные токены Apple, зашифрованные для вашей учётной записи Windows.</sys:String>
+    <sys:String x:Key="L.ICloud.SignIn">Войти</sys:String>
+    <sys:String x:Key="L.ICloud.SigningIn">Выполняется вход…</sys:String>
+    <sys:String x:Key="L.ICloud.Resuming">Восстанавливаем прошлую сессию…</sys:String>
+    <sys:String x:Key="L.ICloud.SessionExpired">Сохранённая сессия истекла. Войдите снова.</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHeader">Код подтверждения</sys:String>
+    <sys:String x:Key="L.ICloud.TwoFactorHint">Введите шестизначный код с вашего iPhone, iPad или Mac.</sys:String>
+    <sys:String x:Key="L.ICloud.EnterCode">Ожидаем шестизначный код.</sys:String>
+    <sys:String x:Key="L.ICloud.SubmitCode">Подтвердить</sys:String>
+    <sys:String x:Key="L.ICloud.StartOver">Другой Apple ID</sys:String>
+    <sys:String x:Key="L.ICloud.VerifyingCode">Проверяем код…</sys:String>
+    <sys:String x:Key="L.ICloud.BadCode">Код не принят. Попробуйте самый новый.</sys:String>
+    <sys:String x:Key="L.ICloud.ResendCode">Отправить код заново</sys:String>
+    <sys:String x:Key="L.ICloud.SendingCode">Запрашиваем новый код…</sys:String>
+    <sys:String x:Key="L.ICloud.SendSms">Отправить код по SMS</sys:String>
+    <sys:String x:Key="L.ICloud.SendingSms">Отправляем код по SMS…</sys:String>
+    <sys:String x:Key="L.ICloud.AllPhotos">Все фото</sys:String>
+    <sys:String x:Key="L.ICloud.CloseNote">Закрыть</sys:String>
+    <sys:String x:Key="L.ICloud.NoteBodyFailed">Не удалось загрузить текст заметки</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResent">Новый код отправлен. Введите именно его.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeResendFailed">Apple не отправила код. Подождите минуту и попробуйте снова.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentDevice">Код отправлен на ваши устройства Apple с этим Apple ID.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentSms">Код отправлен SMS на номер {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentCall">Код продиктуют звонком на номер {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.CodeSentPhone">Код отправлен на доверенный номер телефона.</sys:String>
+    <sys:String x:Key="L.ICloud.BadCredentials">Неверный Apple ID или пароль.</sys:String>
+    <sys:String x:Key="L.ICloud.SignInFailed">Apple отклонила вход. Попробуйте позже или проверьте аккаунт на icloud.com.</sys:String>
+    <sys:String x:Key="L.ICloud.SignOut">Выйти</sys:String>
+    <sys:String x:Key="L.ICloud.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.ICloud.TabContacts">Контакты</sys:String>
+    <sys:String x:Key="L.ICloud.TabPhotos">Фото</sys:String>
+    <sys:String x:Key="L.ICloud.TabNotes">Заметки</sys:String>
+    <sys:String x:Key="L.ICloud.Loading">Загружаем из iCloud…</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailed">iCloud не вернула эти данные. Возможно, Apple ограничивает доступ — попробуйте позже.</sys:String>
+    <sys:String x:Key="L.ICloud.LoadFailedCode">iCloud отклонила запрос (код {0}). Данные могли не загрузиться — попробуйте «Обновить» позже.</sys:String>
+    <sys:String x:Key="L.ICloud.ContactCount">Контактов: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.PhotoCount">Фото: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.NoteCount">Заметок: {0}</sys:String>
+    <sys:String x:Key="L.ICloud.NoContacts">В этом аккаунте iCloud нет контактов.</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Favourites">Избранное</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Videos">Видео</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Screenshots">Снимки экрана</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Selfies">Селфи</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Live">Live Photos</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Panoramas">Панорамы</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.SloMo">Замедленно</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.TimeLapse">Таймлапс</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Hidden">Скрытые</sys:String>
+    <sys:String x:Key="L.ICloud.Smart.Deleted">Недавно удалённые</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadAlbum">Скачать альбом целиком</sys:String>
+    <sys:String x:Key="L.ICloud.AlbumEmpty">В альбоме «{0}» нет фото для скачивания.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadingAlbum">{0} — скачиваем {1} из {2}…</sys:String>
+    <sys:String x:Key="L.ICloud.NoPhotos">В этом аккаунте iCloud нет фото.</sys:String>
+    <sys:String x:Key="L.ICloud.NoNotes">В этом аккаунте iCloud нет заметок.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportContacts">Экспорт контактов</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsFilter">vCard — iPhone и Android (*.vcf)|*.vcf|CSV — Google Контакты, Excel (*.csv)|*.csv</sys:String>
+    <sys:String x:Key="L.ICloud.ContactsExported">Сохранено контактов: {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.ExportFailed">Не удалось сохранить файл.</sys:String>
+    <sys:String x:Key="L.ICloud.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.ICloud.Download">Скачать выбранные</sys:String>
+    <sys:String x:Key="L.ICloud.PickDownloadFolder">Куда сохранить фото</sys:String>
+    <sys:String x:Key="L.ICloud.Downloading">Скачиваем {0} из {1}…</sys:String>
+    <sys:String x:Key="L.ICloud.Downloaded">Скачано фото: {0}.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadedWithErrors">Скачано {0}, с ошибкой {1}.</sys:String>
+    <sys:String x:Key="L.ICloud.DownloadFailed">Не удалось скачать.</sys:String>
+
+
+    <!-- ===== On the device (apps installed on the connected iPhone/iPad) ===== -->
+    <sys:String x:Key="L.OnDevice.Open">На устройстве</sys:String>
+    <sys:String x:Key="L.OnDevice.Title">Приложения на устройстве</sys:String>
+    <sys:String x:Key="L.OnDevice.Refresh">Обновить</sys:String>
+    <sys:String x:Key="L.OnDevice.Loading">Читаем список приложений с устройства…</sys:String>
+    <sys:String x:Key="L.OnDevice.LoadFailed">Не удалось получить список приложений с устройства. Проверьте подключение и разблокируйте устройство, затем нажмите «Обновить».</sys:String>
+    <sys:String x:Key="L.OnDevice.Empty">Пользовательских приложений на устройстве не найдено.</sys:String>
+    <sys:String x:Key="L.OnDevice.FolderLabel">Папка для сохранения IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.ChooseFolder">Выбрать папку…</sys:String>
+    <sys:String x:Key="L.OnDevice.Download">Скачать IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.Reveal">Показать файл</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLogin">Войдите в Apple ID, чтобы скачивать IPA</sys:String>
+    <sys:String x:Key="L.OnDevice.NeedLoginHint">Файл выдаёт App Store, а не устройство: копию можно получить только тем Apple ID, который владеет приложением.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotFromStore">Установлено не из App Store — скачать нельзя</sys:String>
+    <sys:String x:Key="L.OnDevice.OtherAccount">Куплено другим Apple ID ({0}) — скачать нельзя</sys:String>
+    <sys:String x:Key="L.OnDevice.AccountUnverified">Устройство не сообщает, каким Apple ID куплено приложение. Если оно куплено не текущим аккаунтом, App Store откажет в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
+    <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
+    <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
+    <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных прилож��ний, они добавятся к тому же переносу.</sys:String>
+    <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
+    <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
+    <sys:String x:Key="L.OnDevice.DownloadSelected">Скачать выбранные ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchRunning">Скачиваем: готово {0} из {1}…</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchSubtitle">Приложений: {0} · {1}</sys:String>
+    <sys:String x:Key="L.OnDevice.Queued">В очереди…</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewList">Показать списком</sys:String>
+    <sys:String x:Key="L.OnDevice.ViewTiles">Показать плиткой</sys:String>
+    <sys:String x:Key="L.OnDevice.TileSize">Размер плитки</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDone">Сохранено файлов: {0}.</sys:String>
+    <sys:String x:Key="L.OnDevice.BatchDoneWithErrors">Сохранено {0}, с ошибкой {1}.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferSelected">Перенести на другой iPhone ({0})</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferPickTarget">Куда перенести:</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferNoTargets">Других подключённых устройств нет. Подключите второй iPhone кабелем, нажмите на нём «Доверять» и откройте этот список снова.</sys:String>
+    <sys:String x:Key="L.OnDevice.TransferHint">Приложения скачив��ются из App Store заново и устанавливаются на выбранное устройство. Копия с этого iPhone подписана под него и на другом не запустится.</sys:String>
+
+    <sys:String x:Key="L.Rollback.Title">Откат к предыдущей версии</sys:String>
+    <sys:String x:Key="L.Rollback.PasswordHint">Введите пароль для доступа к откату</sys:String>
+    <sys:String x:Key="L.Rollback.Unlock">Разблокировать</sys:String>
+    <sys:String x:Key="L.Rollback.WrongPassword">Неверный пароль.</sys:String>
+    <sys:String x:Key="L.Rollback.Loading">Загружаем список версий…</sys:String>
+    <sys:String x:Key="L.Rollback.LoadFailed">Не удалось загрузить список версий.</sys:String>
+    <sys:String x:Key="L.Rollback.NoReleases">Других версий не найдено.</sys:String>
+    <sys:String x:Key="L.Rollback.PickVersion">Выберите версию:</sys:String>
+    <sys:String x:Key="L.Rollback.Button">Откатиться</sys:String>
+    <sys:String x:Key="L.Rollback.Downloading">Загружаем установщик выбранной версии…</sys:String>
+    <sys:String x:Key="L.Rollback.Failed">Откат не удался. Попробуйте ещё раз.</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmTitle">Откатиться на версию {0}?</sys:String>
+    <sys:String x:Key="L.Rollback.ConfirmBody">Приложение будет закрыто и переустановлено на версию {0}. Продолжить?</sys:String>
+    <sys:String x:Key="L.Rollback.Lock">Скрыть</sys:String>
+
+    <sys:String x:Key="L.MediaExport.Title">Экспорт фото и видео с носителя</sys:String>
+    <sys:String x:Key="L.MediaExport.MenuTitle">Фото с носителя</sys:String>
+    <sys:String x:Key="L.MediaExport.Subtitle">Выберите диск, папку или Android-телефон, подключённый как файловая система, найдите фото и видео, а затем скопируйте их на компьютер</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceLabel">Источник</sys:String>
+    <sys:String x:Key="L.MediaExport.SourceHint">Выберите диск или папку для поиска фото и видео.</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationLabel">Куда сохранить</sys:String>
+    <sys:String x:Key="L.MediaExport.DestinationHint">Выберите папку, куда будут скопированы найденные файлы.</sys:String>
+    <sys:String x:Key="L.MediaExport.Browse">Выбрать…</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceTitle">Выберите папку-источник</sys:String>
+    <sys:String x:Key="L.MediaExport.PickDestinationTitle">Выберите папку назначения</sys:String>
+    <sys:String x:Key="L.MediaExport.OptionsLabel">Параметры</sys:String>
+    <sys:String x:Key="L.MediaExport.ByFolder">Раскладывать по папкам-источникам</sys:String>
+    <sys:String x:Key="L.MediaExport.SingleFolder">Скидывать всё в одну папку</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunk">Пропускать мелкие файлы (иконки, превью)</sys:String>
+    <sys:String x:Key="L.MediaExport.SkipJunkHint">Файлы меньше указанного порога считаются мусором и не попадают в поиск.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scan">Найти</sys:String>
+    <sys:String x:Key="L.MediaExport.Export">Экспортировать</sys:String>
+    <sys:String x:Key="L.MediaExport.OpenDestination">Открыть папку назначения</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedSource">Сначала выберите папку-источник.</sys:String>
+    <sys:String x:Key="L.MediaExport.NeedDestination">Сначала выберите папку назначения.</sys:String>
+    <sys:String x:Key="L.MediaExport.Scanning">Идёт поиск…</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanningGroup">Поиск: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.Cancelled">Отменено.</sys:String>
+    <sys:String x:Key="L.MediaExport.ScanFailed">Поиск не удался: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.RootGroup">(корень)</sys:String>
+    <sys:String x:Key="L.MediaExport.NothingFound">Фото и видео не найдены.</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundTotal">Найдено {0} фото и {1} видео, всего {2}</sys:String>
+    <sys:String x:Key="L.MediaExport.SkippedJunk">Пропущено {0} мелких файлов как мусор.</sys:String>
+    <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
+    <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
+    <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
+
+    <!-- Quick Transfer -->
+    <sys:String x:Key="L.QuickTransfer.Open">Быстрый перенос</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Title">Быстрый перенос</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Device">На устройство: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DropHint">Перетащите сюда фото, видео или IPA</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Browse">Выбрать файлы…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Supported">Фото и видео попадут в «Фото», IPA будут установлены автоматически.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Filter">Поддерживаемые файлы|*.jpg;*.jpeg;*.png;*.heic;*.heif;*.gif;*.tif;*.tiff;*.bmp;*.mov;*.mp4;*.m4v;*.3gp;*.avi;*.ipa|Все файлы|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Summary">Распознано файлов: {0}. Проверьте назначения.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Photos">Фото</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Apps">Приложения</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileCount">Файлов: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Transfer">Перенести</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Importing">Импортируем фото и видео…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingFile">Импортировано {0} из {1}…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CloseAfterError">Закрыть</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Destination">Приложение-получатель</sys:String>
+    <sys:String x:Key="L.QuickTransfer.AllTypes">Можно переносить фото, видео, музыку, книги, документы, архивы, папки, IPA и файлы неизвестных типов.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FilterAll">Все файлы|*.*</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanningApps">Ищем приложения с доступом к файлам…</sys:String>
+    <sys:String x:Key="L.QuickTransfer.FileSharingHint">Файлы будут записаны и проверены в папке Documents выбранного приложения. IPA устанавливаются отдельно.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoFileSharingApps">Совместимых приложений не найдено. Установите VLC, Documents или фа��ловый менеджер с Apple File Sharing. MP3 и другие файлы переносятся в папку Documents такого приложения, а не напрямую в системную «Музыку».</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanFailed">Не удалось надёжно проверить приложения: {0}. Проверьте подключение, разблокируйте iPhone и подтвердите «Доверять».</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ScanPartial">Найдено приложений: {0} (проверено: {1}), но часть списка проверить не удалось: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.UnknownScanError">неизвестная ошибка устройства</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeApp">Приложение IPA</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeImage">Изображение / RAW</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeVideo">Видео</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeAudio">Аудио</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeBook">Книга / PDF</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeDocument">Документ</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeArchive">Архив</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeOther">Другой файл</sys:String>
+    <sys:String x:Key="L.QuickTransfer.NoDestination">Нет назначения</sys:String>
+    <sys:String x:Key="L.QuickTransfer.CopyingFile">Файл {0} из {1}: {2} → {3}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Verified">Готово: проверено файлов — {0}; IPA добавлено в очередь — {1}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TransferFailed">Перенос остановлен: {0}</sys:String>
+    <sys:String x:Key="L.Photos.SystemImportUnavailable">Прямой импорт в системную медиатеку «Фото» недоступен через открытый протокол Apple на этой версии iOS. Используйте «Быстрый перенос» и выберите совместимое приложение; фиктивное копирование в DCIM отключено.</sys:String>
+
+    <!-- Прошивки IPSW -->
+    <sys:String x:Key="L.Firmware.Title">Прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Каталог IPSW для устройств Apple с паузой, многопоточной загрузкой и докачкой</sys:String>
+    <sys:String x:Key="L.Firmware.Device">Устройство</sys:String>
+    <sys:String x:Key="L.Firmware.Release">Версия прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.SignedOnly">Только подписываемые</sys:String>
+    <sys:String x:Key="L.Firmware.AutoUpdate">Включить или выключить автообновление выбранного устройства</sys:String>
+    <sys:String x:Key="L.Firmware.Folder">Папка для прошивок</sys:String>
+    <sys:String x:Key="L.Firmware.Threads">Потоков загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Interval">Проверять обновления каждые, ч</sys:String>
+    <sys:String x:Key="L.Firmware.Download">Скачать / продолжить</sys:String>
+    <sys:String x:Key="L.Firmware.Pause">Пауза</sys:String>
+    <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
+    <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
+    <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
+
+</ResourceDictionary>

@@ -1,0 +1,322 @@
+using System.Net;
+using System.Net.Http;
+using System.Windows;
+using System.Windows.Threading;
+using IPAStudio.App.Services;
+using IPAStudio.App.ViewModels;
+using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
+using IPAStudio.Core.Services;
+using IPAStudio.Core.Services.ICloud;
+using IPAStudio.Core.Tools;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace IPAStudio.App;
+
+public partial class App : Application
+{
+    public static IServiceProvider Services { get; private set; } = null!;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        // Global safety net — installed FIRST so nothing can silently kill the
+        // app. Any unhandled exception is logged with a full stack trace and
+        // surfaced in a dialog instead of terminating the process.
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+        var services = new ServiceCollection();
+
+        // Core
+        services.AddSingleton<ToolLocator>();
+        // Job object first: every spawned tool is bound to it and killed on exit.
+        services.AddSingleton<ProcessJobObject>();
+        services.AddSingleton<ProcessRunner>(sp => new ProcessRunner(sp.GetRequiredService<ProcessJobObject>()));
+        services.AddSingleton<HttpClient>(_ =>
+        {
+            // This client serves catalog lookups, artwork and tool/update downloads —
+            // not the IPA transfer itself, which ipatool performs in its own process.
+            //
+            // The defaults hurt on two counts: a 2-connection-per-host cap serializes
+            // the artwork requests behind each other, and pooled connections are kept
+            // forever, so a stale one to an Apple edge node stalls a request until the
+            // full timeout elapses.
+            var handler = new SocketsHttpHandler
+            {
+                MaxConnectionsPerServer = 16,
+
+                // Recycle connections so a silently dropped one is replaced instead of
+                // being reused and timing out.
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
+
+                ConnectTimeout = TimeSpan.FromSeconds(15),
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                EnableMultipleHttp2Connections = true,
+            };
+
+            var client = new HttpClient(handler)
+            {
+                // Per-request ceiling. Large tool/update downloads pass their own
+                // CancellationToken, so this is a backstop, not the transfer budget.
+                Timeout = TimeSpan.FromMinutes(10),
+            };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("IPAStudio/1.0");
+            return client;
+        });
+        services.AddSingleton<SettingsService>();
+        services.AddSingleton<RemoteSupportService>();
+        services.AddSingleton<AuthSecretStore>();
+        services.AddSingleton<AuthService>();
+        services.AddSingleton<CatalogService>();
+        services.AddSingleton<DeviceService>();
+        services.AddSingleton<PhotoService>();
+        services.AddSingleton<ApplePhotoSyncService>();
+        services.AddSingleton<PhotoThumbnailCache>();
+        services.AddSingleton<DownloadService>();
+        services.AddSingleton<InstallService>();
+        services.AddSingleton<FirmwareCatalogService>();
+        services.AddSingleton<FirmwareDownloadService>();
+
+        // Shared across every queue: the parallel-download slider is one global budget, so
+        // five simultaneous operations must not each open their own three connections.
+        services.AddSingleton<DownloadThrottle>();
+
+        // Transient, not singleton. A queue owns its item list and its running flag, and the
+        // single shared instance is exactly why two simultaneous runs were impossible: the
+        // second run's Build() cleared the first run's items and RunAsync() returned early
+        // because IsRunning was already true. Each operation now gets its own.
+        services.AddTransient<QueueService>();
+        services.AddSingleton<DependencyService>();
+        services.AddSingleton<UpdateService>();
+        services.AddSingleton<ICloudService>();
+        services.AddSingleton<CleanupService>();
+        services.AddSingleton<IpaCatalogService>();
+        services.AddSingleton<MediaExportService>();
+        services.AddSingleton<FileSharingService>();
+
+        // The iTunes 12.6.5.3 fallback route. Shared, so the catalog and direct-download
+        // screens agree on which iTunes was detected and on what is already in its library.
+        services.AddSingleton<ItunesLegacyService>();
+
+        // App
+        services.AddSingleton<LocalizationManager>();
+        services.AddSingleton<OperationService>();
+        services.AddSingleton<FirmwareAutoUpdateService>();
+        services.AddSingleton<ShellViewModel>();
+        services.AddSingleton<UpdaterViewModel>();
+        services.AddSingleton<SetupViewModel>();
+        services.AddSingleton<LoginViewModel>();
+        services.AddSingleton<DevicesViewModel>();
+        services.AddSingleton<AppPickerViewModel>();
+        services.AddSingleton<QueueViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<DeviceInfoViewModel>();
+        services.AddSingleton<PhotosViewModel>();
+        services.AddSingleton<DirectDownloadViewModel>();
+        services.AddSingleton<OnDeviceViewModel>();
+        services.AddSingleton<ICloudViewModel>();
+        services.AddSingleton<IpaCatalogsViewModel>();
+        services.AddSingleton<MediaExportViewModel>();
+        services.AddSingleton<FirmwareViewModel>();
+
+        Services = services.BuildServiceProvider();
+
+        // Load settings and apply language before showing the window.
+        var settings = Services.GetRequiredService<SettingsService>();
+        settings.Load();
+
+        // Push the saved concurrency limits into the services that enforce them. Neither
+        // reads SettingsService itself: the throttle is shared by every queue, and the
+        // install cap used to be a constant. Settings only re-applies these on Save, so
+        // without this a restart would silently fall back to the defaults.
+        Services.GetRequiredService<DownloadThrottle>().Limit = settings.Current.MaxParallelDownloads;
+        Services.GetRequiredService<InstallService>().MaxParallelInstallsPerDevice =
+            settings.Current.MaxParallelInstallsPerDevice;
+
+        // The "apps this account owns" cache is stamped with the Apple ID it belongs to,
+        // and BindOwnedCacheToAccount exists to drop it when that changes — but nothing
+        // ever called it. So signing in as somebody else left the previous account's list
+        // in force, and apps it had bought kept showing as owned under an account that
+        // had never bought them. Binding here covers sign-in and session restore alike,
+        // since both raise this event.
+        //
+        // Sign-out (a null account) is deliberately ignored: it would throw the cache away
+        // and make signing back into the same account re-verify every app for no reason.
+        // A different account still clears it on the way in.
+        var auth = Services.GetRequiredService<AuthService>();
+        auth.AccountChanged += (_, account) =>
+        {
+            if (!string.IsNullOrWhiteSpace(account?.Email))
+                settings.BindOwnedCacheToAccount(account!.Email);
+        };
+
+        // Apply the saved color theme BEFORE any window is created. The palette
+        // (Palette.Dark/Light) must be merged ahead of the styles dictionary so the
+        // StaticResource brush references inside Theme.xaml resolve against it.
+        ApplyTheme(settings.Current.Theme);
+
+        Services.GetRequiredService<LocalizationManager>().Apply(settings.Current.Language);
+
+        // Closing the main window (the X button) shuts the whole app down.
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+        // Also clean up if Windows is logging off / shutting down.
+        SessionEnding += (_, _) => Cleanup();
+
+        var window = new MainWindow
+        {
+            DataContext = Services.GetRequiredService<ShellViewModel>(),
+        };
+        window.Show();
+
+        // Starts after the window exists so automatic downloads can safely publish into
+        // the shared operations UI. The first check is delayed and never blocks startup.
+        Services.GetRequiredService<FirmwareAutoUpdateService>().Start();
+
+        // Presence contains only coarse device/app metadata and is sent only after explicit
+        // consent in Settings. A failed heartbeat never interrupts normal IPA Studio work.
+        var remoteSupport = Services.GetRequiredService<RemoteSupportService>();
+        var supportTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30),
+        };
+        supportTimer.Tick += async (_, _) =>
+        {
+            try { await remoteSupport.SendHeartbeatAsync(); }
+            catch (Exception ex) { IPAStudio.Core.Diagnostics.AppLog.Warn($"Remote support heartbeat failed: {ex.Message}"); }
+        };
+        supportTimer.Start();
+        _ = remoteSupport.SendHeartbeatAsync();
+
+        var downloads = Services.GetRequiredService<DownloadService>();
+
+        // Downloads run on background threads, so the prompt has to be marshalled onto
+        // the UI thread. Core owns no WPF types; it just calls this callback.
+        downloads.FileConflictResolver =
+            (request, _) => window.Dispatcher.InvokeAsync(() =>
+            {
+                var dialog = new Views.FileConflictDialog(request) { Owner = window };
+                dialog.ShowDialog();
+                return new FileConflictResponse(dialog.Decision, dialog.ApplyToAll);
+            }).Task;
+
+        // Read on demand rather than captured once, so switching the setting applies to
+        // the next attempt instead of needing a restart.
+        downloads.ResumeModeProvider = () => settings.ResumeMode;
+    }
+
+    /// <summary>
+    /// Inserts the palette for the requested theme ("dark" or "light") followed by
+    /// the shared styles dictionary at the front of the application resources, so
+    /// every StaticResource brush reference resolves against the chosen palette.
+    /// Called once at startup; changing the theme later requires an app restart.
+    /// </summary>
+    private void ApplyTheme(string? theme)
+    {
+        var isLight = string.Equals(theme, "light", StringComparison.OrdinalIgnoreCase);
+        var paletteName = isLight ? "Palette.Light.xaml" : "Palette.Dark.xaml";
+
+        var palette = new ResourceDictionary
+        {
+            Source = new Uri($"Resources/{paletteName}", UriKind.Relative),
+        };
+        var styles = new ResourceDictionary
+        {
+            Source = new Uri("Resources/Theme.xaml", UriKind.Relative),
+        };
+
+        // Palette first (index 0), styles second (index 1) — order matters for
+        // StaticResource resolution. Strings dictionary stays after them.
+        Resources.MergedDictionaries.Insert(0, palette);
+        Resources.MergedDictionaries.Insert(1, styles);
+    }
+
+    // ---------------------------------------------------- crash safety net --
+
+    /// <summary>
+    /// Handles exceptions raised on the UI thread. Marks them handled so the
+    /// app keeps running, logs the full stack and tells the user where to find
+    /// the details.
+    /// </summary>
+    private void OnDispatcherUnhandledException(
+        object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        AppLog.Error("Unhandled UI-thread exception (recovered).", e.Exception);
+        e.Handled = true;
+        ShowError(e.Exception);
+    }
+
+    /// <summary>Logs fatal exceptions from non-UI threads (cannot be recovered).</summary>
+    private static void OnDomainUnhandledException(
+        object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+            AppLog.Error("Unhandled background exception.", ex);
+        else
+            AppLog.Error($"Unhandled background error: {e.ExceptionObject}");
+    }
+
+    /// <summary>Observes faulted background tasks so they don't escalate.</summary>
+    private void OnUnobservedTaskException(
+        object? sender, System.Threading.Tasks.UnobservedTaskExceptionEventArgs e)
+    {
+        AppLog.Error("Unobserved task exception (recovered).", e.Exception);
+        e.SetObserved();
+    }
+
+    private static void ShowError(Exception ex)
+    {
+        try
+        {
+            MessageBox.Show(
+                Loc.Get("L.Crash.Recovered") + "\n\n" +
+                $"{ex.GetType().Name}: {ex.Message}\n\n" +
+                Loc.Get("L.Crash.SeeLog"),
+                "IPA Studio",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+        catch { /* never let the error handler itself crash */ }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        Cleanup();
+        base.OnExit(e);
+    }
+
+    private bool _cleanedUp;
+
+    /// <summary>
+    /// Stops all background work and terminates every spawned tool process so nothing
+    /// keeps the (portable) application folder locked after the window is closed.
+    /// </summary>
+    private void Cleanup()
+    {
+        if (_cleanedUp) return;
+        _cleanedUp = true;
+
+        try
+        {
+            // Stop device polling (bounded so a stuck poll can't block shutdown).
+            if (Services.GetService<DeviceService>() is IAsyncDisposable disposable)
+                disposable.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+        }
+        catch { /* best effort */ }
+
+        try { Services.GetService<FirmwareAutoUpdateService>()?.Dispose(); }
+        catch { /* best effort */ }
+
+        try
+        {
+            // Kill every tracked child process and close the job object
+            // (KILL_ON_JOB_CLOSE finishes off anything still running).
+            Services.GetService<ProcessJobObject>()?.Dispose();
+        }
+        catch { /* best effort */ }
+    }
+}

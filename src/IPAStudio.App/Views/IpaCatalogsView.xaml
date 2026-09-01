@@ -1,0 +1,688 @@
+<UserControl x:Class="IPAStudio.App.Views.IpaCatalogsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:ctrl="clr-namespace:IPAStudio.App.Controls">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+        <conv:InitialConverter x:Key="Initial" />
+
+        <!-- ===== Picking an archive =====
+             In click mode the whole row or tile is the target: a tile is mostly artwork, and
+             asking for a 16px box inside it is a worse gesture than clicking the thing itself.
+             The tick is kept as a read-out — it shows what is chosen — but it is not what has
+             to be hit. In checkbox mode a real box appears and the row stops responding.
+
+             Drawn on the container rather than on a Button wrapped around the content, which is
+             what this was. A Button handles the click itself, so the shared click-to-select
+             behaviour — which has to leave buttons inside a tile alone — could never see it,
+             and the row would both toggle and select from one press.
+
+             Selection is drawn as a ring that grows into place rather than appearing instantly,
+             so picking many archives in a row reads as a sequence of deliberate acts instead of
+             a grid flickering between two states. The pop is deliberately small (0.98) and short:
+             at a hundred tiles anything larger turns a sweep of selections into a jelly wobble. -->
+        <Style x:Key="Selectable" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="4,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
+                            </Grid.RenderTransform>
+
+                            <!-- Hover and selected fill share one layer; the ring sits above it
+                                 so the accent edge is never dimmed by the tint underneath. -->
+                            <Border x:Name="Fill" CornerRadius="12" Background="Transparent" />
+
+                            <Border x:Name="Ring" CornerRadius="12" Opacity="0"
+                                    BorderBrush="{StaticResource Brush.Accent}"
+                                    BorderThickness="0" />
+
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+
+                            <!-- Keyboard focus has to be visible on its own: without this a
+                                 tabbed-to tile would look identical to an untouched one. -->
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="0.45" />
+                                <Setter TargetName="Ring" Property="BorderThickness" Value="1.5" />
+                            </Trigger>
+
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Fill" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="2" Duration="0:0:0.18">
+                                                <ThicknessAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </ThicknessAnimation.EasingFunction>
+                                            </ThicknessAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="1" Duration="0:0:0.14" />
+                                            <DoubleAnimationUsingKeyFrames
+                                                Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleX">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                            <DoubleAnimationUsingKeyFrames
+                                                Storyboard.TargetName="Pop"
+                                                Storyboard.TargetProperty="ScaleY">
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.98" />
+                                                <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                            </DoubleAnimationUsingKeyFrames>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="BorderThickness"
+                                                To="0" Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                Storyboard.TargetProperty="Opacity"
+                                                To="0" Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+
+                            <!-- An unreadable archive cannot be installed, so it is not offered
+                                 as a target at all: no hand cursor, no hover, no ring. -->
+                            <DataTrigger Binding="{Binding CanSelect}" Value="False">
+                                <Setter Property="Cursor" Value="Arrow" />
+                                <Setter Property="Focusable" Value="False" />
+                                <Setter TargetName="Fill" Property="Background" Value="Transparent" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Same treatment, only spaced as a grid cell rather than as a row. -->
+        <Style x:Key="SelectableTile" TargetType="ListBoxItem" BasedOn="{StaticResource Selectable}">
+            <Setter Property="Margin" Value="5" />
+        </Style>
+
+        <!-- The tick that shows the outcome. Not a control any more: it cannot be clicked, so it
+             never disagrees with the ring about what a click just did. -->
+        <Style x:Key="SelectedBadge" TargetType="Border">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="1" Duration="0:0:0.14" />
+                                <!-- Overshoots to 1.1 before settling: the badge is small, and a
+                                     plain fade at this size is easy to miss entirely. -->
+                                <DoubleAnimationUsingKeyFrames
+                                    Storyboard.TargetProperty="RenderTransform.ScaleX">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                                </DoubleAnimationUsingKeyFrames>
+                                <DoubleAnimationUsingKeyFrames
+                                    Storyboard.TargetProperty="RenderTransform.ScaleY">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
+                                </DoubleAnimationUsingKeyFrames>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                 To="0" Duration="0:0:0.1" />
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                                 To="0.6" Duration="0:0:0.1" />
+                                <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                                 To="0.6" Duration="0:0:0.1" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- List / tile toggle, matching the on-device and photo screens so every list in
+             the app is switched the same way. -->
+        <Style x:Key="ViewToggle" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+
+        <!-- Library name. Turns accent-coloured for the selected row: the tinted background
+             alone is faint, and this panel is the only thing telling the user which library the
+             list on the right belongs to. Text.Body pins Foreground outright, so the colour
+             cannot simply be inherited from the row and is switched here instead. -->
+        <Style x:Key="CatalogName" TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Value="True"
+                             Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="32,24,32,32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ===== Header. Right margin keeps 56px clear for the MainWindow gear button,
+             which is drawn over the page. ===== -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal" Margin="0,0,200,0">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <Button Style="{StaticResource Button.Home}"
+                        Command="{Binding GoHomeCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Catalogs.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{DynamicResource L.Catalogs.Subtitle}" Style="{StaticResource Text.Subtitle}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Install target. Sits in the header because it applies to the whole page, not
+                 to one library: the ticked rows are installed onto whatever is chosen here. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,56,0">
+                <TextBlock Text="{DynamicResource L.Catalogs.InstallTo}" Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                <!-- DisplayLabel rather than Name: the name falls back to the bare word
+                     "iPhone" until it is actually read, so two connected phones appeared as
+                     two identical entries with nothing to choose between them. -->
+                <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}"
+                          DisplayMemberPath="DisplayLabel" MinWidth="240" MaxWidth="320"
+                          VerticalAlignment="Center"
+                          ToolTip="{Binding SelectedDevice.Udid}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Libraries ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="4" Margin="0,0,16,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Explains the page when there is nothing in it yet, rather than showing
+                         an empty panel next to an empty list. -->
+                    <TextBlock Grid.Row="0" Text="{DynamicResource L.Catalogs.NoCatalogs}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               Margin="14" VerticalAlignment="Top" TextAlignment="Center"
+                               Visibility="{Binding HasCatalogs, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
+                    <ListBox Grid.Row="0" ItemsSource="{Binding Catalogs}"
+                             SelectedItem="{Binding SelectedCatalog}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Visibility="{Binding HasCatalogs, Converter={StaticResource BoolToVis}}">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2"
+                                                    BorderThickness="1" BorderBrush="Transparent">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bg" Property="Background"
+                                                            Value="{StaticResource Brush.SurfaceHover}" />
+                                                </Trigger>
+                                                <!-- Selection used to paint the same grey as hover, so the
+                                                     library actually being shown on the right was
+                                                     indistinguishable from whichever row the pointer
+                                                     happened to rest on. Accent tint plus an accent edge,
+                                                     matching how the Photos page marks a chosen album.
+                                                     Declared after the hover trigger so selection still
+                                                     reads as selected while hovered. -->
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bg" Property="Background"
+                                                            Value="{StaticResource Brush.AccentSoft}" />
+                                                    <Setter TargetName="Bg" Property="BorderBrush"
+                                                            Value="{StaticResource Brush.Accent}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="12,9">
+                                    <TextBlock Text="{Binding Name}" Style="{StaticResource CatalogName}" />
+                                    <!-- Count, or why the folder cannot be read -->
+                                    <TextBlock Text="{Binding Summary}" Style="{StaticResource Text.Caption}"
+                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Grid.Row="1" Margin="8,8,8,6">
+                        <!-- The one-off path: install an .ipa without first naming its folder as
+                             a library. Kept next to Add so both ways in are in one place. -->
+                        <Button Content="{DynamicResource L.Catalogs.PickFiles}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding PickFilesCommand}" HorizontalAlignment="Stretch"
+                                IsEnabled="{Binding HasDevice}" Margin="0,0,0,8" />
+
+                        <Button Content="{DynamicResource L.Catalogs.Add}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding AddCatalogCommand}" HorizontalAlignment="Stretch" />
+
+                        <!-- Rename in place. A modal prompt would be the only dialog of its kind
+                             in the app, so the name is edited where it is shown. -->
+                        <Grid Margin="0,8,0,0"
+                              Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBox Grid.Row="0" Style="{StaticResource Input.TextBox}" Padding="10,8"
+                                     Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}">
+                                <TextBox.InputBindings>
+                                    <KeyBinding Key="Enter" Command="{Binding CommitRenameCommand}" />
+                                    <KeyBinding Key="Esc" Command="{Binding CancelRenameCommand}" />
+                                </TextBox.InputBindings>
+                            </TextBox>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Content="{DynamicResource L.Catalogs.Save}"
+                                        Style="{StaticResource Button.Secondary}"
+                                        Command="{Binding CommitRenameCommand}" Margin="0,0,6,0" />
+                                <Button Content="{DynamicResource L.Cancel}" Style="{StaticResource Button.Ghost}"
+                                        Command="{Binding CancelRenameCommand}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                    Visibility="{Binding SelectedCatalog, Converter={StaticResource NullToCollapsed}}">
+                            <Button Content="{DynamicResource L.Catalogs.Rename}" Style="{StaticResource Button.Ghost}"
+                                    Command="{Binding StartRenameCommand}" Margin="0,0,6,0" />
+                            <Button Content="{DynamicResource L.Catalogs.Remove}" Style="{StaticResource Button.Ghost}"
+                                    Command="{Binding RemoveCatalogCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===== Selected library ===== -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Toolbar -->
+                <Grid Grid.Row="0" Margin="0,0,0,12"
+                      Visibility="{Binding SelectedCatalog, Converter={StaticResource NullToCollapsed}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Grid Grid.Column="0" Width="220" HorizontalAlignment="Left">
+                        <TextBox x:Name="SearchBox" Style="{StaticResource Input.TextBox}" Padding="14,10"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="{DynamicResource L.Picker.SearchPlaceholder}" IsHitTestVisible="False"
+                                   Foreground="{StaticResource Brush.TextMuted}" FontSize="14"
+                                   Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <TextBlock Grid.Column="1" Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center" Margin="16,0,12,0"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="{Binding InstallSelectedLabel}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding InstallSelectedCommand}" Margin="0,0,8,0"
+                                Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}" />
+                        <Button Content="{DynamicResource L.Catalogs.SelectAll}" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding SelectAllCommand}" Margin="0,0,8,0" />
+                        <!-- Only offered once something is ticked; it disables itself otherwise
+                             rather than sitting there as a button that would do nothing. -->
+                        <Button Content="{DynamicResource L.Catalogs.ClearSelection}" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ClearSelectionCommand}" Margin="0,0,8,0"
+                                Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}" />
+                        <Button Content="{DynamicResource L.Catalogs.OpenFolder}" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding OpenFolderCommand}" Margin="0,0,8,0" />
+                        <Button Content="{DynamicResource L.Catalogs.Rescan}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding ScanCommand}"
+                                IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}" />
+
+                        <!-- Tile size. Only meaningful in tile mode, so it is shown with it. -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0"
+                                    Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{DynamicResource L.OnDevice.TileSize}" Style="{StaticResource Text.Caption}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <Slider Width="110" VerticalAlignment="Center"
+                                    Minimum="104" Maximum="208" TickFrequency="26" IsSnapToTickEnabled="True"
+                                    Value="{Binding TileSize}" />
+                        </StackPanel>
+
+                        <!-- Turns clicks on the list into picking archives out, which is what
+                             assembling a batch to install needs and what Ctrl alone never said. -->
+                        <ToggleButton Style="{StaticResource Toggle.Pill}" Margin="12,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Content="{DynamicResource L.Common.Select}"
+                                      ToolTip="{DynamicResource L.Common.Select.Hint}"
+                                      IsChecked="{Binding IsSelecting}"
+                                      Visibility="{Binding ShowSelectToggle, Converter={StaticResource BoolToVis}}" />
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                            <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewList}"
+                                    Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
+                            <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.OnDevice.ViewTiles}"
+                                    Content="&#xF0E2;" Command="{Binding SetTileViewCommand}" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Archives -->
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="4">
+                    <Grid>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}}">
+                            <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="180" />
+                            <TextBlock Text="{DynamicResource L.Catalogs.Scanning}" Style="{StaticResource Text.Caption}"
+                                       HorizontalAlignment="Center" Margin="0,10,0,0" />
+                        </StackPanel>
+
+                        <TextBlock Text="{DynamicResource L.Catalogs.EmptyFolder}" Style="{StaticResource Text.Caption}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   TextAlignment="Center" MaxWidth="360" TextWrapping="Wrap"
+                                   Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
+
+                        <!-- Both layouts live inside this wrapper so the existing "hide while
+                             scanning" rule keeps guarding them as one thing; each list then
+                             only decides which of the two modes it belongs to. Visibility in
+                             WPF cannot AND two bindings, so the conditions are split across
+                             the two levels instead. -->
+                        <Grid Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
+
+                        <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                                 ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
+                                 ItemContainerStyle="{StaticResource Selectable}"
+                                 Visibility="{Binding IsListView, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="12,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Keeps the row's leading column so names stay aligned
+                                             whether or not anything is picked. The badge and the
+                                             box share the cell because only one of them is ever
+                                             shown: the badge reads out a click-mode selection,
+                                             the box is the control in checkbox mode. -->
+                                        <Grid Grid.Column="0" Width="20" Margin="2,0,10,0"
+                                              VerticalAlignment="Center">
+                                            <Border Style="{StaticResource SelectedBadge}"
+                                                    Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                 Converter={StaticResource BoolToVis},
+                                                                 ConverterParameter=invert}">
+                                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="10" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Brush.Surface}" />
+                                            </Border>
+                                            <CheckBox IsChecked="{Binding IsSelected}"
+                                                      IsEnabled="{Binding CanSelect}"
+                                                      VerticalAlignment="Center">
+                                                <CheckBox.Style>
+                                                    <Style TargetType="CheckBox">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding CanSelect}" Value="True" />
+                                                                    <Condition Binding="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                               Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </CheckBox.Style>
+                                            </CheckBox>
+                                        </Grid>
+
+                                        <!-- The app's own icon, read out of the archive. The
+                                             initial shows through for archives that carry none. -->
+                                        <Border Grid.Column="1" Width="40" Height="40" CornerRadius="9"
+                                                Background="{StaticResource Brush.SurfaceHover}" Margin="0,0,14,0">
+                                            <Grid>
+                                                <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="16" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.TextMuted}" />
+                                                <Border CornerRadius="9"
+                                                        Visibility="{Binding Icon, Converter={StaticResource NullToCollapsed}}">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                                                    </Border.Background>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                            <!-- App name, then the name on disk in grey. The two
+                                                 often differ, so the file is named here to tie the
+                                                 row to what Explorer shows. The app name keeps its
+                                                 natural width and the file name takes what is left,
+                                                 so a long file name can never squeeze out the title
+                                                 it belongs to. -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                           Style="{StaticResource Text.Body}"
+                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding FileName}"
+                                                           Style="{StaticResource Text.Caption}"
+                                                           Margin="8,0,0,0" VerticalAlignment="Bottom"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Path}"
+                                                           Visibility="{Binding ShowFileName, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
+                                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- ===== Tile mode =====
+                             The same archives as a grid of app icons, mirroring the on-device
+                             page: in a folder of a hundred .ipa files the artwork is faster to
+                             find than a name in a column of rows. The file name and the long
+                             details line stay with the list mode — a tile has no room to say
+                             why an archive cannot be read, so unreadable ones just show up
+                             without a checkbox here. -->
+                        <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                 ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                                 ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                                 ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
+                                 ItemContainerStyle="{StaticResource SelectableTile}"
+                                 Visibility="{Binding IsTileView, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- TileSize is bound so the panel drops its cached measurement
+                                         when the slider moves; without it the grid would keep the
+                                         old spacing. -->
+                                    <ctrl:VirtualizingWrapPanel TileSize="{Binding DataContext.TileSize,
+                                                                RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel ToolTip="{Binding FileName}"
+                                                Width="{Binding DataContext.TileSize,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Height="{Binding DataContext.TileHeight,
+                                                RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Margin="6,8,6,6">
+                                        <Grid HorizontalAlignment="Center">
+                                            <Border Width="{Binding DataContext.TileIconSize,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Height="{Binding DataContext.TileIconSize,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CornerRadius="{Binding DataContext.TileIconRadius,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Background="{StaticResource Brush.SurfaceHover}">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               FontSize="24" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.TextMuted}" />
+                                                    <Border CornerRadius="{Binding DataContext.TileIconRadius,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            Visibility="{Binding Icon, Converter={StaticResource NullToCollapsed}}">
+                                                        <Border.Background>
+                                                            <ImageBrush ImageSource="{Binding Icon}" Stretch="UniformToFill" />
+                                                        </Border.Background>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Sits on the icon's corner rather than beside it: a
+                                                 leading column would cost a tile most of its width.
+                                                 Hidden in checkbox mode, where the box below takes
+                                                 the same corner. -->
+                                            <Border Style="{StaticResource SelectedBadge}"
+                                                    Margin="0,-3,-5,0"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                 RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                 Converter={StaticResource BoolToVis},
+                                                                 ConverterParameter=invert}">
+                                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="10" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Brush.Surface}" />
+                                            </Border>
+
+                                            <!-- Backed so the box stays legible on light artwork. -->
+                                            <Border CornerRadius="6" Padding="2" Margin="0,-2,-4,0"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                    Background="{StaticResource Brush.Surface}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding CanSelect}" Value="True" />
+                                                                    <Condition Binding="{Binding DataContext.ShowSelectionCheckboxes,
+                                                                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                               Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <CheckBox IsChecked="{Binding IsSelected}" />
+                                            </Border>
+                                        </Grid>
+
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                                   FontWeight="SemiBold" TextAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
+                                        <TextBlock Text="{Binding Details}" Style="{StaticResource Text.Caption}"
+                                                   TextAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

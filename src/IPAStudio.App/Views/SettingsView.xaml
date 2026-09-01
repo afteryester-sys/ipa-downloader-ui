@@ -1,0 +1,491 @@
+<UserControl x:Class="IPAStudio.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+    <UserControl.Resources>
+        <sys:Int32 x:Key="V2">2</sys:Int32>
+        <sys:Int32 x:Key="V3">3</sys:Int32>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32" MaxWidth="560" HorizontalAlignment="Left">
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <TextBlock Text="{DynamicResource L.Settings.Title}" Style="{StaticResource Text.Title}" />
+            </StackPanel>
+
+            <!-- Device connection over Wi-Fi -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Wifi}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.Wifi.Toggle}"
+                              IsChecked="{Binding WifiDeviceConnection}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Wifi.Hint}" />
+                    <!-- Only present while there is something to report, so the card does not
+                         carry an empty line in the common case. -->
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{StaticResource Brush.Accent}"
+                               Text="{Binding WifiStatus}"
+                               Visibility="{Binding WifiStatus, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Language -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Language}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="Русский" GroupName="Lang" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding Language, Converter={StaticResource StringEquals}, ConverterParameter=ru}"
+                                     Margin="0,0,20,0" />
+                        <RadioButton Content="English" GroupName="Lang" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding Language, Converter={StaticResource StringEquals}, ConverterParameter=en}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Color theme -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Theme}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="{DynamicResource L.Settings.Theme.Dark}" GroupName="Theme"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding ThemeIsDark}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Theme.Light}" GroupName="Theme"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding ThemeIsLight}" />
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Theme.RestartHint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- ipatool version -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.IpatoolVersion}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <RadioButton Content="{DynamicResource L.Settings.IpatoolV2}" GroupName="Ipatool"
+                                 Foreground="{StaticResource Brush.Text}" Margin="0,0,0,8"
+                                 IsChecked="{Binding IpatoolVersion, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V2}}" />
+                    <RadioButton Content="{DynamicResource L.Settings.IpatoolV3}" GroupName="Ipatool"
+                                 Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding IpatoolVersion, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V3}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Experimental SAP-signed Apple authentication. Kept separate from the
+                 ipatool version selector because it chooses a backend, not a major version. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.BetaAuth}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.BetaAuth.Toggle}"
+                              IsChecked="{Binding UseBetaAppleAuthentication}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.BetaAuth.Hint}" />
+                    <Button Content="{DynamicResource L.Settings.BetaAuth.Check}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Margin="0,12,0,0" Command="{Binding CheckBetaAuthenticationCommand}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Foreground="{StaticResource Brush.Accent}" Text="{Binding BetaAuthDiagnostic}"
+                               Visibility="{Binding BetaAuthDiagnostic, Converter={StaticResource NullToCollapsed}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Apps folder -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.AppsFolder}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <TextBox Style="{StaticResource Input.TextBox}"
+                             Text="{Binding AppsFolder, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Border>
+
+            <!-- iTunes library, for the iTunes 12.6.5.3 download route -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.ItunesFolder}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="{DynamicResource L.Settings.ItunesFolderHint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               Margin="0,0,0,10" />
+                    <TextBox Style="{StaticResource Input.TextBox}"
+                             Text="{Binding ItunesLibraryFolder, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Parallel downloads -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Settings.ParallelDownloads}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding MaxParallelDownloads}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <Slider Minimum="1" Maximum="6" TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding MaxParallelDownloads}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.ParallelDownloads.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Simultaneous installs on one device -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Settings.ParallelInstalls}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding MaxParallelInstallsPerDevice}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Right" />
+                    </Grid>
+                    <Slider Minimum="1" Maximum="4" TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding MaxParallelInstallsPerDevice}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.ParallelInstalls.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Multitasking mode -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Multitasking}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.Multitasking.Toggle}"
+                              IsChecked="{Binding MultitaskingEnabled}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Multitasking.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Install mode -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.InstallMode}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.DownloadAndInstall}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsDownloadAndInstall}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.DownloadOnly}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsDownloadOnly}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Mode.InstallExistingOnly}"
+                                 GroupName="InstallMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ModeIsInstallExistingOnly}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Interrupted downloads: keep or discard what already made it to disk -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.ResumeMode}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <RadioButton Content="{DynamicResource L.Settings.Resume.RestartFromScratch}"
+                                 GroupName="ResumeMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ResumeIsRestartFromScratch}" Margin="0,0,0,8" />
+                    <RadioButton Content="{DynamicResource L.Settings.Resume.KeepPartialFiles}"
+                                 GroupName="ResumeMode" Foreground="{StaticResource Brush.Text}"
+                                 IsChecked="{Binding ResumeIsKeepPartialFiles}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Resume.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- How the lists that offer batch actions let items be picked. One choice per
+                 page rather than one for the app: the pages are used differently, and a
+                 single answer would be the wrong one somewhere. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Selection}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Hint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Photos}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="PhotosSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding PhotosSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="PhotosSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding PhotosSelectByCheckbox}" />
+                    </StackPanel>
+
+                    <!-- Only meaningful alongside click selection, so it is hidden with the
+                         tick boxes rather than left on screen doing nothing. -->
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,0,14"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding PhotosCtrlSelects}"
+                              Visibility="{Binding PhotosSelectByClick, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.OnDevice}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="OnDeviceSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding OnDeviceSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="OnDeviceSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding OnDeviceSelectByCheckbox}" />
+                    </StackPanel>
+
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,0,14"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding OnDeviceCtrlSelects}"
+                              Visibility="{Binding OnDeviceSelectByClick, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Catalog}"
+                               Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByClick}"
+                                     GroupName="CatalogSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding CatalogSelectByClick}" Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Settings.Selection.ByCheckbox}"
+                                     GroupName="CatalogSelection" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding CatalogSelectByCheckbox}" />
+                    </StackPanel>
+
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,12,0,0"
+                              Content="{DynamicResource L.Settings.Selection.Ctrl}"
+                              IsChecked="{Binding CatalogCtrlSelects}"
+                              Visibility="{Binding CatalogSelectByClick, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Selection.Ctrl.Hint}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- Diagnostics / logging -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Diagnostics}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.VerboseLogging}"
+                              IsChecked="{Binding VerboseLogging}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.VerboseLogging.Hint}" />
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,12,0,0"
+                              Content="{DynamicResource L.Settings.HideDevicePollingLogs}"
+                              IsChecked="{Binding HideDevicePollingLogs}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.HideDevicePollingLogs.Hint}" />
+
+                    <!-- Live log from the phone: the only place a failure to launch is
+                         actually explained. -->
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
+
+                    <Button Content="{DynamicResource L.DeviceLogs.Open}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Command="{Binding ShowDeviceLogCommand}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.DeviceLogs.OpenHint}" />
+
+                    <!-- Current load. Sampling is driven by this element being loaded, so the
+                         measurement stops as soon as the user leaves the page. -->
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.Load}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Cpu}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LoadCpu}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Body}">
+                                        <Style.Triggers>
+                                            <!-- Turns amber only past the threshold: a number that
+                                                 is always coloured stops meaning anything. -->
+                                            <DataTrigger Binding="{Binding LoadIsHigh}" Value="True">
+                                                <Setter Property="Foreground"
+                                                        Value="{StaticResource Brush.Warning}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Memory}"
+                                       Style="{StaticResource Text.Caption}" />
+                            <TextBlock Text="{Binding LoadMemory}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="{DynamicResource L.Settings.Load.Helpers}"
+                                       Style="{StaticResource Text.Caption}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding LoadHelpers}" Style="{StaticResource Text.Body}"
+                                       FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Text="{DynamicResource L.Settings.Load.Hint}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Remote support: intentionally separate from account and disabled by default. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="Удалённая поддержка" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="Администратор увидит имя компьютера, версии Windows, IPA Studio и RustDesk, а подключение будет выполняться через RustDesk. Apple ID, пароли и файлы не передаются."
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock Text="{Binding RemoteSupportStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="Разрешить удалённую поддержку" Style="{StaticResource Button.Primary}"
+                                Command="{Binding EnableRemoteSupportCommand}" IsEnabled="{Binding CanEnableRemoteSupport}" Margin="0,0,10,0" />
+                        <Button Content="Отозвать доступ" Style="{StaticResource Button.Danger}"
+                                Command="{Binding DisableRemoteSupportCommand}" IsEnabled="{Binding IsRemoteSupportBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding RemoteSupportEnabled, Converter={StaticResource BoolToVis}}" Margin="0,0,10,0" />
+                        <Button Content="Открыть панель администратора" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding OpenAdminPanelCommand}" Margin="0,0,10,0" />
+                        <Button Content="Создать первичный админ-ключ" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding CreateAdminKeyCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Account -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Account}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="{Binding AccountEmail}" Style="{StaticResource Text.Caption}" Margin="0,0,0,12" />
+                    <Button Content="{DynamicResource L.Settings.SignOut}" Style="{StaticResource Button.Danger}"
+                            HorizontalAlignment="Left"
+                            Command="{Binding SignOutCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Updates -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="{DynamicResource L.Update.Title}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="{DynamicResource L.Update.Version}" Style="{StaticResource Text.Caption}"
+                                       VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <TextBlock Text="{Binding CurrentVersion}" Style="{StaticResource Text.Caption}"
+                                       Foreground="{StaticResource Brush.Accent}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="{Binding UpdateStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,12"
+                               Visibility="{Binding UpdateStatus, Converter={StaticResource NullToCollapsed}}" />
+
+                    <!-- Download progress -->
+                    <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="1"
+                                 Value="{Binding UpdateProgress}" Margin="0,0,0,12"
+                                 Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVis}}" />
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource L.Update.Check}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding CheckUpdateCommand}" IsEnabled="{Binding IsUpdateBusy, Converter={StaticResource InverseBool}}"
+                                Margin="0,0,10,0" />
+                        <Button Content="{DynamicResource L.Update.Download}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding DownloadUpdateCommand}"
+                                IsEnabled="{Binding IsUpdateBusy, Converter={StaticResource InverseBool}}"
+                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,10,0" />
+                        <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
+                                Command="{Binding InstallUpdateCommand}"
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Download speed diagnostics -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Throughput}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+
+                    <TextBlock Text="{Binding ThroughputStatus}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,10"
+                               Visibility="{Binding ThroughputStatus, Converter={StaticResource NullToCollapsed}}" />
+
+                    <ItemsControl ItemsSource="{Binding ThroughputFindings}"
+                                  Visibility="{Binding HasThroughputFindings, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6"
+                                        Padding="12" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource Text.Caption}"
+                                                   TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                                        <TextBlock Text="{Binding FixMessage}"
+                                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.Danger}" Margin="0,6,0,0"
+                                                   Visibility="{Binding FixFailed, Converter={StaticResource BoolToVis}}" />
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                            <Button Content="{DynamicResource L.Settings.Throughput.Fix}"
+                                                    Style="{StaticResource Button.Primary}" Margin="0,0,8,0"
+                                                    Visibility="{Binding CanAutoFix, Converter={StaticResource BoolToVis}}"
+                                                    IsEnabled="{Binding IsFixing, Converter={StaticResource InverseBool}}"
+                                                    Command="{Binding DataContext.FixThroughputCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="{DynamicResource L.Settings.Throughput.Dismiss}"
+                                                    Style="{StaticResource Button.Secondary}"
+                                                    Command="{Binding DataContext.DismissThroughputCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Button Content="{DynamicResource L.Settings.Throughput.Rescan}"
+                            Style="{StaticResource Button.Secondary}" HorizontalAlignment="Left"
+                            Command="{Binding ScanThroughputCommand}"
+                            IsEnabled="{Binding IsScanningThroughput, Converter={StaticResource InverseBool}}" />
+                </StackPanel>
+            </Border>
+
+            <Button Content="{DynamicResource L.Settings.Save}" Style="{StaticResource Button.Primary}"
+                    HorizontalAlignment="Left" Padding="32,12"
+                    Command="{Binding SaveCommand}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

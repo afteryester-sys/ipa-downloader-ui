@@ -1,0 +1,339 @@
+<UserControl x:Class="IPAStudio.App.Views.AppPickerView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:IconPathConverter x:Key="IconPath" />
+        <conv:InitialConverter x:Key="Initial" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding GoBackCommand}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <!-- Home sits next to Back so the whole path here can be left in one press. -->
+                <Button Style="{StaticResource Button.Home}"
+                        Command="{Binding GoHomeCommand}" VerticalAlignment="Center" Margin="0,0,16,0" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Picker.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{Binding DeviceName}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <!-- 56px clears the MainWindow gear button, which is drawn over the page. -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,56,0"
+                        Visibility="{Binding IsRefreshingStatuses, Converter={StaticResource BoolToVis}}">
+                <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="120"
+                             VerticalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Picker.RefreshingStatuses}" Style="{StaticResource Text.Caption}"
+                           VerticalAlignment="Center" Margin="10,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Apple ID mismatch warning banner -->
+        <Border Grid.Row="1" Margin="0,0,0,12" CornerRadius="10"
+                Background="{StaticResource Brush.WarningSoft}"
+                Padding="16,12"
+                Visibility="{Binding ShowAppleIdMismatch, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                           Foreground="{StaticResource Brush.Warning}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource L.Picker.AppleIdMismatch}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Warning}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{DynamicResource L.Picker.AccountLabel}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding AccountAppleId}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource L.Picker.DeviceLabel}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding DeviceAppleId}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="{DynamicResource L.Picker.AppleIdMismatchContinue}"
+                            Style="{StaticResource Button.Secondary}" Padding="14,8" Margin="0,0,8,0"
+                            Command="{Binding DismissMismatchWarningCommand}" />
+                    <Button Content="{DynamicResource L.Picker.AppleIdMismatchCancel}"
+                            Style="{StaticResource Button.Ghost}" Padding="14,8"
+                            Command="{Binding GoBackCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Toolbar: search, category, select all -->
+        <Grid Grid.Row="2" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Search field with a gray placeholder shown while empty -->
+            <Grid Grid.Column="0" Width="260" HorizontalAlignment="Left">
+                <TextBox x:Name="SearchBox" Style="{StaticResource Input.TextBox}" Padding="14,12"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="{DynamicResource L.Picker.SearchPlaceholder}" IsHitTestVisible="False"
+                           Foreground="{StaticResource Brush.TextMuted}" FontSize="14"
+                           Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+
+            <ComboBox Grid.Column="1" Width="200" Height="46" Margin="12,0,0,0" VerticalAlignment="Center"
+                      Style="{StaticResource Input.ComboBox}"
+                      ItemsSource="{Binding Categories}"
+                      SelectedItem="{Binding SelectedCategory}" />
+
+            <Button Grid.Column="2" Content="{DynamicResource L.Picker.SelectAll}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding SelectAllVisibleCommand}" Margin="12,0,0,0" />
+            <Button Grid.Column="3" Content="{DynamicResource L.Picker.ClearAll}" Style="{StaticResource Button.Ghost}"
+                    Command="{Binding ClearSelectionCommand}" Margin="8,0,0,0" />
+
+            <!-- Leads to what is installed on the device, as opposed to the catalog above -->
+            <Button Grid.Column="4" Content="{DynamicResource L.OnDevice.Open}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding OpenOnDeviceCommand}" Margin="12,0,0,0" />
+        </Grid>
+
+        <!-- App list -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Padding="4">
+            <ListBox ItemsSource="{Binding AppsView}" Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <!--
+                                        The row itself carries the selection, not just the
+                                        checkbox: on a long list a single 22px tick is easy to
+                                        lose, and the tinted row with an accent edge reads at a
+                                        glance even on a washed-out monitor. Bound to IsSelected
+                                        on the item, which is what the checkbox toggles — the
+                                        ListBox's own selection is a different thing here.
+                                    -->
+                                    <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2"
+                                            BorderThickness="0" BorderBrush="{DynamicResource Brush.Accent}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bg" Property="Background"
+                                                    Value="{DynamicResource Brush.SurfaceHover}" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter TargetName="Bg" Property="Background"
+                                                    Value="{DynamicResource Brush.AccentSoft}" />
+                                            <Setter TargetName="Bg" Property="BorderThickness" Value="1.5" />
+                                        </DataTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="12,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
+                                      IsChecked="{Binding IsSelected}" VerticalAlignment="Center"
+                                      Padding="4" />
+
+                            <!-- App icon (real icon or letter placeholder) -->
+                            <Grid Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0">
+                                <Border CornerRadius="10" Background="{StaticResource Brush.AccentSoft}">
+                                    <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                               Foreground="{StaticResource Brush.Accent}" FontSize="18" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <Border CornerRadius="10"
+                                        Visibility="{Binding CachedIconPath, Converter={StaticResource NullToCollapsed}}">
+                                    <Border.Background>
+                                        <ImageBrush ImageSource="{Binding CachedIconPath, Converter={StaticResource IconPath}}"
+                                                    Stretch="UniformToFill" />
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
+
+                            <!-- Name + meta -->
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding Category}" Style="{StaticResource Text.Caption}" />
+                                    <TextBlock Text="{Binding LatestVersion, StringFormat=' · v{0}'}"
+                                               Style="{StaticResource Text.Caption}"
+                                               Visibility="{Binding LatestVersion, Converter={StaticResource NullToCollapsed}}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Status badges -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.AccentSoft}"
+                                        Margin="0,0,6,0"
+                                        Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{DynamicResource L.Status.Downloaded}"
+                                               Foreground="{StaticResource Brush.Accent}" FontSize="11" />
+                                </Border>
+                                <Border Style="{StaticResource Badge}" Background="{StaticResource Brush.SuccessSoft}"
+                                        Visibility="{Binding IsInstalledOnDevice, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{DynamicResource L.Status.Installed}"
+                                               Foreground="{StaticResource Brush.Success}" FontSize="11" />
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- Bottom action bar -->
+        <Grid Grid.Row="4" Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <!-- iTunes route status, below the action bar. -->
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Row 0: Bundle ID input (collapsed until toggled) -->
+            <Border Grid.Row="0" Style="{StaticResource Card}" Padding="16,12" Margin="0,0,0,12"
+                    Visibility="{Binding IsBundleIdPanelVisible, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
+                               Text="{DynamicResource L.Picker.BundleIdHint}"
+                               FontFamily="{StaticResource Font.Body}" FontSize="13"
+                               Foreground="{StaticResource Brush.Text}"
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                    <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource Input.TextBox}"
+                             Padding="12,10" Height="44"
+                             Text="{Binding BundleIdInput, UpdateSourceTrigger=PropertyChanged}"
+                             VerticalContentAlignment="Center" />
+
+                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource Button.Primary}"
+                            Content="{DynamicResource L.Picker.BundleIdInstall}"
+                            Margin="8,0,0,0" Height="44" Padding="16,0"
+                            Command="{Binding InstallByBundleIdCommand}"
+                            IsEnabled="{Binding IsBundleIdBusy, Converter={StaticResource InverseBool}}" />
+
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                            Content="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                            Margin="4,0,0,0" Width="44" Height="44" ToolTip="{DynamicResource L.Common.Close}"
+                            Command="{Binding ToggleBundleIdPanelCommand}" />
+
+                    <!-- Row 2, not row 1: sharing the input's cell drew the error on top of the
+                         field and buttons instead of under them. -->
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                               Visibility="{Binding BundleIdError, Converter={StaticResource NullToCollapsed}}"
+                               Text="{Binding BundleIdError}"
+                               Foreground="{StaticResource Brush.Danger}" Style="{StaticResource Text.Caption}" />
+                </Grid>
+            </Border>
+
+            <!-- Row 1: main action bar -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{DynamicResource L.Picker.SelectedCount}" Style="{StaticResource Text.Body}" />
+                    <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,16,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Bundle ID mode button -->
+                    <Button Content="{DynamicResource L.Picker.InstallByBundleId}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding ToggleBundleIdPanelCommand}" />
+                    <!-- Direct IPA install mode button -->
+                    <Button Content="{DynamicResource L.Picker.InstallIpa}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding InstallFromIpaCommand}" />
+                    <!-- Alternative route: fetch through iTunes 12.6.5.3, then install the
+                         file it produced. Offered alongside the normal install, not instead
+                         of it — this one needs a click inside iTunes. -->
+                    <Button Content="{DynamicResource L.Itunes.Button}"
+                            Style="{StaticResource Button.Secondary}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            ToolTip="{DynamicResource L.Itunes.ButtonHint}"
+                            Command="{Binding InstallViaItunesCommand}"
+                            Visibility="{Binding IsItunesBusy, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                    <Button Content="{DynamicResource L.Direct.Cancel}"
+                            Style="{StaticResource Button.Danger}"
+                            Padding="16,12" Margin="0,0,8,0"
+                            Command="{Binding CancelItunesCommand}"
+                            Visibility="{Binding IsItunesBusy, Converter={StaticResource BoolToVis}}" />
+                    <!-- Catalog install -->
+                    <Button Content="{DynamicResource L.Picker.Install}" Style="{StaticResource Button.Primary}"
+                            Padding="28,12"
+                            Command="{Binding InstallSelectedCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- What the iTunes route is doing or why it declined. Its own row, because it is
+                 long-lived text: the wait spans a human going and clicking in another app. -->
+            <TextBlock Grid.Row="2" Margin="0,10,0,0"
+                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                       Text="{Binding ItunesStatus}"
+                       Visibility="{Binding ItunesStatus, Converter={StaticResource NullToCollapsed}}" />
+        </Grid>
+    </Grid>
+</UserControl>

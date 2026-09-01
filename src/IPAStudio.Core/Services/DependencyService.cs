@@ -1,0 +1,629 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Net.Http;
+using System.Security.Cryptography;
+using IPAStudio.Core.Tools;
+using Microsoft.Win32;
+
+namespace IPAStudio.Core.Services;
+
+public enum DependencyState
+{
+    Unknown,
+    Checking,
+    Ok,
+    Missing,
+    Installing,
+    Failed,
+}
+
+public sealed class DependencyStatus
+{
+    public DependencyState AppleDrivers { get; set; } = DependencyState.Unknown;
+    public DependencyState ITunes { get; set; } = DependencyState.Unknown;
+    public DependencyState CliTools { get; set; } = DependencyState.Unknown;
+
+    /// <summary>iCloud for Windows — only checked when ipatool v3 is active.</summary>
+    public DependencyState ICloud { get; set; } = DependencyState.Unknown;
+
+    /// <summary>Everything required for device detection and installs is present.</summary>
+    public bool AllReady =>
+        AppleDrivers == DependencyState.Ok && CliTools == DependencyState.Ok;
+}
+
+/// <summary>
+/// Autonomous environment setup: verifies and installs everything the app
+/// needs to talk to an iPhone.
+///
+///  1. Apple Mobile Device Support (USB driver + service) — comes with iTunes.
+///  2. iTunes itself (recommended, provides driver updates).
+///  3. Bundled CLI tools (ipatool, libimobiledevice) — auto-downloaded when
+///     missing so a plain portable copy also works offline-first.
+///
+/// iTunes install strategy: winget (silent) first, then direct download of the
+/// official installer from apple.com with a silent flag.
+/// </summary>
+public sealed class DependencyService
+{
+    private const string ITunesDownloadUrl = "https://www.apple.com/itunes/download/win64";
+
+    // Classic (non-Store) iCloud for Windows installer, hosted on Apple's own CDN.
+    // This is the version ipatool v3's anisette needs (the Microsoft Store build
+    // sandboxes the ADI DLLs where anisette can't reach them). Verified live:
+    // HTTP 200, ~161 MB, application/x-msdownload, supports range requests.
+    private const string ICloudDownloadUrl =
+        "https://updates.cdn-apple.com/2020/windows/001-39935-20200911-1A70AA56-F448-11EA-8CC0-99D41950005E/iCloudSetup.exe";
+
+    private const string RepoRaw =
+        "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp";
+
+    private const string IpatoolRsZipUrl =
+        "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";
+    private const string IpatoolRsZipSha256 =
+        "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77";
+
+    private const string ImobiledeviceZipUrl =
+        "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip";
+
+    private readonly ToolLocator _tools;
+    private readonly HttpClient _http;
+
+    public DependencyStatus Status { get; } = new();
+
+    public event Action? StatusChanged;
+
+    public DependencyService(ToolLocator tools, HttpClient http)
+    {
+        _tools = tools;
+        _http = http;
+    }
+
+    // ------------------------------------------------------------------ checks
+
+    /// <summary>Runs all checks and updates <see cref="Status"/>.</summary>
+    public async Task CheckAllAsync(CancellationToken ct = default)
+    {
+        Status.AppleDrivers = DependencyState.Checking;
+        Status.ITunes = DependencyState.Checking;
+        Status.CliTools = DependencyState.Checking;
+        Status.ICloud = DependencyState.Checking;
+        StatusChanged?.Invoke();
+
+        Status.AppleDrivers = await Task.Run(CheckAppleMobileDeviceSupport, ct);
+        Status.ITunes = await Task.Run(CheckITunesInstalled, ct);
+        Status.CliTools = _tools.ValidateTools().Count == 0
+            ? DependencyState.Ok
+            : DependencyState.Missing;
+        Status.ICloud = await Task.Run(CheckICloudInstalled, ct);
+
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Checks whether iCloud for Windows is installed.
+    /// ipatool v3 uses it for anisette data (Apple ID authentication).
+    /// </summary>
+    private static DependencyState CheckICloudInstalled()
+    {
+        if (!OperatingSystem.IsWindows()) return DependencyState.Missing;
+
+        // Classic MSI / exe installer.
+        using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Apple Inc.\iCloud"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+        // 32-bit registry view on 64-bit Windows.
+        using (var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Apple Inc.\iCloud"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+        // Uninstall hive scan (catches any classic installer variant).
+        string[] uninstallRoots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ];
+        foreach (var root in uninstallRoots)
+        {
+            using var rootKey = Registry.LocalMachine.OpenSubKey(root);
+            if (rootKey is null) continue;
+            foreach (var sub in rootKey.GetSubKeyNames())
+            {
+                using var subKey = rootKey.OpenSubKey(sub);
+                var name = subKey?.GetValue("DisplayName") as string ?? "";
+                if (name.Contains("iCloud", StringComparison.OrdinalIgnoreCase))
+                    return DependencyState.Ok;
+            }
+        }
+
+        // Microsoft Store (AppX) version — scan the AppModel repository.
+        if (StorePackageInstalled("iCloud"))
+            return DependencyState.Ok;
+
+        return DependencyState.Missing;
+    }
+
+    /// <summary>Apple Mobile Device Support service is registered (installed with iTunes).</summary>
+    private static DependencyState CheckAppleMobileDeviceSupport()
+    {
+        if (!OperatingSystem.IsWindows()) return DependencyState.Missing;
+
+        using var key = Registry.LocalMachine.OpenSubKey(
+            @"SYSTEM\CurrentControlSet\Services\Apple Mobile Device Service");
+        return key is not null ? DependencyState.Ok : DependencyState.Missing;
+    }
+
+    /// <summary>True when the Apple Mobile Device Support driver/service is present.</summary>
+    private static bool AppleDriversPresent()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        using var key = Registry.LocalMachine.OpenSubKey(
+            @"SYSTEM\CurrentControlSet\Services\Apple Mobile Device Service");
+        return key is not null;
+    }
+
+    /// <summary>
+    /// Detects a Microsoft Store (AppX/MSIX) package whose family name contains
+    /// <paramref name="nameFragment"/>. Store apps do NOT appear under the
+    /// classic Uninstall hive — they live in the AppModel repository, which is
+    /// readable per-user without elevation.
+    /// </summary>
+    private static bool StorePackageInstalled(string nameFragment)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+
+        string[] repositories =
+        [
+            // Per-user package repository (most reliable, no elevation needed).
+            @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages",
+        ];
+
+        foreach (var path in repositories)
+        {
+            try
+            {
+                using var root = Registry.CurrentUser.OpenSubKey(path);
+                if (root is null) continue;
+                foreach (var sub in root.GetSubKeyNames())
+                {
+                    if (sub.Contains(nameFragment, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+            catch { /* ignore unreadable hives */ }
+        }
+
+        // Machine-wide AppX state repository (package display names).
+        try
+        {
+            using var pkgRoot = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModel\StateRepository\Cache\Package\Index\PackageFullName");
+            if (pkgRoot is not null)
+            {
+                foreach (var sub in pkgRoot.GetSubKeyNames())
+                {
+                    if (sub.Contains(nameFragment, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+        }
+        catch { /* ignore */ }
+
+        // Ground-truth fallback: ask Windows directly via Get-AppxPackage.
+        // The registry hives above are frequently unreadable for normal users
+        // (StateRepository is SYSTEM-only, the per-user Repository often denies
+        // enumeration), so this is the only reliable elevation-free method.
+        if (StorePackageViaPowerShell(nameFragment))
+            return true;
+
+        return false;
+    }
+
+    // Cache PowerShell results per fragment for the lifetime of the process —
+    // spawning PowerShell is slow and the answer doesn't change while running.
+    private static readonly Dictionary<string, bool> _storeCache = new(StringComparer.OrdinalIgnoreCase);
+
+    private static bool StorePackageViaPowerShell(string nameFragment)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        if (_storeCache.TryGetValue(nameFragment, out var cached)) return cached;
+
+        var result = false;
+        try
+        {
+            using var proc = Process.Start(new ProcessStartInfo("powershell")
+            {
+                Arguments =
+                    "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command " +
+                    $"\"if (Get-AppxPackage -Name '*{nameFragment}*') {{ 'FOUND' }}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            if (proc is not null)
+            {
+                var output = proc.StandardOutput.ReadToEnd();
+                // Guard against a hung PowerShell — don't block the UI forever.
+                if (proc.WaitForExit(8000))
+                    result = output.Contains("FOUND", StringComparison.OrdinalIgnoreCase);
+                else
+                    try { proc.Kill(true); } catch { /* ignore */ }
+            }
+        }
+        catch { /* PowerShell unavailable — treat as not found */ }
+
+        _storeCache[nameFragment] = result;
+        return result;
+    }
+
+    private static DependencyState CheckITunesInstalled()
+    {
+        if (!OperatingSystem.IsWindows()) return DependencyState.Missing;
+
+        // 1. Classic 64-bit desktop install (apple.com installer).
+        using (var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\Apple Computer, Inc.\iTunes"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+
+        // 2. 32-bit node on 64-bit Windows (older iTunes installers).
+        using (var key = Registry.LocalMachine.OpenSubKey(
+            @"SOFTWARE\WOW6432Node\Apple Computer, Inc.\iTunes"))
+        {
+            if (key is not null) return DependencyState.Ok;
+        }
+
+        // 3. Standard Uninstall entry (present for both MSI and the newer
+        //    Apple installer regardless of bitness).
+        string[] uninstallRoots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ];
+        foreach (var root in uninstallRoots)
+        {
+            using var rootKey = Registry.LocalMachine.OpenSubKey(root);
+            if (rootKey is null) continue;
+            foreach (var sub in rootKey.GetSubKeyNames())
+            {
+                using var subKey = rootKey.OpenSubKey(sub);
+                var name = subKey?.GetValue("DisplayName") as string ?? "";
+                if (name.Contains("iTunes", StringComparison.OrdinalIgnoreCase))
+                    return DependencyState.Ok;
+            }
+        }
+
+        // 4. Microsoft Store (AppX) version — scan the AppModel repository,
+        //    which is where Store apps actually live (NOT the Uninstall hive).
+        if (StorePackageInstalled("iTunes"))
+            return DependencyState.Ok;
+
+        // 5. Fallback: iTunes.exe on disk in the canonical locations.
+        string[] exePaths =
+        [
+            @"C:\Program Files\iTunes\iTunes.exe",
+            @"C:\Program Files (x86)\iTunes\iTunes.exe",
+        ];
+        if (exePaths.Any(File.Exists)) return DependencyState.Ok;
+
+        // 6. Current-user Uninstall hive (per-user installs).
+        using (var cuRoot = Registry.CurrentUser.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
+        {
+            if (cuRoot is not null)
+            {
+                foreach (var sub in cuRoot.GetSubKeyNames())
+                {
+                    using var subKey = cuRoot.OpenSubKey(sub);
+                    var name = subKey?.GetValue("DisplayName") as string ?? "";
+                    if (name.Contains("iTunes", StringComparison.OrdinalIgnoreCase))
+                        return DependencyState.Ok;
+                }
+            }
+        }
+
+        // 7. Heuristic last resort: the Apple Mobile Device Support service is
+        //    installed BY iTunes. If it is present, iTunes (or its driver
+        //    bundle) is effectively installed — treat iTunes as OK so the user
+        //    isn't wrongly told to install it again.
+        if (AppleDriversPresent())
+            return DependencyState.Ok;
+
+        return DependencyState.Missing;
+    }
+
+    // ---------------------------------------------------------------- installs
+
+    /// <summary>
+    /// Installs iTunes silently: tries winget first, falls back to downloading
+    /// the official installer from apple.com. Reports progress via <paramref name="progress"/> (0..1, or -1 for indeterminate).
+    /// </summary>
+    public async Task<bool> InstallITunesAsync(
+        IProgress<(double fraction, string stage)>? progress = null,
+        CancellationToken ct = default)
+    {
+        Status.ITunes = DependencyState.Installing;
+        Status.AppleDrivers = DependencyState.Installing;
+        StatusChanged?.Invoke();
+
+        try
+        {
+            // --- 1) winget (present on all up-to-date Windows 10/11) ---------
+            progress?.Report((-1, "winget"));
+            if (await TryWingetInstallAsync(ct))
+            {
+                await CheckAllAsync(ct);
+                return Status.ITunes == DependencyState.Ok;
+            }
+
+            // --- 2) direct download from apple.com ---------------------------
+            var setupPath = Path.Combine(Path.GetTempPath(), "iTunes64Setup.exe");
+            await DownloadWithProgressAsync(ITunesDownloadUrl, setupPath,
+                f => progress?.Report((f, "download")), ct);
+
+            progress?.Report((-1, "install"));
+            var ok = await RunElevatedAsync(setupPath, "/quiet /norestart", ct);
+            try { File.Delete(setupPath); } catch { /* best effort */ }
+
+            await CheckAllAsync(ct);
+            return ok && Status.AppleDrivers == DependencyState.Ok;
+        }
+        catch
+        {
+            Status.ITunes = DependencyState.Failed;
+            Status.AppleDrivers = DependencyState.Failed;
+            StatusChanged?.Invoke();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Downloads the classic iCloud for Windows installer from Apple's CDN and runs
+    /// it. iCloud's installer does not support a reliable silent switch, so we launch
+    /// it interactively (the user clicks through the short wizard). Reports download
+    /// progress via <paramref name="progress"/> (0..1, or -1 for indeterminate).
+    /// </summary>
+    public async Task<bool> InstallICloudAsync(
+        IProgress<(double fraction, string stage)>? progress = null,
+        CancellationToken ct = default)
+    {
+        Status.ICloud = DependencyState.Installing;
+        StatusChanged?.Invoke();
+
+        try
+        {
+            var setupPath = Path.Combine(Path.GetTempPath(), "iCloudSetup.exe");
+            await DownloadWithProgressAsync(ICloudDownloadUrl, setupPath,
+                f => progress?.Report((f, "download")), ct);
+
+            progress?.Report((-1, "install"));
+            // Launch the installer (elevated). We do NOT delete it afterwards because
+            // the wizard keeps running after the launcher returns.
+            var proc = Process.Start(new ProcessStartInfo(setupPath)
+            {
+                UseShellExecute = true,
+            });
+            if (proc is not null)
+                await proc.WaitForExitAsync(ct);
+
+            await CheckAllAsync(ct);
+            return Status.ICloud == DependencyState.Ok;
+        }
+        catch
+        {
+            Status.ICloud = DependencyState.Failed;
+            StatusChanged?.Invoke();
+            return false;
+        }
+    }
+
+    private static async Task<bool> TryWingetInstallAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var probe = Process.Start(new ProcessStartInfo("winget", "--version")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+            });
+            if (probe is null) return false;
+            await probe.WaitForExitAsync(ct);
+            if (probe.ExitCode != 0) return false;
+
+            using var install = Process.Start(new ProcessStartInfo(
+                "winget",
+                "install --id Apple.iTunes --silent --disable-interactivity " +
+                "--accept-package-agreements --accept-source-agreements")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            if (install is null) return false;
+            await install.WaitForExitAsync(ct);
+            return install.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<bool> RunElevatedAsync(
+        string path, string arguments, CancellationToken ct)
+    {
+        // UAC prompt: elevation requires ShellExecute, so no output redirection.
+        using var proc = Process.Start(new ProcessStartInfo(path, arguments)
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+        });
+        if (proc is null) return false;
+        await proc.WaitForExitAsync(ct);
+        return proc.ExitCode == 0;
+    }
+
+    /// <summary>
+    /// Downloads any missing CLI tools (ipatool v2/v3, anisette, libimobiledevice)
+    /// into the tools folder — makes a bare portable copy self-sufficient.
+    /// </summary>
+    public async Task<bool> InstallCliToolsAsync(
+        IProgress<(double fraction, string stage)>? progress = null,
+        CancellationToken ct = default)
+    {
+        Status.CliTools = DependencyState.Installing;
+        StatusChanged?.Invoke();
+
+        try
+        {
+            var root = GetWritableToolsRoot();
+
+            // ipatool v2 / v3 / anisette — small, direct downloads.
+            var direct = new (string url, string relative)[]
+            {
+                ($"{RepoRaw}/windows_amd64_v2/ipatool.exe", @"windows_amd64_v2\ipatool.exe"),
+                ($"{RepoRaw}/windows_amd64_v3/ipatool.exe", @"windows_amd64_v3\ipatool.exe"),
+                ($"{RepoRaw}/windows_amd64_v3/anisette.exe", @"windows_amd64_v3\anisette.exe"),
+            };
+
+            for (var i = 0; i < direct.Length; i++)
+            {
+                var (url, relative) = direct[i];
+                var dest = Path.Combine(root, relative);
+                if (File.Exists(dest)) continue;
+
+                var step = i; // capture
+                await DownloadWithProgressAsync(url, dest,
+                    f => progress?.Report(((step + f) / 5.0, "tools")), ct);
+            }
+
+            // ipatool-rs contains the current SAP request signer. It is self-contained:
+            // no iTunes/iCloud DLLs or helper executable are required. Verify the pinned
+            // release archive before extracting so a changed upstream asset never runs.
+            var betaPath = Path.Combine(root, @"windows_amd64_sap_beta\ipatool.exe");
+            if (!File.Exists(betaPath))
+            {
+                var betaZip = Path.Combine(Path.GetTempPath(), "ipatool-rs-0.1.7-windows-x64.zip");
+                await DownloadWithProgressAsync(IpatoolRsZipUrl, betaZip,
+                    f => progress?.Report(((3 + f) / 5.0, "tools")), ct);
+
+                await using (var stream = File.OpenRead(betaZip))
+                {
+                    var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct))
+                        .ToLowerInvariant();
+                    if (!string.Equals(actualHash, IpatoolRsZipSha256, StringComparison.Ordinal))
+                        throw new InvalidDataException(
+                            $"ipatool-rs checksum mismatch: expected {IpatoolRsZipSha256}, got {actualHash}");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(betaPath)!);
+                using (var archive = ZipFile.OpenRead(betaZip))
+                {
+                    var executable = archive.Entries.FirstOrDefault(entry =>
+                        string.Equals(entry.Name, "ipatool.exe", StringComparison.OrdinalIgnoreCase));
+                    if (executable is null)
+                        throw new InvalidDataException("ipatool.exe is missing from the ipatool-rs archive.");
+                    executable.ExtractToFile(betaPath, overwrite: true);
+                }
+                try { File.Delete(betaZip); } catch { /* best effort */ }
+            }
+
+            // libimobiledevice suite — zip that we extract selectively.
+            var imobileDir = Path.Combine(root, "imobiledevice");
+            // Re-extract when either the installer or the (newer) diagnostics tool is
+            // missing, so existing installs also pick up idevicediagnostics.exe.
+            if (!File.Exists(Path.Combine(imobileDir, "ideviceinstaller.exe"))
+                || !File.Exists(Path.Combine(imobileDir, "idevicediagnostics.exe")))
+            {
+                var zipPath = Path.Combine(Path.GetTempPath(), "imobiledevice-net.zip");
+                await DownloadWithProgressAsync(ImobiledeviceZipUrl, zipPath,
+                    f => progress?.Report(((4 + f) / 5.0, "tools")), ct);
+
+                Directory.CreateDirectory(imobileDir);
+                using (var archive = ZipFile.OpenRead(zipPath))
+                {
+                    var wanted = new[]
+                    {
+                        "ideviceinstaller.exe", "idevice_id.exe",
+                        "ideviceinfo.exe", "idevicepair.exe",
+                        "idevicediagnostics.exe",
+                    };
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (entry.Name.Length == 0) continue;
+                        var isWanted = wanted.Contains(entry.Name,
+                            StringComparer.OrdinalIgnoreCase);
+                        var isDll = entry.Name.EndsWith(".dll",
+                            StringComparison.OrdinalIgnoreCase);
+                        if (!isWanted && !isDll) continue;
+
+                        entry.ExtractToFile(
+                            Path.Combine(imobileDir, entry.Name), overwrite: true);
+                    }
+                }
+                try { File.Delete(zipPath); } catch { /* best effort */ }
+            }
+
+            await CheckAllAsync(ct);
+            return Status.CliTools == DependencyState.Ok;
+        }
+        catch
+        {
+            Status.CliTools = DependencyState.Failed;
+            StatusChanged?.Invoke();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Preferred tools root; falls back to LocalAppData when the install
+    /// folder (e.g. Program Files) is not writable without elevation.
+    /// </summary>
+    private string GetWritableToolsRoot()
+    {
+        var root = _tools.ToolsRoot;
+        try
+        {
+            Directory.CreateDirectory(root);
+            var probe = Path.Combine(root, ".write-test");
+            File.WriteAllText(probe, "");
+            File.Delete(probe);
+            return root;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            var fallback = Path.Combine(_tools.DataFolder, "tools");
+            Directory.CreateDirectory(fallback);
+            _tools.ToolsRootOverride = fallback;
+            return fallback;
+        }
+    }
+
+    private async Task DownloadWithProgressAsync(
+        string url, string destination, Action<double> onFraction, CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName(destination);
+        if (dir is not null) Directory.CreateDirectory(dir);
+
+        using var response = await _http.GetAsync(
+            url, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+
+        var total = response.Content.Headers.ContentLength ?? -1;
+        await using var source = await response.Content.ReadAsStreamAsync(ct);
+        await using var file = File.Create(destination);
+
+        var buffer = new byte[81920];
+        long read = 0;
+        int count;
+        while ((count = await source.ReadAsync(buffer, ct)) > 0)
+        {
+            await file.WriteAsync(buffer.AsMemory(0, count), ct);
+            read += count;
+            if (total > 0) onFraction(Math.Min(1.0, (double)read / total));
+        }
+        onFraction(1.0);
+    }
+}
