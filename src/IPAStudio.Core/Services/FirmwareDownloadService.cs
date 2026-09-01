@@ -23,6 +23,47 @@ public sealed class FirmwareDownloadService
         return string.Concat(raw.Select(c => invalid.Contains(c) ? '_' : c)).Trim();
     }
 
+    public void DeleteTemporaryFiles(string destination)
+    {
+        if (string.IsNullOrWhiteSpace(destination)) return;
+        var folder = Path.GetDirectoryName(destination);
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return;
+        foreach (var path in Directory.EnumerateFiles(folder, Path.GetFileName(destination) + ".*"))
+        {
+            if (!path.EndsWith(".download.json", StringComparison.OrdinalIgnoreCase) &&
+                !path.Contains(".part", StringComparison.OrdinalIgnoreCase) &&
+                !path.EndsWith(".assembling", StringComparison.OrdinalIgnoreCase)) continue;
+            try { File.Delete(path); } catch (IOException) { }
+        }
+    }
+
+    public void CleanupInvalidTemporaryFiles(string folder, TimeSpan? maxAge = null)
+    {
+        if (!Directory.Exists(folder)) return;
+        var cutoff = DateTime.UtcNow - (maxAge ?? TimeSpan.FromDays(14));
+        foreach (var manifestPath in Directory.EnumerateFiles(folder, "*.download.json"))
+        {
+            try
+            {
+                var manifest = JsonSerializer.Deserialize<FirmwareDownloadManifest>(File.ReadAllText(manifestPath), JsonOptions);
+                var valid = manifest is not null && manifest.ExpectedLength > 0 && manifest.Segments.Count > 0 &&
+                    manifest.Segments.All(s => s.Start >= 0 && s.End >= s.Start && s.End < manifest.ExpectedLength &&
+                        (!File.Exists(s.PartPath) || new FileInfo(s.PartPath).Length <= s.End - s.Start + 1));
+                if (!valid) DeleteTemporaryFiles(manifestPath[..^".download.json".Length]);
+            }
+            catch { try { DeleteTemporaryFiles(manifestPath[..^".download.json".Length]); } catch { } }
+        }
+        foreach (var path in Directory.EnumerateFiles(folder, "*.assembling"))
+            try { if (File.GetLastWriteTimeUtc(path) < cutoff) File.Delete(path); } catch { }
+        foreach (var path in Directory.EnumerateFiles(folder, "*.part*"))
+            try
+            {
+                var marker = path.LastIndexOf(".part", StringComparison.OrdinalIgnoreCase);
+                if (marker > 0 && !File.Exists(path[..marker] + ".download.json") && File.GetLastWriteTimeUtc(path) < cutoff) File.Delete(path);
+            }
+            catch { }
+    }
+
     public async Task<string> DownloadAsync(
         FirmwareDevice device,
         FirmwareRelease firmware,
@@ -36,8 +77,8 @@ public sealed class FirmwareDownloadService
         var destination = Path.Combine(folder, BuildFileName(device.Name, firmware.Version));
         var manifestPath = destination + ".download.json";
 
-        using var head = new HttpRequestMessage(HttpMethod.Head, firmware.Url);
-        using var headResponse = await _http.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        CleanupInvalidTemporaryFiles(folder);
+        using var headResponse = await SendWithReconnectAsync(() => new HttpRequestMessage(HttpMethod.Head, firmware.Url), ct).ConfigureAwait(false);
         headResponse.EnsureSuccessStatusCode();
         var length = headResponse.Content.Headers.ContentLength ?? firmware.FileSize;
         if (length <= 0) throw new InvalidDataException("The server did not report firmware size.");
@@ -72,12 +113,13 @@ public sealed class FirmwareDownloadService
             segment.Downloaded = Math.Clamp(existing, 0, expected);
             if (segment.Downloaded >= expected) return;
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, firmware.Url);
-            request.Headers.Range = new RangeHeaderValue(segment.Start + segment.Downloaded, segment.End);
-            if (!string.IsNullOrWhiteSpace(manifest.ETag))
-                request.Headers.TryAddWithoutValidation("If-Range", manifest.ETag);
-
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+            using var response = await SendWithReconnectAsync(() =>
+            {
+                var request = new HttpRequestMessage(HttpMethod.Get, firmware.Url);
+                request.Headers.Range = new RangeHeaderValue(segment.Start + segment.Downloaded, segment.End);
+                if (!string.IsNullOrWhiteSpace(manifest.ETag)) request.Headers.TryAddWithoutValidation("If-Range", manifest.ETag);
+                return request;
+            }, token).ConfigureAwait(false);
             if (segmentCount > 1 && response.StatusCode != HttpStatusCode.PartialContent)
                 throw new InvalidDataException("Apple CDN did not honor the Range request; the partial file was kept.");
             response.EnsureSuccessStatusCode();
@@ -130,6 +172,28 @@ public sealed class FirmwareDownloadService
         File.Delete(manifestPath);
         progress?.Report(new FirmwareDownloadProgress(length, length, 0));
         return destination;
+    }
+
+    private async Task<HttpResponseMessage> SendWithReconnectAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)
+    {
+        Exception? last = null;
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                using var request = requestFactory();
+                var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                if ((int)response.StatusCode < 500 && response.StatusCode != HttpStatusCode.RequestTimeout) return response;
+                response.Dispose();
+            }
+            catch (Exception ex) when ((ex is HttpRequestException or IOException or TaskCanceledException) && !ct.IsCancellationRequested)
+            {
+                last = ex;
+            }
+            await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, attempt))), ct).ConfigureAwait(false);
+        }
+        throw new HttpRequestException("The firmware server is still unavailable after reconnect attempts.", last);
     }
 
     private static FirmwareDownloadManifest CreateManifest(FirmwareRelease fw, string path, long length, int count, HttpResponseMessage head)

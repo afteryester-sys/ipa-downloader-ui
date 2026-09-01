@@ -901,6 +901,11 @@
     <sys:String x:Key="L.Firmware.Interval">Check for updates every, hours</sys:String>
     <sys:String x:Key="L.Firmware.Download">Download / resume</sys:String>
     <sys:String x:Key="L.Firmware.Pause">Pause</sys:String>
+    <sys:String x:Key="L.Firmware.AddDevicesTitle">Add devices</sys:String>
+    <sys:String x:Key="L.Firmware.AddSelected">Add selected</sys:String>
+    <sys:String x:Key="L.Firmware.StopAndDelete">Stop and delete</sys:String>
+    <sys:String x:Key="L.Firmware.Stopped">Download stopped and temporary files deleted.</sys:String>
+    <sys:String x:Key="L.Firmware.Reconnecting">Connection lost. Retrying in {0} sec…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Firmware download</sys:String>
     <sys:String x:Key="L.Firmware.Done">Firmware downloaded and verified.</sys:String>
     <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>

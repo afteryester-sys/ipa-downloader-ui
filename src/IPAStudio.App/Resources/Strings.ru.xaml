@@ -899,6 +899,11 @@
     <sys:String x:Key="L.Firmware.Interval">Проверять обновления каждые, ч</sys:String>
     <sys:String x:Key="L.Firmware.Download">Скачать / продолжить</sys:String>
     <sys:String x:Key="L.Firmware.Pause">Пауза</sys:String>
+    <sys:String x:Key="L.Firmware.AddDevicesTitle">Добавить устройства</sys:String>
+    <sys:String x:Key="L.Firmware.AddSelected">Добавить выбранные</sys:String>
+    <sys:String x:Key="L.Firmware.StopAndDelete">Остановить и удалить</sys:String>
+    <sys:String x:Key="L.Firmware.Stopped">Загрузка остановлена, временные файлы удалены.</sys:String>
+    <sys:String x:Key="L.Firmware.Reconnecting">Соединение потеряно. Повтор через {0} сек…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
     <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
     <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>

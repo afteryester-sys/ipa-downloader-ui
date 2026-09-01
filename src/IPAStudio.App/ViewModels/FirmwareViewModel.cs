@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
@@ -22,6 +23,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private CancellationTokenSource? _downloadCts;
     private Operation? _operation;
     private List<FirmwareDevice> _allDevices = new();
+    public IReadOnlyList<FirmwareDevice> AllDevices => _allDevices;
 
     public ObservableCollection<FirmwareDevice> CatalogDevices { get; } = new();
     public ObservableCollection<FirmwareDevice> MyDevices { get; } = new();
@@ -132,7 +134,19 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         try
         {
-            SavedPath = await _downloads.DownloadAsync(device, firmware, DestinationFolder, SegmentCount, reporter, _downloadCts.Token);
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    SavedPath = await _downloads.DownloadAsync(device, firmware, DestinationFolder, SegmentCount, reporter, _downloadCts.Token);
+                    break;
+                }
+                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException) && attempt < 12 && !_downloadCts.IsCancellationRequested)
+                {
+                    StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), Math.Min(30, 1 << Math.Min(attempt, 5)));
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, 1 << Math.Min(attempt, 5))), _downloadCts.Token);
+                }
+            }
             StatusText = Loc.Get("L.Firmware.Done");
             _operation?.Finish(OperationState.Done, StatusText);
             RecordCompletedAutoUpdate(device, firmware, SavedPath);
@@ -169,6 +183,34 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand] private void Pause() => _downloadCts?.Cancel();
+
+    [RelayCommand]
+    private async Task StopAndDeleteAsync()
+    {
+        var device = SelectedDevice;
+        var firmware = SelectedFirmware;
+        _downloadCts?.Cancel();
+        while (IsDownloading) await Task.Delay(50);
+        if (device is not null && firmware is not null)
+        {
+            var destination = Path.Combine(DestinationFolder, FirmwareDownloadService.BuildFileName(device.Name, firmware.Version));
+            _downloads.DeleteTemporaryFiles(destination);
+        }
+        IsPaused = false;
+        Progress = 0;
+        StatusText = Loc.Get("L.Firmware.Stopped");
+    }
+
+    public void AddDevices(IEnumerable<FirmwareDevice> devices)
+    {
+        foreach (var device in devices.Where(candidate => MyDevices.All(d => d.Identifier != candidate.Identifier)))
+        {
+            _settings.Current.FirmwareSubscriptions.Add(new FirmwareSubscription { Identifier = device.Identifier, DeviceName = device.Name });
+            MyDevices.Add(device);
+        }
+        _settings.Save();
+        SelectedDevice ??= MyDevices.FirstOrDefault();
+    }
 
     [RelayCommand]
     private void OpenFolder()
