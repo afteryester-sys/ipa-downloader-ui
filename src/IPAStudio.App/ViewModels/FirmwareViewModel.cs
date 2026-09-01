@@ -23,7 +23,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private Operation? _operation;
     private List<FirmwareDevice> _allDevices = new();
 
-    public ObservableCollection<FirmwareDevice> Devices { get; } = new();
+    public ObservableCollection<FirmwareDevice> CatalogDevices { get; } = new();
+    public ObservableCollection<FirmwareDevice> MyDevices { get; } = new();
     public ObservableCollection<FirmwareRelease> Firmwares { get; } = new();
 
     public FirmwareViewModel(FirmwareCatalogService catalog, FirmwareDownloadService downloads,
@@ -40,6 +41,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     [ObservableProperty] private string _searchText = "";
+    [ObservableProperty] private FirmwareDevice? _selectedCatalogDevice;
     [ObservableProperty] private FirmwareDevice? _selectedDevice;
     [ObservableProperty] private FirmwareRelease? _selectedFirmware;
     [ObservableProperty] private string _destinationFolder = "";
@@ -63,11 +65,18 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     partial void OnSearchTextChanged(string value) => ApplyDeviceFilter();
     partial void OnSignedOnlyChanged(bool value) => ApplyFirmwareFilter();
+    partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => ToggleDownloadCommand.NotifyCanExecuteChanged();
     partial void OnSelectedDeviceChanged(FirmwareDevice? value)
     {
-        AutoUpdateSelected = value is not null && _settings.Current.FirmwareSubscriptions.Any(s => s.Identifier == value.Identifier);
+        AutoUpdateSelected = value is not null;
+        RemoveDeviceCommand.NotifyCanExecuteChanged();
+        ToggleDownloadCommand.NotifyCanExecuteChanged();
         _ = LoadFirmwaresAsync(value);
     }
+
+    partial void OnIsDownloadingChanged(bool value) => ToggleDownloadCommand.NotifyCanExecuteChanged();
+
+    partial void OnSelectedCatalogDeviceChanged(FirmwareDevice? value) => AddDeviceCommand.NotifyCanExecuteChanged();
 
     public async void OnNavigatedTo(INavigator navigator)
     {
@@ -140,10 +149,24 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             StatusText = Loc.Get("L.Firmware.Failed");
             _operation?.Finish(OperationState.Failed, ex.Message);
         }
-        finally { IsDownloading = false; DownloadCommand.NotifyCanExecuteChanged(); }
+        finally
+        {
+            IsDownloading = false;
+            DownloadCommand.NotifyCanExecuteChanged();
+            ToggleDownloadCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private bool CanDownload() => SelectedDevice is not null && SelectedFirmware is not null && !IsDownloading;
+
+    private bool CanToggleDownload() => IsDownloading || (SelectedDevice is not null && SelectedFirmware is not null);
+
+    [RelayCommand(CanExecute = nameof(CanToggleDownload))]
+    private async Task ToggleDownloadAsync()
+    {
+        if (IsDownloading) Pause();
+        else await DownloadAsync();
+    }
 
     [RelayCommand] private void Pause() => _downloadCts?.Cancel();
 
@@ -154,26 +177,38 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             Process.Start(new ProcessStartInfo("explorer.exe", DestinationFolder) { UseShellExecute = true });
     }
 
-    [RelayCommand]
-    private void ToggleAutoUpdate()
+    private bool CanAddDevice() => SelectedCatalogDevice is not null &&
+        MyDevices.All(d => d.Identifier != SelectedCatalogDevice.Identifier);
+
+    [RelayCommand(CanExecute = nameof(CanAddDevice))]
+    private void AddDevice()
+    {
+        if (SelectedCatalogDevice is null) return;
+        var device = SelectedCatalogDevice;
+        _settings.Current.FirmwareSubscriptions.Add(new FirmwareSubscription
+        {
+            Identifier = device.Identifier,
+            DeviceName = device.Name,
+        });
+        _settings.Save();
+        MyDevices.Add(device);
+        SelectedDevice = device;
+        AddDeviceCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanRemoveDevice() => SelectedDevice is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRemoveDevice))]
+    private void RemoveDevice()
     {
         if (SelectedDevice is null) return;
-        var existing = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == SelectedDevice.Identifier);
-        if (existing is null)
-        {
-            _settings.Current.FirmwareSubscriptions.Add(new FirmwareSubscription
-            {
-                Identifier = SelectedDevice.Identifier,
-                DeviceName = SelectedDevice.Name,
-            });
-            AutoUpdateSelected = true;
-        }
-        else
-        {
-            _settings.Current.FirmwareSubscriptions.Remove(existing);
-            AutoUpdateSelected = false;
-        }
+        var device = SelectedDevice;
+        var existing = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == device.Identifier);
+        if (existing is not null) _settings.Current.FirmwareSubscriptions.Remove(existing);
         _settings.Save();
+        MyDevices.Remove(device);
+        SelectedDevice = MyDevices.FirstOrDefault();
+        AddDeviceCommand.NotifyCanExecuteChanged();
     }
 
     private async Task LoadDevicesAsync()
@@ -185,6 +220,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         try
         {
             _allDevices = (await _catalog.GetDevicesAsync(_loadCts.Token)).ToList();
+            RestoreMyDevices();
             ApplyDeviceFilter();
             StatusText = string.Format(Loc.Get("L.Firmware.DevicesLoaded"), _allDevices.Count);
         }
@@ -213,14 +249,34 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private List<FirmwareRelease> _deviceFirmwares = new();
 
+    private void RestoreMyDevices()
+    {
+        var selectedId = SelectedDevice?.Identifier;
+        MyDevices.Clear();
+        foreach (var subscription in _settings.Current.FirmwareSubscriptions)
+        {
+            var device = _allDevices.FirstOrDefault(d => d.Identifier == subscription.Identifier) ?? new FirmwareDevice
+            {
+                Identifier = subscription.Identifier,
+                Name = string.IsNullOrWhiteSpace(subscription.DeviceName) ? subscription.Identifier : subscription.DeviceName,
+            };
+            subscription.DeviceName = device.Name;
+            MyDevices.Add(device);
+        }
+        _settings.Save();
+        SelectedDevice = MyDevices.FirstOrDefault(d => d.Identifier == selectedId) ?? MyDevices.FirstOrDefault();
+    }
+
     private void ApplyDeviceFilter()
     {
         var query = SearchText.Trim();
-        var filtered = string.IsNullOrEmpty(query) ? _allDevices : _allDevices.Where(d =>
+        var filtered = string.IsNullOrEmpty(query) ? Enumerable.Empty<FirmwareDevice>() : _allDevices.Where(d =>
             d.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
             d.Identifier.Contains(query, StringComparison.OrdinalIgnoreCase));
-        Devices.Clear();
-        foreach (var device in filtered.Take(500)) Devices.Add(device);
+        CatalogDevices.Clear();
+        foreach (var device in filtered.Take(80)) CatalogDevices.Add(device);
+        SelectedCatalogDevice = CatalogDevices.FirstOrDefault();
+        AddDeviceCommand.NotifyCanExecuteChanged();
     }
 
     private void ApplyFirmwareFilter()

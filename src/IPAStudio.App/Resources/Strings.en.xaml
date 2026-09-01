@@ -886,6 +886,13 @@
     <sys:String x:Key="L.Firmware.Title">Firmware</sys:String>
     <sys:String x:Key="L.Firmware.Subtitle">Apple IPSW catalog with pause, multi-threaded downloads, and resume support</sys:String>
     <sys:String x:Key="L.Firmware.Device">Device</sys:String>
+    <sys:String x:Key="L.Firmware.Catalog">Device catalog</sys:String>
+    <sys:String x:Key="L.Firmware.CatalogHint">Start typing a model or identifier, then add the device to your list.</sys:String>
+    <sys:String x:Key="L.Firmware.MyDevices">My devices</sys:String>
+    <sys:String x:Key="L.Firmware.AddDevice">Add to my devices</sys:String>
+    <sys:String x:Key="L.Firmware.RemoveDevice">Remove from list</sys:String>
+    <sys:String x:Key="L.Firmware.StartDownload">Start download</sys:String>
+    <sys:String x:Key="L.Firmware.StopDownload">Stop download</sys:String>
     <sys:String x:Key="L.Firmware.Release">Firmware release</sys:String>
     <sys:String x:Key="L.Firmware.SignedOnly">Signed only</sys:String>
     <sys:String x:Key="L.Firmware.AutoUpdate">Toggle automatic updates for the selected device</sys:String>

@@ -884,6 +884,13 @@
     <sys:String x:Key="L.Firmware.Title">Прошивки</sys:String>
     <sys:String x:Key="L.Firmware.Subtitle">Каталог IPSW для устройств Apple с паузой, многопоточной загрузкой и докачкой</sys:String>
     <sys:String x:Key="L.Firmware.Device">Устройство</sys:String>
+    <sys:String x:Key="L.Firmware.Catalog">Каталог устройств</sys:String>
+    <sys:String x:Key="L.Firmware.CatalogHint">Начните вводить модель или идентификатор, затем добавьте устройство в свой список.</sys:String>
+    <sys:String x:Key="L.Firmware.MyDevices">Мои устройства</sys:String>
+    <sys:String x:Key="L.Firmware.AddDevice">Добавить в мои устройства</sys:String>
+    <sys:String x:Key="L.Firmware.RemoveDevice">Удалить из списка</sys:String>
+    <sys:String x:Key="L.Firmware.StartDownload">Начать загрузку</sys:String>
+    <sys:String x:Key="L.Firmware.StopDownload">Остановить загрузку</sys:String>
     <sys:String x:Key="L.Firmware.Release">Версия прошивки</sys:String>
     <sys:String x:Key="L.Firmware.SignedOnly">Только подписываемые</sys:String>
     <sys:String x:Key="L.Firmware.AutoUpdate">Включить или выключить автообновление выбранного устройства</sys:String>
