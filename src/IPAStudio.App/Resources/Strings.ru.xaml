@@ -441,6 +441,7 @@
     <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
+    <sys:String x:Key="L.Error.IpatoolOutdated">Apple отклонила запрос старой версии ipatool. Откройте настройки, переустановите утилиты и повторите загрузку.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
