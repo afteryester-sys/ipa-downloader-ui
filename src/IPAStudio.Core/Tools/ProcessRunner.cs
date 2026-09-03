@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using IPAStudio.Core.Diagnostics;
 
@@ -89,10 +90,12 @@ public sealed class ProcessRunner
             foreach (var (key, value) in environment)
                 psi.Environment[key] = value;
 
+        var safeArguments = RedactArguments(arguments);
+        var executable = DescribeExecutable(fileName);
         if (quiet)
-            AppLog.Debug(() => $"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+            AppLog.Debug(() => $"RUN {executable} {safeArguments}");
         else
-            AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+            AppLog.Info($"RUN {executable} {safeArguments}");
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -222,7 +225,7 @@ public sealed class ProcessRunner
             foreach (var (key, value) in environment)
                 psi.Environment[key] = value;
 
-        AppLog.Info($"RUN {ExeName(fileName)} {string.Join(' ', arguments)}");
+        AppLog.Info($"RUN {DescribeExecutable(fileName)} {RedactArguments(arguments)}");
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
@@ -344,6 +347,43 @@ public sealed class ProcessRunner
         {
             // Process may have exited between the check and the kill.
         }
+    }
+
+    private static string DescribeExecutable(string path)
+    {
+        try
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (!string.Equals(Path.GetFileName(path), "ipatool.exe", StringComparison.OrdinalIgnoreCase))
+                return fullPath;
+
+            using var stream = File.OpenRead(fullPath);
+            var hash = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+            return $"{fullPath} [sha256:{hash[..12]}]";
+        }
+        catch
+        {
+            return path;
+        }
+    }
+
+    private static string RedactArguments(IReadOnlyList<string> arguments)
+    {
+        var safe = new string[arguments.Count];
+        var redactNext = false;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (redactNext)
+            {
+                safe[i] = "[REDACTED]";
+                redactNext = false;
+                continue;
+            }
+
+            safe[i] = arguments[i];
+            redactNext = arguments[i] is "--keychain-passphrase" or "--password";
+        }
+        return string.Join(' ', safe);
     }
 
     private static string ExeName(string path)

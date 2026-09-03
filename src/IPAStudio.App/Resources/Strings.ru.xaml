@@ -268,7 +268,7 @@
     <sys:String x:Key="L.Itunes.Receiving">iTunes загружает: {0}</sys:String>
     <sys:String x:Key="L.Itunes.Copying">Забираем файл из библиотеки iTunes…</sys:String>
     <sys:String x:Key="L.Itunes.Timeout">Новый .ipa в библиотеке iTunes так и не появился. Загрузка в iTunes могла не начаться или была отменена — попробуйте ещё раз. Если библиотека iTunes перенесена в другое место, укажите её папку в настройках.</sys:String>
-    <sys:String x:Key="L.Itunes.PickOne">Выберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
+    <sys:String x:Key="L.Itunes.PickOne">��ыберите приложение в списке — этим способом скачивается по одному, потому что загрузку нужно подтвердить в самом iTunes.</sys:String>
 
     <!-- Скачивание IPA по Bundle ID -->
     <sys:String x:Key="L.Direct.Title">Скачать IPA</sys:String>
@@ -441,7 +441,7 @@
     <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
-    <sys:String x:Key="L.Error.IpatoolOutdated">Apple отклонила запрос старой версии ipatool. Откройте настройки, переустановите утилиты и повторите загрузку.</sys:String>
+    <sys:String x:Key="L.Error.IpatoolOutdated">Apple не разрешила повторную загрузку для текущего Apple ID даже через резервный endpoint. Войдите в Apple ID заново и повторите попытку либо используйте маршрут «Через iTunes 12.6.5.3».</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
@@ -489,7 +489,7 @@
 
     <!-- Советы по скорости -->
     <sys:String x:Key="L.Tuning.Defender.Title">Defender сканирует папку загрузок</sys:String>
-    <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз целиком. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
+    <sys:String x:Key="L.Tuning.Defender.Detail">Каждый записанный блок IPA проверяется антивирусом, а готовый архив сканируется ещё раз ц��ликом. На файлах в несколько гигабайт это обычно самая большая потеря скорости. Добавление папки в исключения требует прав администратора.</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Title">Временная папка на другом диске</sys:String>
     <sys:String x:Key="L.Tuning.CrossVolume.Detail">Стейджинг на {0}, а итоговая папка на {1}. Финальное перемещение станет полным копированием архива вместо мгновенного переименования.</sys:String>
     <sys:String x:Key="L.Tuning.Compressed.Title">Папка загрузок сжата (NTFS)</sys:String>
@@ -913,7 +913,7 @@
     <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Показано: {0} · выбрано: {1}</sys:String>
     <sys:String x:Key="L.Firmware.Queue">Загрузки</sys:String>
-    <sys:String x:Key="L.Firmware.QueueEmpty">Очередь пуста. Выберите устройство и нажмите «Скачать прошивку».</sys:String>
+    <sys:String x:Key="L.Firmware.QueueEmpty">Очередь пуста. Выберите ��стройство и нажмите «Скачать прошивку».</sys:String>
     <sys:String x:Key="L.Firmware.Job">Прошивка</sys:String>
     <sys:String x:Key="L.Firmware.Overall">Общий прогресс</sys:String>
     <sys:String x:Key="L.Firmware.ActiveLabel">Активных</sys:String>

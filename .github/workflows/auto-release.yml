@@ -100,7 +100,14 @@ jobs:
           -p:PublishSingleFile=false
           -o build/publish
 
-      # ---- Download bundled CLI tools --------------------------------------
+      # ---- Build/download bundled CLI tools ---------------------------------
+      - name: Set up Go for patched ipatool
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.0"
+          cache: false
+
       - name: Fetch tools
         if: steps.check_tag.outputs.exists == 'false'
         shell: pwsh
