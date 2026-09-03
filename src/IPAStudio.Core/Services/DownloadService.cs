@@ -244,6 +244,8 @@ public sealed partial class DownloadService
 
         if (AuthService.IsSessionExpiredError(output)) return Loc.Get("L.Error.SessionExpired");
         if (LicenseRequiredRegex().IsMatch(output))    return Loc.Get("L.Error.NotPurchased");
+        if (lower.Contains("empty songlist") || lower.Contains("failuretype 5002"))
+            return Loc.Get("L.Error.IpatoolOutdated");
 
         if (lower.Contains("no such host") || lower.Contains("dial tcp")
             || lower.Contains("network is unreachable") || lower.Contains("tls handshake")

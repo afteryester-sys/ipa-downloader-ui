@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -54,8 +55,18 @@ public sealed class DependencyService
     private const string ICloudDownloadUrl =
         "https://updates.cdn-apple.com/2020/windows/001-39935-20200911-1A70AA56-F448-11EA-8CC0-99D41950005E/iCloudSetup.exe";
 
+    private const string LegacyToolsRevision =
+        "e3f14e64d7070d33481919269d4c5929612b1131";
     private const string RepoRaw =
-        "https://raw.githubusercontent.com/kda2495/IPA_Downloader/main/MainApp";
+        $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
+
+    // Official ipatool 2.5.0 contains the Apple volumeStore fix that adds the
+    // required serialNumber field. Older builds fail with failureType 5002 / empty songList.
+    private const string StandardIpatoolVersion = "2.5.0";
+    private const string StandardIpatoolArchiveUrl =
+        "https://github.com/majd/ipatool/releases/download/v2.5.0/ipatool-2.5.0-windows-amd64.tar.gz";
+    private const string StandardIpatoolArchiveSha256 =
+        "d7494be51097e4ab132c5f2453a1ccafa56fffe5379a1ac0366e0997bbda6df8";
 
     private const string IpatoolRsZipUrl =
         "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";
@@ -91,12 +102,47 @@ public sealed class DependencyService
 
         Status.AppleDrivers = await Task.Run(CheckAppleMobileDeviceSupport, ct);
         Status.ITunes = await Task.Run(CheckITunesInstalled, ct);
-        Status.CliTools = _tools.ValidateTools().Count == 0
+        var toolsPresent = _tools.ValidateTools().Count == 0;
+        var standardIpatoolCurrent = !toolsPresent
+            || _tools.UseBetaAppleAuthentication
+            || _tools.IpatoolVersion != 2
+            || await IsStandardIpatoolCurrentAsync(ct);
+        Status.CliTools = toolsPresent && standardIpatoolCurrent
             ? DependencyState.Ok
             : DependencyState.Missing;
         Status.ICloud = await Task.Run(CheckICloudInstalled, ct);
 
         StatusChanged?.Invoke();
+    }
+
+    private async Task<bool> IsStandardIpatoolCurrentAsync(CancellationToken ct)
+    {
+        var path = _tools.StandardIpatoolPath;
+        if (!File.Exists(path)) return false;
+
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(path, "--version")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
+            });
+            if (process is null) return false;
+
+            var stdout = process.StandardOutput.ReadToEndAsync(ct);
+            var stderr = process.StandardError.ReadToEndAsync(ct);
+            await process.WaitForExitAsync(ct);
+            var output = $"{await stdout}\n{await stderr}";
+            return process.ExitCode == 0
+                && output.Contains(StandardIpatoolVersion, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>
@@ -480,10 +526,48 @@ public sealed class DependencyService
         {
             var root = GetWritableToolsRoot();
 
-            // ipatool v2 / v3 / anisette — small, direct downloads.
+            // Standard backend: always replace an old executable with the official 2.5.0
+            // release. That version sends the serialNumber field now required by Apple's
+            // volumeStore endpoint; old builds fail downloads with an empty songList.
+            var standardPath = Path.Combine(root, @"windows_amd64_v2\ipatool.exe");
+            if (!await IsStandardIpatoolCurrentAsync(ct))
+            {
+                var archivePath = Path.Combine(Path.GetTempPath(),
+                    $"ipatool-{StandardIpatoolVersion}-windows-amd64.tar.gz");
+                var extractPath = Path.Combine(Path.GetTempPath(),
+                    $"ipatool-{StandardIpatoolVersion}-windows-amd64-{Guid.NewGuid():N}");
+                try
+                {
+                    await DownloadWithProgressAsync(StandardIpatoolArchiveUrl, archivePath,
+                        f => progress?.Report((f / 5.0, "tools")), ct);
+                    await VerifySha256Async(archivePath, StandardIpatoolArchiveSha256, ct);
+
+                    Directory.CreateDirectory(extractPath);
+                    await using (var compressed = File.OpenRead(archivePath))
+                    await using (var gzip = new GZipStream(compressed, CompressionMode.Decompress))
+                    {
+                        TarFile.ExtractToDirectory(gzip, extractPath, overwriteFiles: true);
+                    }
+
+                    var executable = Directory.EnumerateFiles(extractPath, "*.exe",
+                        SearchOption.AllDirectories).FirstOrDefault(path =>
+                            Path.GetFileName(path).StartsWith("ipatool", StringComparison.OrdinalIgnoreCase));
+                    if (executable is null)
+                        throw new InvalidDataException("The ipatool executable is missing from the official archive.");
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(standardPath)!);
+                    File.Copy(executable, standardPath, overwrite: true);
+                }
+                finally
+                {
+                    try { File.Delete(archivePath); } catch { /* best effort */ }
+                    try { Directory.Delete(extractPath, recursive: true); } catch { /* best effort */ }
+                }
+            }
+
+            // Legacy v3 + anisette stay separate and are only used when explicitly selected.
             var direct = new (string url, string relative)[]
             {
-                ($"{RepoRaw}/windows_amd64_v2/ipatool.exe", @"windows_amd64_v2\ipatool.exe"),
                 ($"{RepoRaw}/windows_amd64_v3/ipatool.exe", @"windows_amd64_v3\ipatool.exe"),
                 ($"{RepoRaw}/windows_amd64_v3/anisette.exe", @"windows_amd64_v3\anisette.exe"),
             };
@@ -494,7 +578,7 @@ public sealed class DependencyService
                 var dest = Path.Combine(root, relative);
                 if (File.Exists(dest)) continue;
 
-                var step = i; // capture
+                var step = i + 1;
                 await DownloadWithProgressAsync(url, dest,
                     f => progress?.Report(((step + f) / 5.0, "tools")), ct);
             }
@@ -599,6 +683,17 @@ public sealed class DependencyService
             _tools.ToolsRootOverride = fallback;
             return fallback;
         }
+    }
+
+    private static async Task VerifySha256Async(
+        string path, string expectedHash, CancellationToken ct)
+    {
+        await using var stream = File.OpenRead(path);
+        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct))
+            .ToLowerInvariant();
+        if (!string.Equals(actualHash, expectedHash, StringComparison.Ordinal))
+            throw new InvalidDataException(
+                $"Checksum mismatch for {Path.GetFileName(path)}: expected {expectedHash}, got {actualHash}");
     }
 
     private async Task DownloadWithProgressAsync(
