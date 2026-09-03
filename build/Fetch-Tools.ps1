@@ -39,9 +39,11 @@ $LegacyToolHashes = @{
     "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
     "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
 }
-$IpatoolVersion = "2.5.0"
-$IpatoolRelease = "https://github.com/majd/ipatool/releases/download/v$IpatoolVersion/ipatool-$IpatoolVersion-windows-amd64.tar.gz"
-$IpatoolReleaseSha256 = "d7494be51097e4ab132c5f2453a1ccafa56fffe5379a1ac0366e0997bbda6df8"
+$IpatoolVersion = "2.5.0-ipa-studio.1"
+$IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
+$IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
+$IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
+$IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
 $IpatoolRsVersion = "0.1.7"
 $IpatoolRsRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$IpatoolRsVersion/ipatool-rs-x86_64-pc-windows-msvc.zip"
 $IpatoolRsSha256 = "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77"
@@ -58,24 +60,37 @@ function Download-File {
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 Write-Host "Tools output folder: $OutDir"
 
-# --- ipatool v2 (no iCloud/anisette requirement) -----------------------------
-Write-Host "`n[1/4] official ipatool v$IpatoolVersion ..."
-$ipatoolArchive = Join-Path $env:TEMP "ipatool-$IpatoolVersion-windows-amd64.tar.gz"
-$ipatoolExtract = Join-Path $env:TEMP "ipatool-$IpatoolVersion-windows-amd64"
-Download-File $IpatoolRelease $ipatoolArchive
+# --- ipatool v2 with Apple 5002/redownload fallback --------------------------
+Write-Host "`n[1/4] patched ipatool v$IpatoolVersion ..."
+$ipatoolArchive = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src.tar.gz"
+$ipatoolExtract = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src"
+Download-File $IpatoolSource $ipatoolArchive
 $ipatoolActualHash = (Get-FileHash -Path $ipatoolArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($ipatoolActualHash -ne $IpatoolReleaseSha256) {
-    throw "ipatool archive checksum mismatch: expected $IpatoolReleaseSha256, got $ipatoolActualHash"
+if ($ipatoolActualHash -ne $IpatoolSourceSha256) {
+    throw "ipatool source checksum mismatch: expected $IpatoolSourceSha256, got $ipatoolActualHash"
 }
 if (Test-Path $ipatoolExtract) { Remove-Item $ipatoolExtract -Recurse -Force }
 New-Item -ItemType Directory -Path $ipatoolExtract -Force | Out-Null
-& tar.exe -xzf $ipatoolArchive -C $ipatoolExtract
-if ($LASTEXITCODE -ne 0) { throw "Failed to extract the official ipatool archive." }
-$ipatoolBinary = Get-ChildItem -Path $ipatoolExtract -Filter "ipatool*.exe" -Recurse -File | Select-Object -First 1
-if (-not $ipatoolBinary) { throw "The ipatool executable was not found in the official archive." }
+& tar.exe -xzf $ipatoolArchive -C $ipatoolExtract --strip-components=1
+if ($LASTEXITCODE -ne 0) { throw "Failed to extract the pinned ipatool source archive." }
 $ipatoolDestination = Join-Path $OutDir "windows_amd64_v2\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolDestination) -Force | Out-Null
-Copy-Item $ipatoolBinary.FullName -Destination $ipatoolDestination -Force
+Push-Location $ipatoolExtract
+try {
+    $env:GOOS = "windows"
+    $env:GOARCH = "amd64"
+    $env:CGO_ENABLED = "0"
+    & go build -trimpath -buildvcs=false "-ldflags=-s -w -X github.com/majd/ipatool/v2/cmd.version=$IpatoolVersion" -o $ipatoolDestination .
+    if ($LASTEXITCODE -ne 0) { throw "Failed to build the patched ipatool backend." }
+}
+finally {
+    Pop-Location
+}
+$ipatoolBinaryHash = (Get-FileHash -Path $ipatoolDestination -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($ipatoolBinaryHash -ne $IpatoolBinarySha256) {
+    throw "ipatool binary checksum mismatch: expected $IpatoolBinarySha256, got $ipatoolBinaryHash"
+}
+Write-Host "  -> patched backend SHA-256: $ipatoolBinaryHash"
 Remove-Item $ipatoolArchive -Force -ErrorAction SilentlyContinue
 Remove-Item $ipatoolExtract -Recurse -Force -ErrorAction SilentlyContinue
 

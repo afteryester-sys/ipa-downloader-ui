@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -60,13 +59,11 @@ public sealed class DependencyService
     private const string RepoRaw =
         $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
 
-    // Official ipatool 2.5.0 contains the Apple volumeStore fix that adds the
-    // required serialNumber field. Older builds fail with failureType 5002 / empty songList.
-    private const string StandardIpatoolVersion = "2.5.0";
-    private const string StandardIpatoolArchiveUrl =
-        "https://github.com/majd/ipatool/releases/download/v2.5.0/ipatool-2.5.0-windows-amd64.tar.gz";
-    private const string StandardIpatoolArchiveSha256 =
-        "d7494be51097e4ab132c5f2453a1ccafa56fffe5379a1ac0366e0997bbda6df8";
+    // Reproducible build from majd/ipatool commit 3aa4a86. It retries Apple's
+    // FailureType 5002 through /r/redownload; the official 2.5.0 binary does not.
+    private const string StandardIpatoolBuild = "2.5.0-ipa-studio.1";
+    private const string StandardIpatoolSha256 =
+        "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286";
 
     private const string IpatoolRsZipUrl =
         "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";
@@ -117,32 +114,23 @@ public sealed class DependencyService
 
     private async Task<bool> IsStandardIpatoolCurrentAsync(CancellationToken ct)
     {
-        var path = _tools.StandardIpatoolPath;
-        if (!File.Exists(path)) return false;
-
         try
         {
-            using var process = Process.Start(new ProcessStartInfo(path, "--version")
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
-            });
-            if (process is null) return false;
-
-            var stdout = process.StandardOutput.ReadToEndAsync(ct);
-            var stderr = process.StandardError.ReadToEndAsync(ct);
-            await process.WaitForExitAsync(ct);
-            var output = $"{await stdout}\n{await stderr}";
-            return process.ExitCode == 0
-                && output.Contains(StandardIpatoolVersion, StringComparison.OrdinalIgnoreCase);
+            return await HasSha256Async(_tools.StandardIpatoolPath, StandardIpatoolSha256, ct);
         }
         catch
         {
             return false;
         }
+    }
+
+    private static async Task<bool> HasSha256Async(
+        string path, string expectedHash, CancellationToken ct)
+    {
+        if (!File.Exists(path)) return false;
+        await using var stream = File.OpenRead(path);
+        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct));
+        return string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -526,42 +514,22 @@ public sealed class DependencyService
         {
             var root = GetWritableToolsRoot();
 
-            // Standard backend: always replace an old executable with the official 2.5.0
-            // release. That version sends the serialNumber field now required by Apple's
-            // volumeStore endpoint; old builds fail downloads with an empty songList.
+            // The installer ships the exact patched binary. When an older IPA Studio had
+            // redirected tools to LocalAppData, replace that stale override from the bundled
+            // copy instead of downloading another same-version official binary.
             var standardPath = Path.Combine(root, @"windows_amd64_v2\ipatool.exe");
-            if (!await IsStandardIpatoolCurrentAsync(ct))
+            if (!await HasSha256Async(standardPath, StandardIpatoolSha256, ct))
             {
-                var archivePath = Path.Combine(Path.GetTempPath(),
-                    $"ipatool-{StandardIpatoolVersion}-windows-amd64.tar.gz");
-                var extractPath = Path.Combine(Path.GetTempPath(),
-                    $"ipatool-{StandardIpatoolVersion}-windows-amd64-{Guid.NewGuid():N}");
-                try
+                var bundledPath = Path.Combine(AppContext.BaseDirectory,
+                    @"tools\windows_amd64_v2\ipatool.exe");
+                if (!await HasSha256Async(bundledPath, StandardIpatoolSha256, ct))
+                    throw new InvalidDataException(
+                        $"Bundled ipatool {StandardIpatoolBuild} failed integrity verification.");
+
+                if (!string.Equals(standardPath, bundledPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    await DownloadWithProgressAsync(StandardIpatoolArchiveUrl, archivePath,
-                        f => progress?.Report((f / 5.0, "tools")), ct);
-                    await VerifySha256Async(archivePath, StandardIpatoolArchiveSha256, ct);
-
-                    Directory.CreateDirectory(extractPath);
-                    await using (var compressed = File.OpenRead(archivePath))
-                    await using (var gzip = new GZipStream(compressed, CompressionMode.Decompress))
-                    {
-                        TarFile.ExtractToDirectory(gzip, extractPath, overwriteFiles: true);
-                    }
-
-                    var executable = Directory.EnumerateFiles(extractPath, "*.exe",
-                        SearchOption.AllDirectories).FirstOrDefault(path =>
-                            Path.GetFileName(path).StartsWith("ipatool", StringComparison.OrdinalIgnoreCase));
-                    if (executable is null)
-                        throw new InvalidDataException("The ipatool executable is missing from the official archive.");
-
                     Directory.CreateDirectory(Path.GetDirectoryName(standardPath)!);
-                    File.Copy(executable, standardPath, overwrite: true);
-                }
-                finally
-                {
-                    try { File.Delete(archivePath); } catch { /* best effort */ }
-                    try { Directory.Delete(extractPath, recursive: true); } catch { /* best effort */ }
+                    File.Copy(bundledPath, standardPath, overwrite: true);
                 }
             }
 
@@ -683,17 +651,6 @@ public sealed class DependencyService
             _tools.ToolsRootOverride = fallback;
             return fallback;
         }
-    }
-
-    private static async Task VerifySha256Async(
-        string path, string expectedHash, CancellationToken ct)
-    {
-        await using var stream = File.OpenRead(path);
-        var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct))
-            .ToLowerInvariant();
-        if (!string.Equals(actualHash, expectedHash, StringComparison.Ordinal))
-            throw new InvalidDataException(
-                $"Checksum mismatch for {Path.GetFileName(path)}: expected {expectedHash}, got {actualHash}");
     }
 
     private async Task DownloadWithProgressAsync(
