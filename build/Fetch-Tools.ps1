@@ -90,9 +90,9 @@ try {
 
     # Run only the patch-owned specs: unrelated upstream AppStore tests leak open
     # temp files and fail during cleanup on Windows even when their assertions pass.
-    & go test ./pkg/http -run '^TestHTTP$' -ginkgo.focus 'preserves an empty HTTP 500 response'
+    & go test ./pkg/http -run '^TestHTTP$' '--ginkgo.focus=preserves an empty HTTP 500 response'
     if ($LASTEXITCODE -ne 0) { throw "Patched ipatool HTTP regression test failed." }
-    & go test ./pkg/appstore -run '^TestAppStore$' -ginkgo.focus 'unpinned redownload returns an empty HTTP 500'
+    & go test ./pkg/appstore -run '^TestAppStore$' '--ginkgo.focus=unpinned redownload returns an empty HTTP 500'
     if ($LASTEXITCODE -ne 0) { throw "Patched ipatool AppStore regression tests failed." }
 
     $env:GOOS = "windows"
