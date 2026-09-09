@@ -22,12 +22,18 @@ public partial class FirmwareView : UserControl
     {
         if (e.NewValue is not FirmwareViewModel vm) return;
 
-        vm.ConfirmResumePending = pending => MessageBox.Show(
-            Window.GetWindow(this),
-            Loc.Format("L.Firmware.ResumePrompt", pending.Count),
-            Loc.Get("L.Firmware.ResumePromptTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question) == MessageBoxResult.Yes;
+        vm.ConfirmResumePending = pending =>
+        {
+            var message = Loc.Format("L.Firmware.ResumePrompt", pending.Count);
+            var title = Loc.Get("L.Firmware.ResumePromptTitle");
+            var owner = Window.GetWindow(this);
+            var result = owner is null
+                ? MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
+                : MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+            return result == MessageBoxResult.Yes;
+        };
+
+        Dispatcher.BeginInvoke(vm.OfferPendingResume);
     }
 
     private void AddDevices_Click(object sender, RoutedEventArgs e)

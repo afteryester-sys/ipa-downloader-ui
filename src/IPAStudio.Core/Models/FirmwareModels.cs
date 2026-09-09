@@ -35,35 +35,48 @@ public sealed class FirmwareSubscription
 {
     public string Identifier { get; set; } = "";
     public string DeviceName { get; set; } = "";
+    // Older settings represented an enabled subscription by its presence in this list.
+    public bool AutoUpdateEnabled { get; set; } = true;
     public string? LastBuildId { get; set; }
     public string? LastFilePath { get; set; }
-    /// <summary>When the auto-updater last asked Apple about this model.</summary>
     public DateTimeOffset? LastCheckUtc { get; set; }
-    /// <summary>When a firmware for this model was last downloaded to the end.</summary>
+    public DateTimeOffset? NextCheckUtc { get; set; }
+    public string? LastFoundVersion { get; set; }
+    public string? LastError { get; set; }
     public DateTimeOffset? LastDownloadUtc { get; set; }
 }
 
-/// <summary>An interrupted download found on disk, described purely by its manifest.</summary>
 public sealed record FirmwarePendingDownload(
     string ManifestPath,
     string DestinationPath,
     string FileName,
     string Url,
     string? Sha1,
+    string? Md5,
     long Total,
-    long Downloaded)
+    long Downloaded,
+    string? DeviceIdentifier,
+    string? DeviceName,
+    string? FirmwareVersion,
+    string? BuildId)
 {
     public double Percent => Total <= 0 ? 0 : Math.Clamp(Downloaded * 100d / Total, 0, 100);
 }
 
 public sealed class FirmwareDownloadManifest
 {
+    public int FormatVersion { get; set; }
     public string Url { get; set; } = "";
     public string DestinationPath { get; set; } = "";
     public long ExpectedLength { get; set; }
     public string? ETag { get; set; }
     public DateTimeOffset? LastModified { get; set; }
     public string? Sha1 { get; set; }
+    public string? Md5 { get; set; }
+    public string? DeviceIdentifier { get; set; }
+    public string? DeviceName { get; set; }
+    public string? FirmwareVersion { get; set; }
+    public string? BuildId { get; set; }
     public List<FirmwareSegment> Segments { get; set; } = new();
 }
 
@@ -72,10 +85,11 @@ public sealed class FirmwareSegment
     public long Start { get; set; }
     public long End { get; set; }
     public long Downloaded { get; set; }
+    public bool IsComplete { get; set; }
     public string PartPath { get; set; } = "";
 }
 
 public sealed record FirmwareDownloadProgress(long Downloaded, long Total, double BytesPerSecond)
 {
-    public double Percent => Total > 0 ? Downloaded * 100d / Total : 0;
+    public double Percent => Total > 0 ? Math.Clamp(Downloaded * 100d / Total, 0, 100) : 0;
 }
