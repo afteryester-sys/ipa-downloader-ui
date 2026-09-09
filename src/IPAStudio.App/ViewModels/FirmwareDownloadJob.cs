@@ -11,24 +11,23 @@ public enum FirmwareJobState
     Queued,
     Running,
     Reconnecting,
+    Pausing,
     Paused,
     Done,
     Failed,
 }
 
-/// <summary>
-/// One firmware download in the queue. Each job owns its own cancellation source so that
-/// pausing or stopping a single row never touches the neighbours, which is what the old
-/// single shared token got wrong.
-/// </summary>
 public sealed partial class FirmwareDownloadJob : ObservableObject
 {
     public FirmwareDevice Device { get; }
     public FirmwareRelease Firmware { get; }
     public string DestinationPath { get; }
 
-    /// <summary>Set by the queue runner; the job itself only exposes the request to stop.</summary>
-    public CancellationTokenSource? Cts { get; set; }
+    internal object SyncRoot { get; } = new();
+    internal CancellationTokenSource? Cts { get; set; }
+    internal Task? RunnerTask { get; set; }
+    internal bool PauseRequested { get; set; }
+    internal bool StopRequested { get; set; }
 
     private readonly Action<FirmwareDownloadJob> _pause;
     private readonly Action<FirmwareDownloadJob> _resume;
@@ -69,12 +68,15 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsFinished))]
     private FirmwareJobState _state = FirmwareJobState.Queued;
 
-    public bool IsActive => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting;
-    public bool CanPause => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued;
+    public bool IsActive => State is FirmwareJobState.Running
+        or FirmwareJobState.Reconnecting
+        or FirmwareJobState.Pausing;
+    public bool CanPause => State is FirmwareJobState.Running
+        or FirmwareJobState.Reconnecting
+        or FirmwareJobState.Queued;
     public bool CanResume => State is FirmwareJobState.Paused or FirmwareJobState.Failed;
     public bool IsFinished => State is FirmwareJobState.Done;
 
-    /// <summary>Total is only known after the first HEAD, so fall back to the catalog size.</summary>
     public long ExpectedTotal => Total > 0 ? Total : Firmware.FileSize;
 
     public string SizeText => ExpectedTotal <= 0
@@ -83,30 +85,35 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
 
     public string SpeedText => BytesPerSecond <= 0 ? "" : $"{BytesPerSecond / 1024d / 1024d:F1} MB/s";
 
+    public string RemainingText
+    {
+        get
+        {
+            if (BytesPerSecond <= 0 || ExpectedTotal <= Downloaded) return "";
+            var remaining = TimeSpan.FromSeconds((ExpectedTotal - Downloaded) / BytesPerSecond);
+            return remaining.TotalHours >= 1
+                ? string.Format(Loc.Get("L.Firmware.Job.LeftHours"), (int)remaining.TotalHours, remaining.Minutes)
+                : string.Format(Loc.Get("L.Firmware.Job.LeftMinutes"), Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes)));
+        }
+    }
+
     partial void OnDownloadedChanged(long value)
     {
         OnPropertyChanged(nameof(SizeText));
         OnPropertyChanged(nameof(RemainingText));
     }
 
-    partial void OnTotalChanged(long value) => OnPropertyChanged(nameof(SizeText));
+    partial void OnTotalChanged(long value)
+    {
+        OnPropertyChanged(nameof(ExpectedTotal));
+        OnPropertyChanged(nameof(SizeText));
+        OnPropertyChanged(nameof(RemainingText));
+    }
 
     partial void OnBytesPerSecondChanged(double value)
     {
         OnPropertyChanged(nameof(SpeedText));
         OnPropertyChanged(nameof(RemainingText));
-    }
-
-    public string RemainingText
-    {
-        get
-        {
-            if (BytesPerSecond <= 0 || ExpectedTotal <= Downloaded) return "";
-            var seconds = (ExpectedTotal - Downloaded) / BytesPerSecond;
-            return seconds >= 3600
-                ? string.Format(Loc.Get("L.Firmware.Job.LeftHours"), seconds / 3600, seconds % 3600 / 60)
-                : string.Format(Loc.Get("L.Firmware.Job.LeftMinutes"), Math.Max(1, seconds / 60));
-        }
     }
 
     [RelayCommand] private void Pause() => _pause(this);

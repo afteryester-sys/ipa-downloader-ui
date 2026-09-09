@@ -198,19 +198,28 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     /// </summary>
     public void Detach()
     {
-        if (_queue is null) return;
+        if (_queue is not null)
+        {
+            _queue.ItemChanged -= OnItemChanged;
+            _queue.QueueCompleted -= OnQueueCompleted;
+            _queue.SessionExpired -= OnSessionExpired;
+        }
 
-        _queue.ItemChanged -= OnItemChanged;
-        _queue.QueueCompleted -= OnQueueCompleted;
-        _queue.SessionExpired -= OnSessionExpired;
-
-        // The timer belongs to the attached queue: left running while the page shows nothing
-        // it would tick forever, and its pending set would refer to a queue nobody displays.
+        // The timer and all display values belong to the attached queue. Clear them together so
+        // opening another operation can never flash the previous phone's items or progress.
         StopFlushing();
         lock (_dirtyLock) _dirty.Clear();
 
         _queue = null;
         _operation = null;
+        Items.Clear();
+        _rows.Clear();
+        OverallProgress = 0;
+        DoneCount = 0;
+        FailedCount = 0;
+        DeviceName = "";
+        SessionExpired = false;
+        IsRunning = false;
     }
 
     private void Rebuild()

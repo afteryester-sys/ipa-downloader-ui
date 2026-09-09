@@ -23,6 +23,12 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Setup Go 1.25
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.0"
+          cache: false
+
       - name: Read version from csproj
         id: version
         shell: pwsh
@@ -42,6 +48,9 @@ jobs:
 
       - name: Build
         run: dotnet build IPAStudio.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/IPAStudio.Core.Tests/IPAStudio.Core.Tests.csproj -c Release --no-build --no-restore
 
       - name: Publish (self-contained win-x64)
         run: >

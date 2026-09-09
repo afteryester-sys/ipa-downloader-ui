@@ -1,0 +1,309 @@
+diff --git a/pkg/appstore/appstore_download.go b/pkg/appstore/appstore_download.go
+index ae21a09..061f86e 100644
+--- a/pkg/appstore/appstore_download.go
++++ b/pkg/appstore/appstore_download.go
+@@ -2,9 +2,12 @@ package appstore
+ 
+ import (
+ 	"archive/zip"
++	"encoding/json"
+ 	"errors"
+ 	"fmt"
+ 	"io"
++	gohttp "net/http"
++	"net/url"
+ 	"os"
+ 	"strconv"
+ 	"strings"
+@@ -50,8 +53,22 @@ func (t *appstore) Download(input DownloadInput) (DownloadOutput, error) {
+ 		req = t.redownloadRequest(input.Account, input.App, guid, input.ExternalVersionID)
+ 
+ 		res, err = t.downloadClient.Send(req)
++		if err != nil && input.ExternalVersionID == "" {
++			var responseErr *http.UnexpectedResponseError
++			if errors.As(err, &responseErr) && responseErr.StatusCode == gohttp.StatusInternalServerError && responseErr.Snippet == "" {
++				versionID, lookupErr := t.lookupLatestIOSExternalVersionID(input.Account, input.App)
++				if lookupErr != nil {
++					return DownloadOutput{}, fmt.Errorf("failed to resolve latest version for redownload: %w (original error: %w)", lookupErr, err)
++				}
++
++				res, err = t.downloadClient.Send(t.redownloadRequest(input.Account, input.App, guid, versionID))
++				if err != nil {
++					return DownloadOutput{}, fmt.Errorf("failed to send version-pinned redownload request: %w", err)
++				}
++			}
++		}
+ 		if err != nil {
+-			return DownloadOutput{}, fmt.Errorf("failed to send http request: %w", err)
++			return DownloadOutput{}, fmt.Errorf("failed to send redownload request: %w", err)
+ 		}
+ 	}
+ 
+@@ -131,6 +148,104 @@ type downloadResult struct {
+ 	Items           []downloadItemResult `plist:"songList,omitempty"`
+ }
+ 
++type platformVersionLookupResult struct {
++	Results map[string]platformVersionLookupItem `json:"results,omitempty"`
++}
++
++type platformVersionLookupItem struct {
++	Offers []platformVersionLookupOffer `json:"offers,omitempty"`
++}
++
++type platformVersionLookupOffer struct {
++	BuyParams string                       `json:"buyParams,omitempty"`
++	Version   platformVersionLookupVersion `json:"version,omitempty"`
++}
++
++type platformVersionLookupVersion struct {
++	ExternalID platformVersionExternalID `json:"externalId,omitempty"`
++}
++
++type platformVersionExternalID string
++
++func (id *platformVersionExternalID) UnmarshalJSON(data []byte) error {
++	var stringID string
++	if err := json.Unmarshal(data, &stringID); err == nil {
++		*id = platformVersionExternalID(stringID)
++		return nil
++	}
++
++	var numberID json.Number
++	if err := json.Unmarshal(data, &numberID); err == nil {
++		*id = platformVersionExternalID(numberID.String())
++		return nil
++	}
++
++	return fmt.Errorf("invalid external version id %s", string(data))
++}
++
++func (t *appstore) lookupLatestIOSExternalVersionID(acc Account, app App) (string, error) {
++	if app.ID == 0 {
++		return "", errors.New("app ID is required for platform version lookup")
++	}
++
++	countryCode, err := countryCodeFromStoreFront(acc.StoreFront)
++	if err != nil {
++		return "", fmt.Errorf("failed to resolve country code: %w", err)
++	}
++
++	params := url.Values{}
++	params.Add("version", "2")
++	params.Add("id", strconv.FormatInt(app.ID, 10))
++	params.Add("p", "mdm-lockup")
++	params.Add("caller", "MDM")
++	params.Add("platform", "enterprisestore")
++	params.Add("cc", strings.ToLower(countryCode))
++	params.Add("l", "en")
++
++	endpoint := fmt.Sprintf("https://uclient-api.itunes.apple.com/WebObjects/MZStorePlatform.woa/wa/lookup?%s", params.Encode())
++	request, err := t.downloadClient.NewRequest(gohttp.MethodGet, endpoint, nil)
++	if err != nil {
++		return "", fmt.Errorf("failed to create platform version lookup request: %w", err)
++	}
++
++	response, err := t.downloadClient.Do(request)
++	if err != nil {
++		return "", fmt.Errorf("platform version lookup request failed: %w", err)
++	}
++	defer response.Body.Close()
++
++	if response.StatusCode != gohttp.StatusOK {
++		return "", fmt.Errorf("platform version lookup returned HTTP %d", response.StatusCode)
++	}
++
++	var result platformVersionLookupResult
++	decoder := json.NewDecoder(response.Body)
++	decoder.UseNumber()
++	if err := decoder.Decode(&result); err != nil {
++		return "", fmt.Errorf("failed to decode platform version lookup response: %w", err)
++	}
++
++	item, ok := result.Results[strconv.FormatInt(app.ID, 10)]
++	if !ok || len(item.Offers) == 0 {
++		return "", errors.New("platform version lookup returned no app offers")
++	}
++
++	offer := item.Offers[0]
++	versionID := string(offer.Version.ExternalID)
++	if versionID == "" && offer.BuyParams != "" {
++		values, parseErr := url.ParseQuery(offer.BuyParams)
++		if parseErr != nil {
++			return "", fmt.Errorf("failed to parse platform buy parameters: %w", parseErr)
++		}
++		versionID = values.Get("appExtVrsId")
++	}
++	if versionID == "" {
++		return "", errors.New("platform version lookup returned no external version id")
++	}
++
++	return versionID, nil
++}
++
+ func (t *appstore) downloadFile(src, dst string, progress *progressbar.ProgressBar) error {
+ 	req, err := t.httpClient.NewRequest("GET", src, nil)
+ 	if err != nil {
+diff --git a/pkg/appstore/appstore_download_test.go b/pkg/appstore/appstore_download_test.go
+index b694825..25efba3 100644
+--- a/pkg/appstore/appstore_download_test.go
++++ b/pkg/appstore/appstore_download_test.go
+@@ -227,6 +227,80 @@ var _ = Describe("AppStore (Download)", func() {
+ 		})
+ 	})
+ 
++	When("unpinned redownload returns an empty HTTP 500", func() {
++		const appID int64 = 6766530710
++		const versionID = "871234567"
++
++		BeforeEach(func() {
++			mockMachine.EXPECT().MacAddress().Return("00:11:22:33:44:55", nil)
++		})
++
++		It("retries exactly once with the latest catalog version", func() {
++			gomock.InOrder(
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{
++					Data: downloadResult{FailureType: FailureTypeLicenseAlreadyExists},
++				}, nil),
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{},
++					&http.UnexpectedResponseError{StatusCode: gohttp.StatusInternalServerError}),
++				mockDownloadClient.EXPECT().NewRequest(gohttp.MethodGet, gomock.Any(), nil).
++					DoAndReturn(func(_ string, rawURL string, _ io.Reader) (*gohttp.Request, error) {
++						Expect(rawURL).To(ContainSubstring("id=6766530710"))
++						Expect(rawURL).To(ContainSubstring("platform=enterprisestore"))
++						return gohttp.NewRequest(gohttp.MethodGet, rawURL, nil)
++					}),
++				mockDownloadClient.EXPECT().Do(gomock.Any()).Return(&gohttp.Response{
++					StatusCode: gohttp.StatusOK,
++					Body:       io.NopCloser(strings.NewReader(`{"results":{"6766530710":{"offers":[{"version":{"externalId":"871234567"}}]}}}`)),
++				}, nil),
++				mockDownloadClient.EXPECT().Send(gomock.Any()).
++					Do(func(req http.Request) {
++						payload := req.Payload.(*http.XMLPayload).Content
++						Expect(payload).To(HaveKeyWithValue("appExtVrsId", versionID))
++					}).
++					Return(http.Result[downloadResult]{Data: downloadResult{FailureType: "secondary-failure"}}, nil),
++			)
++
++			_, err := as.Download(DownloadInput{
++				Account: Account{StoreFront: "143441-1,34"},
++				App:     App{ID: appID},
++			})
++			Expect(err).To(MatchError(ContainSubstring("secondary-failure")))
++		})
++
++		It("does not replace an explicitly selected version", func() {
++			empty500 := &http.UnexpectedResponseError{StatusCode: gohttp.StatusInternalServerError}
++			gomock.InOrder(
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{
++					Data: downloadResult{FailureType: FailureTypeLicenseAlreadyExists},
++				}, nil),
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{}, empty500),
++			)
++
++			_, err := as.Download(DownloadInput{
++				Account:           Account{StoreFront: "143441-1,34"},
++				App:               App{ID: appID},
++				ExternalVersionID: versionID,
++			})
++			Expect(errors.Is(err, empty500)).To(BeTrue())
++		})
++
++		It("does not retry unrelated failures", func() {
++			unrelated := errors.New("connection reset")
++			gomock.InOrder(
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{
++					Data: downloadResult{FailureType: FailureTypeLicenseAlreadyExists},
++				}, nil),
++				mockDownloadClient.EXPECT().Send(gomock.Any()).Return(http.Result[downloadResult]{}, unrelated),
++			)
++
++			_, err := as.Download(DownloadInput{
++				Account: Account{StoreFront: "143441-1,34"},
++				App:     App{ID: appID},
++			})
++			Expect(errors.Is(err, unrelated)).To(BeTrue())
++		})
++	})
++
+ 	When("store API returns error", func() {
+ 		BeforeEach(func() {
+ 			mockMachine.EXPECT().
+diff --git a/pkg/http/client.go b/pkg/http/client.go
+index 496d02c..f723d62 100644
+--- a/pkg/http/client.go
++++ b/pkg/http/client.go
+@@ -38,6 +38,21 @@ type Args struct {
+ 	CookieJar CookieJar
+ }
+ 
++// UnexpectedResponseError preserves the HTTP status when Apple returns an
++// empty or non-plist body where an XML property list was expected.
++type UnexpectedResponseError struct {
++	StatusCode int
++	Snippet    string
++}
++
++func (e *UnexpectedResponseError) Error() string {
++	if e.Snippet == "" {
++		return fmt.Sprintf("unexpected response from Apple (HTTP %d): empty or non-plist body", e.StatusCode)
++	}
++
++	return fmt.Sprintf("unexpected response from Apple (HTTP %d): %s", e.StatusCode, e.Snippet)
++}
++
+ type AddHeaderTransport struct {
+ 	T http.RoundTripper
+ }
+@@ -163,10 +178,21 @@ func (c *client[R]) handleXMLResponse(res *http.Response) (Result[R], error) {
+ 	var data R
+ 
+ 	normalizedBody := normalizeXMLPlistBody(body)
++	if len(normalizedBody) == 0 {
++		return Result[R]{}, &UnexpectedResponseError{StatusCode: res.StatusCode}
++	}
+ 
+ 	_, err = plist.Unmarshal(normalizedBody, &data)
+ 	if err != nil {
+-		return Result[R]{}, fmt.Errorf("failed to unmarshal xml: %w", err)
++		snippet := strings.TrimSpace(string(body))
++		if len(snippet) > 240 {
++			snippet = snippet[:240]
++		}
++
++		return Result[R]{}, &UnexpectedResponseError{
++			StatusCode: res.StatusCode,
++			Snippet:    snippet,
++		}
+ 	}
+ 
+ 	headers := map[string]string{}
+diff --git a/pkg/http/client_test.go b/pkg/http/client_test.go
+index cb0407c..9c16970 100644
+--- a/pkg/http/client_test.go
++++ b/pkg/http/client_test.go
+@@ -143,6 +143,24 @@ var _ = Describe("Client", Ordered, func() {
+ 				Expect(res.Data.Foo).To(Equal("bar"))
+ 			})
+ 
++			It("preserves an empty HTTP 500 response", func() {
++				mockHandler = func(w http.ResponseWriter, _r *http.Request) {
++					w.WriteHeader(http.StatusInternalServerError)
++				}
++
++				sut := NewClient[xmlResult](Args{CookieJar: mockCookieJar})
++				_, err := sut.Send(Request{
++					URL:            srv.URL,
++					Method:         MethodPOST,
++					ResponseFormat: ResponseFormatXML,
++				})
++
++				var responseErr *UnexpectedResponseError
++				Expect(errors.As(err, &responseErr)).To(BeTrue())
++				Expect(responseErr.StatusCode).To(Equal(http.StatusInternalServerError))
++				Expect(responseErr.Snippet).To(BeEmpty())
++			})
++
+ 			It("decodes XML response wrapped in an Apple Document envelope", func() {
+ 				mockHandler = func(w http.ResponseWriter, _r *http.Request) {
+ 					w.Header().Add("Content-Type", "application/xml")
