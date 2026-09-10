@@ -1905,7 +1905,11 @@ public sealed partial class DownloadService
             try
             {
                 using var doc = JsonDocument.Parse(line);
-                if (doc.RootElement.TryGetProperty("externalVersions", out var array))
+                // ipatool's list-versions logs the field as "externalVersionIdentifiers"
+                // (see cmd/list_versions.go), not "externalVersions" - the previous key
+                // never matched, so this always came back empty and the empty-songList
+                // self-heal above could never pin a retry to a real build.
+                if (doc.RootElement.TryGetProperty("externalVersionIdentifiers", out var array))
                     versions.AddRange(array.EnumerateArray()
                         .Select(v => v.ToString())
                         .Where(v => !string.IsNullOrEmpty(v)));
