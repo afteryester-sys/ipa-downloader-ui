@@ -388,7 +388,8 @@ public sealed partial class DownloadService
         bool autoPurchase = true,
         IProgress<DownloadProgress>? progress = null,
         string? destinationFolder = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? fileNameOverride = null)
     {
         _tools.EnsureFolders();
 
@@ -408,7 +409,7 @@ public sealed partial class DownloadService
                 Loc.Format("L.Error.FolderUnusable", targetFolder, ex.Message), ex.ToString());
         }
 
-        var outputPath = BuildOutputPath(app, targetFolder);
+        var outputPath = BuildOutputPath(app, targetFolder, fileNameOverride);
 
         // ---- Existing file? Ask before touching it. --------------------------------
         // Historically the download simply deleted whatever sat at this path (see
@@ -650,7 +651,8 @@ public sealed partial class DownloadService
         long[] sizeHint,
         IProgress<DownloadProgress>? progress,
         int attempt,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? externalVersionId = null)
     {
         // A leftover file from a previous attempt would be read by the poller as
         // instant 100% at an absurd speed, so clear it (and any partials) first.
@@ -682,6 +684,12 @@ public sealed partial class DownloadService
             "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
         });
         if (autoPurchase) args.Add("--purchase");
+
+        // Pins this attempt to a specific build, set only by the empty-songList self-heal
+        // below. Never passed on the first attempt: pinning the very first request would
+        // stop this from ever picking up an app update.
+        if (!string.IsNullOrWhiteSpace(externalVersionId))
+            args.AddRange(new[] { "--external-version-id", externalVersionId });
 
         // NOTE: "--format json" is deliberately NOT passed here.
         // In JSON mode ipatool suppresses the progress bar entirely and prints a single
@@ -1075,6 +1083,47 @@ public sealed partial class DownloadService
         var isTransient = TransientRegex().IsMatch(output);
         if (isTransient) TryDeleteStaleFiles(outputPath);
 
+        // Apple sometimes refuses an *unpinned* redownload of an app the account already
+        // owns with an empty "songList" (ipatool surfaces this as "unexpected response:
+        // empty songList", also seen as FailureType 5002). DescribeStoreFailure() above
+        // already recognizes this exact signature, but only to show the user a dead-end
+        // "your ipatool is outdated" message — nothing previously retried it. Apple accepts
+        // the very same redownload once it is pinned to a specific external version id, so
+        // resolving one via ListVersionsAsync and retrying once, pinned, turns that dead end
+        // into a working download.
+        var isEmptySongList = output.Contains("empty songlist", StringComparison.OrdinalIgnoreCase)
+            || output.Contains("failuretype 5002", StringComparison.OrdinalIgnoreCase);
+        if (isEmptySongList && externalVersionId is null && autoPurchase && app.AppStoreId > 0)
+        {
+            AppLog.Info($"download: {app.Name} got an empty songList on an unpinned redownload; " +
+                        "resolving the current external version id and retrying pinned to it");
+
+            string? pinnedVersionId = null;
+            try
+            {
+                var versions = await ListVersionsAsync(app.AppStoreId, ct).ConfigureAwait(false);
+                pinnedVersionId = versions.FirstOrDefault();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"download: could not resolve an external version id for {app.Name}: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(pinnedVersionId))
+            {
+                return await DownloadOnceAsync(
+                    app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct,
+                    externalVersionId: pinnedVersionId).ConfigureAwait(false);
+            }
+
+            // ListVersionsAsync is documented above as "ipatool v3+ only" — on the v2/SAP
+            // BETA binaries it comes back empty, so there is nothing to pin to and the
+            // original failure has to stand.
+            AppLog.Warn($"download: no external version id available for {app.Name}; " +
+                        "cannot retry the redownload pinned to a specific build");
+        }
+
         return (DownloadResult.Fail(DescribeStoreFailure(output), error), isTransient);
     }
 
@@ -1173,7 +1222,26 @@ public sealed partial class DownloadService
     /// "invalid UTF-8 byte" (type_error.316) and libzip zip_open fails with ENOENT
     /// on the mangled name.
     /// </summary>
-    private string BuildOutputPath(AppEntry app, string? targetFolder = null)
+    private string BuildOutputPath(AppEntry app, string? targetFolder = null, string? fileNameOverride = null)
+    {
+        // A user-supplied name (the direct-download screen's rename panel) always wins;
+        // TryNormalizeIpaFileName is what guarantees it is ASCII-safe and ".ipa"-suffixed
+        // before it ever reaches here, so it can be trusted as-is.
+        var fileName = string.IsNullOrWhiteSpace(fileNameOverride)
+            ? BuildDefaultFileName(app) + ".ipa"
+            : fileNameOverride!;
+
+        return Path.Combine(
+            string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
+            fileName);
+    }
+
+    /// <summary>
+    /// The auto-generated output name (without extension) for <paramref name="app"/>:
+    /// "Name_AppID_Version". Exposed so the direct-download screen can show and let the
+    /// user edit the same name <see cref="BuildOutputPath"/> would otherwise pick silently.
+    /// </summary>
+    public static string BuildDefaultFileName(AppEntry app)
     {
         var safeName = MakeAsciiSafeName(app.Name);
         if (string.IsNullOrEmpty(safeName))
@@ -1199,9 +1267,24 @@ public sealed partial class DownloadService
             ? app.AppStoreId.ToString(CultureInfo.InvariantCulture)
             : MakeAsciiSafeName(app.BundleId ?? "app");
 
-        return Path.Combine(
-            string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
-            $"{safeName}_{identifier}_{version}.ipa");
+        return $"{safeName}_{identifier}_{version}";
+    }
+
+    /// <summary>
+    /// Validates and cleans a user-typed output file name for the direct-download rename
+    /// panel. Strips a trailing ".ipa" the user may have typed (it is re-added by the
+    /// caller), then runs the same ASCII-safe collapsing <see cref="BuildDefaultFileName"/>
+    /// uses so the result is guaranteed writable by ipatool. Fails only when nothing usable
+    /// remains, which is the one case that cannot be silently repaired.
+    /// </summary>
+    public static bool TryNormalizeIpaFileName(string input, out string normalized)
+    {
+        var trimmed = input.Trim();
+        if (trimmed.EndsWith(".ipa", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed[..^4];
+
+        normalized = MakeAsciiSafeName(trimmed);
+        return !string.IsNullOrEmpty(normalized);
     }
 
     /// <summary>

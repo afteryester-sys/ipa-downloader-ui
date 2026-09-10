@@ -732,6 +732,9 @@
     <sys:String x:Key="L.Direct.AddedToCatalog">"{0}" has been added to the catalog</sys:String>
     <sys:String x:Key="L.Direct.AlreadyInCatalog">This app is already in the catalog</sys:String>
     <sys:String x:Key="L.Direct.AddFailed">Couldn't save the app to the catalog</sys:String>
+    <sys:String x:Key="L.Direct.FileNameHint">Change the .ipa file name it will be saved under</sys:String>
+    <sys:String x:Key="L.Direct.FileNameLabel">File name</sys:String>
+    <sys:String x:Key="L.Direct.FileNameInvalid">Enter a name — it can't be empty.</sys:String>
 
     <!-- ===== iCloud page ===== -->
     <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>

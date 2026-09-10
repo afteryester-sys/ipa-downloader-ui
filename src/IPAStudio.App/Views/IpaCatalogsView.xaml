@@ -68,8 +68,20 @@
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter TargetName="Fill" Property="Background"
                                         Value="{StaticResource Brush.AccentSoft}" />
+                                <!-- HandoffBehavior is explicitly SnapshotAndReplace on both actions below.
+                                     The default is Compose, which lets a still-running clock from whatever
+                                     item this container last held keep holding Ring/Pop's local values
+                                     after a virtualized ListBox recycles the container onto a new row (e.g.
+                                     re-opening this page for a second device install). Compose only
+                                     guarantees the *last-started* animation wins, but a recycle can hand a
+                                     container to a row whose IsSelected trigger doesn't change value (e.g.
+                                     both the old and new row are unselected), so neither action re-fires and
+                                     the previous row's half-finished exit animation is left to decide the
+                                     paint — visually "selected" even though SelectedCount is correctly 0.
+                                     SnapshotAndReplace makes each fresh trigger evaluation forcibly override
+                                     whatever clock the recycled container inherited. -->
                                 <DataTrigger.EnterActions>
-                                    <BeginStoryboard>
+                                    <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                                         <Storyboard>
                                             <ThicknessAnimation Storyboard.TargetName="Ring"
                                                 Storyboard.TargetProperty="BorderThickness"
@@ -97,7 +109,7 @@
                                     </BeginStoryboard>
                                 </DataTrigger.EnterActions>
                                 <DataTrigger.ExitActions>
-                                    <BeginStoryboard>
+                                    <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                                         <Storyboard>
                                             <ThicknessAnimation Storyboard.TargetName="Ring"
                                                 Storyboard.TargetProperty="BorderThickness"
@@ -143,9 +155,14 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <!-- Same reasoning as the Selectable style's Ring/Fill trigger above: this badge
+                     is reused by a virtualized ListBox exactly like the row/tile it sits on, so
+                     it needs SnapshotAndReplace on both actions or a recycled badge can keep
+                     showing the previous row's checkmark after the page is reopened for the next
+                     device install. -->
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
                     <DataTrigger.EnterActions>
-                        <BeginStoryboard>
+                        <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                  To="1" Duration="0:0:0.14" />
@@ -165,7 +182,7 @@
                         </BeginStoryboard>
                     </DataTrigger.EnterActions>
                     <DataTrigger.ExitActions>
-                        <BeginStoryboard>
+                        <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                  To="0" Duration="0:0:0.1" />
