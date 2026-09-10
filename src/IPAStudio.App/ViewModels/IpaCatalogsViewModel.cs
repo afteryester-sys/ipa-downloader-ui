@@ -144,7 +144,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     private readonly SettingsService _settings;
 
     private INavigator? _navigator;
-    private string? _transientDeviceUdid;
 
     public IpaCatalogsViewModel(
         IpaCatalogService catalogs,
@@ -340,10 +339,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     public bool HasSelection => SelectedCount > 0;
 
     public string InstallSelectedLabel => Loc.Format("L.Catalogs.InstallSelected", SelectedCount);
-    public string SelectionSummary => Loc.Format("L.Catalogs.SelectedCount", SelectedCount);
-    public string EmptyMessage => string.IsNullOrWhiteSpace(SearchText)
-        ? Loc.Get("L.Catalogs.EmptyFolder")
-        : Loc.Get("L.Catalogs.NoMatches");
 
     /// <summary>
     /// The device this page was opened for. Preselected in the target list so arriving from a
@@ -357,34 +352,8 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     {
         _navigator = navigator;
 
-        ResetTransientState();
         LoadCatalogs();
         LoadDevices();
-        _transientDeviceUdid = SelectedDevice?.Udid;
-    }
-
-    /// <summary>
-    /// Clears only page-session state. Saved catalogs and real background operations are left
-    /// intact, but a fresh visit or another phone never inherits a filter, ticks or old status.
-    /// </summary>
-    private void ResetTransientState()
-    {
-        foreach (var row in _allItems.Where(i => i.IsSelected))
-            row.IsSelected = false;
-
-        SearchText = "";
-        StatusText = null;
-        IsRenaming = false;
-        RenameText = "";
-        ApplySelectionSetting();
-
-        OnPropertyChanged(nameof(SelectedCount));
-        OnPropertyChanged(nameof(HasSelection));
-        OnPropertyChanged(nameof(InstallSelectedLabel));
-        OnPropertyChanged(nameof(SelectionSummary));
-        OnPropertyChanged(nameof(EmptyMessage));
-        InstallSelectedCommand.NotifyCanExecuteChanged();
-        ClearSelectionCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -410,11 +379,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
 
     partial void OnSelectedDeviceChanged(Device? value)
     {
-        var nextUdid = value?.Udid;
-        if (!string.Equals(_transientDeviceUdid, nextUdid, StringComparison.OrdinalIgnoreCase))
-            ResetTransientState();
-
-        _transientDeviceUdid = nextUdid;
         InstallSelectedCommand.NotifyCanExecuteChanged();
         PickFilesCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(HasDevice));
@@ -450,13 +414,10 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
             _shownLabels[device.Udid] = device.DisplayLabel;
         }
 
-        // The device the page was opened for wins once, then whatever was chosen last, then
-        // the first one connected. Consuming _arrivedFor prevents later device refreshes from
-        // undoing a manual target change.
-        var arrivedUdid = _arrivedFor?.Udid;
-        _arrivedFor = null;
+        // The device the page was opened for wins, then whatever was chosen last, then the
+        // first one connected.
         SelectedDevice =
-            Devices.FirstOrDefault(d => d.Udid == arrivedUdid)
+            Devices.FirstOrDefault(d => d.Udid == _arrivedFor?.Udid)
             ?? Devices.FirstOrDefault(d => d.Udid == previous)
             ?? Devices.FirstOrDefault();
     }
@@ -471,11 +432,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         StatusText = value is null ? null : ScannedLine(value.Catalog);
     }
 
-    partial void OnSearchTextChanged(string value)
-    {
-        ApplyFilter();
-        OnPropertyChanged(nameof(EmptyMessage));
-    }
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
 
     private void ShowItems(IpaCatalog? catalog)
     {
@@ -505,7 +462,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(InstallSelectedLabel));
-        OnPropertyChanged(nameof(SelectionSummary));
         InstallSelectedCommand.NotifyCanExecuteChanged();
         ClearSelectionCommand.NotifyCanExecuteChanged();
     }
@@ -756,7 +712,6 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
             device,
             q => q.BuildFromIpaFiles(paths, device));
 
-        ResetTransientState();
         _navigator?.GoToOperation(operation);
     }
 

@@ -135,7 +135,6 @@
     <sys:String x:Key="L.Catalogs.Scanning">Scanning…</sys:String>
     <sys:String x:Key="L.Catalogs.NoCatalogs">No libraries yet. Add a folder of .ipa files — their names and icons are read from the archives.</sys:String>
     <sys:String x:Key="L.Catalogs.EmptyFolder">No .ipa files in this folder</sys:String>
-    <sys:String x:Key="L.Catalogs.NoMatches">No IPA files match this search. Clear it to see the full library.</sys:String>
     <sys:String x:Key="L.Catalogs.Unreadable">File cannot be read — damaged, or not an .ipa</sys:String>
     <sys:String x:Key="L.Catalogs.FolderMissing">Folder unavailable — it may have been moved, or it is on a removable drive</sys:String>
     <sys:String x:Key="L.Catalogs.NeverScanned">Not scanned yet</sys:String>
@@ -144,8 +143,6 @@
     <sys:String x:Key="L.Catalogs.SelectAll">Select all</sys:String>
     <sys:String x:Key="L.Catalogs.ClearSelection">Clear selection</sys:String>
     <sys:String x:Key="L.Catalogs.InstallTo">Install to:</sys:String>
-    <sys:String x:Key="L.Catalogs.SelectedCount">IPA files selected: {0}</sys:String>
-    <sys:String x:Key="L.Catalogs.SelectionHint">Selection and search reset when you reopen this page or switch devices.</sys:String>
     <sys:String x:Key="L.Catalogs.InstallSelected">Install selected ({0})</sys:String>
 
     <!-- Queue -->
@@ -330,10 +327,6 @@
     <sys:String x:Key="L.Direct.Find">Find</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">This app is not in the public App Store catalog, so its name and size cannot be shown. It was most likely withdrawn from sale. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">This app is not in the public App Store catalog — it was most likely withdrawn from sale. Its name and icon come from local data, so the size cannot be shown. The download is still worth trying: the store will hand the app over if your Apple ID owns it.</sys:String>
-    <sys:String x:Key="L.Direct.FileNameLabel">IPA file name</sys:String>
-    <sys:String x:Key="L.Direct.FileNameHint">You can rename the file before downloading. The .ipa extension is added automatically; invalid characters are replaced.</sys:String>
-    <sys:String x:Key="L.Direct.FileNamePreview">Will be saved as</sys:String>
-    <sys:String x:Key="L.Direct.FileNameInvalid">Enter a file name without a path or a reserved Windows device name.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Destination folder</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">The IPA is saved into this folder. Your choice is remembered for next time.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Browse…</sys:String>
@@ -500,8 +493,6 @@
     <sys:String x:Key="L.Error.IpatoolOutdated">Apple did not allow this Apple ID to redownload the app, even through the fallback endpoint. Sign in to the Apple ID again and retry, or use the “Via iTunes 12.6.5.3” route.</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">The connection stalled; retrying…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Couldn't use the folder “{0}”: {1}</sys:String>
-    <sys:String x:Key="L.Error.InvalidFileName">The IPA file name is not valid.</sys:String>
-    <sys:String x:Key="L.Error.FilePublishFailed">The IPA downloaded, but its selected name could not be applied. Check folder access.</sys:String>
     <sys:String x:Key="L.Error.FileExists">Skipped: the file “{0}” already exists.</sys:String>
     <sys:String x:Key="L.Error.IpaNotFound">IPA file not found: {0}</sys:String>
     <sys:String x:Key="L.Error.ToolFailure">The helper utility could not be started. Reinstall the utilities from Settings.</sys:String>
@@ -906,15 +897,6 @@
     <sys:String x:Key="L.Firmware.Release">Firmware release</sys:String>
     <sys:String x:Key="L.Firmware.SignedOnly">Signed only</sys:String>
     <sys:String x:Key="L.Firmware.AutoUpdate">Toggle automatic updates for the selected device</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateTitle">Automatic updates for the selected device</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateHint">Enabling this checks immediately, then downloads new signed IPSW releases on schedule.</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateToggle">Automatic updates</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateEnabled">Enabled</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateDisabled">Disabled</sys:String>
-    <sys:String x:Key="L.Firmware.CheckNow">Check now</sys:String>
-    <sys:String x:Key="L.Firmware.CheckingNow">Checking for a new signed firmware…</sys:String>
-    <sys:String x:Key="L.Firmware.NextCheck">Next check</sys:String>
-    <sys:String x:Key="L.Firmware.LatestFound">Latest version found</sys:String>
     <sys:String x:Key="L.Firmware.Folder">Firmware folder</sys:String>
     <sys:String x:Key="L.Firmware.Threads">Download threads</sys:String>
     <sys:String x:Key="L.Firmware.Interval">Check for updates every, hours</sys:String>
@@ -927,20 +909,8 @@
     <sys:String x:Key="L.Firmware.Reconnecting">Connection lost. Retrying in {0} sec…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Firmware download</sys:String>
     <sys:String x:Key="L.Firmware.Done">Firmware downloaded and verified.</sys:String>
-    <sys:String x:Key="L.Firmware.Pausing">Finishing the current disk write…</sys:String>
     <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Firmware download failed.</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateFailed">Automatic firmware update failed. Check the connection and try again; diagnostic details were written to the log.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.NoSize">Apple did not report the firmware size.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.RangeUnsupported">Apple CDN did not honor the requested download range.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.IncompleteSegment">The connection closed before a firmware segment finished.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.RemoteChanged">The firmware changed on Apple CDN. Saved segments were reset safely.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.InvalidSegment">A saved firmware segment is missing or has an invalid size.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.ServerUnavailable">The firmware server is still unavailable after reconnect attempts.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.ContentRange">Apple CDN returned an incompatible Content-Range.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.Sha1Mismatch">Firmware SHA-1 verification failed. Corrupt segments were reset.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.Md5Mismatch">Firmware MD5 verification failed. Corrupt segments were reset.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.SizeMismatch">The downloaded firmware size does not match Apple metadata.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Devices loaded: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Search for models and highlight the ones you need: Ctrl-click or Shift-click to pick several.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Shown: {0} · selected: {1}</sys:String>
@@ -950,9 +920,6 @@
     <sys:String x:Key="L.Firmware.Overall">Overall progress</sys:String>
     <sys:String x:Key="L.Firmware.ActiveLabel">Active</sys:String>
     <sys:String x:Key="L.Firmware.DoneLabel">Done</sys:String>
-    <sys:String x:Key="L.Firmware.ErrorsLabel">Errors</sys:String>
-    <sys:String x:Key="L.Firmware.OverallEtaHours">ETA {0} h {1} min</sys:String>
-    <sys:String x:Key="L.Firmware.OverallEtaMinutes">ETA {0} min</sys:String>
     <sys:String x:Key="L.Firmware.Resume">Resume</sys:String>
     <sys:String x:Key="L.Firmware.PauseAll">Pause all</sys:String>
     <sys:String x:Key="L.Firmware.ResumeAll">Resume all</sys:String>
@@ -961,7 +928,7 @@
     <sys:String x:Key="L.Firmware.LastCheck">Last check</sys:String>
     <sys:String x:Key="L.Firmware.LastDownload">Last download</sys:String>
     <sys:String x:Key="L.Firmware.ResumePromptTitle">Resume download?</sys:String>
-    <sys:String x:Key="L.Firmware.ResumePrompt">Unfinished firmware downloads were found ({0}). Resume them now? If you decline, the partial files stay on disk for later.</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePrompt">Unfinished firmware downloads were found ({0}). Resume them now? If you decline, the temporary files will be deleted.</sys:String>
     <sys:String x:Key="L.Firmware.Never">never</sys:String>
     <sys:String x:Key="L.Firmware.Job.Queued">Queued…</sys:String>
     <sys:String x:Key="L.Firmware.Job.Running">Downloading…</sys:String>

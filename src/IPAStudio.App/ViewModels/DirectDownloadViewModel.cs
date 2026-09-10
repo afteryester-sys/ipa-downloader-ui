@@ -89,25 +89,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string _destinationFolder = "";
 
-    [ObservableProperty]
-    private string _fileName = "";
-
-    [ObservableProperty]
-    private string? _fileNameError;
-
-    public string? FileNamePreview =>
-        DownloadService.TryNormalizeIpaFileName(FileName, out var normalized)
-            ? normalized
-            : null;
-
-    partial void OnFileNameChanged(string value)
-    {
-        FileNameError = DownloadService.TryNormalizeIpaFileName(value, out _)
-            ? null
-            : Loc.Get("L.Direct.FileNameInvalid");
-        OnPropertyChanged(nameof(FileNamePreview));
-    }
-
     // ---- Resolved app ----
 
     /// <summary>The app found for <see cref="BundleId"/>, or null before a lookup.</summary>
@@ -163,11 +144,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     public bool CanAddToCatalog =>
         FoundApp is { IsProvisional: false, AppStoreId: > 0 } && !IsInCatalog;
 
-    partial void OnFoundAppChanged(AppEntry? value)
-    {
-        OnPropertyChanged(nameof(CanAddToCatalog));
-        FileName = value is null ? "" : DownloadService.BuildDefaultFileName(value);
-    }
+    partial void OnFoundAppChanged(AppEntry? value) => OnPropertyChanged(nameof(CanAddToCatalog));
 
     // ---- State ----
 
@@ -455,12 +432,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        if (!DownloadService.TryNormalizeIpaFileName(FileName, out var outputFileName))
-        {
-            FileNameError = Str("L.Direct.FileNameInvalid");
-            return;
-        }
-
         _cts = new CancellationTokenSource();
         IsDownloading = true;
         ErrorText = null;
@@ -521,7 +492,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 autoPurchase: true,
                 progress,
                 destinationFolder: DestinationFolder,
-                outputFileName: outputFileName,
                 ct: _cts.Token).ConfigureAwait(true);
 
             if (result.Success && result.IpaPath is not null)
@@ -642,12 +612,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        if (!DownloadService.TryNormalizeIpaFileName(FileName, out var outputFileName))
-        {
-            FileNameError = Str("L.Direct.FileNameInvalid");
-            return;
-        }
-
         var installation = _itunes.Detect();
         if (installation is null)
         {
@@ -714,7 +678,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
             StatusText = Str("L.Itunes.Copying");
             var saved = await _itunes
-                .CopyOutAsync(produced, DestinationFolder, outputFileName, _cts.Token)
+                .CopyOutAsync(produced, DestinationFolder, _cts.Token)
                 .ConfigureAwait(true);
 
             SavedPath = saved;

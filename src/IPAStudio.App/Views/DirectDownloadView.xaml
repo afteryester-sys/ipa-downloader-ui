@@ -147,28 +147,9 @@
                     </Grid>
                 </Border>
 
-                <!-- ===== Step 2: output name and destination ===== -->
+                <!-- ===== Step 2: destination folder ===== -->
                 <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource L.Direct.FileNameLabel}"
-                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                        <TextBlock Text="{DynamicResource L.Direct.FileNameHint}"
-                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                                   Margin="0,2,0,10" />
-                        <TextBox Style="{StaticResource Input.TextBox}"
-                                 Text="{Binding FileName, UpdateSourceTrigger=PropertyChanged}"
-                                 IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBool}}" />
-                        <TextBlock Style="{StaticResource Text.Caption}" Margin="0,6,0,0"
-                                   Visibility="{Binding FileNamePreview, Converter={StaticResource NullToCollapsed}}">
-                            <Run Text="{DynamicResource L.Direct.FileNamePreview}" /><Run Text=": " /><Run Text="{Binding FileNamePreview}" />
-                        </TextBlock>
-                        <TextBlock Text="{Binding FileNameError}" Style="{StaticResource Text.Caption}"
-                                   Foreground="{StaticResource Brush.Danger}" Margin="0,6,0,0"
-                                   TextWrapping="Wrap"
-                                   Visibility="{Binding FileNameError, Converter={StaticResource NullToCollapsed}}" />
-
-                        <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
-
                         <TextBlock Text="{DynamicResource L.Direct.FolderLabel}"
                                    Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
                         <TextBlock Text="{DynamicResource L.Direct.FolderHint}"

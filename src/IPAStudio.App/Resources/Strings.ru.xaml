@@ -135,7 +135,6 @@
     <sys:String x:Key="L.Catalogs.Scanning">Сканирование…</sys:String>
     <sys:String x:Key="L.Catalogs.NoCatalogs">Каталогов пока нет. Добавьте папку с файлами .ipa — приложение прочитает из них названия и иконки.</sys:String>
     <sys:String x:Key="L.Catalogs.EmptyFolder">В этой папке нет файлов .ipa</sys:String>
-    <sys:String x:Key="L.Catalogs.NoMatches">По этому запросу ничего не найдено. Очистите поиск, чтобы увидеть все IPA.</sys:String>
     <sys:String x:Key="L.Catalogs.Unreadable">Файл не читается — повреждён или это не .ipa</sys:String>
     <sys:String x:Key="L.Catalogs.FolderMissing">Папка недоступна — возможно, её переместили или это съёмный диск</sys:String>
     <sys:String x:Key="L.Catalogs.NeverScanned">Ещё не сканировался</sys:String>
@@ -144,8 +143,6 @@
     <sys:String x:Key="L.Catalogs.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.Catalogs.ClearSelection">Снять выбор</sys:String>
     <sys:String x:Key="L.Catalogs.InstallTo">Установить на:</sys:String>
-    <sys:String x:Key="L.Catalogs.SelectedCount">Выбрано IPA: {0}</sys:String>
-    <sys:String x:Key="L.Catalogs.SelectionHint">Выбор и поиск очищаются при новом входе или смене устройства.</sys:String>
     <sys:String x:Key="L.Catalogs.InstallSelected">Установить выбранные ({0})</sys:String>
 
     <!-- Очередь -->
@@ -281,10 +278,6 @@
     <sys:String x:Key="L.Direct.Find">Найти</sys:String>
     <sys:String x:Key="L.Direct.Unlisted">Этого приложения нет в публичном каталоге App Store, поэтому его название и размер показать нельзя. Скорее всего, оно снято с продажи. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
     <sys:String x:Key="L.Direct.UnlistedKnown">Этого приложения нет в публичном каталоге App Store — скорее всего, оно снято с продажи. Название и значок взяты из локальных данных, поэтому размер показать нельзя. Загрузку стоит попробовать: магазин отдаст приложение, если оно куплено вашим Apple ID.</sys:String>
-    <sys:String x:Key="L.Direct.FileNameLabel">Имя файла IPA</sys:String>
-    <sys:String x:Key="L.Direct.FileNameHint">Можно изменить имя до загрузки. Расширение .ipa добавится автоматически; недопустимые символы будут заменены.</sys:String>
-    <sys:String x:Key="L.Direct.FileNamePreview">Будет сохранено как</sys:String>
-    <sys:String x:Key="L.Direct.FileNameInvalid">Введите имя файла без пути и зарезервированных имён Windows.</sys:String>
     <sys:String x:Key="L.Direct.FolderLabel">Папка для сохранения</sys:String>
     <sys:String x:Key="L.Direct.FolderHint">IPA будет сохранён в эту папку. Выбор запоминается для следующих загрузок.</sys:String>
     <sys:String x:Key="L.Direct.Browse">Обзор…</sys:String>
@@ -451,8 +444,6 @@
     <sys:String x:Key="L.Error.IpatoolOutdated">Apple не разрешила повторную загрузку для текущего Apple ID даже через резервный endpoint. Войдите в Apple ID заново и повторите попытку либо используйте маршрут «Через iTunes 12.6.5.3».</sys:String>
     <sys:String x:Key="L.Error.ConnectionStalled">Соединение зависло, повторная попытка…</sys:String>
     <sys:String x:Key="L.Error.FolderUnusable">Не удалось использовть папку «{0}»: {1}</sys:String>
-    <sys:String x:Key="L.Error.InvalidFileName">Недопустимое имя файла IPA.</sys:String>
-    <sys:String x:Key="L.Error.FilePublishFailed">IPA загружен, но не удалось присвоить ему выбранное имя. Проверьте доступ к папке.</sys:String>
     <sys:String x:Key="L.Error.FileExists">Пропущено: файл «{0}» уже существует.</sys:String>
     <sys:String x:Key="L.Error.IpaNotFound">Файл IPA не найден: {0}</sys:String>
     <sys:String x:Key="L.Error.ToolFailure">Не удалось запустить служебную утилиту. Переустановите утилиты в настройках.</sys:String>
@@ -904,15 +895,6 @@
     <sys:String x:Key="L.Firmware.Release">Версия прошивки</sys:String>
     <sys:String x:Key="L.Firmware.SignedOnly">Только подписываемые</sys:String>
     <sys:String x:Key="L.Firmware.AutoUpdate">Включить или выключить автообновление выбранного устройства</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateTitle">Автообновление выбранного устройства</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateHint">При включении сразу выполняется проверка, затем новые подписываемые IPSW скачиваются по расписанию.</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateToggle">Автообновление</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateEnabled">Включено</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateDisabled">Выключено</sys:String>
-    <sys:String x:Key="L.Firmware.CheckNow">Проверить сейчас</sys:String>
-    <sys:String x:Key="L.Firmware.CheckingNow">Проверяем новые подписываемые прошивки…</sys:String>
-    <sys:String x:Key="L.Firmware.NextCheck">Следующая проверка</sys:String>
-    <sys:String x:Key="L.Firmware.LatestFound">Последняя найденная версия</sys:String>
     <sys:String x:Key="L.Firmware.Folder">Папка для прошивок</sys:String>
     <sys:String x:Key="L.Firmware.Threads">Потоков загрузки</sys:String>
     <sys:String x:Key="L.Firmware.Interval">Проверять обновления каждые, ч</sys:String>
@@ -925,20 +907,8 @@
     <sys:String x:Key="L.Firmware.Reconnecting">Соединение потеряно. Повтор через {0} сек…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
     <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
-    <sys:String x:Key="L.Firmware.Pausing">Завершаем текущую запись на диск…</sys:String>
     <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
-    <sys:String x:Key="L.Firmware.AutoUpdateFailed">Не удалось автоматически обновить прошивку. Проверьте соединение и повторите попытку; подробности записаны в журнал.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.NoSize">Apple не сообщила размер прошивки.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.RangeUnsupported">Apple CDN не поддержал запрошенный диапазон загрузки.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.IncompleteSegment">Соединение закрылось до завершения сегмента прошивки.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.RemoteChanged">Прошивка на Apple CDN изменилась. Сохранённые сегменты безопасно сброшены.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.InvalidSegment">Сохранённый сегмент прошивки отсутствует или имеет неверный размер.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.ServerUnavailable">Сервер прошивок не отвечает после повторных подключений.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.ContentRange">Apple CDN вернул несовместимый Content-Range.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.Sha1Mismatch">Проверка SHA-1 не пройдена. Повреждённые сегменты сброшены.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.Md5Mismatch">Проверка MD5 не пройдена. Повреждённые сегменты сброшены.</sys:String>
-    <sys:String x:Key="L.Firmware.Error.SizeMismatch">Размер загруженной прошивки не совпадает с данными Apple.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Показано: {0} · выбрано: {1}</sys:String>
@@ -948,9 +918,6 @@
     <sys:String x:Key="L.Firmware.Overall">Общий прогресс</sys:String>
     <sys:String x:Key="L.Firmware.ActiveLabel">Активных</sys:String>
     <sys:String x:Key="L.Firmware.DoneLabel">Готово</sys:String>
-    <sys:String x:Key="L.Firmware.ErrorsLabel">Ошибок</sys:String>
-    <sys:String x:Key="L.Firmware.OverallEtaHours">Осталось {0} ч {1} мин</sys:String>
-    <sys:String x:Key="L.Firmware.OverallEtaMinutes">Осталось {0} мин</sys:String>
     <sys:String x:Key="L.Firmware.Resume">Продолжить</sys:String>
     <sys:String x:Key="L.Firmware.PauseAll">Пауза для всех</sys:String>
     <sys:String x:Key="L.Firmware.ResumeAll">Продолжить все</sys:String>
@@ -959,7 +926,7 @@
     <sys:String x:Key="L.Firmware.LastCheck">Последняя проверка</sys:String>
     <sys:String x:Key="L.Firmware.LastDownload">Последняя загрузка</sys:String>
     <sys:String x:Key="L.Firmware.ResumePromptTitle">Продолжить загрузку?</sys:String>
-    <sys:String x:Key="L.Firmware.ResumePrompt">Найдены незавершённые загрузки прошивок ({0}). Продолжить их сейчас? Если отказаться, частичные файлы останутся на диске для продолжения позже.</sys:String>
+    <sys:String x:Key="L.Firmware.ResumePrompt">Найдены незавершённые загрузки прошивок ({0}). Продолжить их сейчас? Если отказаться, временные файлы будут удалены.</sys:String>
     <sys:String x:Key="L.Firmware.Never">не выполнялась</sys:String>
     <sys:String x:Key="L.Firmware.Job.Queued">В очереди…</sys:String>
     <sys:String x:Key="L.Firmware.Job.Running">Загрузка…</sys:String>
