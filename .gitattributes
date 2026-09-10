@@ -1,2 +1,0 @@
-# git apply matches pinned tarball sources byte-for-byte; CRLF breaks patch context on Windows runners.
-*.patch text eol=lf

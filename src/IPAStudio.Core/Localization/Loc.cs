@@ -63,18 +63,6 @@ public static class Loc
         ["L.Queue.Status.WaitingDevice"] = "Waiting for the device…",
         ["L.Queue.Status.DownloadOnlyDone"] = "Downloaded (install skipped)",
 
-        // Firmware download validation and recovery
-        ["L.Firmware.Error.NoSize"] = "Apple did not report the firmware size.",
-        ["L.Firmware.Error.RangeUnsupported"] = "Apple CDN did not honor the requested download range.",
-        ["L.Firmware.Error.IncompleteSegment"] = "The connection closed before a firmware segment finished.",
-        ["L.Firmware.Error.RemoteChanged"] = "The firmware changed on Apple CDN. Saved segments were reset safely.",
-        ["L.Firmware.Error.InvalidSegment"] = "A saved firmware segment is missing or has an invalid size.",
-        ["L.Firmware.Error.ServerUnavailable"] = "The firmware server is still unavailable after reconnect attempts.",
-        ["L.Firmware.Error.ContentRange"] = "Apple CDN returned an incompatible Content-Range.",
-        ["L.Firmware.Error.Sha1Mismatch"] = "Firmware SHA-1 verification failed. Corrupt segments were reset.",
-        ["L.Firmware.Error.Md5Mismatch"] = "Firmware MD5 verification failed. Corrupt segments were reset.",
-        ["L.Firmware.Error.SizeMismatch"] = "The downloaded firmware size does not match Apple metadata.",
-
         // Install progress words reported by ideviceinstaller
         ["L.Install.Status.Preparing"] = "Preparing the file",
         ["L.Install.Status.Copying"] = "Copying to the device",

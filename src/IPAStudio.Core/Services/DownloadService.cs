@@ -388,17 +388,10 @@ public sealed partial class DownloadService
         bool autoPurchase = true,
         IProgress<DownloadProgress>? progress = null,
         string? destinationFolder = null,
-        string? outputFileName = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? fileNameOverride = null)
     {
         _tools.EnsureFolders();
-
-        string? normalizedOutputFileName = null;
-        if (!string.IsNullOrWhiteSpace(outputFileName)
-            && !TryNormalizeIpaFileName(outputFileName, out normalizedOutputFileName))
-        {
-            return DownloadResult.Fail(Loc.Get("L.Error.InvalidFileName"), outputFileName);
-        }
 
         var targetFolder = string.IsNullOrWhiteSpace(destinationFolder)
             ? _tools.AppsFolder
@@ -416,7 +409,7 @@ public sealed partial class DownloadService
                 Loc.Format("L.Error.FolderUnusable", targetFolder, ex.Message), ex.ToString());
         }
 
-        var outputPath = BuildOutputPath(app, targetFolder, normalizedOutputFileName);
+        var outputPath = BuildOutputPath(app, targetFolder, fileNameOverride);
 
         // ---- Existing file? Ask before touching it. --------------------------------
         // Historically the download simply deleted whatever sat at this path (see
@@ -485,14 +478,6 @@ public sealed partial class DownloadService
         var stagingDir = Path.Combine(targetFolder, ".staging");
         try { Directory.CreateDirectory(stagingDir); } catch { /* fall back to system temp */ }
 
-        // Native ipatool builds are not reliable with a Unicode output path. A custom name is
-        // therefore applied only after a complete archive exists: the tool writes to its normal
-        // ASCII name on the destination volume, then a same-volume atomic rename publishes the
-        // user-facing name. This also keeps partial/native temp files away from that final name.
-        var toolOutputPath = normalizedOutputFileName is null
-            ? outputPath
-            : BuildOutputPath(app, stagingDir);
-
         // Kick off the catalog size lookup once, shared across attempts. The progress
         // bar itself reports the authoritative total, so this is only a seed used
         // during the first seconds (and never blocks the start).
@@ -559,10 +544,10 @@ public sealed partial class DownloadService
             ct.ThrowIfCancellationRequested();
 
             var (result, transient) = await DownloadOnceAsync(
-                app, toolOutputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct).ConfigureAwait(false);
+                app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct).ConfigureAwait(false);
 
-            // The publish/replace happens only now, with a complete file in hand.
-            if (result.Success) return PublishResult(result, outputPath, replaceTarget);
+            // The swap happens only now, with a complete file in hand.
+            if (result.Success) return FinishReplace(result, replaceTarget);
 
             lastError = result.Error;
 
@@ -587,10 +572,10 @@ public sealed partial class DownloadService
                 };
 
                 var (retry, _) = await DownloadOnceAsync(
-                    byBundle, toolOutputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct)
+                    byBundle, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct)
                     .ConfigureAwait(false);
 
-                if (retry.Success) return PublishResult(retry, outputPath, replaceTarget);
+                if (retry.Success) return FinishReplace(retry, replaceTarget);
 
                 // Keep the numeric-id error: that request named the exact app, so its
                 // verdict says why the download failed. The bundle-id attempt can only ever
@@ -666,7 +651,8 @@ public sealed partial class DownloadService
         long[] sizeHint,
         IProgress<DownloadProgress>? progress,
         int attempt,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? externalVersionId = null)
     {
         // A leftover file from a previous attempt would be read by the poller as
         // instant 100% at an absurd speed, so clear it (and any partials) first.
@@ -698,6 +684,12 @@ public sealed partial class DownloadService
             "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
         });
         if (autoPurchase) args.Add("--purchase");
+
+        // Pins this attempt to a specific build, set only by the empty-songList self-heal
+        // below. Never passed on the first attempt: pinning the very first request would
+        // stop this from ever picking up an app update.
+        if (!string.IsNullOrWhiteSpace(externalVersionId))
+            args.AddRange(new[] { "--external-version-id", externalVersionId });
 
         // NOTE: "--format json" is deliberately NOT passed here.
         // In JSON mode ipatool suppresses the progress bar entirely and prints a single
@@ -1091,6 +1083,47 @@ public sealed partial class DownloadService
         var isTransient = TransientRegex().IsMatch(output);
         if (isTransient) TryDeleteStaleFiles(outputPath);
 
+        // Apple sometimes refuses an *unpinned* redownload of an app the account already
+        // owns with an empty "songList" (ipatool surfaces this as "unexpected response:
+        // empty songList", also seen as FailureType 5002). DescribeStoreFailure() above
+        // already recognizes this exact signature, but only to show the user a dead-end
+        // "your ipatool is outdated" message — nothing previously retried it. Apple accepts
+        // the very same redownload once it is pinned to a specific external version id, so
+        // resolving one via ListVersionsAsync and retrying once, pinned, turns that dead end
+        // into a working download.
+        var isEmptySongList = output.Contains("empty songlist", StringComparison.OrdinalIgnoreCase)
+            || output.Contains("failuretype 5002", StringComparison.OrdinalIgnoreCase);
+        if (isEmptySongList && externalVersionId is null && autoPurchase && app.AppStoreId > 0)
+        {
+            AppLog.Info($"download: {app.Name} got an empty songList on an unpinned redownload; " +
+                        "resolving the current external version id and retrying pinned to it");
+
+            string? pinnedVersionId = null;
+            try
+            {
+                var versions = await ListVersionsAsync(app.AppStoreId, ct).ConfigureAwait(false);
+                pinnedVersionId = versions.FirstOrDefault();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"download: could not resolve an external version id for {app.Name}: {ex.Message}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(pinnedVersionId))
+            {
+                return await DownloadOnceAsync(
+                    app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct,
+                    externalVersionId: pinnedVersionId).ConfigureAwait(false);
+            }
+
+            // ListVersionsAsync is documented above as "ipatool v3+ only" — on the v2/SAP
+            // BETA binaries it comes back empty, so there is nothing to pin to and the
+            // original failure has to stand.
+            AppLog.Warn($"download: no external version id available for {app.Name}; " +
+                        "cannot retry the redownload pinned to a specific build");
+        }
+
         return (DownloadResult.Fail(DescribeStoreFailure(output), error), isTransient);
     }
 
@@ -1189,14 +1222,25 @@ public sealed partial class DownloadService
     /// "invalid UTF-8 byte" (type_error.316) and libzip zip_open fails with ENOENT
     /// on the mangled name.
     /// </summary>
-    private string BuildOutputPath(
-        AppEntry app,
-        string? targetFolder = null,
-        string? normalizedOutputFileName = null) =>
-        Path.Combine(
-            string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
-            normalizedOutputFileName ?? BuildDefaultFileName(app));
+    private string BuildOutputPath(AppEntry app, string? targetFolder = null, string? fileNameOverride = null)
+    {
+        // A user-supplied name (the direct-download screen's rename panel) always wins;
+        // TryNormalizeIpaFileName is what guarantees it is ASCII-safe and ".ipa"-suffixed
+        // before it ever reaches here, so it can be trusted as-is.
+        var fileName = string.IsNullOrWhiteSpace(fileNameOverride)
+            ? BuildDefaultFileName(app) + ".ipa"
+            : fileNameOverride!;
 
+        return Path.Combine(
+            string.IsNullOrWhiteSpace(targetFolder) ? _tools.AppsFolder : targetFolder!,
+            fileName);
+    }
+
+    /// <summary>
+    /// The auto-generated output name (without extension) for <paramref name="app"/>:
+    /// "Name_AppID_Version". Exposed so the direct-download screen can show and let the
+    /// user edit the same name <see cref="BuildOutputPath"/> would otherwise pick silently.
+    /// </summary>
     public static string BuildDefaultFileName(AppEntry app)
     {
         var safeName = MakeAsciiSafeName(app.Name);
@@ -1205,65 +1249,42 @@ public sealed partial class DownloadService
         if (string.IsNullOrEmpty(safeName))
             safeName = "app";
 
+        // No known version -> stamp the download date instead of a constant.
+        //
+        // The old fallback was the literal "latest", which is the same string forever.
+        // Apps with no App Store catalog entry (delisted ones, where the version can
+        // never be looked up) therefore always produced one identical filename, so
+        // every re-download collided with the previous one even when it was genuinely
+        // a different build. A date keeps those builds apart.
         var version = MakeAsciiSafeName(app.LatestVersion ?? "");
         if (string.IsNullOrEmpty(version))
             version = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
+        // Apps resolved by bundle identifier have no store id, and a literal "0" in the
+        // name would make every one of them look like the same app. The bundle id is the
+        // only identifier they do have, so it stands in.
         var identifier = app.AppStoreId > 0
             ? app.AppStoreId.ToString(CultureInfo.InvariantCulture)
             : MakeAsciiSafeName(app.BundleId ?? "app");
 
-        return $"{safeName}_{identifier}_{version}.ipa";
+        return $"{safeName}_{identifier}_{version}";
     }
 
     /// <summary>
-    /// Validates a user-facing IPA file name without ever accepting a path. Illegal Windows
-    /// characters become underscores; traversal, reserved device names and an empty stem are
-    /// rejected. The returned value always has exactly one .ipa extension.
+    /// Validates and cleans a user-typed output file name for the direct-download rename
+    /// panel. Strips a trailing ".ipa" the user may have typed (it is re-added by the
+    /// caller), then runs the same ASCII-safe collapsing <see cref="BuildDefaultFileName"/>
+    /// uses so the result is guaranteed writable by ipatool. Fails only when nothing usable
+    /// remains, which is the one case that cannot be silently repaired.
     /// </summary>
-    public static bool TryNormalizeIpaFileName(string? value, out string normalized)
+    public static bool TryNormalizeIpaFileName(string input, out string normalized)
     {
-        normalized = "";
-        if (string.IsNullOrWhiteSpace(value)) return false;
+        var trimmed = input.Trim();
+        if (trimmed.EndsWith(".ipa", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed[..^4];
 
-        var candidate = value.Trim().TrimEnd(' ', '.');
-        if (Path.IsPathRooted(candidate)
-            || candidate.Contains('/')
-            || candidate.Contains('\\')
-            || candidate is "." or "..")
-            return false;
-
-        while (candidate.EndsWith(".ipa", StringComparison.OrdinalIgnoreCase))
-            candidate = candidate[..^4].TrimEnd(' ', '.');
-
-        var invalid = "<>:\"/\\|?*";
-        var cleaned = new System.Text.StringBuilder(candidate.Length);
-        foreach (var ch in candidate)
-            cleaned.Append(ch < 32 || invalid.Contains(ch) ? '_' : ch);
-
-        var stem = cleaned.ToString().Trim(' ', '.');
-        if (stem.Length == 0 || IsReservedWindowsName(stem)) return false;
-        if (stem.Length > 220) stem = stem[..220].TrimEnd(' ', '.');
-        if (stem.Length == 0) return false;
-
-        normalized = stem + ".ipa";
-        return true;
-    }
-
-    private static bool IsReservedWindowsName(string stem)
-    {
-        var device = stem.Split('.')[0];
-        if (device.Equals("CON", StringComparison.OrdinalIgnoreCase)
-            || device.Equals("PRN", StringComparison.OrdinalIgnoreCase)
-            || device.Equals("AUX", StringComparison.OrdinalIgnoreCase)
-            || device.Equals("NUL", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (device.Length != 4) return false;
-        var prefix = device[..3];
-        return (prefix.Equals("COM", StringComparison.OrdinalIgnoreCase)
-                || prefix.Equals("LPT", StringComparison.OrdinalIgnoreCase))
-               && device[3] is >= '1' and <= '9';
+        normalized = MakeAsciiSafeName(trimmed);
+        return !string.IsNullOrEmpty(normalized);
     }
 
     /// <summary>
@@ -1332,40 +1353,14 @@ public sealed partial class DownloadService
     /// download is kept under its temporary name and reported as the result — the user
     /// still has a working file rather than an error.
     /// </summary>
-    private static DownloadResult PublishResult(
-        DownloadResult result,
-        string requestedPath,
-        string? replaceTarget)
-    {
-        if (!result.Success || result.IpaPath is null) return result;
-
-        try
-        {
-            if (!string.Equals(
-                    Path.GetFullPath(result.IpaPath),
-                    Path.GetFullPath(requestedPath),
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                File.Move(result.IpaPath, requestedPath);
-                result = DownloadResult.Ok(requestedPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLog.Warn($"Could not publish IPA as '{Path.GetFileName(requestedPath)}': {ex.Message}");
-            return DownloadResult.Fail(Loc.Get("L.Error.FilePublishFailed"), ex.ToString());
-        }
-
-        return FinishReplace(result, replaceTarget);
-    }
-
     private static DownloadResult FinishReplace(DownloadResult result, string? replaceTarget)
     {
         if (replaceTarget is null || result.IpaPath is null) return result;
 
         try
         {
-            File.Move(result.IpaPath, replaceTarget, overwrite: true);
+            File.Delete(replaceTarget);
+            File.Move(result.IpaPath, replaceTarget);
             return DownloadResult.Ok(replaceTarget);
         }
         catch (Exception ex)

@@ -89,25 +89,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string _destinationFolder = "";
 
-    [ObservableProperty]
-    private string _fileName = "";
-
-    [ObservableProperty]
-    private string? _fileNameError;
-
-    public string? FileNamePreview =>
-        DownloadService.TryNormalizeIpaFileName(FileName, out var normalized)
-            ? normalized
-            : null;
-
-    partial void OnFileNameChanged(string value)
-    {
-        FileNameError = DownloadService.TryNormalizeIpaFileName(value, out _)
-            ? null
-            : Loc.Get("L.Direct.FileNameInvalid");
-        OnPropertyChanged(nameof(FileNamePreview));
-    }
-
     // ---- Resolved app ----
 
     /// <summary>The app found for <see cref="BundleId"/>, or null before a lookup.</summary>
@@ -167,6 +148,70 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     {
         OnPropertyChanged(nameof(CanAddToCatalog));
         FileName = value is null ? "" : DownloadService.BuildDefaultFileName(value);
+
+        // A rename left open from a previous lookup would otherwise edit the *new*
+        // app's file name while still looking like it belongs to the old one.
+        IsRenaming = false;
+        RenameText = "";
+        FileNameError = null;
+    }
+
+    /// <summary>
+    /// Output file name (no extension) the app will be saved under. Defaults to
+    /// <see cref="DownloadService.BuildDefaultFileName"/> and is only ever changed
+    /// through the rename panel below.
+    /// </summary>
+    [ObservableProperty]
+    private string _fileName = "";
+
+    /// <summary>True while the inline "rename" panel under the found app is open.</summary>
+    [ObservableProperty]
+    private bool _isRenaming;
+
+    /// <summary>
+    /// Text being edited in the rename panel; only written back to <see cref="FileName"/>
+    /// once it is confirmed.
+    /// </summary>
+    [ObservableProperty]
+    private string _renameText = "";
+
+    [ObservableProperty]
+    private string? _fileNameError;
+
+    /// <summary>Opens the rename panel, pre-filled with the current output name.</summary>
+    [RelayCommand]
+    private void StartRename()
+    {
+        if (FoundApp is null) return;
+
+        RenameText = FileName;
+        FileNameError = null;
+        IsRenaming = true;
+    }
+
+    [RelayCommand]
+    private void CancelRename()
+    {
+        IsRenaming = false;
+        RenameText = "";
+        FileNameError = null;
+    }
+
+    [RelayCommand]
+    private void CommitRename()
+    {
+        if (!DownloadService.TryNormalizeIpaFileName(RenameText, out var normalized))
+        {
+            // Leave the panel open so the error sits right next to the text the
+            // user is still editing, instead of silently closing on bad input.
+            FileNameError = Str("L.Direct.FileNameInvalid");
+            return;
+        }
+
+        FileName = normalized;
+        IsRenaming = false;
+        RenameText = "";
+        FileNameError = null;
     }
 
     // ---- State ----
@@ -455,12 +500,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        if (!DownloadService.TryNormalizeIpaFileName(FileName, out var outputFileName))
-        {
-            FileNameError = Str("L.Direct.FileNameInvalid");
-            return;
-        }
-
         _cts = new CancellationTokenSource();
         IsDownloading = true;
         ErrorText = null;
@@ -521,8 +560,9 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 autoPurchase: true,
                 progress,
                 destinationFolder: DestinationFolder,
-                outputFileName: outputFileName,
-                ct: _cts.Token).ConfigureAwait(true);
+                ct: _cts.Token,
+                fileNameOverride: string.IsNullOrWhiteSpace(FileName) ? null : $"{FileName}.ipa"
+                ).ConfigureAwait(true);
 
             if (result.Success && result.IpaPath is not null)
             {
@@ -642,12 +682,6 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        if (!DownloadService.TryNormalizeIpaFileName(FileName, out var outputFileName))
-        {
-            FileNameError = Str("L.Direct.FileNameInvalid");
-            return;
-        }
-
         var installation = _itunes.Detect();
         if (installation is null)
         {
@@ -714,7 +748,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
             StatusText = Str("L.Itunes.Copying");
             var saved = await _itunes
-                .CopyOutAsync(produced, DestinationFolder, outputFileName, _cts.Token)
+                .CopyOutAsync(produced, DestinationFolder, _cts.Token)
                 .ConfigureAwait(true);
 
             SavedPath = saved;

@@ -279,23 +279,12 @@ public sealed class ItunesLegacyService
     /// without disturbing the original: iTunes still lists it, and deleting it there is the
     /// user's business, not ours. Returns the new path.
     /// </summary>
-    public async Task<string> CopyOutAsync(
-        string ipaPath,
-        string destinationFolder,
-        string? outputFileName = null,
-        CancellationToken ct = default)
+    public async Task<string> CopyOutAsync(string ipaPath, string destinationFolder, CancellationToken ct = default)
     {
         Directory.CreateDirectory(destinationFolder);
 
-        var fileName = Path.GetFileName(ipaPath);
-        if (!string.IsNullOrWhiteSpace(outputFileName))
-        {
-            if (!DownloadService.TryNormalizeIpaFileName(outputFileName, out fileName))
-                throw new ArgumentException("Invalid IPA output file name.", nameof(outputFileName));
-        }
-
-        var target = Path.Combine(destinationFolder, fileName);
-        var stem = Path.GetFileNameWithoutExtension(fileName);
+        var target = Path.Combine(destinationFolder, Path.GetFileName(ipaPath));
+        var stem = Path.GetFileNameWithoutExtension(ipaPath);
         var counter = 2;
 
         // Never overwrite: two versions of the same app are both worth keeping, and the
@@ -303,29 +292,11 @@ public sealed class ItunesLegacyService
         while (File.Exists(target))
             target = Path.Combine(destinationFolder, $"{stem} ({counter++}).ipa");
 
-        var temporary = Path.Combine(destinationFolder, $".ipa-copy-{Guid.NewGuid():N}.tmp");
-        try
-        {
-            await using (var source = new FileStream(
-                             ipaPath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                             1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
-            await using (var sink = new FileStream(
-                             temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
-                             1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                await source.CopyToAsync(sink, ct).ConfigureAwait(false);
-                await sink.FlushAsync(ct).ConfigureAwait(false);
-            }
+        await using var source = new FileStream(ipaPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        await using var sink = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await source.CopyToAsync(sink, ct).ConfigureAwait(false);
 
-            File.Move(temporary, target);
-            AppLog.Info($"iTunes route: copied '{ipaPath}' to '{target}'");
-            return target;
-        }
-        finally
-        {
-            try { if (File.Exists(temporary)) File.Delete(temporary); }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
+        AppLog.Info($"iTunes route: copied '{ipaPath}' to '{target}'");
+        return target;
     }
 }

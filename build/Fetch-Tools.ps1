@@ -39,12 +39,11 @@ $LegacyToolHashes = @{
     "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
     "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
 }
-$IpatoolVersion = "2.5.0-ipa-studio.2"
+$IpatoolVersion = "2.5.0-ipa-studio.1"
 $IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
 $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
 $IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
-$IpatoolPatch = Join-Path $PSScriptRoot "patches\ipatool-empty-redownload-500.patch"
-$IpatoolBinarySha256 = "cf35641b06c251ee8475d14fd3e333fc89cec9acf0c19cd8fa930cc68bf708e9"
+$IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
 $IpatoolRsVersion = "0.1.7"
 $IpatoolRsRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$IpatoolRsVersion/ipatool-rs-x86_64-pc-windows-msvc.zip"
 $IpatoolRsSha256 = "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77"
@@ -78,23 +77,6 @@ $ipatoolDestination = Join-Path $OutDir "windows_amd64_v2\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolDestination) -Force | Out-Null
 Push-Location $ipatoolExtract
 try {
-    if (-not (Test-Path $IpatoolPatch)) { throw "Pinned ipatool patch was not found: $IpatoolPatch" }
-
-    & git apply --check --whitespace=error-all $IpatoolPatch
-    if ($LASTEXITCODE -ne 0) { throw "The pinned Apple redownload patch no longer applies cleanly." }
-    & git apply --whitespace=error-all $IpatoolPatch
-    if ($LASTEXITCODE -ne 0) { throw "Failed to apply the pinned Apple redownload patch." }
-
-    & go generate ./...
-    if ($LASTEXITCODE -ne 0) { throw "Failed to generate ipatool test doubles." }
-
-    # Run only the patch-owned specs: unrelated upstream AppStore tests leak open
-    # temp files and fail during cleanup on Windows even when their assertions pass.
-    & go test ./pkg/http -run '^TestHTTP$' '--ginkgo.focus=preserves an empty HTTP 500 response'
-    if ($LASTEXITCODE -ne 0) { throw "Patched ipatool HTTP regression test failed." }
-    & go test ./pkg/appstore -run '^TestAppStore$' '--ginkgo.focus=unpinned redownload returns an empty HTTP 500'
-    if ($LASTEXITCODE -ne 0) { throw "Patched ipatool AppStore regression tests failed." }
-
     $env:GOOS = "windows"
     $env:GOARCH = "amd64"
     $env:CGO_ENABLED = "0"

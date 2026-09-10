@@ -238,9 +238,6 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// </summary>
     private void Navigate(Page page, bool recordHistory)
     {
-        if (_hasNavigated && CurrentPage == Page.Queue && page != Page.Queue)
-            Resolve<QueueViewModel>().Detach();
-
         // A repeat of the current page is not a step; recording it would mean one Back press
         // that visibly does nothing. The very first navigation has no page to record either.
         if (recordHistory && _hasNavigated && page != CurrentPage)
