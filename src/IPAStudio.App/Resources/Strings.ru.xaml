@@ -624,7 +624,7 @@
     <sys:String x:Key="L.Photos.AppleClient">Apple Devices или iTunes</sys:String>
     <sys:String x:Key="L.Photos.SyncInstructions">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;В {3} выберите iPhone → «Фото» → «Синхронизировать фото из папки», укажите эту папку и нажмите «Применить»/«Синхронизировать». Фото появятся в отдельном синхронизированном альбоме. Если включены «Фото iCloud», Apple может запретить USB-синхронизацию — тогда её нужно отключить на iPhone либо использовать iCloud.</sys:String>
     <sys:String x:Key="L.Photos.SyncClientMissing">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Установите Apple Devices из Microsoft Store или классический iTunes. Затем выберите эту папку в разделе фото устройства и нажмите «Применить»/«Синхронизировать».</sys:String>
-    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Не удалось автоматически открыть {3}. Запустите его вручную, выберите iPhone → «Фото», укажите открытую папку и нажмите «Применить»/«Синхронизироват��».</sys:String>
+    <sys:String x:Key="L.Photos.SyncClientOpenFailed">Подготовлено файлов: {0} из {1}. Папка открыта: {2}&#10;&#10;Не удалось автоматически открыть {3}. Запустите его вручную, выберите iPhone → «Фото», укажите открытую папку и нажмите «Применить»/«Синхронизировать».</sys:String>
     <sys:String x:Key="L.Photos.ImportNothingCopied">Не удалось скопировать ни один файл</sys:String>
     <sys:String x:Key="L.Photos.ImportedNotInLibrary">Скопировано на устройство: {0} из {1}. В приложении «Фото» они не появятся — iOS показывает там только свою медиатеку</sys:String>
     <sys:String x:Key="L.Photos.ImportNeedsRestart">Файлы лежат на устройстве в папке DCIM и доступны программам, которые читают её напрямую. В приложении «Фото» они не появятся: iOS ведёт медиатеку в отдельной закрытой базе и не подхватывает файлы, добавленные извне. Перезагрузка устройства этого не меняет.</sys:String>
@@ -780,7 +780,7 @@
     <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
-    <!-- {0} — сколько приложений уже в п��реносе, {1} — сколько ждут выбора совпадения. -->
+    <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
     <sys:String x:Key="L.OnDevice.PartialTransfer">Перенос начат: приложений в очереди — {0}. Ещё {1} не удалось определить по Bundle ID — выберите совпадение в каталоге у отмеченных приложений, они добавятся к тому же переносу.</sys:String>
     <sys:String x:Key="L.OnDevice.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.OnDevice.ClearSelection">Снять выбор</sys:String>
@@ -909,13 +909,13 @@
     <sys:String x:Key="L.Firmware.Stopped">Загрузка остановлена, временные файлы удалены.</sys:String>
     <sys:String x:Key="L.Firmware.Reconnecting">Соединение потеряно. Повтор через {0} сек…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
-    <sys:String x:Key="L.Firmware.Done">Прошивк�� загружена и проверена.</sys:String>
+    <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
     <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Показано: {0} · выбрано: {1}</sys:String>
-    <sys:String x:Key="L.Firmware.Queue">За��рузки</sys:String>
+    <sys:String x:Key="L.Firmware.Queue">Загрузки</sys:String>
     <sys:String x:Key="L.Firmware.QueueEmpty">Очередь пуста. Выберите устройство и нажмите «Скачать прошивку».</sys:String>
     <sys:String x:Key="L.Firmware.Job">Прошивка</sys:String>
     <sys:String x:Key="L.Firmware.Overall">Общий прогресс</sys:String>
