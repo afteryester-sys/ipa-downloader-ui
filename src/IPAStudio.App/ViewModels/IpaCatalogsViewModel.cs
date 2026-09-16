@@ -217,6 +217,11 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _searchText = "";
 
+    /// <summary>Whether the catalog is narrowed to the archives the user has selected.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowSelectedFilter))]
+    private bool _showSelectedOnly;
+
     /// <summary>Whether the inline rename box is showing.</summary>
     [ObservableProperty]
     private bool _isRenaming;
@@ -337,6 +342,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
 
     public int SelectedCount => _allItems.Count(i => i.IsSelected);
     public bool HasSelection => SelectedCount > 0;
+    public bool CanShowSelectedFilter => HasSelection || ShowSelectedOnly;
 
     public string InstallSelectedLabel => Loc.Format("L.Catalogs.InstallSelected", SelectedCount);
 
@@ -351,6 +357,7 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     public void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;
+        ShowSelectedOnly = false;
 
         LoadCatalogs();
         LoadDevices();
@@ -428,11 +435,14 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     /// </summary>
     partial void OnSelectedCatalogChanged(CatalogEntryViewModel? value)
     {
+        ShowSelectedOnly = false;
         ShowItems(value?.Catalog);
         StatusText = value is null ? null : ScannedLine(value.Catalog);
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnShowSelectedOnlyChanged(bool value) => ApplyFilter();
 
     private void ShowItems(IpaCatalog? catalog)
     {
@@ -461,9 +471,17 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
 
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(CanShowSelectedFilter));
         OnPropertyChanged(nameof(InstallSelectedLabel));
         InstallSelectedCommand.NotifyCanExecuteChanged();
         ClearSelectionCommand.NotifyCanExecuteChanged();
+
+        if (!ShowSelectedOnly) return;
+
+        if (SelectedCount == 0)
+            ShowSelectedOnly = false;
+        else
+            ApplyFilter();
     }
 
     private void ApplyFilter()
@@ -473,6 +491,8 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
         Items.Clear();
         foreach (var row in _allItems)
         {
+            if (ShowSelectedOnly && !row.IsSelected) continue;
+
             // The file name is searched too: an archive is frequently stored under a name that
             // has nothing to do with the app's title, and typing what the folder shows must
             // find it. CurrentCulture for the two human-readable names so Russian matches

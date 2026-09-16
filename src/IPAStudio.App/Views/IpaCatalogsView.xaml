@@ -423,6 +423,9 @@
                                 Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}" />
                         <Button Content="{DynamicResource L.Catalogs.SelectAll}" Style="{StaticResource Button.Ghost}"
                                 Command="{Binding SelectAllCommand}" Margin="0,0,8,0" />
+                        <ToggleButton Style="{StaticResource Toggle.Filter}"
+                                      IsChecked="{Binding ShowSelectedOnly}" Margin="0,0,8,0"
+                                      Visibility="{Binding CanShowSelectedFilter, Converter={StaticResource BoolToVis}}" />
                         <!-- Only offered once something is ticked; it disables itself otherwise
                              rather than sitting there as a button that would do nothing. -->
                         <Button Content="{DynamicResource L.Catalogs.ClearSelection}" Style="{StaticResource Button.Ghost}"
