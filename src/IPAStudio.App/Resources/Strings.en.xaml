@@ -629,6 +629,8 @@
     <sys:String x:Key="L.Photos.Yesterday">Yesterday</sys:String>
     <sys:String x:Key="L.Common.Select">Select</sys:String>
     <sys:String x:Key="L.Common.Select.Hint">Mark items by clicking, without Ctrl</sys:String>
+    <sys:String x:Key="L.Common.SelectedOnly">Selected only</sys:String>
+    <sys:String x:Key="L.Common.ShowAll">Show all</sys:String>
     <sys:String x:Key="L.Photos.ShowDates.Hint">Show dates</sys:String>
     <sys:String x:Key="L.Photos.NoDate">Date unknown</sys:String>
     <sys:String x:Key="L.Photos.TileSize">Tile size</sys:String>

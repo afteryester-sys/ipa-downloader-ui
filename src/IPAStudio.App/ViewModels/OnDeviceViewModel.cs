@@ -298,6 +298,19 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     public Device? TargetDevice { get; private set; }
 
+    /// <summary>
+    /// Udid the rows currently in <see cref="Apps"/> were actually loaded for.
+    ///
+    /// <see cref="SetDevice"/> updates <see cref="TargetDevice"/> (and the header) before
+    /// <see cref="OnNavigatedTo"/> runs, so by the time the in-flight-download guard below
+    /// checks anything, TargetDevice already points wherever navigation is headed - even
+    /// when that is a different device than the one Apps was last loaded for. Comparing
+    /// against this instead of trusting "a batch is running" alone is what tells the two
+    /// cases apart: reopening the same device mid-run keeps the list, landing on a different
+    /// one must not keep showing the previous device's apps, selection and progress rows.
+    /// </summary>
+    private string? _loadedForUdid;
+
     public ObservableCollection<InstalledAppViewModel> Apps { get; } = new();
 
     /// <summary>
@@ -369,6 +382,11 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private string _searchText = "";
+
+    /// <summary>Whether the list is narrowed to the rows the user has selected.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanShowSelectedFilter))]
+    private bool _showSelectedOnly;
 
     // ─────────────────────── list / tile layout ───────────────────────
 
@@ -488,6 +506,9 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     public int SelectedCount => Apps.Count(a => a.IsSelected);
 
     public bool HasSelection => SelectedCount > 0;
+
+    /// <summary>Keep the active filter reachable even if its final row is cleared.</summary>
+    public bool CanShowSelectedFilter => HasSelection || ShowSelectedOnly;
 
     /// <summary>
     /// True when every downloadable row is ticked, so the button can offer to clear the
@@ -715,6 +736,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 
+    partial void OnShowSelectedOnlyChanged(bool value) => ApplyFilter();
+
     public void SetDevice(Device device)
     {
         TargetDevice = device;
@@ -730,8 +753,14 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         // Coming back to a run that is still going must not re-read the device: LoadAsync
         // replaces every row, which would drop the progress bars and the cancel buttons of
-        // downloads that are still writing files, and leave their rows unreachable.
-        if (IsBatchRunning || Apps.Any(a => a.IsDownloading))
+        // downloads that are still writing files, and leave their rows unreachable. That only
+        // holds for the device those rows actually belong to, though - SetDevice above already
+        // moved TargetDevice on, so an in-flight batch left over from the previous device must
+        // not freeze this device's list on the previous device's apps and ticks.
+        var sameDevice = TargetDevice is not null
+            && string.Equals(TargetDevice.Udid, _loadedForUdid, StringComparison.OrdinalIgnoreCase);
+
+        if (sameDevice && (IsBatchRunning || Apps.Any(a => a.IsDownloading)))
         {
             AppLog.Info("On-device: reopened with downloads in flight; keeping the current list");
             return;
@@ -754,9 +783,15 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
         // no longer part of, and keep this page alive through the handler.
         foreach (var stale in Apps) stale.PropertyChanged -= OnRowPropertyChanged;
 
+        ShowSelectedOnly = false;
         Apps.Clear();
         VisibleApps.Clear();
         RefreshSelectionState();
+
+        // Recorded up front, not after the fetch below returns: OnNavigatedTo's guard has to
+        // see this device as "loaded" for the whole time its own rows are on screen, including
+        // while this very call is still awaiting the device.
+        _loadedForUdid = TargetDevice.Udid;
 
         try
         {
@@ -805,6 +840,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(CanShowSelectedFilter));
         OnPropertyChanged(nameof(AreAllSelected));
         OnPropertyChanged(nameof(DownloadSelectedLabel));
         OnPropertyChanged(nameof(SelectAllLabel));
@@ -815,7 +851,16 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
     private void OnRowPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(InstalledAppViewModel.IsSelected)) RefreshSelectionState();
+        if (e.PropertyName != nameof(InstalledAppViewModel.IsSelected)) return;
+
+        RefreshSelectionState();
+
+        if (!ShowSelectedOnly) return;
+
+        if (SelectedCount == 0)
+            ShowSelectedOnly = false;
+        else
+            ApplyFilter();
     }
 
     /// <summary>
@@ -828,7 +873,7 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     private void ToggleSelectAll()
     {
         var select = !AreAllSelected;
-        foreach (var app in VisibleApps)
+        foreach (var app in VisibleApps.ToList())
             if (app.CanDownload) app.IsSelected = select;
 
         RefreshSelectionState();
@@ -1029,6 +1074,8 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
 
         foreach (var app in Apps)
         {
+            if (ShowSelectedOnly && !app.IsSelected) continue;
+
             if (needle.Length == 0 ||
                 app.Name.Contains(needle, StringComparison.CurrentCultureIgnoreCase) ||
                 app.BundleId.Contains(needle, StringComparison.OrdinalIgnoreCase))
