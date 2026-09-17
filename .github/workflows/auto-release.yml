@@ -108,6 +108,16 @@ jobs:
           go-version: "1.25.0"
           cache: false
 
+      # ipatool-rs is compiled from source (see Fetch-Tools.ps1) so the storefront patch
+      # that lets non-US apps download can be applied before the binary is built.
+      - name: Set up Rust for patched ipatool-rs
+        if: steps.check_tag.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.90.0 --profile minimal --no-self-update
+          rustup default 1.90.0
+          cargo --version
+
       - name: Fetch tools
         if: steps.check_tag.outputs.exists == 'false'
         shell: pwsh

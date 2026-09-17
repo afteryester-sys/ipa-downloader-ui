@@ -16,6 +16,14 @@ public enum AuthFailureReason
     /// <summary>The two-factor code was wrong or had already expired.</summary>
     WrongCode,
 
+    /// <summary>
+    /// Apple refused the email/password/code triple without saying which part it disliked.
+    /// The SAP backend cannot tell the two apart either: a wrong password and a wrong code
+    /// both come back as MZFinance.BadLogin, so reporting "wrong code" would send a user
+    /// with a mistyped password into an endless loop of asking for new codes.
+    /// </summary>
+    WrongCodeOrPassword,
+
     /// <summary>The user closed the 2FA step (or cancelled the attempt).</summary>
     Cancelled,
 

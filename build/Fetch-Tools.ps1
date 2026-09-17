@@ -44,9 +44,17 @@ $IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
 $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
 $IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
 $IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
+# ipatool-rs is built from source instead of taken from the published release archive: the
+# released binary cannot download region-limited apps. Its purchase call sends
+# X-Apple-Store-Front, but volumeStoreDownloadProduct - used by both `download` and
+# `version list` - does not, so Apple answers those two against the default (US) storefront
+# and returns an empty "songList" for every app that is not sold there, even when the signed
+# in account owns it. ipatool reports that as "unexpected response: empty songList". The
+# patch applied below adds the one header those two requests are missing; everything else is
+# upstream v0.1.8.
 $IpatoolRsVersion = "0.1.8"
-$IpatoolRsRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$IpatoolRsVersion/ipatool-rs-x86_64-pc-windows-msvc.zip"
-$IpatoolRsSha256 = "b670cb139f7d3badfe66dffba0953b5c74e9d2ef73869cd3c0234cb1ed98f87c"
+$IpatoolRsSource = "https://api.github.com/repos/Kosthi/ipatool-rs/tarball/v$IpatoolRsVersion"
+$IpatoolRsSourceSha256 = "fc31035e95a22e27c06f0d05c3b81f97e4cd79ffa493c375d16f400e9499a4e6"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -99,23 +107,59 @@ Write-Host "`n[2/4] ipatool v3 + anisette ..."
 Download-File "$RepoRaw/windows_amd64_v3/ipatool.exe"  (Join-Path $OutDir "windows_amd64_v3\ipatool.exe")
 Download-File "$RepoRaw/windows_amd64_v3/anisette.exe" (Join-Path $OutDir "windows_amd64_v3\anisette.exe")
 
-# --- ipatool-rs SAP BETA ------------------------------------------------------
-Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA) ..."
-$ipatoolRsZip = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64.zip"
-$ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64"
-Download-File $IpatoolRsRelease $ipatoolRsZip
-$ipatoolRsActualHash = (Get-FileHash -Path $ipatoolRsZip -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($ipatoolRsActualHash -ne $IpatoolRsSha256) {
-    throw "ipatool-rs archive checksum mismatch: expected $IpatoolRsSha256, got $ipatoolRsActualHash"
+# --- ipatool-rs SAP BETA (patched: storefront header) --------------------------
+Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA, built from source) ..."
+$ipatoolRsArchive = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src.tar.gz"
+$ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src"
+Download-File $IpatoolRsSource $ipatoolRsArchive
+$ipatoolRsActualHash = (Get-FileHash -Path $ipatoolRsArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($ipatoolRsActualHash -ne $IpatoolRsSourceSha256) {
+    throw "ipatool-rs source checksum mismatch: expected $IpatoolRsSourceSha256, got $ipatoolRsActualHash"
 }
 if (Test-Path $ipatoolRsExtract) { Remove-Item $ipatoolRsExtract -Recurse -Force }
-Expand-Archive -Path $ipatoolRsZip -DestinationPath $ipatoolRsExtract -Force
-$ipatoolRsBinary = Join-Path $ipatoolRsExtract "ipatool.exe"
-if (-not (Test-Path $ipatoolRsBinary)) { throw "ipatool.exe was not found in the ipatool-rs archive." }
+New-Item -ItemType Directory -Path $ipatoolRsExtract -Force | Out-Null
+& tar.exe -xzf $ipatoolRsArchive -C $ipatoolRsExtract --strip-components=1
+if ($LASTEXITCODE -ne 0) { throw "Failed to extract the pinned ipatool-rs source archive." }
+
+# The storefront patch. Applied by exact-match replacement with a count check rather than a
+# diff so that a source bump which moves these lines fails the build loudly instead of
+# silently shipping a binary that cannot see a non-US catalog again.
+$storefrontAnchor = @'
+        .header("X-Dsid", &account.directory_services_id)
+'@ -replace "`r`n", "`n"
+$storefrontPatched = @'
+        .header("X-Dsid", &account.directory_services_id)
+        .header("X-Apple-Store-Front", &account.store_front)
+'@ -replace "`r`n", "`n"
+foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipatool-core\src\api\versions.rs")) {
+    $file = Join-Path $ipatoolRsExtract $relative
+    if (-not (Test-Path $file)) { throw "ipatool-rs source is missing $relative; the storefront patch cannot be applied." }
+    $text = (Get-Content -Path $file -Raw) -replace "`r`n", "`n"
+    $occurrences = ([regex]::Matches($text, [regex]::Escape($storefrontAnchor))).Count
+    if ($occurrences -ne 1) {
+        throw "Expected exactly one X-Dsid request header in $relative, found $occurrences. Re-check the storefront patch against ipatool-rs v$IpatoolRsVersion."
+    }
+    if ($text.Contains('X-Apple-Store-Front')) { throw "$relative already sends X-Apple-Store-Front; drop the patch." }
+    $text = $text.Replace($storefrontAnchor, $storefrontPatched)
+    [System.IO.File]::WriteAllText($file, $text)
+    Write-Host "  -> patched $relative (storefront header)"
+}
+
 $ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
-Copy-Item $ipatoolRsBinary -Destination $ipatoolRsDestination -Force
-Remove-Item $ipatoolRsZip -Force -ErrorAction SilentlyContinue
+Push-Location $ipatoolRsExtract
+try {
+    & cargo build --release --locked --bin ipatool
+    if ($LASTEXITCODE -ne 0) { throw "Failed to build the patched ipatool-rs backend (is the Rust toolchain installed?)." }
+}
+finally {
+    Pop-Location
+}
+$ipatoolRsBuilt = Join-Path $ipatoolRsExtract "target\release\ipatool.exe"
+if (-not (Test-Path $ipatoolRsBuilt)) { throw "cargo reported success but ipatool.exe was not produced." }
+Copy-Item $ipatoolRsBuilt -Destination $ipatoolRsDestination -Force
+Write-Host ("  -> SAP backend SHA-256: " + (Get-FileHash -Path $ipatoolRsDestination -Algorithm SHA256).Hash.ToLowerInvariant())
+Remove-Item $ipatoolRsArchive -Force -ErrorAction SilentlyContinue
 Remove-Item $ipatoolRsExtract -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- libimobiledevice suite ----------------------------------------------------

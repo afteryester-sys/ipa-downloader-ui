@@ -197,6 +197,7 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
     {
         AuthFailureReason.BadCredentials => Loc.Get("L.Login.Error.BadCredentials"),
         AuthFailureReason.WrongCode      => Loc.Get("L.Login.Error.WrongCode"),
+        AuthFailureReason.WrongCodeOrPassword => Loc.Get("L.Login.Error.WrongCodeOrPassword"),
         AuthFailureReason.Cancelled      => Loc.Get("L.Login.Error.Cancelled"),
         AuthFailureReason.Network        => Loc.Get("L.Login.Error.Network"),
         AuthFailureReason.RateLimited    => Loc.Get("L.Login.Error.RateLimited"),

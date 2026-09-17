@@ -68,6 +68,14 @@
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                 <Setter TargetName="Fill" Property="Background"
                                         Value="{StaticResource Brush.AccentSoft}" />
+                                <!-- The ring's on state is these two setters; the storyboards only
+                                     animate the way into and out of it and are explicitly
+                                     FillBehavior="Stop" so nothing is left holding the property once
+                                     they finish. An animation that holds its final value outranks
+                                     every setter forever, which is how a row that was once selected
+                                     could keep its ring after the flag underneath it went false. -->
+                                <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                                <Setter TargetName="Ring" Property="BorderThickness" Value="2" />
                                 <!-- HandoffBehavior is explicitly SnapshotAndReplace on both actions below.
                                      The default is Compose, which lets a still-running clock from whatever
                                      item this container last held keep holding Ring/Pop's local values
@@ -82,7 +90,7 @@
                                      whatever clock the recycled container inherited. -->
                                 <DataTrigger.EnterActions>
                                     <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
-                                        <Storyboard>
+                                        <Storyboard FillBehavior="Stop">
                                             <ThicknessAnimation Storyboard.TargetName="Ring"
                                                 Storyboard.TargetProperty="BorderThickness"
                                                 To="2" Duration="0:0:0.18">
@@ -110,7 +118,7 @@
                                 </DataTrigger.EnterActions>
                                 <DataTrigger.ExitActions>
                                     <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
-                                        <Storyboard>
+                                        <Storyboard FillBehavior="Stop">
                                             <ThicknessAnimation Storyboard.TargetName="Ring"
                                                 Storyboard.TargetProperty="BorderThickness"
                                                 To="0" Duration="0:0:0.12" />
@@ -149,9 +157,12 @@
             <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
             <Setter Property="Opacity" Value="0" />
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <!-- Full size at rest. The badge is invisible at rest anyway, and keeping the scale
+                 at 1 means a storyboard that is stopped rather than held can never leave the tick
+                 shrunken. -->
             <Setter Property="RenderTransform">
                 <Setter.Value>
-                    <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
@@ -161,20 +172,23 @@
                      showing the previous row's checkmark after the page is reopened for the next
                      device install. -->
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Opacity" Value="1" />
                     <DataTrigger.EnterActions>
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
-                            <Storyboard>
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                  To="1" Duration="0:0:0.14" />
                                 <!-- Overshoots to 1.1 before settling: the badge is small, and a
                                      plain fade at this size is easy to miss entirely. -->
                                 <DoubleAnimationUsingKeyFrames
                                     Storyboard.TargetProperty="RenderTransform.ScaleX">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0.6" />
                                     <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
                                     <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
                                 </DoubleAnimationUsingKeyFrames>
                                 <DoubleAnimationUsingKeyFrames
                                     Storyboard.TargetProperty="RenderTransform.ScaleY">
+                                    <EasingDoubleKeyFrame KeyTime="0:0:0" Value="0.6" />
                                     <EasingDoubleKeyFrame KeyTime="0:0:0.12" Value="1.1" />
                                     <EasingDoubleKeyFrame KeyTime="0:0:0.22" Value="1" />
                                 </DoubleAnimationUsingKeyFrames>
@@ -183,7 +197,7 @@
                     </DataTrigger.EnterActions>
                     <DataTrigger.ExitActions>
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
-                            <Storyboard>
+                            <Storyboard FillBehavior="Stop">
                                 <DoubleAnimation Storyboard.TargetProperty="Opacity"
                                                  To="0" Duration="0:0:0.1" />
                                 <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX"
@@ -487,10 +501,20 @@
                              the two levels instead. -->
                         <Grid Visibility="{Binding IsScanning, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
 
+                        <!-- Standard, not Recycling: a recycled container keeps the animation clocks the
+                             previous row started, and a clock with the default HoldEnd fill keeps
+                             painting the ring and the tick after the container has been handed to
+                             a different, unselected row - a library opened with rows that look
+                             selected while the counter correctly says none are. Every storyboard
+                             below also runs with FillBehavior="Stop" so the steady state comes
+                             from the trigger's setters rather than from a finished animation, but
+                             a fresh container per row is what makes that hold for rows scrolled
+                             past as well. A library is a few hundred rows; a container each
+                             costs nothing measurable. -->
                         <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.VirtualizationMode="Standard"
                                  ctrl:TileSelection.Mode="{Binding SelectionMode}"
                                  ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
                                  ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
@@ -601,7 +625,7 @@
                              without a checkbox here. -->
                         <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Standard"
                                  ctrl:TileSelection.Mode="{Binding SelectionMode}"
                                  ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
                                  ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"

@@ -471,6 +471,7 @@
     <!-- Ошибки входа -->
     <sys:String x:Key="L.Login.Error.BadCredentials">Неверный Apple ID или пароль.</sys:String>
     <sys:String x:Key="L.Login.Error.WrongCode">Код подтверждения не принят. Попробуйте снова.</sys:String>
+    <sys:String x:Key="L.Login.Error.WrongCodeOrPassword">Apple отклонила вход. Apple не сообщает, что именно не подошло — пароль или код, поэтому проверьте пароль и запросите новый код.</sys:String>
     <sys:String x:Key="L.Login.Error.Cancelled">Вход отменён.</sys:String>
     <sys:String x:Key="L.Login.Error.Network">Не удалось связаться с Apple. Проверьте подключение к интернету.</sys:String>
     <sys:String x:Key="L.Login.Error.RateLimited">Слишком много попыток. Подождите несколько минут и попробуйте снова.</sys:String>

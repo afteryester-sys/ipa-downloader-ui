@@ -176,6 +176,19 @@ public sealed partial class AuthService
 
         // Wrong/expired code -> a clearer message when ipatool says so.
         var lower = second.CombinedOutput.ToLowerInvariant();
+
+        // Apple answers a wrong password and a wrong code with the same BadLogin, which the
+        // SAP backend prints as "login rejected; check your password and 2FA code". Calling
+        // that a bad code sent everyone who mistyped a password back for another code that
+        // was never going to help, so the ambiguity is passed on to the user instead.
+        if (lower.Contains("check your password and 2fa")
+            || lower.Contains("password may be wrong")
+            || (lower.Contains("rejected") && lower.Contains("password")))
+            return AuthResult.Fail(AuthFailureReason.WrongCodeOrPassword, ExtractError(second.CombinedOutput));
+
+        if (lower.Contains("invalid credentials"))
+            return AuthResult.Fail(AuthFailureReason.BadCredentials, ExtractError(second.CombinedOutput));
+
         if (lower.Contains("rejected") || lower.Contains("invalid") || RequiresTwoFactor(second.CombinedOutput))
             return AuthResult.Fail(AuthFailureReason.WrongCode, ExtractError(second.CombinedOutput));
 
@@ -583,12 +596,16 @@ public sealed partial class AuthService
             || lower.Contains("temporarily locked out") || lower.Contains("rate limit"))
             return AuthFailureReason.RateLimited;
 
-        if (lower.Contains("disabled") || lower.Contains("locked") || lower.Contains("appleid.apple.com")
+        if (lower.Contains("account disabled") || lower.Contains("disabled") || lower.Contains("locked") || lower.Contains("appleid.apple.com")
             || lower.Contains("-20209"))
             return AuthFailureReason.AccountLocked;
 
+        // "invalid credentials" is the SAP backend's wording for Apple failure type -5000,
+        // which Apple only returns for a genuinely wrong email/password pair. Without it this
+        // landed in the catch-all and was reported as a tool failure.
         if (lower.Contains("incorrect") || lower.Contains("bad credentials") || lower.Contains("wrong password")
-            || lower.Contains("invalid password") || lower.Contains("authentication failed")
+            || lower.Contains("invalid password") || lower.Contains("invalid credentials")
+            || lower.Contains("authentication failed")
             || lower.Contains("-20101") || lower.Contains("unauthorized"))
             return AuthFailureReason.BadCredentials;
 

@@ -520,6 +520,7 @@
     <!-- Sign-in errors -->
     <sys:String x:Key="L.Login.Error.BadCredentials">Incorrect Apple ID or password.</sys:String>
     <sys:String x:Key="L.Login.Error.WrongCode">That verification code was not accepted. Please try again.</sys:String>
+    <sys:String x:Key="L.Login.Error.WrongCodeOrPassword">Apple rejected the sign-in. Apple does not say whether the password or the code was wrong, so check the password and request a new code.</sys:String>
     <sys:String x:Key="L.Login.Error.Cancelled">Sign-in was cancelled.</sys:String>
     <sys:String x:Key="L.Login.Error.Network">Couldn't reach Apple. Check your internet connection.</sys:String>
     <sys:String x:Key="L.Login.Error.RateLimited">Too many attempts. Wait a few minutes and try again.</sys:String>
