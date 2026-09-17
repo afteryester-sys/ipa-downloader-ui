@@ -114,8 +114,12 @@ jobs:
         if: steps.check_tag.outputs.exists == 'false'
         shell: pwsh
         run: |
-          rustup toolchain install 1.90.0 --profile minimal --no-self-update
-          rustup default 1.90.0
+          # Stable rather than a pinned version: the locked dependency set already needs
+          # rustc 1.93, and pinning here only means the build breaks again the next time a
+          # transitive crate raises its floor. The ipatool-rs source is pinned by checksum,
+          # so the binary stays reproducible where it matters.
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
           cargo --version
 
       - name: Fetch tools

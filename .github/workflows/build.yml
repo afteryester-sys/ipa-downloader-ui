@@ -50,6 +50,15 @@ jobs:
           -p:PublishSingleFile=false
           -o build/publish
 
+      # Fetch-Tools compiles ipatool-rs from pinned source so it can apply the storefront
+      # patch that lets apps outside the US storefront download.
+      - name: Set up Rust for patched ipatool-rs
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          cargo --version
+
       - name: Fetch tool binaries (ipatool, libimobiledevice)
         shell: pwsh
         run: ./build/Fetch-Tools.ps1 -OutDir build/publish/tools
