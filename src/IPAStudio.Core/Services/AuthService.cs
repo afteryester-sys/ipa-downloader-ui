@@ -167,7 +167,7 @@ public sealed partial class AuthService
     /// ipatool-rs additionally receives --non-interactive. In both cases stdin is
     /// closed so authentication can never hang on a hidden console prompt.
     /// </summary>
-    private Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
+    private async Task<ProcessResult> RunLoginAsync(string email, string password, string? authCode, CancellationToken ct)
     {
         var args = new List<string> { "auth", "login" };
         if (_tools.UseBetaAppleAuthentication)
@@ -192,13 +192,35 @@ public sealed partial class AuthService
         if (_tools.UseBetaAppleAuthentication)
             args.Add("--non-interactive");
 
-        return _runner.RunAsync(
+        // A cookie jar left unreadable by an earlier crash makes ipatool panic during
+        // start-up, long before it looks at these arguments. Sweep it first, and sweep it
+        // again if the panic still comes back, so a damaged profile costs one retry instead
+        // of every future sign-in.
+        IpatoolProfile.RepairCookieJar(_tools);
+
+        var result = await _runner.RunAsync(
             _tools.IpatoolPath,
             args,
             closeStdin: true,
             workingDirectory: _tools.IpatoolWorkingDirectory,
             environment: _tools.IpatoolEnvironment,
-            ct: ct);
+            ct: ct).ConfigureAwait(false);
+
+        if (!result.Success && IpatoolProfile.IsCookieJarFailure(result.CombinedOutput))
+        {
+            AppLog.Warn("ipatool could not load its cookie jar; discarding it and retrying the sign-in.");
+            IpatoolProfile.RepairCookieJar(_tools, force: true);
+
+            result = await _runner.RunAsync(
+                _tools.IpatoolPath,
+                args,
+                closeStdin: true,
+                workingDirectory: _tools.IpatoolWorkingDirectory,
+                environment: _tools.IpatoolEnvironment,
+                ct: ct).ConfigureAwait(false);
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -209,6 +231,8 @@ public sealed partial class AuthService
     {
         try
         {
+            IpatoolProfile.RepairCookieJar(_tools);
+
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
                 new[] { "auth", "info", "--keychain-passphrase", ActiveKeychainPassphrase,
@@ -246,6 +270,8 @@ public sealed partial class AuthService
     {
         try
         {
+            IpatoolProfile.RepairCookieJar(_tools);
+
             await _runner.RunAsync(
                 _tools.IpatoolPath,
                 new[] { "auth", "revoke", "--keychain-passphrase", ActiveKeychainPassphrase,

@@ -122,8 +122,8 @@ public sealed class AppSettings
     /// <summary>
     /// How many apps install at once on one device (1-4). Default 2.
     ///
-    /// Retained for settings compatibility. Always normalized to one because installd can
-    /// silently drop overlapping sessions on the same device; different devices remain parallel.
+    /// Different devices always install in parallel; this only caps a single device. Above
+    /// 2 rarely helps, because the limit is the USB link rather than the phone.
     /// </summary>
     public int MaxParallelInstallsPerDevice { get; set; } = 1;
 
@@ -374,41 +374,6 @@ public sealed class SettingsService
         {
             Current = new AppSettings();
         }
-
-        var migrated = false;
-
-        // The old opt-in ipatool-rs 0.1.7 backend now receives an empty songList from
-        // Apple and cannot recover it. The supported 2.6.0 backend contains the upstream
-        // fix, so migrate affected installations on startup instead of leaving them on a
-        // known-broken executable after the IPA Studio updater installs this release.
-        if (Current.UseBetaAppleAuthentication)
-        {
-            Current.UseBetaAppleAuthentication = false;
-            migrated = true;
-        }
-
-        // Parallel install sessions on one UDID can be reported as complete even when
-        // installd silently drops one. Keep separate devices parallel, but serialize each
-        // individual device and migrate older values that allowed unsafe overlap.
-        if (Current.MaxParallelInstallsPerDevice != 1)
-        {
-            Current.MaxParallelInstallsPerDevice = 1;
-            migrated = true;
-        }
-
-        if (migrated)
-        {
-            try
-            {
-                _tools.EnsureFolders();
-                File.WriteAllText(_tools.SettingsFile, JsonSerializer.Serialize(Current, JsonOptions));
-            }
-            catch
-            {
-                // Persistence is best effort; Apply below still fixes this process.
-            }
-        }
-
         Apply();
     }
 
