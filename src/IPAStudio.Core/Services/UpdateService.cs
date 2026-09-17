@@ -261,132 +261,200 @@ public sealed class UpdateService
 
         Set(UpdateState.Downloading);
 
-        // Use a firm per-download timeout so a stalled connection never freezes
-        // the UI indefinitely. 3 minutes is generous for a ~20 MB installer.
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        using var linked  = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-        var effectiveCt   = linked.Token;
+        var fileName = _downloadFileName;
+        if (string.IsNullOrWhiteSpace(fileName))
+            fileName = Path.GetFileName(new Uri(_downloadUrl).LocalPath);
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = "IPAStudio-Update.exe";
 
-        try
+        var dest = Path.Combine(InstallerFolder(), fileName);
+        var part = dest + ".part";
+
+        // The installer bundles the tool binaries and is ~70 MB, so the transfer is
+        // measured in minutes on an ordinary connection and a single dropped
+        // connection used to mean starting over. Resume from the partial file and
+        // retry instead: the budget below is per stall, not for the whole download,
+        // because a slow-but-moving transfer is healthy and must not be killed.
+        const int maxAttempts = 6;
+        var url = _downloadUrl!;
+        var usingFallback = false;
+
+        for (var attempt = 1; attempt <= maxAttempts && !ct.IsCancellationRequested; attempt++)
         {
-            // Prefer the real asset name (API URLs have no filename in the path).
-            var fileName = _downloadFileName;
-            if (string.IsNullOrWhiteSpace(fileName))
-                fileName = Path.GetFileName(new Uri(_downloadUrl).LocalPath);
-            if (string.IsNullOrWhiteSpace(fileName)) fileName = "IPAStudio-Update.exe";
-            var dest = Path.Combine(InstallerFolder(), fileName);
+            long resumeFrom = File.Exists(part) ? new FileInfo(part).Length : 0;
 
-            AppLog.Info($"Downloading update asset: {_downloadUrl} → {dest}");
-
-            // GitHub asset downloads always redirect from api.github.com to
-            // objects.githubusercontent.com. The HttpClient follows the 302
-            // automatically, but strips the Authorization header on the
-            // cross-origin redirect, which is exactly what GitHub expects for
-            // the final CDN hop. So we DON'T set octetStream on the API URL —
-            // we set it only when downloading via browser_download_url directly.
-            bool isApiUrl = _downloadUrl.Contains("api.github.com", StringComparison.OrdinalIgnoreCase);
-            using var request = BuildRequest(_downloadUrl, octetStream: !isApiUrl);
-
-            using var response = await _http.SendAsync(
-                request, HttpCompletionOption.ResponseHeadersRead, effectiveCt);
-
-            // If the token is invalid / expired the API returns 401; fall back
-            // to the browser_download_url (public URL, no auth needed).
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized
-                || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            try
             {
-                AppLog.Warn($"Asset download: got {(int)response.StatusCode}, retrying with browser_download_url.");
-                response.Dispose();
-                request.Dispose();
+                // GitHub asset downloads always redirect from api.github.com to
+                // objects.githubusercontent.com. HttpClient follows the 302
+                // automatically and strips Authorization on that cross-origin hop,
+                // which is exactly what GitHub expects — so octet-stream is only set
+                // when going straight to browser_download_url.
+                var isApiUrl = url.Contains("api.github.com", StringComparison.OrdinalIgnoreCase);
+                using var request = usingFallback
+                    ? new HttpRequestMessage(HttpMethod.Get, url)
+                    : BuildRequest(url, octetStream: !isApiUrl);
+                if (resumeFrom > 0)
+                    request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(resumeFrom, null);
 
-                // Retry with the public browser_download_url (no auth needed for public repos).
-                if (!string.IsNullOrWhiteSpace(_downloadFallbackUrl)
-                    && _downloadFallbackUrl != _downloadUrl)
+                using var response = await _http.SendAsync(
+                    request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+                // An invalid or expired token gives 401/403; the public
+                // browser_download_url needs no auth on a public repo.
+                if (!usingFallback
+                    && (response.StatusCode == HttpStatusCode.Unauthorized
+                        || response.StatusCode == HttpStatusCode.Forbidden)
+                    && !string.IsNullOrWhiteSpace(_downloadFallbackUrl)
+                    && _downloadFallbackUrl != url)
                 {
-                    AppLog.Info("Retrying download with browser_download_url.");
-                    using var fallbackReq = new HttpRequestMessage(HttpMethod.Get, _downloadFallbackUrl);
-                    using var fallbackResp = await _http.SendAsync(
-                        fallbackReq, HttpCompletionOption.ResponseHeadersRead, effectiveCt);
-                    fallbackResp.EnsureSuccessStatusCode();
-
-                    var total2 = fallbackResp.Content.Headers.ContentLength ?? -1;
-                    var dest2   = Path.Combine(InstallerFolder(), _downloadFileName ?? "IPAStudio-Update.exe");
-                    await using var src2  = await fallbackResp.Content.ReadAsStreamAsync(effectiveCt);
-                    await using var file2 = File.Create(dest2);
-                    var buf2 = new byte[81920]; long rd2 = 0; int n2;
-                    while ((n2 = await src2.ReadAsync(buf2, effectiveCt)) > 0)
-                    {
-                        await file2.WriteAsync(buf2.AsMemory(0, n2), effectiveCt);
-                        rd2 += n2;
-                        if (total2 > 0) progress?.Report(Math.Min(1.0, (double)rd2 / total2));
-                    }
-                    _downloadedInstallerPath = dest2;
-                    progress?.Report(1.0);
-                    AppLog.Info($"Fallback download complete: {dest2}.");
-                    Set(UpdateState.ReadyToInstall);
-                    return true;
+                    AppLog.Warn($"Asset download: got {(int)response.StatusCode}, switching to browser_download_url.");
+                    url = _downloadFallbackUrl!;
+                    usingFallback = true;
+                    attempt--;
+                    continue;
                 }
 
-                AppLog.Warn("No fallback URL available — opening releases page.");
-                OpenReleasesPage();
+                // The range is unsatisfiable when the partial file is already as long
+                // as (or longer than) the asset - a leftover from an interrupted or
+                // superseded download. Start clean rather than resuming into garbage.
+                if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable && resumeFrom > 0)
+                {
+                    AppLog.Warn("Resume rejected (416) — discarding the partial file and restarting.");
+                    TryDelete(part);
+                    attempt--;
+                    continue;
+                }
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized
+                    || response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    AppLog.Warn("No usable download URL — opening the releases page.");
+                    OpenReleasesPage();
+                    Set(UpdateState.Failed);
+                    FailureReason = UpdateFailureReason.ServerError;
+                    LastErrorDetail = "Authentication failed; visit the releases page to download manually.";
+                    return false;
+                }
+
+                response.EnsureSuccessStatusCode();
+
+                // A server that ignores Range answers 200 with the whole asset, in
+                // which case appending would corrupt the file.
+                var resumed = response.StatusCode == HttpStatusCode.PartialContent;
+                if (resumeFrom > 0 && !resumed)
+                {
+                    AppLog.Warn("Server ignored the Range header — restarting the download from zero.");
+                    resumeFrom = 0;
+                }
+
+                var total = response.Content.Headers.ContentLength is { } len && len >= 0
+                    ? len + (resumed ? resumeFrom : 0)
+                    : -1;
+                AppLog.Info(resumeFrom > 0
+                    ? $"Resuming update download at {resumeFrom / 1024} KB (attempt {attempt}/{maxAttempts})."
+                    : $"Downloading update asset: {url} → {dest} (attempt {attempt}/{maxAttempts}).");
+
+                await using (var source = await response.Content.ReadAsStreamAsync(ct))
+                await using (var file = new FileStream(
+                    part,
+                    resumeFrom > 0 ? FileMode.Append : FileMode.Create,
+                    FileAccess.Write, FileShare.None))
+                {
+                    var buffer = new byte[81920];
+                    var read = resumeFrom;
+
+                    while (true)
+                    {
+                        // Cancel only when the transfer actually stops producing
+                        // bytes. The previous fixed three-minute ceiling on the whole
+                        // download could not fit a 70 MB installer on any connection
+                        // slower than ~400 KB/s and aborted a perfectly healthy
+                        // transfer.
+                        using var stall = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        stall.CancelAfter(TimeSpan.FromSeconds(45));
+
+                        int count;
+                        try
+                        {
+                            count = await source.ReadAsync(buffer, stall.Token);
+                        }
+                        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                        {
+                            throw new IOException("The download stalled for 45 seconds.");
+                        }
+
+                        if (count <= 0) break;
+
+                        await file.WriteAsync(buffer.AsMemory(0, count), ct);
+                        read += count;
+                        if (total > 0) progress?.Report(Math.Min(1.0, (double)read / total));
+                    }
+
+                    // A truncated body still ends the read loop cleanly, so verify the
+                    // length rather than trusting the stream, or a half-installer
+                    // would be handed to the user as ready to install.
+                    if (total > 0 && read < total)
+                        throw new IOException($"Connection closed after {read} of {total} bytes.");
+                }
+
+                File.Move(part, dest, overwrite: true);
+                _downloadedInstallerPath = dest;
+                progress?.Report(1.0);
+                AppLog.Info($"Download complete: {dest} ({new FileInfo(dest).Length / 1024} KB).");
+                Set(UpdateState.ReadyToInstall);
+                return true;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            // An OperationCanceledException while the caller's token is still unset is
+            // HttpClient's own per-request ceiling firing, which on a slow link means a
+            // transfer worth resuming rather than a reason to give up.
+            catch (Exception ex) when (ex is HttpRequestException or IOException
+                                       || (ex is OperationCanceledException && !ct.IsCancellationRequested))
+            {
+                var progressed = File.Exists(part) && new FileInfo(part).Length > resumeFrom;
+                AppLog.Warn($"Update download attempt {attempt}/{maxAttempts} failed ({ex.Message})."
+                            + (progressed ? " Partial data kept for resume." : string.Empty));
+
+                if (attempt == maxAttempts)
+                {
+                    FailureReason = UpdateFailureReason.Network;
+                    LastErrorDetail = ex.Message;
+                    AppLog.Error("Update download failed after retrying.", ex);
+                    Set(UpdateState.Failed);
+                    return false;
+                }
+
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt), ct);
+                }
+                catch (OperationCanceledException) { throw; }
+            }
+            catch (Exception ex)
+            {
+                FailureReason = UpdateFailureReason.Network;
+                LastErrorDetail = ex.Message;
+                AppLog.Error("Update download failed.", ex);
                 Set(UpdateState.Failed);
-                FailureReason = UpdateFailureReason.ServerError;
-                LastErrorDetail = "Authentication failed; visit the releases page to download manually.";
                 return false;
             }
-            else
-            {
-                response.EnsureSuccessStatusCode();
-            }
+        }
 
-            var total = response.Content.Headers.ContentLength ?? -1;
-            AppLog.Info($"Download started, content-length: {(total > 0 ? $"{total / 1024} KB" : "unknown")}.");
+        ct.ThrowIfCancellationRequested();
 
-            await using (var source = await response.Content.ReadAsStreamAsync(effectiveCt))
-            await using (var file = File.Create(dest))
-            {
-                var buffer = new byte[81920];
-                long read = 0;
-                int count;
-                while ((count = await source.ReadAsync(buffer, effectiveCt)) > 0)
-                {
-                    await file.WriteAsync(buffer.AsMemory(0, count), effectiveCt);
-                    read += count;
-                    if (total > 0) progress?.Report(Math.Min(1.0, (double)read / total));
-                }
-            }
+        FailureReason = UpdateFailureReason.Network;
+        LastErrorDetail = "The download could not be completed.";
+        Set(UpdateState.Failed);
+        return false;
+    }
 
-            _downloadedInstallerPath = dest;
-            progress?.Report(1.0);
-            AppLog.Info($"Download complete: {dest} ({new FileInfo(dest).Length / 1024} KB).");
-            Set(UpdateState.ReadyToInstall);
-            return true;
-        }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested && !ct.IsCancellationRequested)
-        {
-            FailureReason = UpdateFailureReason.Timeout;
-            LastErrorDetail = "Download timed out after 3 minutes.";
-            AppLog.Error("Update download timed out.");
-            Set(UpdateState.Failed);
-            return false;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (HttpRequestException ex)
-        {
-            FailureReason = UpdateFailureReason.Network;
-            LastErrorDetail = ex.Message;
-            AppLog.Error("Update download network error.", ex);
-            Set(UpdateState.Failed);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            FailureReason = UpdateFailureReason.Network;
-            LastErrorDetail = ex.Message;
-            AppLog.Error("Update download failed.", ex);
-            Set(UpdateState.Failed);
-            return false;
-        }
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception ex) { AppLog.Warn($"Could not delete '{path}': {ex.Message}"); }
     }
 
     /// <summary>
