@@ -244,8 +244,12 @@ public sealed partial class DownloadService
 
         if (AuthService.IsSessionExpiredError(output)) return Loc.Get("L.Error.SessionExpired");
         if (LicenseRequiredRegex().IsMatch(output))    return Loc.Get("L.Error.NotPurchased");
+        // An empty songList is how Apple says "this Apple ID has no licence for the app"
+        // when it does not bother to set failureType 9610. The backend now buys the licence
+        // on that signature too, so reaching here means the purchase itself was refused -
+        // a paid app, or one not sold to this account's storefront - not a stale tool.
         if (lower.Contains("empty songlist") || lower.Contains("failuretype 5002"))
-            return Loc.Get("L.Error.IpatoolOutdated");
+            return Loc.Get("L.Error.NotPurchased");
 
         if (lower.Contains("no such host") || lower.Contains("dial tcp")
             || lower.Contains("network is unreachable") || lower.Contains("tls handshake")

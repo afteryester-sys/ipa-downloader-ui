@@ -244,11 +244,18 @@ public sealed class IpaCatalogService
             // Unchanged file: reuse what the last scan learned rather than reopening it. The
             // scanner generation is part of the test, so entries written before the store id was
             // collected are re-read once and then left alone again.
+            // The remembered icon also has to still be on disk. Clearing the cache deletes the
+            // extracted artwork but not the catalog entry pointing at it, and because the .ipa
+            // itself is untouched every later refresh took this shortcut and handed back a path
+            // to a file that is gone - a library stuck with blank icons, and only for the ones
+            // whose artwork happened to be deleted. A null path is left alone: that is an
+            // archive we already found no icon in, not a cleared one.
             if (known.TryGetValue(path, out var previous) &&
                 previous.SizeBytes == info.Length &&
                 previous.ModifiedAt == stamp &&
                 previous.ScanVersion >= CurrentScanVersion &&
-                !string.IsNullOrEmpty(previous.BundleId))
+                !string.IsNullOrEmpty(previous.BundleId) &&
+                (string.IsNullOrEmpty(previous.IconPath) || File.Exists(previous.IconPath)))
             {
                 found.Add(previous);
                 continue;

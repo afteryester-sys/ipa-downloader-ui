@@ -145,6 +145,42 @@ foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipato
     Write-Host "  -> patched $relative (storefront header)"
 }
 
+# The purchase patch. Apple reports "this account does not have the app" in two different
+# shapes: failureType 9610, which ipatool recognises, and - for an app the account has never
+# obtained - plain HTTP 200 with an empty songList and no failureType at all. Only the first
+# triggers --purchase, so every app missing from the library failed with "empty songList"
+# instead of being acquired. Treat the second shape the same way, but only for an unpinned
+# request: with an explicit version id an empty songList means that build is gone, not that a
+# licence is missing, and buying the app would not bring it back.
+$purchaseAnchor = @'
+            Err(e) if version_id.is_some() && is_empty_song_list_error(&e) => {
+'@ -replace "`r`n", "`n"
+$purchasePatched = @'
+            Err(e)
+                if version_id.is_none()
+                    && is_empty_song_list_error(&e)
+                    && do_purchase
+                    && !purchase_attempted =>
+            {
+                last_download_error = Some(e.to_string());
+                eprintln!("License not found (empty songList), purchasing...");
+                purchase_for_download(client, resolved_app_id, &mut account).await?;
+                purchase_attempted = true;
+                eprintln!("Purchase successful");
+            }
+            Err(e) if version_id.is_some() && is_empty_song_list_error(&e) => {
+'@ -replace "`r`n", "`n"
+$downloadCmdRelative = "crates\ipatool-cli\src\commands\download.rs"
+$downloadCmd = Join-Path $ipatoolRsExtract $downloadCmdRelative
+if (-not (Test-Path $downloadCmd)) { throw "ipatool-rs source is missing $downloadCmdRelative; the purchase patch cannot be applied." }
+$downloadCmdText = (Get-Content -Path $downloadCmd -Raw) -replace "`r`n", "`n"
+$purchaseOccurrences = ([regex]::Matches($downloadCmdText, [regex]::Escape($purchaseAnchor))).Count
+if ($purchaseOccurrences -ne 1) {
+    throw "Expected exactly one pinned-version empty-songList arm in $downloadCmdRelative, found $purchaseOccurrences. Re-check the purchase patch against ipatool-rs v$IpatoolRsVersion."
+}
+[System.IO.File]::WriteAllText($downloadCmd, $downloadCmdText.Replace($purchaseAnchor, $purchasePatched))
+Write-Host "  -> patched $downloadCmdRelative (purchase on empty songList)"
+
 $ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
 Push-Location $ipatoolRsExtract
