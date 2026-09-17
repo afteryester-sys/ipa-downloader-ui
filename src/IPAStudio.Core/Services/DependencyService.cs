@@ -59,16 +59,11 @@ public sealed class DependencyService
     private const string RepoRaw =
         $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
 
-    // Reproducible build from majd/ipatool commit 3aa4a86. It retries Apple's
-    // FailureType 5002 through /r/redownload; the official 2.5.0 binary does not.
-    private const string StandardIpatoolBuild = "2.5.0-ipa-studio.1";
+    // Official 2.6.0 release. It contains the upstream fixes for Apple's empty songList
+    // response and the purchase redownload flow that the older SAP beta backend lacks.
+    private const string StandardIpatoolBuild = "2.6.0";
     private const string StandardIpatoolSha256 =
-        "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286";
-
-    private const string IpatoolRsZipUrl =
-        "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";
-    private const string IpatoolRsZipSha256 =
-        "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77";
+        "79993976658be95f1c0a7d30e2bdc806b4764dca0619815bfc6c96630f1103ec";
 
     private const string ImobiledeviceZipUrl =
         "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip";
@@ -514,9 +509,9 @@ public sealed class DependencyService
         {
             var root = GetWritableToolsRoot();
 
-            // The installer ships the exact patched binary. When an older IPA Studio had
-            // redirected tools to LocalAppData, replace that stale override from the bundled
-            // copy instead of downloading another same-version official binary.
+            // The installer ships the exact checksum-pinned official binary. When an older
+            // IPA Studio redirected tools to LocalAppData, replace that stale override from
+            // the bundled copy so the application update also updates its active backend.
             var standardPath = Path.Combine(root, @"windows_amd64_v2\ipatool.exe");
             if (!await HasSha256Async(standardPath, StandardIpatoolSha256, ct))
             {
@@ -548,38 +543,7 @@ public sealed class DependencyService
 
                 var step = i + 1;
                 await DownloadWithProgressAsync(url, dest,
-                    f => progress?.Report(((step + f) / 5.0, "tools")), ct);
-            }
-
-            // ipatool-rs contains the current SAP request signer. It is self-contained:
-            // no iTunes/iCloud DLLs or helper executable are required. Verify the pinned
-            // release archive before extracting so a changed upstream asset never runs.
-            var betaPath = Path.Combine(root, @"windows_amd64_sap_beta\ipatool.exe");
-            if (!File.Exists(betaPath))
-            {
-                var betaZip = Path.Combine(Path.GetTempPath(), "ipatool-rs-0.1.7-windows-x64.zip");
-                await DownloadWithProgressAsync(IpatoolRsZipUrl, betaZip,
-                    f => progress?.Report(((3 + f) / 5.0, "tools")), ct);
-
-                await using (var stream = File.OpenRead(betaZip))
-                {
-                    var actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, ct))
-                        .ToLowerInvariant();
-                    if (!string.Equals(actualHash, IpatoolRsZipSha256, StringComparison.Ordinal))
-                        throw new InvalidDataException(
-                            $"ipatool-rs checksum mismatch: expected {IpatoolRsZipSha256}, got {actualHash}");
-                }
-
-                Directory.CreateDirectory(Path.GetDirectoryName(betaPath)!);
-                using (var archive = ZipFile.OpenRead(betaZip))
-                {
-                    var executable = archive.Entries.FirstOrDefault(entry =>
-                        string.Equals(entry.Name, "ipatool.exe", StringComparison.OrdinalIgnoreCase));
-                    if (executable is null)
-                        throw new InvalidDataException("ipatool.exe is missing from the ipatool-rs archive.");
-                    executable.ExtractToFile(betaPath, overwrite: true);
-                }
-                try { File.Delete(betaZip); } catch { /* best effort */ }
+                    f => progress?.Report(((step + f) / 3.0, "tools")), ct);
             }
 
             // libimobiledevice suite — zip that we extract selectively.
@@ -591,7 +555,7 @@ public sealed class DependencyService
             {
                 var zipPath = Path.Combine(Path.GetTempPath(), "imobiledevice-net.zip");
                 await DownloadWithProgressAsync(ImobiledeviceZipUrl, zipPath,
-                    f => progress?.Report(((4 + f) / 5.0, "tools")), ct);
+                    f => progress?.Report(((2 + f) / 3.0, "tools")), ct);
 
                 Directory.CreateDirectory(imobileDir);
                 using (var archive = ZipFile.OpenRead(zipPath))
