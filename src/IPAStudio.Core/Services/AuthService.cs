@@ -91,7 +91,15 @@ public sealed partial class AuthService
         }
 
         // Not a 2FA request -> real failure (bad password, iCloud missing, etc.).
-        if (!RequiresTwoFactor(first.CombinedOutput))
+        //
+        // Apple no longer answers the first, code-less sign-in of a 2FA account with the
+        // response ipatool recognises, so ipatool reports its catch-all "something went
+        // wrong" instead of asking for a code. The push to the trusted device still goes
+        // out, which is why the same account signs in fine as soon as a code is supplied -
+        // and why this looked like authentication breaking on its own, with no build of the
+        // app able to fix it by being older. Treat that catch-all as a code request and ask
+        // for one; a genuine failure simply repeats below with the code attached.
+        if (!RequiresTwoFactor(first.CombinedOutput) && !IsUnmappedAppleFailure(first.CombinedOutput))
         {
             var errText = ExtractError(first.CombinedOutput);
             AppLog.Warn($"Login failed (not a 2FA prompt): {errText}");
@@ -108,7 +116,9 @@ public sealed partial class AuthService
         }
 
         // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
-        AppLog.Info("Login: ipatool requested a 2FA code; prompting the user.");
+        AppLog.Info(IsUnmappedAppleFailure(first.CombinedOutput)
+            ? "Login: Apple returned an unmapped error on the code-less attempt; treating it as a 2FA request."
+            : "Login: ipatool requested a 2FA code; prompting the user.");
         if (twoFactorProvider is null)
             return AuthResult.NeedTwoFactor();
 
@@ -139,6 +149,17 @@ public sealed partial class AuthService
         var lower = second.CombinedOutput.ToLowerInvariant();
         if (lower.Contains("rejected") || lower.Contains("invalid") || RequiresTwoFactor(second.CombinedOutput))
             return AuthResult.Fail(AuthFailureReason.WrongCode, ExtractError(second.CombinedOutput));
+
+        // Apple's catch-all again, now with a code attached: the code was almost certainly
+        // the wrong one or already used, since anything else Apple names explicitly.
+        if (IsUnmappedAppleFailure(second.CombinedOutput))
+        {
+            AppLog.Warn("Login: Apple rejected the attempt without naming a reason, even with a 2FA code.");
+            return AuthResult.Fail(
+                AuthFailureReason.WrongCode,
+                "Apple rejected the sign-in without giving a reason. Request a new code and try again; "
+                + "if it keeps failing, confirm the password at appleid.apple.com.");
+        }
 
         return AuthResult.Fail(Classify(second.CombinedOutput), ExtractError(second.CombinedOutput));
 
@@ -512,6 +533,20 @@ public sealed partial class AuthService
             || lower.Contains("enter 2fa code")
             || (lower.Contains("2fa") && lower.Contains("required"))
             || (lower.Contains("two-factor") && lower.Contains("required"));
+    }
+
+    /// <summary>
+    /// True when ipatool fell back to its catch-all error because Apple sent a response it
+    /// has no mapping for ("something went wrong"). It says nothing about what failed, so it
+    /// must never be reported as a bad password - the same output covers a pending 2FA
+    /// challenge.
+    /// </summary>
+    public static bool IsUnmappedAppleFailure(string output)
+    {
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("something went wrong")
+            || lower.Contains("unknown error occurred")
+            || lower.Contains("an unknown error");
     }
 
     /// <summary>
