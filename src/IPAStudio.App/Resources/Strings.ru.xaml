@@ -368,7 +368,7 @@
 
     <!-- Диагностика (настройки логирования) -->
     <sys:String x:Key="L.Settings.Selection">Выделение в списках</sys:String>
-    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом на странице появляется кнопка «Выбрать»: пока она нажата, клик отмечает элемент, а Shift отмечает подряд. Галочки медленнее, зато их не сбить случайным кликом.</sys:String>
+    <sys:String x:Key="L.Settings.Selection.Hint">Как отмечать несколько элементов для групповых действий. При выделении кликом на странице появляется кнопка «Выбрать»: пока она нажата, клик отмечает элемент, а Shift отмечает подряд. Галочки медленнее, зато их не сбить ��лучайным кликом.</sys:String>
     <sys:String x:Key="L.Settings.Selection.Photos">Фото</sys:String>
     <sys:String x:Key="L.Settings.Selection.OnDevice">Приложения на устройстве</sys:String>
     <sys:String x:Key="L.Settings.Selection.Catalog">Каталоги .ipa</sys:String>
@@ -398,7 +398,7 @@
     <sys:String x:Key="L.Devices.Link.Wifi">По Wi-Fi</sys:String>
 
 
-    <!-- Заголовки диалогов и фильтры -->
+    <!-- Заг��ловки диалогов и фильтры -->
     <sys:String x:Key="L.Dialog.PickFolderTitle">Куда сохранить IPA</sys:String>
     <sys:String x:Key="L.Dialog.PickIpaTitle">Выберите IPA для установки</sys:String>
     <sys:String x:Key="L.Dialog.IpaFilter">Файлы IPA|*.ipa|Все файлы|*.*</sys:String>
@@ -438,7 +438,7 @@
     <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
-    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
+    <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось ��не App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
     <sys:String x:Key="L.Error.StoreUnavailable">App Store не ответил. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L.Error.IpatoolOutdated">Apple не разрешила повторную загрузку для текущего Apple ID даже через резервный endpoint. Войдите в Apple ID заново и повторите попытку либо используйте маршрут «Через iTunes 12.6.5.3».</sys:String>
@@ -474,7 +474,7 @@
     <sys:String x:Key="L.Login.Error.Cancelled">Вход отменён.</sys:String>
     <sys:String x:Key="L.Login.Error.Network">Не удалось связаться с Apple. Проверьте подключение к интернету.</sys:String>
     <sys:String x:Key="L.Login.Error.RateLimited">Слишком много попыток. Подождите несколько минут и попробуйте снова.</sys:String>
-    <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
+    <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или тре��ует внимания на appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
@@ -779,7 +779,7 @@
     <sys:String x:Key="L.OnDevice.NotFromStore">Установлено не из App Store — скачать нельзя</sys:String>
     <sys:String x:Key="L.OnDevice.OtherAccount">Куплено другим Apple ID ({0}) — скачать нельзя</sys:String>
     <sys:String x:Key="L.OnDevice.AccountUnverified">Устройство не сообщает, каким Apple ID куплено приложение. Если оно куплено не текущим аккаунтом, App Store откажет в загрузке.</sys:String>
-    <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не владеет этим приложением, App Store отказал в загрузке.</sys:String>
+    <sys:String x:Key="L.OnDevice.NotOwned">Текущий Apple ID не в��адеет этим приложением, App Store отказал в загрузке.</sys:String>
     <sys:String x:Key="L.OnDevice.PickCatalogMatch">App Store не отдал приложение по его Bundle ID. В каталоге есть похожие названия — выберите нужное, загрузка пойдёт по его ID:</sys:String>
     <sys:String x:Key="L.OnDevice.NotInStore">Приложение не найдено в App Store — скачать его нельзя.</sys:String>
     <!-- {0} — сколько приложений уже в переносе, {1} — сколько ждут выбора совпадения. -->
@@ -863,7 +863,7 @@
     <sys:String x:Key="L.QuickTransfer.Importing">Импортируем фото и видео…</sys:String>
     <sys:String x:Key="L.QuickTransfer.ImportingFile">Импортировано {0} из {1}…</sys:String>
     <sys:String x:Key="L.QuickTransfer.CloseAfterError">Закрыть</sys:String>
-    <sys:String x:Key="L.QuickTransfer.Destination">Приложение-получатель</sys:String>
+    <sys:String x:Key="L.QuickTransfer.Destination">Приложение-по��учатель</sys:String>
     <sys:String x:Key="L.QuickTransfer.AllTypes">Можно переносить фото, видео, музыку, книги, документы, архивы, папки, IPA и файлы неизвестных типов.</sys:String>
     <sys:String x:Key="L.QuickTransfer.FilterAll">Все файлы|*.*</sys:String>
     <sys:String x:Key="L.QuickTransfer.ScanningApps">Ищем приложения с доступом к файлам…</sys:String>
@@ -912,7 +912,7 @@
     <sys:String x:Key="L.Firmware.Reconnecting">Соединение потеряно. Повтор через {0} сек…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
     <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
-    <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать фа��л.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
