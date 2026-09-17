@@ -39,6 +39,13 @@ public sealed partial class AppItemViewModel : ObservableObject
     public string? LatestVersion => App.LatestVersion;
     public string? CachedIconPath => App.CachedIconPath;
 
+    /// <summary>
+    /// Shown next to every row and copyable on click: the bundle id is what the direct
+    /// download screen and most sideloading tools ask for, and it is otherwise nowhere to be
+    /// seen in the catalogue.
+    /// </summary>
+    public string? BundleId => App.BundleId;
+
     public AppItemViewModel(AppEntry app)
     {
         App = app;
@@ -51,6 +58,7 @@ public sealed partial class AppItemViewModel : ObservableObject
         License = App.License;
         IsInstalledOnDevice = App.IsInstalledOnDevice;
         OnPropertyChanged(nameof(CachedIconPath));
+        OnPropertyChanged(nameof(BundleId));
         OnPropertyChanged(nameof(Category));
         OnPropertyChanged(nameof(LatestVersion));
     }
@@ -87,6 +95,10 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
 
     [ObservableProperty]
     private string _searchText = "";
+
+    /// <summary>Transient "Copied" confirmation for the bundle id buttons.</summary>
+    [ObservableProperty]
+    private string _copyStatus = "";
 
     [ObservableProperty]
     private string? _selectedCategory;
@@ -280,12 +292,51 @@ public sealed partial class AppPickerViewModel : ObservableObject, IPageAware
         if (!string.IsNullOrEmpty(SelectedCategory) && app.Category != SelectedCategory)
             return false;
 
-        if (!string.IsNullOrWhiteSpace(SearchText) &&
-            !app.Name.Contains(SearchText.Trim(), StringComparison.CurrentCultureIgnoreCase))
-            return false;
+        // Bundle ids are on screen now, so a pasted one should find its app.
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            var needle = SearchText.Trim();
+            var matches = app.Name.Contains(needle, StringComparison.CurrentCultureIgnoreCase)
+                          || (app.BundleId?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false);
+            if (!matches) return false;
+        }
 
         return true;
     }
+
+    /// <summary>Puts a row's bundle id on the clipboard and briefly confirms it.</summary>
+    [RelayCommand]
+    private void CopyBundleId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+
+        try
+        {
+            // Can throw while another process holds the clipboard open. WPF's Clipboard
+            // retries internally, so no retry count is passed here.
+            // copy: true keeps the value on the clipboard after this app exits.
+            System.Windows.Clipboard.SetDataObject(value, true);
+            _ = FlashCopiedAsync(Loc.Get("L.Common.Copied"));
+        }
+        catch
+        {
+            _ = FlashCopiedAsync(Loc.Get("L.Common.CopyFailed"));
+        }
+    }
+
+    /// <summary>
+    /// Shows a short confirmation, then clears it. The token keeps a stale timer from
+    /// wiping the newest message when several rows are tapped in quick succession.
+    /// </summary>
+    private async Task FlashCopiedAsync(string message)
+    {
+        var token = ++_copyFlashToken;
+        CopyStatus = message;
+        await Task.Delay(1600);
+        if (_copyFlashToken == token) CopyStatus = "";
+    }
+
+    private int _copyFlashToken;
 
     [RelayCommand]
     private void SelectAllVisible()

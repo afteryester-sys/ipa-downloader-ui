@@ -185,6 +185,96 @@ if ($purchaseOccurrences -ne 1) {
 [System.IO.File]::WriteAllText($downloadCmd, $downloadCmdText.Replace($purchaseAnchor, $purchasePatched))
 Write-Host "  -> patched $downloadCmdRelative (purchase on empty songList)"
 
+# The pricing patch. Apple refuses a free "purchase" with a flat failure code when the
+# pricing parameter does not describe how the item is sold: 2059 for an Arcade title, and
+# 2040 ("Purchase of this item is not currently available") for apps the very same account
+# can install from the App Store app moments later. Upstream only ever retries 2059, and only
+# with GAME, so a 2040 ended the download outright. Try the other two parameters Apple's own
+# clients send - GAME (Arcade) and PLUS (the reacquire price Configurator uses) - before
+# giving up. A parameter that does not apply is simply refused again, so the extra attempts
+# cannot obtain anything the account was not entitled to.
+$pricingAnchor = @'
+        let result = match try_purchase(client, app_id, account, "STDQ").await {
+            Err(ClientError::Store(StoreError::TemporarilyUnavailable)) => {
+                tracing::info!("STDQ unavailable, trying GAME pricing");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                try_purchase(client, app_id, account, "GAME").await
+            }
+            other => other,
+        };
+'@ -replace "`r`n", "`n"
+$pricingPatched = @'
+        let mut result = try_purchase(client, app_id, account, "STDQ").await;
+        for pricing in ["GAME", "PLUS"] {
+            match &result {
+                Err(ClientError::Store(err)) if pricing_rejected(err) => {}
+                _ => break,
+            }
+            tracing::info!("pricing rejected by the store, retrying as {}", pricing);
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            result = try_purchase(client, app_id, account, pricing).await;
+        }
+'@ -replace "`r`n", "`n"
+$pricingHelperAnchor = @'
+fn buy_url(account: &Account) -> String {
+'@ -replace "`r`n", "`n"
+$pricingHelperPatched = @'
+/// Whether Apple's refusal is about how the item is priced rather than about the account or
+/// the item itself, and so is worth repeating with a different pricing parameter.
+fn pricing_rejected(err: &StoreError) -> bool {
+    match err {
+        StoreError::TemporarilyUnavailable | StoreError::PurchaseFailed => true,
+        StoreError::Unknown { code, .. } => code.as_str() == "2040" || code.as_str() == "2059",
+        _ => false,
+    }
+}
+
+fn buy_url(account: &Account) -> String {
+'@ -replace "`r`n", "`n"
+$purchaseApiRelative = "crates\ipatool-core\src\api\purchase.rs"
+$purchaseApi = Join-Path $ipatoolRsExtract $purchaseApiRelative
+if (-not (Test-Path $purchaseApi)) { throw "ipatool-rs source is missing $purchaseApiRelative; the pricing patch cannot be applied." }
+$purchaseApiText = (Get-Content -Path $purchaseApi -Raw) -replace "`r`n", "`n"
+$pricingCount = ([regex]::Matches($purchaseApiText, [regex]::Escape($pricingAnchor))).Count
+if ($pricingCount -ne 1) {
+    throw "Expected exactly one STDQ/GAME pricing block in $purchaseApiRelative, found $pricingCount. Re-check the pricing patch against ipatool-rs v$IpatoolRsVersion."
+}
+$purchaseApiText = $purchaseApiText.Replace($pricingAnchor, $pricingPatched)
+
+$helperCount = ([regex]::Matches($purchaseApiText, [regex]::Escape($pricingHelperAnchor))).Count
+if ($helperCount -ne 1) {
+    throw "Expected exactly one buy_url definition in $purchaseApiRelative, found $helperCount. Re-check the pricing patch against ipatool-rs v$IpatoolRsVersion."
+}
+$purchaseApiText = $purchaseApiText.Replace($pricingHelperAnchor, $pricingHelperPatched)
+[System.IO.File]::WriteAllText($purchaseApi, $purchaseApiText)
+Write-Host "  -> patched $purchaseApiRelative (GAME/PLUS pricing fallback, incl. 2040)"
+
+# The metadata patch. iTunesMetadata.plist carries the Apple ID the archive belongs to, and
+# iOS matches it against the account signed in on the device character for character.
+# Upstream writes back exactly what was typed at the login prompt, so an address entered with
+# capitals produced an archive the phone could not match to any signed-in account - which is
+# when it shows the "sign in to the iTunes Store" sheet that then does nothing at all. Apple
+# keeps the address in lower case; normalising to it makes the two agree.
+$metadataAnchor = @'
+    meta_dict.insert("apple-id".into(), plist::Value::String(email.into()));
+    meta_dict.insert("userName".into(), plist::Value::String(email.into()));
+'@ -replace "`r`n", "`n"
+$metadataPatched = @'
+    let account_id = email.trim().to_ascii_lowercase();
+    meta_dict.insert("apple-id".into(), plist::Value::String(account_id.clone()));
+    meta_dict.insert("userName".into(), plist::Value::String(account_id));
+'@ -replace "`r`n", "`n"
+$ipaPatchRelative = "crates\ipatool-core\src\ipa\patch.rs"
+$ipaPatch = Join-Path $ipatoolRsExtract $ipaPatchRelative
+if (-not (Test-Path $ipaPatch)) { throw "ipatool-rs source is missing $ipaPatchRelative; the metadata patch cannot be applied." }
+$ipaPatchText = (Get-Content -Path $ipaPatch -Raw) -replace "`r`n", "`n"
+$metadataOccurrences = ([regex]::Matches($ipaPatchText, [regex]::Escape($metadataAnchor))).Count
+if ($metadataOccurrences -ne 1) {
+    throw "Expected exactly one apple-id/userName pair in $ipaPatchRelative, found $metadataOccurrences. Re-check the metadata patch against ipatool-rs v$IpatoolRsVersion."
+}
+[System.IO.File]::WriteAllText($ipaPatch, $ipaPatchText.Replace($metadataAnchor, $metadataPatched))
+Write-Host "  -> patched $ipaPatchRelative (lower-case Apple ID in iTunesMetadata)"
+
 $ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
 Push-Location $ipatoolRsExtract

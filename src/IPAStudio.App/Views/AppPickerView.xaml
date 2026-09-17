@@ -41,6 +41,10 @@
                 <TextBlock Text="{DynamicResource L.Picker.RefreshingStatuses}" Style="{StaticResource Text.Caption}"
                            VerticalAlignment="Center" Margin="10,0,0,0" />
             </StackPanel>
+            <!-- Confirmation for the bundle id buttons; collapsed when empty. -->
+            <TextBlock Text="{Binding CopyStatus}" Style="{StaticResource Text.Caption}"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,56,0"
+                       Visibility="{Binding CopyStatus, Converter={StaticResource NullToCollapsed}}" />
         </Grid>
 
         <!-- Apple ID mismatch warning banner -->
@@ -206,6 +210,23 @@
                                                Style="{StaticResource Text.Caption}"
                                                Visibility="{Binding LatestVersion, Converter={StaticResource NullToCollapsed}}" />
                                 </StackPanel>
+                                <!-- The bundle id, one click away from the clipboard. The
+                                     command lives on the page's view model, so the binding
+                                     steps out of the row's DataContext via the ListBox. -->
+                                <Button Content="{Binding BundleId}"
+                                        Style="{StaticResource Button.Ghost}"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,4,0,0"
+                                        Padding="8,3"
+                                        FontSize="11"
+                                        FontFamily="Consolas"
+                                        Foreground="{DynamicResource Brush.TextMuted}"
+                                        Cursor="Hand"
+                                        ToolTip="{DynamicResource L.Common.CopyToClipboard}"
+                                        Visibility="{Binding BundleId, Converter={StaticResource NullToCollapsed}}"
+                                        Command="{Binding DataContext.CopyBundleIdCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding BundleId}" />
                             </StackPanel>
 
                             <!-- Status badges -->

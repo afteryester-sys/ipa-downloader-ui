@@ -26,10 +26,12 @@ public sealed class DeviceService : IAsyncDisposable
     /// why a phone "sometimes shows up and sometimes doesn't": nothing was wrong with the
     /// discovery, the list was simply being torn down and rebuilt every few seconds.
     ///
-    /// Five polls is roughly fifteen seconds of silence, long enough to ride out that dozing
-    /// while still noticing a phone that really did leave the network.
+    /// Ten polls is roughly thirty seconds of silence. Fifteen turned out to be on the short
+    /// side for a phone whose screen has been off for a while, which is the case where the
+    /// list was still flickering; half a minute rides that out and a phone that has genuinely
+    /// left the network is still noticed well within a minute.
     /// </summary>
-    private const int NetworkGraceMisses = 5;
+    private const int NetworkGraceMisses = 10;
 
     private readonly ToolLocator _tools;
     private readonly ProcessRunner _runner;
@@ -109,11 +111,13 @@ public sealed class DeviceService : IAsyncDisposable
     /// </param>
     public async Task PollOnceAsync(CancellationToken ct = default, bool quiet = false)
     {
-        var links = await ListDevicesAsync(ct, quiet).ConfigureAwait(false);
+        var listing = await ListDevicesAsync(ct, quiet).ConfigureAwait(false);
 
         // Could not enumerate: leave the known devices exactly as they are and try again on
         // the next tick, rather than tearing the list down over one failed call.
-        if (links is null) return;
+        if (listing is null) return;
+
+        var (links, networkKnown) = listing.Value;
 
         var currentUdids = links.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -138,6 +142,11 @@ public sealed class DeviceService : IAsyncDisposable
                 // USB is reported at once; Wi-Fi is given a few polls to answer again.
                 if (device.Link == DeviceLink.Network)
                 {
+                    // This round could not see the network at all, so the device's absence
+                    // from the list says nothing about the device. Counting it as a miss is
+                    // what let a run of failed listings retire a phone that never left.
+                    if (!networkKnown) continue;
+
                     var misses = _missedPolls.TryGetValue(device.Udid, out var n) ? n + 1 : 1;
                     _missedPolls[device.Udid] = misses;
                     if (misses < NetworkGraceMisses) continue;
@@ -232,8 +241,11 @@ public sealed class DeviceService : IAsyncDisposable
     /// <returns>
     /// The reachable devices, or null when the listing itself failed — which is not the same
     /// thing as no devices being attached, and must not be treated as one.
+    /// <c>NetworkKnown</c> is false when Wi-Fi devices were wanted but could not be
+    /// enumerated, so the caller can leave the ones it already knows about alone.
     /// </returns>
-    private async Task<Dictionary<string, DeviceLink>?> ListDevicesAsync(CancellationToken ct, bool quiet)
+    private async Task<(Dictionary<string, DeviceLink> Links, bool NetworkKnown)?> ListDevicesAsync(
+        CancellationToken ct, bool quiet)
     {
         var wantNetwork = DeviceTransport.WifiEnabled;
 
@@ -244,7 +256,7 @@ public sealed class DeviceService : IAsyncDisposable
                 .ConfigureAwait(false);
 
             if (both.Success)
-                return ParseDeviceList(both.StdOut, annotated: true);
+                return (ParseDeviceList(both.StdOut, annotated: true), true);
 
             // An idevice_id predating network support rejects -n outright and exits with a
             // usage error. Falling back keeps such an install working over USB instead of
@@ -275,7 +287,9 @@ public sealed class DeviceService : IAsyncDisposable
             return null;
         }
 
-        return ParseDeviceList(usbOnly.StdOut, annotated: false);
+        // Reached either because Wi-Fi is off (in which case a USB-only answer is the whole
+        // truth) or because the combined listing failed (in which case it is not).
+        return (ParseDeviceList(usbOnly.StdOut, annotated: false), !wantNetwork);
     }
 
     private bool _networkUnsupportedLogged;
