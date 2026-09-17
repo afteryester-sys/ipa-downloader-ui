@@ -5,9 +5,10 @@
 # development).
 #
 # Sources:
-#   - ipatool v2                    -> official majd/ipatool v2.6.0 release
+#   - ipatool v2                    -> official majd/ipatool v2.5.0 release
 #   - ipatool v3 + anisette.exe     -> kda2495/IPA_Downloader, pinned to a commit SHA
 #     because the upstream default branch no longer carries these legacy binaries
+#   - ipatool-rs v0.1.7             -> Kosthi/ipatool-rs (SAP-signed BETA auth)
 #   - libimobiledevice suite        -> imobiledevice-net GitHub releases
 #     (ideviceinstaller.exe, idevice_id.exe, ideviceinfo.exe,
 #      idevicediagnostics.exe + DLLs)
@@ -38,10 +39,14 @@ $LegacyToolHashes = @{
     "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
     "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
 }
-$IpatoolVersion = "2.6.0"
-$IpatoolRelease = "https://github.com/majd/ipatool/releases/download/v$IpatoolVersion/ipatool-$IpatoolVersion-windows-amd64.tar.gz"
-$IpatoolArchiveSha256 = "3ee48adc7c4aa84a8cc8ff9399d387c25f9b8593b2c212da29e966047a08ad21"
-$IpatoolBinarySha256 = "79993976658be95f1c0a7d30e2bdc806b4764dca0619815bfc6c96630f1103ec"
+$IpatoolVersion = "2.5.0-ipa-studio.1"
+$IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
+$IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
+$IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
+$IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
+$IpatoolRsVersion = "0.1.7"
+$IpatoolRsRelease = "https://github.com/Kosthi/ipatool-rs/releases/download/v$IpatoolRsVersion/ipatool-rs-x86_64-pc-windows-msvc.zip"
+$IpatoolRsSha256 = "77f6dd43eaa17d8ef2e9bda1c2240c59b9f8a755f8cd6d0b3f60e5d171888f77"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -55,41 +60,66 @@ function Download-File {
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 Write-Host "Tools output folder: $OutDir"
 
-# --- official ipatool v2 ------------------------------------------------------
-Write-Host "`n[1/3] ipatool v$IpatoolVersion ..."
-$ipatoolArchive = Join-Path $env:TEMP "ipatool-$IpatoolVersion-windows-amd64.tar.gz"
-$ipatoolExtract = Join-Path $env:TEMP "ipatool-$IpatoolVersion-windows-amd64"
-$ipatoolDestination = Join-Path $OutDir "windows_amd64_v2\ipatool.exe"
-$ipatoolArchiveEntry = "bin/ipatool-$IpatoolVersion-windows-amd64.exe"
-Download-File $IpatoolRelease $ipatoolArchive
+# --- ipatool v2 with Apple 5002/redownload fallback --------------------------
+Write-Host "`n[1/4] patched ipatool v$IpatoolVersion ..."
+$ipatoolArchive = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src.tar.gz"
+$ipatoolExtract = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src"
+Download-File $IpatoolSource $ipatoolArchive
 $ipatoolActualHash = (Get-FileHash -Path $ipatoolArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($ipatoolActualHash -ne $IpatoolArchiveSha256) {
-    throw "ipatool archive checksum mismatch: expected $IpatoolArchiveSha256, got $ipatoolActualHash"
+if ($ipatoolActualHash -ne $IpatoolSourceSha256) {
+    throw "ipatool source checksum mismatch: expected $IpatoolSourceSha256, got $ipatoolActualHash"
 }
 if (Test-Path $ipatoolExtract) { Remove-Item $ipatoolExtract -Recurse -Force }
 New-Item -ItemType Directory -Path $ipatoolExtract -Force | Out-Null
-& tar.exe -xzf $ipatoolArchive -C $ipatoolExtract $ipatoolArchiveEntry
-$ipatoolExtracted = Join-Path $ipatoolExtract $ipatoolArchiveEntry
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $ipatoolExtracted)) {
-    throw "Failed to extract $ipatoolArchiveEntry from the official release archive."
-}
+& tar.exe -xzf $ipatoolArchive -C $ipatoolExtract --strip-components=1
+if ($LASTEXITCODE -ne 0) { throw "Failed to extract the pinned ipatool source archive." }
+$ipatoolDestination = Join-Path $OutDir "windows_amd64_v2\ipatool.exe"
 New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolDestination) -Force | Out-Null
-Copy-Item $ipatoolExtracted -Destination $ipatoolDestination -Force
+Push-Location $ipatoolExtract
+try {
+    $env:GOOS = "windows"
+    $env:GOARCH = "amd64"
+    $env:CGO_ENABLED = "0"
+    & go build -trimpath -buildvcs=false "-ldflags=-s -w -X github.com/majd/ipatool/v2/cmd.version=$IpatoolVersion" -o $ipatoolDestination .
+    if ($LASTEXITCODE -ne 0) { throw "Failed to build the patched ipatool backend." }
+}
+finally {
+    Pop-Location
+}
 $ipatoolBinaryHash = (Get-FileHash -Path $ipatoolDestination -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($ipatoolBinaryHash -ne $IpatoolBinarySha256) {
     throw "ipatool binary checksum mismatch: expected $IpatoolBinarySha256, got $ipatoolBinaryHash"
 }
-Write-Host "  -> official backend SHA-256: $ipatoolBinaryHash"
+Write-Host "  -> patched backend SHA-256: $ipatoolBinaryHash"
 Remove-Item $ipatoolArchive -Force -ErrorAction SilentlyContinue
 Remove-Item $ipatoolExtract -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- ipatool v3 + anisette ----------------------------------------------------
-Write-Host "`n[2/3] ipatool v3 + anisette ..."
+Write-Host "`n[2/4] ipatool v3 + anisette ..."
 Download-File "$RepoRaw/windows_amd64_v3/ipatool.exe"  (Join-Path $OutDir "windows_amd64_v3\ipatool.exe")
 Download-File "$RepoRaw/windows_amd64_v3/anisette.exe" (Join-Path $OutDir "windows_amd64_v3\anisette.exe")
 
+# --- ipatool-rs SAP BETA ------------------------------------------------------
+Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA) ..."
+$ipatoolRsZip = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64.zip"
+$ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-windows-x64"
+Download-File $IpatoolRsRelease $ipatoolRsZip
+$ipatoolRsActualHash = (Get-FileHash -Path $ipatoolRsZip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($ipatoolRsActualHash -ne $IpatoolRsSha256) {
+    throw "ipatool-rs archive checksum mismatch: expected $IpatoolRsSha256, got $ipatoolRsActualHash"
+}
+if (Test-Path $ipatoolRsExtract) { Remove-Item $ipatoolRsExtract -Recurse -Force }
+Expand-Archive -Path $ipatoolRsZip -DestinationPath $ipatoolRsExtract -Force
+$ipatoolRsBinary = Join-Path $ipatoolRsExtract "ipatool.exe"
+if (-not (Test-Path $ipatoolRsBinary)) { throw "ipatool.exe was not found in the ipatool-rs archive." }
+$ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
+New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
+Copy-Item $ipatoolRsBinary -Destination $ipatoolRsDestination -Force
+Remove-Item $ipatoolRsZip -Force -ErrorAction SilentlyContinue
+Remove-Item $ipatoolRsExtract -Recurse -Force -ErrorAction SilentlyContinue
+
 # --- libimobiledevice suite ----------------------------------------------------
-Write-Host "`n[3/3] libimobiledevice suite (ideviceinstaller, idevice_id, ideviceinfo) ..."
+Write-Host "`n[4/4] libimobiledevice suite (ideviceinstaller, idevice_id, ideviceinfo) ..."
 $zipPath = Join-Path $env:TEMP "imobiledevice-net.zip"
 $extractPath = Join-Path $env:TEMP "imobiledevice-net"
 Download-File $ImobiledeviceRelease $zipPath
@@ -128,6 +158,7 @@ $required = @(
     (Join-Path $OutDir "windows_amd64_v2\ipatool.exe"),
     (Join-Path $OutDir "windows_amd64_v3\ipatool.exe"),
     (Join-Path $OutDir "windows_amd64_v3\anisette.exe"),
+    (Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"),
     (Join-Path $imobileDir "ideviceinstaller.exe"),
     (Join-Path $imobileDir "idevice_id.exe"),
     (Join-Path $imobileDir "ideviceinfo.exe"),

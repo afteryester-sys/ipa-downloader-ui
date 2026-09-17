@@ -58,6 +58,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private int _ipatoolVersion = 2;
 
     [ObservableProperty]
+    private bool _useBetaAppleAuthentication;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEnableRemoteSupport))]
     private bool _remoteSupportEnabled;
 
@@ -69,6 +72,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private string _remoteSupportStatus = "";
 
     public bool CanEnableRemoteSupport => !RemoteSupportEnabled && !IsRemoteSupportBusy;
+
+    [ObservableProperty]
+    private string _betaAuthDiagnostic = "";
 
     [ObservableProperty]
     private string _appsFolder = "";
@@ -94,9 +100,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _multitaskingEnabled;
 
-    /// <summary>Compatibility value; installs are serialized per device.</summary>
+    /// <summary>Concurrent installs on one device. Different devices are always parallel.</summary>
     [ObservableProperty]
-    private int _maxParallelInstallsPerDevice = 1;
+    private int _maxParallelInstallsPerDevice = 2;
 
     /// <summary>
     /// Writes routine background detail (device-poll tool calls, media pipeline timings)
@@ -487,6 +493,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         Language = _settings.Current.Language;
         Theme = _settings.Current.Theme;
         IpatoolVersion = _settings.Current.IpatoolVersion;
+        UseBetaAppleAuthentication = _settings.Current.UseBetaAppleAuthentication;
         RemoteSupportEnabled = _remoteSupport.IsEnabled;
         RemoteSupportStatus = RemoteSupportEnabled ? "Удалённый доступ разрешён для этого компьютера." : "Удалённый доступ выключен.";
         AppsFolder = _settings.Current.AppsFolder ?? _tools.AppsFolder;
@@ -778,6 +785,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private void CheckBetaAuthentication()
+    {
+        var betaTool = System.IO.File.Exists(_tools.BetaIpatoolPath);
+        BetaAuthDiagnostic = betaTool
+            ? Str("L.Settings.BetaAuth.Ready")
+            : Str("L.Settings.BetaAuth.Missing");
+    }
+
+    [RelayCommand]
     private void Save()
     {
         // Detect a theme change before saving — switching the color theme needs a
@@ -787,12 +803,13 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.Language = Language;
         _settings.Current.Theme = Theme;
         _settings.Current.IpatoolVersion = IpatoolVersion;
+        _settings.Current.UseBetaAppleAuthentication = UseBetaAppleAuthentication;
         _settings.Current.AppsFolder = string.IsNullOrWhiteSpace(AppsFolder) ? null : AppsFolder;
         _settings.Current.ItunesLibraryFolder =
             string.IsNullOrWhiteSpace(ItunesLibraryFolder) ? null : ItunesLibraryFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.MultitaskingEnabled = MultitaskingEnabled;
-        _settings.Current.MaxParallelInstallsPerDevice = 1;
+        _settings.Current.MaxParallelInstallsPerDevice = Math.Clamp(MaxParallelInstallsPerDevice, 1, 4);
         _settings.Current.InstallMode = InstallMode;
         _settings.Current.ResumeMode = ResumeMode;
         _settings.Current.PhotosSelectionMode = PhotosSelectionMode;

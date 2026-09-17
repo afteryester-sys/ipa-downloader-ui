@@ -12,7 +12,6 @@ namespace IPAStudio.Core.Tools;
 /// Whether <c>iTunesMetadata.plist</c> is present at the archive root. installd reads the
 /// account identity from it; without it the app is installed unlicensed.
 /// </param>
-/// <param name="MainAppCount">How many primary <c>Payload/*.app</c> bundles the archive contains.</param>
 /// <param name="SinfCount">How many <c>.sinf</c> licence blobs the archive contains.</param>
 /// <param name="RequiredSinfPaths">
 /// The main executable's blob path, taken from the app's own <c>SC_Info/Manifest.plist</c>.
@@ -24,13 +23,12 @@ namespace IPAStudio.Core.Tools;
 /// unlicensed — 1/11, 1/41, 1/123 — and buried the one case that is genuinely broken.
 /// </param>
 /// <param name="MissingSinfPaths">
-/// Those of <paramref name="RequiredSinfPaths"/> that are absent from the archive. Any
-/// missing main-executable blob makes the archive invalid for download reuse or installation.
+/// Those of <paramref name="RequiredSinfPaths"/> that are absent from the archive. Advisory
+/// only: see the remarks on <see cref="IpaLicense"/> for why this does not block an install.
 /// </param>
 /// <param name="ReadError">Set when the archive could not be examined at all.</param>
 public sealed record IpaLicenseReport(
     bool HasMetadata,
-    int MainAppCount,
     int SinfCount,
     string? AppleId,
     string? AccountDsId,
@@ -54,21 +52,10 @@ public sealed record IpaLicenseReport(
     /// </summary>
     public bool IsPartiallyLicensed => ReadError is null && SinfCount > 0 && MissingSinfPaths.Count > 0;
 
-    /// <summary>
-    /// True only when the archive is structurally complete and carries the FairPlay material
-    /// needed by the main app. Used as a hard gate before accepting a download or uploading
-    /// a local IPA to a device.
-    /// </summary>
-    public bool IsInstallable => ReadError is null
-        && MainAppCount == 1
-        && HasMetadata
-        && SinfCount > 0
-        && MissingSinfPaths.Count == 0;
-
     /// <summary>One log line describing what was found.</summary>
     public string Describe()
     {
-        if (ReadError is not null) return $"archive unreadable: {ReadError}";
+        if (ReadError is not null) return $"licence check skipped: {ReadError}";
 
         var who = AppleId is not null ? $", account {AppleId}"
                 : AccountDsId is not null ? $", DSID {AccountDsId}"
@@ -79,8 +66,7 @@ public sealed record IpaLicenseReport(
             ? $", missing: {string.Join(", ", MissingSinfPaths.Take(4))}"
             : "";
 
-        return $"main apps: {MainAppCount}, " +
-               $"iTunesMetadata.plist: {(HasMetadata ? "yes" : "NO")}, " +
+        return $"iTunesMetadata.plist: {(HasMetadata ? "yes" : "NO")}, " +
                $"sinf: {SinfCount}{required}{missing}{who}";
     }
 }
@@ -156,9 +142,9 @@ public static partial class IpaLicense
     }
 
     /// <summary>
-    /// Examines an IPA. Never throws: an unreadable or truncated archive yields a report with
-    /// <see cref="IpaLicenseReport.ReadError"/> set. Callers decide whether that is a hard
-    /// validation failure; downloads and installs intentionally reject it.
+    /// Examines an IPA. Never throws: an unreadable archive yields a report with
+    /// <see cref="IpaLicenseReport.ReadError"/> set, because a failed licence check must not
+    /// be able to stop a download or an install that would otherwise have worked.
     /// </summary>
     public static IpaLicenseReport Inspect(string ipaPath)
     {
@@ -170,7 +156,6 @@ public static partial class IpaLicense
             string? appleId = null;
             string? dsId = null;
             var sinfEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var mainBundleRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             ZipArchiveEntry? manifest = null;
             string? bundleRoot = null;
 
@@ -191,12 +176,8 @@ public static partial class IpaLicense
                 // The shortest "Payload/<name>.app/" prefix is the app itself; longer ones
                 // belong to nested bundles such as extensions or a watch app.
                 var root = BundleRootOf(name);
-                if (root is not null)
-                {
-                    mainBundleRoots.Add(root);
-                    if (bundleRoot is null || root.Length < bundleRoot.Length)
-                        bundleRoot = root;
-                }
+                if (root is not null && (bundleRoot is null || root.Length < bundleRoot.Length))
+                    bundleRoot = root;
 
                 if (name.EndsWith("/SC_Info/Manifest.plist", StringComparison.OrdinalIgnoreCase))
                 {
@@ -217,7 +198,6 @@ public static partial class IpaLicense
 
             return new IpaLicenseReport(
                 HasMetadata: hasMetadata,
-                MainAppCount: mainBundleRoots.Count,
                 SinfCount: sinfEntries.Count,
                 AppleId: appleId,
                 AccountDsId: dsId,
@@ -229,7 +209,6 @@ public static partial class IpaLicense
         {
             return new IpaLicenseReport(
                 HasMetadata: false,
-                MainAppCount: 0,
                 SinfCount: 0,
                 AppleId: null,
                 AccountDsId: null,
@@ -246,14 +225,7 @@ public static partial class IpaLicense
         if (!entryName.StartsWith(payload, StringComparison.OrdinalIgnoreCase)) return null;
 
         var appIdx = entryName.IndexOf(".app/", payload.Length, StringComparison.OrdinalIgnoreCase);
-        if (appIdx < 0) return null;
-
-        // The primary bundle must be directly below Payload. A nested app belongs to an
-        // extension/watch bundle and a subdirectory here is not a valid IPA root.
-        var bundleName = entryName[payload.Length..appIdx];
-        if (bundleName.Length == 0 || bundleName.Contains('/')) return null;
-
-        return entryName[..(appIdx + ".app/".Length)];
+        return appIdx < 0 ? null : entryName[..(appIdx + ".app/".Length)];
     }
 
     /// <summary>

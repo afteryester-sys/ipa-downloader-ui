@@ -57,11 +57,12 @@ public sealed class InstallResult
     public string? DeviceAccount { get; init; }
 
     /// <summary>
-    /// Set when the installer claimed success but the app is not on the device afterwards.
+    /// Set when the installer claimed success but the app is not on the device afterwards,
+    /// even after a second attempt.
     ///
     /// Kept apart because it says something different from every other failure: the tool
-    /// reported nothing wrong at all. The caller can offer a deliberate retry without
-    /// misreporting the missing app as installed.
+    /// reported nothing wrong at all. installd accepts concurrent sessions and occasionally
+    /// drops one of them without a word, so this is the only evidence such an install leaves.
     /// </summary>
     public bool NotOnDevice { get; init; }
 
@@ -98,19 +99,40 @@ public sealed partial class InstallService
     private readonly ProcessRunner _runner;
 
     /// <summary>
-    /// Compatibility surface for settings created by earlier releases. Installs are always
-    /// serialized per UDID because installd can silently drop an overlapping session.
-    /// Separate devices use separate semaphores and still install in parallel.
+    /// How many installs may run at once on a single device.
+    ///
+    /// Was effectively 1, enforced by a process-wide semaphore — which also meant a second
+    /// connected iPhone gained nothing, since it waited behind the first one's upload.
+    /// installd does accept concurrent sessions (installing from this app and from 3uTools
+    /// at the same time works), so the limit was self-imposed.
+    ///
+    /// Kept small on purpose. The bottleneck is the USB link, so more concurrency stops
+    /// buying throughput quickly and each extra stream makes the per-app progress noisier.
     /// </summary>
     public int MaxParallelInstallsPerDevice
     {
-        get => 1;
+        get => _maxParallelInstallsPerDevice;
         set
         {
-            // Kept as a compatibility property for existing settings and callers. Multiple
-            // install sessions on one UDID are intentionally no longer allowed.
+            var clamped = Math.Clamp(value, 1, 4);
+            if (clamped == _maxParallelInstallsPerDevice) return;
+
+            _maxParallelInstallsPerDevice = clamped;
+
+            // A SemaphoreSlim's capacity is fixed once constructed, and the limiters below
+            // are cached per device forever. Without dropping them, changing the setting
+            // would only affect devices connected for the first time afterwards — the
+            // device already in the list would keep the old limit for the whole session.
+            //
+            // Safe because a limiter is only ever taken through DeviceLock: installs already
+            // in flight hold the old object and release it correctly, while the next install
+            // builds a fresh one at the new size. Worst case an install briefly overlaps the
+            // new limit, which installd tolerates.
+            _deviceLocks.Clear();
         }
     }
+
+    private int _maxParallelInstallsPerDevice = 2;
 
     /// <summary>
     /// Concurrency limiter per device, keyed by UDID. Separate devices get separate
@@ -132,7 +154,9 @@ public sealed partial class InstallService
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _bundleLocks = new(StringComparer.OrdinalIgnoreCase);
 
     private SemaphoreSlim DeviceLock(string udid) =>
-        _deviceLocks.GetOrAdd(udid ?? "", _ => new SemaphoreSlim(1, 1));
+        _deviceLocks.GetOrAdd(udid ?? "", _ => new SemaphoreSlim(
+            Math.Max(1, MaxParallelInstallsPerDevice),
+            Math.Max(1, MaxParallelInstallsPerDevice)));
 
     private SemaphoreSlim BundleLock(string udid, string bundleId) =>
         _bundleLocks.GetOrAdd($"{udid}|{bundleId}", _ => new SemaphoreSlim(1, 1));
@@ -161,8 +185,9 @@ public sealed partial class InstallService
     /// so a line-oriented reader receives NOTHING until the process exits — which is why
     /// the install used to sit on its first message and then jump straight to finished.
     ///
-    /// One install runs at a time on each device. Separate devices remain unconstrained,
-    /// and the same app is never installed twice concurrently.
+    /// Up to <see cref="MaxParallelInstallsPerDevice"/> installs run at once on one device,
+    /// and separate devices are unconstrained; the same app is never installed twice
+    /// concurrently.
     /// </summary>
     /// <param name="deviceAppleId">
     /// Apple ID the target device is signed in to, when it is known. Used to refuse an archive
@@ -198,13 +223,13 @@ public sealed partial class InstallService
         var license = IpaLicense.Inspect(ipaPath);
         AppLog.Info($"Install licence check: {license.Describe()}");
 
-        if (!license.IsInstallable)
+        if (license.IsDefinitelyUnlicensed)
         {
-            // Refused rather than attempted. This covers a truncated ZIP, a missing/duplicate
-            // primary app and incomplete FairPlay material. In every case uploading it would
-            // either fail late or leave an app that cannot launch.
+            // Refused rather than attempted. Installing it would report success and leave an
+            // app on the home screen that cannot start, which is a worse outcome than a clear
+            // message: the user would have no way to tell that from a broken phone.
             return InstallResult.NoLicense(
-                $"This IPA archive is incomplete ({license.Describe()}). Delete it and download it again.");
+                $"IPA has no FairPlay licence ({license.Describe()})");
         }
 
         // A licence is issued to one Apple ID. An archive fetched as somebody else installs
@@ -219,6 +244,16 @@ public sealed partial class InstallService
             AppLog.Warn($"Install refused: IPA is licensed to {license.AppleId}, " +
                         $"device is signed in as {deviceAppleId}");
             return InstallResult.WrongAccount(license.AppleId!, deviceAppleId!);
+        }
+
+        if (license.IsPartiallyLicensed)
+        {
+            // The archive has blobs but not the one the manifest names for the main
+            // executable. That should stop it launching, yet it is only logged: the previous
+            // version of this check was itself too eager, and refusing an app that turns out
+            // to run is worse than a line in the log.
+            AppLog.Warn("IPA is missing the blob its manifest names for the main binary; " +
+                        $"it may not launch: {license.Describe()}");
         }
 
         // Two gates, always taken in this order (bundle, then device) everywhere, so no two
@@ -248,26 +283,41 @@ public sealed partial class InstallService
                 ipaPath, totalBytes, progress, ct).ConfigureAwait(false);
 
             // ---- Phases 2-4: install, then confirm it is actually there ---------------
-            // A clean exit from ideviceinstaller is not proof. Report success only after the
-            // bundle appears in the device listing; do not hide a missing or unreadable result
-            // behind another full upload of the same IPA.
-            var outcome = await RunInstallerAsync(
-                udid, installPath, totalBytes, progress, ct).ConfigureAwait(false);
-            if (!outcome.Success) return outcome;
-
-            var confirmed = await ConfirmInstalledAsync(udid, bundleId, ct).ConfigureAwait(false);
-            if (confirmed == true) return outcome;
-
-            if (confirmed == false)
+            //
+            // A clean exit from ideviceinstaller is not proof. installd accepts concurrent
+            // sessions, and with two installs in flight on one device it sometimes drops one
+            // silently — the tool prints its usual "Complete" and exits 0, and the app is
+            // simply absent from the phone. That is why this reports "Done" for apps that
+            // were never installed, and why the only reliable test is to ask the device.
+            //
+            // Both attempts run while the locks are held, so the retry cannot collide with
+            // whatever else the queue is installing.
+            for (var attempt = 1; ; attempt++)
             {
-                AppLog.Warn($"Install of '{bundleId}' reported success, but the device does not list it");
-                return InstallResult.Missing(
-                    $"installer reported success, but {bundleId} is not on the device");
-            }
+                var outcome = await RunInstallerAsync(
+                    udid, installPath, totalBytes, progress, ct).ConfigureAwait(false);
 
-            AppLog.Warn($"Install of '{bundleId}' reported success, but the device listing could not be read");
-            return InstallResult.Fail(
-                "The installer completed, but IPA Studio could not verify the app on the device. Reconnect it and check again.");
+                // A reported failure is already conclusive, and a missing licence means the
+                // app may be installed yet unable to launch — neither is worth re-checking.
+                if (!outcome.Success) return outcome;
+
+                var confirmed = await ConfirmInstalledAsync(udid, bundleId, ct).ConfigureAwait(false);
+
+                // true, or "could not tell" — the listing is a cross-check, so when it cannot
+                // be read the installer's own verdict stands rather than inventing a failure.
+                if (confirmed != false) return outcome;
+
+                if (attempt >= InstallAttempts)
+                {
+                    AppLog.Warn($"Install of '{bundleId}' reported success {InstallAttempts} time(s) " +
+                                "but the device does not list it");
+                    return InstallResult.Missing(
+                        $"installer reported success, but {bundleId} is not on the device");
+                }
+
+                AppLog.Warn($"Install of '{bundleId}' reported success but the device does not " +
+                            "list it; installing once more");
+            }
         }
         finally
         {
@@ -281,6 +331,15 @@ public sealed partial class InstallService
             }
         }
     }
+
+    /// <summary>
+    /// How many times an install is attempted when the device keeps not listing the app.
+    ///
+    /// Two, not more: one retry clears the occasional dropped concurrent session, while a
+    /// bundle that is still missing after that is failing for a reason repetition will not fix,
+    /// and each attempt pushes the whole archive over the cable again.
+    /// </summary>
+    private const int InstallAttempts = 2;
 
     /// <summary>
     /// Whether the device lists <paramref name="bundleId"/>: true present, false absent,
