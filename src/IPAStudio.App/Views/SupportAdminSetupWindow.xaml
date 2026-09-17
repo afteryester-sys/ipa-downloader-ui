@@ -1,0 +1,22 @@
+<Window x:Class="IPAStudio.App.Views.SupportAdminSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Безопасное создание ключа" Width="540" Height="460"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" Background="{DynamicResource Brush.Background}">
+    <StackPanel Margin="28">
+        <TextBlock Text="Создать и импортировать ключ" Style="{StaticResource Text.Title}" />
+        <TextBlock Text="Ключ создаётся только на этом компьютере. Закрытая часть шифруется вашим паролем, сохраняется в TXT-контейнер и сразу импортируется в защищённое хранилище Windows (DPAPI). Исходный файл не удаляется."
+                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,20" />
+        <TextBlock Text="Bootstrap-секрет" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="BootstrapSecret" Padding="10" Margin="0,6,0,14" />
+        <TextBlock Text="Новый пароль (не менее 12 символов)" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="Password" Padding="10" Margin="0,6,0,14" />
+        <TextBlock Text="Повторите пароль" Style="{StaticResource Text.Body}" />
+        <PasswordBox x:Name="PasswordAgain" Padding="10" Margin="0,6,0,18" />
+        <StackPanel Orientation="Horizontal">
+            <Button x:Name="CreateButton" Content="Создать, сохранить и открыть панель" Style="{StaticResource Button.Primary}" Click="Create_Click" Margin="0,0,10,0" />
+            <Button Content="Отмена" Style="{StaticResource Button.Secondary}" IsCancel="True" />
+        </StackPanel>
+        <TextBlock x:Name="StatusText" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,14,0,0" />
+    </StackPanel>
+</Window>

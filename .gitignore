@@ -13,3 +13,20 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Publish / installer output
+build/publish/
+build/output/
+
+# Downloaded tool binaries
+src/IPAStudio.App/tools/
+tools/
+
+# OS
+Thumbs.db

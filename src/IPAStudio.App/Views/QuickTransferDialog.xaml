@@ -1,0 +1,107 @@
+<Window x:Class="IPAStudio.App.Views.QuickTransferDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource L.QuickTransfer.Title}"
+        Width="680" Height="600" MinWidth="600" MinHeight="520"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Background}"
+        AllowDrop="True" DragOver="OnDragOver" DragLeave="OnDragLeave" Drop="OnDrop">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="{DynamicResource L.QuickTransfer.Title}" Style="{StaticResource Text.Body}"
+                       FontSize="18" FontWeight="SemiBold" />
+            <TextBlock x:Name="DeviceLine" Style="{StaticResource Text.Caption}"
+                       TextWrapping="Wrap" Margin="0,4,0,14" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Padding="14" CornerRadius="8"
+                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                Background="{StaticResource Brush.Surface}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.QuickTransfer.Destination}" Style="{StaticResource Text.Caption}" />
+                    <ComboBox x:Name="DestinationPicker" Margin="0,6,12,0" MinHeight="34"
+                              DisplayMemberPath="Name" SelectionChanged="OnDestinationChanged" />
+                    <TextBlock x:Name="DestinationHint" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,6,12,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="{DynamicResource L.QuickTransfer.Browse}"
+                        Style="{StaticResource Button.Secondary}" VerticalAlignment="Center"
+                        Click="OnBrowseClicked" />
+            </Grid>
+        </Border>
+
+        <Border x:Name="DropZone" Grid.Row="2" CornerRadius="10" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.Border}" Background="{StaticResource Brush.Surface}">
+            <Grid>
+                <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="40"
+                               Foreground="{StaticResource Brush.TextMuted}" HorizontalAlignment="Center" Opacity="0.65" />
+                    <TextBlock Text="{DynamicResource L.QuickTransfer.DropHint}" Style="{StaticResource Text.Body}"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               Margin="0,14,0,0" MaxWidth="390" />
+                    <TextBlock Text="{DynamicResource L.QuickTransfer.AllTypes}" Style="{StaticResource Text.Caption}"
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               Margin="0,10,0,0" MaxWidth="410" />
+                </StackPanel>
+
+                <Grid x:Name="ResultState" Visibility="Collapsed" Margin="14">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="SummaryLine" Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                    <ListBox x:Name="FilesList" Grid.Row="1" BorderThickness="0" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="34" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Glyph}" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                               Foreground="{StaticResource Brush.Accent}" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding Type}" Style="{StaticResource Text.Caption}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding Destination}" Style="{StaticResource Text.Caption}"
+                                               VerticalAlignment="Center" Margin="12,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+
+                <StackPanel x:Name="ProgressState" Visibility="Collapsed" HorizontalAlignment="Center"
+                            VerticalAlignment="Center" Width="380">
+                    <TextBlock x:Name="ProgressLabel" Style="{StaticResource Text.Body}"
+                               HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" />
+                    <ProgressBar x:Name="ProgressBarControl" Style="{StaticResource Progress.Slim}"
+                                 Margin="0,14,0,0" Minimum="0" Maximum="100" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button x:Name="CancelButton" Content="{DynamicResource L.Cancel}" Style="{StaticResource Button.Ghost}"
+                    MinWidth="110" Margin="0,0,8,0" IsCancel="True" Click="OnCancelClicked" />
+            <Button x:Name="TransferButton" Content="{DynamicResource L.QuickTransfer.Transfer}"
+                    Style="{StaticResource Button.Primary}" MinWidth="140" IsEnabled="False"
+                    Click="OnTransferClicked" />
+        </StackPanel>
+    </Grid>
+</Window>

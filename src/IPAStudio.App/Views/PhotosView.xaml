@@ -1,0 +1,746 @@
+<UserControl x:Class="IPAStudio.App.Views.PhotosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:IPAStudio.App.Converters"
+             xmlns:ctrl="clr-namespace:IPAStudio.App.Controls"
+             xmlns:vm="clr-namespace:IPAStudio.App.ViewModels"
+             AllowDrop="True" DragOver="OnDragOverPage"
+             DragLeave="OnDragLeavePage" Drop="OnDropOnPage">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+
+        <!-- ── Shared item thumbnail style ── -->
+        <Style x:Key="ThumbBorder" TargetType="Border">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="{StaticResource Brush.AccentSoft}" />
+            <Setter Property="ClipToBounds" Value="True" />
+        </Style>
+
+        <!-- ── LIST row item template ── -->
+        <DataTemplate x:Key="ListItemTemplate">
+            <Grid Margin="12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Collapsed rather than hidden in click mode, so the Auto column shrinks
+                     away instead of leaving a blank gutter where the boxes used to be. -->
+                <CheckBox Grid.Column="0" Style="{StaticResource Check.Base}"
+                          IsChecked="{Binding IsSelected}" VerticalAlignment="Center"
+                          Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                       Converter={StaticResource BoolToVis}}" />
+
+                <!-- Thumbnail or type glyph -->
+                <Border Grid.Column="1" Width="44" Height="44" Margin="12,0,14,0"
+                        Style="{StaticResource ThumbBorder}">
+                    <!-- Grid allows Image + fallback TextBlock to overlap in same cell -->
+                    <Grid>
+                        <!-- Real image preview. Uniform for the same reason as the tile
+                             template: a 44x44 square crops a photo hardest of all. -->
+                        <Image Source="{Binding Thumbnail}" Stretch="Uniform"
+                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                        <!-- Fallback glyph when no thumb yet -->
+                        <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                   FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                   Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xEB9F;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                            <Setter Property="Text" Value="&#xE714;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding FileName}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                        <TextBlock Text="{Binding DisplayAlbumName}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{Binding DateText, StringFormat=' · {0}'}"
+                                   Style="{StaticResource Text.Caption}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Grid.Column="3" Text="{Binding SizeText}"
+                           Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ── GRID (tile) item template ── -->
+        <!-- Selected by item type rather than by key: the grid's items are tiles and date
+             bands mixed together, so the ListBox cannot name one template for all of them. -->
+        <DataTemplate DataType="{x:Type vm:PhotoItemViewModel}">
+            <!-- No margin of its own: the spacing between tiles and the inset the selection
+                 highlight is drawn at both come from the container style, so that the
+                 highlight cannot end up off centre relative to the tile. -->
+            <!-- Height fixed by the slider, width left to stretch: the panel hands this tile a
+                 rectangle already cut to the proportions of the photograph, so the picture fills
+                 it edge to edge with nothing cropped and no empty panel beside it. Setting a
+                 width here would pin every tile back to one shape and undo that.
+
+                 MaxWidth only bounds the panel's one-off probe measurement, which measures a
+                 tile against infinity to learn the row height.
+
+                 With the date bands off the panel hands out equal square slots instead, and the
+                 same stretch fills them; the picture is then cropped to the square, which is
+                 what a contact sheet is. -->
+            <Grid Height="{Binding DataContext.ThumbHeight, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                  MaxWidth="{Binding DataContext.MaxTileWidth, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                  HorizontalAlignment="Stretch">
+                <!-- The file name and size used to sit under each thumbnail. They are gone from
+                     the tile because the tile is now exactly the picture: captions would add
+                     height that is not part of the frame, and the shape the panel laid out
+                     would no longer match what is drawn. Both are still shown for the selected
+                     photo in the preview panel beside the grid. -->
+                <Border Style="{StaticResource ThumbBorder}">
+                    <Grid>
+                        <!-- UniformToFill against a slot that already matches the frame's shape:
+                             the fill is what removes the letterbox bars, and because the slot is
+                             the right shape it has nothing to crop beyond a rounding error at
+                             the edge. -->
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                        <!-- Fallback glyph -->
+                        <TextBlock Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                   FontFamily="Segoe MDL2 Assets" FontSize="36"
+                                   Foreground="{StaticResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="&#xEB9F;" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                            <Setter Property="Text" Value="&#xE714;" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+                <!-- Video badge -->
+                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Background="#88000000" CornerRadius="0,0,9,0" Padding="5,3"
+                        Visibility="{Binding IsVideo, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                               Foreground="White" />
+                </Border>
+                <!-- Selection checkbox overlay, only in checkbox mode. In click mode the
+                     highlight on the container says what is selected, and leaving a box on top
+                     of every thumbnail would both cover the photograph and offer a second,
+                     contradictory way to select. -->
+                <CheckBox Style="{StaticResource Check.Base}" IsChecked="{Binding IsSelected}"
+                          HorizontalAlignment="Left" VerticalAlignment="Top" Margin="5,5,0,0"
+                          Visibility="{Binding DataContext.ShowSelectionCheckboxes,
+                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                       Converter={StaticResource BoolToVis}}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ── DATE band template (grid mode) ── -->
+        <DataTemplate DataType="{x:Type vm:PhotoDateGroupViewModel}">
+            <!-- A hairline under the label instead of a filled block: the band separates rows
+                 of photographs, and a solid strip every few rows competes with them. -->
+            <Grid VerticalAlignment="Bottom" Margin="0,0,0,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Count}" Style="{StaticResource Text.Caption}"
+                               Foreground="{StaticResource Brush.TextMuted}"
+                               VerticalAlignment="Center" Margin="10,0,0,0" />
+                </StackPanel>
+                <Border Height="1" VerticalAlignment="Bottom"
+                        Background="{StaticResource Brush.AccentSoft}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ── ALBUM tile template ── -->
+        <DataTemplate x:Key="AlbumTileTemplate">
+            <Grid Width="168" x:Name="AlbumTileRoot" Background="Transparent">
+                <StackPanel>
+                    <Border Width="168" Height="126" Style="{StaticResource ThumbBorder}">
+                        <Grid>
+                            <!-- UniformToFill here, unlike the photo tiles: a cover is a hint
+                                 at the contents, so an edge-to-edge crop reads better than a
+                                 letterboxed miniature. -->
+                            <Image Source="{Binding Cover}" Stretch="UniformToFill"
+                                   Visibility="{Binding Cover, Converter={StaticResource NullToCollapsed}}" />
+                            <TextBlock Visibility="{Binding Cover, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                       FontFamily="Segoe MDL2 Assets" FontSize="34"
+                                       Foreground="{StaticResource Brush.Accent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="&#xE91B;" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CoverIsVideo}" Value="True">
+                                                <Setter Property="Text" Value="&#xE714;" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </Border>
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="2,8,2,0" />
+                    <StackPanel Orientation="Horizontal" Margin="2,2,2,0">
+                        <TextBlock Text="{Binding Count}" Style="{StaticResource Text.Caption}" />
+                        <TextBlock Text="{DynamicResource L.Photos.AlbumItems}" Style="{StaticResource Text.Caption}"
+                                   Margin="4,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Saves the album straight from the grid, without opening it first. Shown
+                     only while the pointer is over the tile, so a wall of these does not
+                     compete with the covers. The tile's own click handler skips opening the
+                     album when the press landed in here. -->
+                <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,6,6,0" Padding="6,3"
+                        Command="{Binding DataContext.ExportAlbumCommand,
+                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="{DynamicResource L.Photos.ExportAlbum}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+                            <!-- Collapsed rather than transparent: an invisible button would
+                                 still swallow clicks meant to open the album. -->
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <!-- Bound to the tile by name rather than by ancestor type, so
+                                     adding a Grid anywhere between the two cannot quietly
+                                     retarget it and leave the button stuck out of sight. -->
+                                <DataTrigger Binding="{Binding IsMouseOver, ElementName=AlbumTileRoot}"
+                                             Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14" Text="&#xE896;" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Tile container. Separate from the row container because the highlight has to sit
+             differently: a row is a wide band where a little breathing room above and below
+             reads fine, while a tile is a square whose highlight has to look concentric. The
+             row style's 4,2 margin plus the tile template's own 6 put the accent box off
+             centre and a good deal larger than the thumbnail, which is what made the
+             selection look crooked. All the spacing lives here instead, so the highlight is
+             an even inset around the tile and the gap between tiles is the margin. -->
+        <Style x:Key="PhotoTileItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="10"
+                                Margin="3" Padding="5" BorderThickness="1"
+                                BorderBrush="Transparent">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <!-- Outlined as well as filled: on a wall of photographs a tint
+                                 alone is easy to lose, because most of the tile is the image
+                                 rather than the background the tint applies to.
+
+                                 Bound to the photo's own flag, not to ListBoxItem.IsSelected.
+                                 The two are different things here: the container's flag is
+                                 WPF's current item, which the page uses to decide what to
+                                 preview, while the batch the toolbar acts on lives on the
+                                 items. Reading the container's would outline the previewed
+                                 photo and leave the actual selection undrawn. -->
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                                <Setter TargetName="Bg" Property="BorderBrush"
+                                        Value="{StaticResource Brush.Accent}" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsGroupHeader}" Value="True">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ListBox item container (list/rows view) -->
+        <Style x:Key="PhotoListItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Margin="4,2">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.SurfaceHover}" />
+                            </Trigger>
+                            <!-- The photo's own flag, as in the tile style: the container's
+                                 IsSelected is the previewed row, not the batch. -->
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{StaticResource Brush.AccentSoft}" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <!-- A date band is a caption, not a row: without this it would highlight under
+                     the pointer, take the selection and absorb arrow-key focus from tiles. -->
+                <DataTrigger Binding="{Binding IsGroupHeader}" Value="True">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- View-mode toggle button style -->
+        <Style x:Key="ViewToggle" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+
+        <!-- Square icon version of Toggle.Pill, sized to match the view buttons beside it so
+             the row of toolbar controls stays one height. -->
+        <Style x:Key="ViewToggleCheck" TargetType="ToggleButton" BasedOn="{StaticResource Toggle.Pill}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="16" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="{DynamicResource L.Back}" Style="{StaticResource Button.Back}"
+                        Command="{Binding BackCommand}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <!-- Shown only inside an album, where back is one step out rather than off the
+                     page: without it leaving the photos took two deliberate presses.
+
+                     Button.Home, like the five other pages that carry this button. It was left
+                     on Ghost with a text label here, which is why the house was missing on this
+                     page alone and why the hover fill spread across the whole phrase instead of
+                     sitting inside a button-sized square. -->
+                <Button Style="{StaticResource Button.Home}"
+                        Command="{Binding GoHomeCommand}" VerticalAlignment="Center" Margin="0,0,16,0"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}" />
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Photos.Title}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{Binding DeviceName}" Style="{StaticResource Text.Subtitle}" Margin="0,2,0,0" />
+                </StackPanel>
+            </StackPanel>
+            <!-- 56px clears the MainWindow gear button, which is drawn over the page. -->
+            <Button Content="{DynamicResource L.Photos.Refresh}" Style="{StaticResource Button.Secondary}"
+                    HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,56,0"
+                    Command="{Binding RefreshCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+        </Grid>
+
+        <!-- Toolbar -->
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <!-- View toggle -->
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- The name of the open album: with tiles instead of a drop-down this is the only
+                 place it is stated. The "back to albums" button that used to sit here is gone
+                 — the header arrow now steps out of the album, so the two were a pair of
+                 side-by-side controls that both looked like back. -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding CurrentAlbum.Name}" Style="{StaticResource Text.Body}"
+                           FontWeight="SemiBold" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" MaxWidth="220" />
+            </StackPanel>
+            <!-- Column 2 is the toolbar's spacer, so the search box goes there: it is the one
+                 control that benefits from taking whatever width is left over. -->
+            <Grid Grid.Column="2" Margin="12,0,0,0" MinWidth="140" MaxWidth="280"
+                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                  Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <!-- Typing is debounced: the filter re-runs over the whole roll and re-decodes
+                     thumbnails, which is far too much work to repeat on every keystroke. -->
+                <TextBox Height="46" Style="{StaticResource Input.TextBox}"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged, Delay=250}"
+                         ToolTip="{DynamicResource L.Photos.SearchHint}" />
+                <!-- The theme's TextBox has no placeholder of its own, and an unlabelled box
+                     in a toolbar gives no clue what it searches. Not hit-testable, so it
+                     never swallows the click that should focus the box. -->
+                <TextBlock Text="{DynamicResource L.Photos.SearchHint}" IsHitTestVisible="False"
+                           Style="{StaticResource Text.Caption}" Margin="16,0,12,0"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding SearchText, Converter={StaticResource NullToCollapsed},
+                                                ConverterParameter=invert}" />
+            </Grid>
+            <ComboBox Grid.Column="1" Width="140" Height="46" Margin="12,0,0,0" VerticalAlignment="Center"
+                      Style="{StaticResource Input.ComboBox}"
+                      ItemsSource="{Binding MediaTypes}" SelectedItem="{Binding SelectedMediaType}"
+                      Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}" />
+
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <Button Content="{DynamicResource L.Photos.SelectAll}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding SelectAllVisibleCommand}" />
+                <Button Content="{DynamicResource L.Photos.ClearAll}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding ClearSelectionCommand}" Margin="4,0,0,0" />
+                <!-- Saves the open album without selecting anything. No CommandParameter: the
+                     command falls back to the open album, so this stays correct as the user
+                     moves between albums. Sits beside the media filter it honours. -->
+                <Button Content="{DynamicResource L.Photos.ExportAlbum}" Style="{StaticResource Button.Secondary}"
+                        Command="{Binding ExportAlbumCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+            <Button Grid.Column="4" Content="{DynamicResource L.Photos.Import}" Style="{StaticResource Button.Secondary}"
+                    Command="{Binding ImportCommand}" Margin="12,0,0,0" />
+
+            <!-- Tile size + List / Grid toggle -->
+            <StackPanel Grid.Column="5" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <!-- Matches the tile-size control on the installed-apps page, and like it is
+                     shown only with the grid it affects. Snapped to ticks so the thumbnail
+                     cache is asked for a handful of sizes rather than every pixel width. -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0"
+                            Visibility="{Binding IsGridView, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{DynamicResource L.Photos.TileSize}" Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <Slider Width="110" VerticalAlignment="Center"
+                            Minimum="96" Maximum="220" TickFrequency="31" IsSnapToTickEnabled="True"
+                            Value="{Binding TileSize}" />
+                </StackPanel>
+                <!-- Date bands. Off gives a plain contact sheet of equal squares, which is the
+                     view for scanning a whole roll rather than reading it as a timeline. Only
+                     offered with the grid, since the list has no bands to turn off. -->
+                <ToggleButton Style="{StaticResource ViewToggleCheck}" Margin="0,0,10,0"
+                              ToolTip="{DynamicResource L.Photos.ShowDates.Hint}"
+                              Content="&#xE787;" IsChecked="{Binding ShowDates}"
+                              Visibility="{Binding IsGridView, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Turns clicks into picking photos out, instead of opening one. -->
+                <ToggleButton Style="{StaticResource Toggle.Pill}" Margin="0,0,10,0"
+                              VerticalAlignment="Center"
+                              Content="{DynamicResource L.Common.Select}"
+                              ToolTip="{DynamicResource L.Common.Select.Hint}"
+                              IsChecked="{Binding IsSelecting}"
+                              Visibility="{Binding ShowSelectToggle, Converter={StaticResource BoolToVis}}" />
+
+                <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewList}"
+                        Content="&#xE8FD;" Command="{Binding SetListViewCommand}" />
+                <Button Style="{StaticResource ViewToggle}" ToolTip="{DynamicResource L.Photos.ViewGrid}"
+                        Content="&#xF0E2;" Command="{Binding SetGridViewCommand}" Margin="4,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Body: list + preview -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Hints stack: two of them can apply at once, so they sit in a panel rather
+                 than on top of each other in the same cell. -->
+            <StackPanel Grid.Row="0" Grid.ColumnSpan="2">
+
+            <!-- HEIC codec hint: shown only when Windows can't decode HEIC on this PC,
+                 otherwise those tiles would stay blank with no explanation. -->
+            <Border Margin="0,0,0,12"
+                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
+                    Visibility="{Binding IsHeicCodecMissing, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                               Foreground="{StaticResource Brush.Accent}"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               VerticalAlignment="Center" MaxWidth="720"
+                               Text="{DynamicResource L.Photos.HeicMissing}" />
+                    <Button Style="{StaticResource Button.Ghost}" Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Content="{DynamicResource L.Photos.HeicInstall}"
+                            Command="{Binding OpenHeicHelpCommand}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Why the album list is mostly derived albums: iOS often refuses to hand over
+                 the Photos library, and without a word about it the short list looks broken. -->
+            <Border Margin="0,0,0,12"
+                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
+                    Visibility="{Binding AlbumNamesUnavailable, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                               Foreground="{StaticResource Brush.Accent}"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               VerticalAlignment="Center" MaxWidth="720"
+                               Text="{DynamicResource L.Photos.AlbumNamesUnavailable}" />
+                </StackPanel>
+            </Border>
+
+            <!-- The album names come from a database that has to be copied off the device,
+                 which on a large library is a transfer of hundreds of megabytes. Without
+                 this row it ran silently: the derived albums were already listed, so the
+                 screen looked finished while the real albums were still minutes away. -->
+            <Border Margin="0,0,0,12"
+                    Background="{StaticResource Brush.AccentSoft}" CornerRadius="10" Padding="14,10"
+                    Visibility="{Binding IsLoadingAlbumNames, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                               MaxWidth="720"
+                               Text="{DynamicResource L.Photos.LoadingAlbums}" />
+                    <ProgressBar Height="4" Margin="0,8,0,0"
+                                 Minimum="0" Maximum="1"
+                                 Value="{Binding AlbumNamesProgress}" />
+                </StackPanel>
+            </Border>
+
+            </StackPanel>
+
+            <!-- Album tiles: the first thing shown, like a phone gallery. Spans the preview
+                 column too, since nothing is selected yet for it to preview. -->
+            <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Style="{StaticResource Card}" Padding="8"
+                    Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <ListBox ItemsSource="{Binding MediaAlbums}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ItemTemplate="{StaticResource AlbumTileTemplate}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctrl:VirtualizingWrapPanel />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource PhotoTileItem}">
+                                <!-- A single click opens the album: a gallery is browsed, not
+                                     multi-selected, so requiring a double click would only be
+                                     a step the user has to discover. -->
+                                <EventSetter Event="PreviewMouseLeftButtonUp" Handler="OnAlbumTileClicked" />
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- File list (List mode) -->
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}" Padding="4"
+                    Visibility="{Binding ShowPhotoList, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <ListBox x:Name="PhotosList"
+                             ItemsSource="{Binding PhotosView}"
+                             SelectedItem="{Binding SelectedPhoto}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             ScrollViewer.ScrollChanged="OnPhotosScrollChanged"
+                             ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                             ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                             ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
+                             ItemContainerStyle="{StaticResource PhotoListItem}"
+                             ItemTemplate="{StaticResource ListItemTemplate}" />
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- File grid (Grid / tile mode) -->
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}" Padding="8"
+                    Visibility="{Binding ShowPhotoGrid, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <!-- Bound to GridEntries, not PhotosView: the date bands have to be real
+                         items for the panel to place and virtualise them. No ItemTemplate, so
+                         each entry picks the template registered for its type. -->
+                    <ListBox x:Name="PhotosGrid"
+                             ItemsSource="{Binding GridEntries}"
+                             SelectedItem="{Binding SelectedPhoto}"
+                             Background="Transparent" BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.ScrollChanged="OnPhotosScrollChanged"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling"
+                             ctrl:TileSelection.Mode="{Binding SelectionMode}"
+                             ctrl:TileSelection.IsSelecting="{Binding IsSelecting}"
+                             ctrl:TileSelection.CtrlSelects="{Binding CtrlSelects}"
+                             ItemContainerStyle="{StaticResource PhotoTileItem}">
+                        <!-- A plain WrapPanel does not virtualise: it builds a container
+                             for every photo, so a large roll allocated thousands of
+                             tiles up front. This panel keeps only visible rows alive. -->
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- TileSize is not the layout size: it tells the panel to drop
+                                     its cached measurement, which it takes once and would
+                                     otherwise keep using after the slider moved. -->
+                                <!-- ShapeVersion relays out the rows when the pictures'
+                                     proportions become known, which happens as thumbnails
+                                     decode rather than when the list is built. -->
+                                <ctrl:VirtualizingWrapPanel
+                                    TileSize="{Binding DataContext.TileSize,
+                                               RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                ShapeVersion="{Binding DataContext.TileShapeVersion,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                UniformTiles="{Binding DataContext.UniformTiles,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                TileChrome="16" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                    </ListBox>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}">
+                        <ProgressBar Style="{StaticResource Progress.Slim}" IsIndeterminate="True" Width="160" />
+                        <TextBlock Text="{DynamicResource L.Loading}" Style="{StaticResource Text.Caption}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Preview panel -->
+            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}" Margin="16,0,0,0"
+                    Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <Grid>
+                    <TextBlock Text="{DynamicResource L.Photos.NoSelection}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" TextAlignment="Center"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding SelectedPhoto, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}" />
+
+                    <StackPanel Visibility="{Binding SelectedPhoto, Converter={StaticResource NullToCollapsed}}">
+                        <Border CornerRadius="12" Height="260" Background="{StaticResource Brush.SurfaceHover}"
+                                ClipToBounds="True">
+                            <Grid>
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="6"
+                                       Visibility="{Binding PreviewImage, Converter={StaticResource NullToCollapsed}}" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Visibility="{Binding PreviewUnavailable, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="&#xE8B9;" FontFamily="Segoe MDL2 Assets" FontSize="40"
+                                               Foreground="{StaticResource Brush.TextMuted}"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource L.Photos.PreviewUnavailable}"
+                                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                                               TextAlignment="Center" MaxWidth="220" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="{Binding SelectedPhoto.FileName}" Style="{StaticResource Text.Body}"
+                                   FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,14,0,0" />
+                        <TextBlock Text="{Binding SelectedPhoto.DisplayAlbumName}" Style="{StaticResource Text.Caption}" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding SelectedPhoto.SizeText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                        <TextBlock Text="{Binding SelectedPhoto.DateText}" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Bottom action bar -->
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <Grid Visibility="{Binding IsTransferring, Converter={StaticResource BoolToVis}}">
+                    <ProgressBar Style="{StaticResource Progress.Slim}" Minimum="0" Maximum="100"
+                                 Value="{Binding TransferProgress}" Width="300" HorizontalAlignment="Left" />
+                </Grid>
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
+                           TextTrimming="CharacterEllipsis" Margin="0,6,0,0"
+                           Visibility="{Binding StatusText, Converter={StaticResource NullToCollapsed}}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        Visibility="{Binding IsPhotoMode, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="{DynamicResource L.Photos.SelectedCount}" Style="{StaticResource Text.Body}" />
+                    <TextBlock Text="{Binding SelectedCount}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Foreground="{StaticResource Brush.Accent}" Margin="6,0,0,0" />
+                </StackPanel>
+                <Button Content="{DynamicResource L.Photos.Cancel}" Style="{StaticResource Button.Ghost}"
+                        Command="{Binding CancelCommand}" Margin="0,0,8,0"
+                        Visibility="{Binding IsTransferring, Converter={StaticResource BoolToVis}}" />
+                <Button Content="{DynamicResource L.Photos.Delete}" Style="{StaticResource Button.Danger}"
+                        Command="{Binding DeleteSelectedCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource L.Photos.Export}" Style="{StaticResource Button.Primary}"
+                        Padding="28,12" Command="{Binding ExportSelectedCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Drop overlay. Covers every row, because the whole page takes the drop rather than
+             one strip of it, and IsHitTestVisible is off so it cannot itself swallow the drop
+             it is advertising. -->
+        <Border Grid.Row="0" Grid.RowSpan="4" IsHitTestVisible="False"
+                Background="{StaticResource Brush.AccentSoft}" Opacity="0.94"
+                CornerRadius="12" BorderThickness="2"
+                BorderBrush="{StaticResource Brush.Accent}"
+                Visibility="{Binding IsDropTarget, Converter={StaticResource BoolToVis}}">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="&#xE8B9;" FontFamily="Segoe MDL2 Assets" FontSize="40"
+                           Foreground="{StaticResource Brush.Accent}" HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Photos.DropHint}" Style="{StaticResource Text.Subtitle}"
+                           Margin="0,14,0,0" HorizontalAlignment="Center" />
+                <TextBlock Text="{DynamicResource L.Photos.DropHintSub}" Style="{StaticResource Text.Caption}"
+                           Margin="0,6,0,0" HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
