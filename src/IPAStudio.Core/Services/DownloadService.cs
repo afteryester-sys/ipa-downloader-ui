@@ -1694,7 +1694,9 @@ public sealed partial class DownloadService
                 using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 timeoutCts.CancelAfter(TimeSpan.FromSeconds(6));
 
-                var url = $"https://itunes.apple.com/lookup?{query}&entity=software"
+                // No entity filter: on a lookup it can drop an app the storefront carries,
+                // which would leave this download with no size and no progress percentage.
+                var url = $"https://itunes.apple.com/lookup?{query}"
                           + ItunesStorefront.CountryParam(storefront);
                 using var response = await _http.GetAsync(url, timeoutCts.Token).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();

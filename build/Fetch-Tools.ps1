@@ -45,13 +45,15 @@ $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSour
 $IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
 $IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
 # ipatool-rs is built from source instead of taken from the published release archive: the
-# released binary cannot download region-limited apps. Its purchase call sends
-# X-Apple-Store-Front, but volumeStoreDownloadProduct - used by both `download` and
-# `version list` - does not, so Apple answers those two against the default (US) storefront
-# and returns an empty "songList" for every app that is not sold there, even when the signed
-# in account owns it. ipatool reports that as "unexpected response: empty songList". The
-# patch applied below adds the one header those two requests are missing; everything else is
-# upstream v0.1.8.
+# released binary cannot see what the signed in account owns. Its purchase call sends the
+# full header set, but volumeStoreDownloadProduct - used by both `download` and
+# `version list` - sends neither X-Apple-Store-Front nor X-Token, so Apple answers those two
+# against the default (US) storefront and, with no password token, as if nobody were signed
+# in. Both omissions produce the same answer: HTTP 200 with an empty "songList", which
+# ipatool surfaces as "unexpected response: empty songList" - for region-limited apps and
+# for apps the account demonstrably owns alike. The reference client (majd/ipatool) sends
+# X-Dsid, X-Apple-Store-Front and X-Token on this request; the patch below restores the two
+# that are missing. Everything else is upstream v0.1.8.
 $IpatoolRsVersion = "0.1.8"
 $IpatoolRsSource = "https://api.github.com/repos/Kosthi/ipatool-rs/tarball/v$IpatoolRsVersion"
 $IpatoolRsSourceSha256 = "fc31035e95a22e27c06f0d05c3b81f97e4cd79ffa493c375d16f400e9499a4e6"
@@ -107,7 +109,7 @@ Write-Host "`n[2/4] ipatool v3 + anisette ..."
 Download-File "$RepoRaw/windows_amd64_v3/ipatool.exe"  (Join-Path $OutDir "windows_amd64_v3\ipatool.exe")
 Download-File "$RepoRaw/windows_amd64_v3/anisette.exe" (Join-Path $OutDir "windows_amd64_v3\anisette.exe")
 
-# --- ipatool-rs SAP BETA (patched: storefront header) --------------------------
+# --- ipatool-rs SAP BETA (patched: storefront + token headers) -----------------
 Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA, built from source) ..."
 $ipatoolRsArchive = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src.tar.gz"
 $ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src"
@@ -130,6 +132,7 @@ $storefrontAnchor = @'
 $storefrontPatched = @'
         .header("X-Dsid", &account.directory_services_id)
         .header("X-Apple-Store-Front", &account.store_front)
+        .header("X-Token", &account.password_token)
 '@ -replace "`r`n", "`n"
 foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipatool-core\src\api\versions.rs")) {
     $file = Join-Path $ipatoolRsExtract $relative
@@ -140,9 +143,10 @@ foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipato
         throw "Expected exactly one X-Dsid request header in $relative, found $occurrences. Re-check the storefront patch against ipatool-rs v$IpatoolRsVersion."
     }
     if ($text.Contains('X-Apple-Store-Front')) { throw "$relative already sends X-Apple-Store-Front; drop the patch." }
+    if ($text.Contains('X-Token')) { throw "$relative already sends X-Token; drop the patch." }
     $text = $text.Replace($storefrontAnchor, $storefrontPatched)
     [System.IO.File]::WriteAllText($file, $text)
-    Write-Host "  -> patched $relative (storefront header)"
+    Write-Host "  -> patched $relative (storefront + token headers)"
 }
 
 # The purchase patch. Apple reports "this account does not have the app" in two different

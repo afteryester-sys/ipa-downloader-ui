@@ -235,7 +235,12 @@ public sealed class CatalogService
 
                 try
                 {
-                    var url = $"https://itunes.apple.com/lookup?id={string.Join(',', pending)}&entity=software"
+                    // No entity filter. An id is already unambiguous, and "entity=software" is a
+                    // search parameter that Apple also honours on lookups, where it silently drops
+                    // apps whose listing it does not classify as plain iPhone software - zero
+                    // results for an id that plainly exists in the storefront being queried. Those
+                    // apps then looked delisted to the entire app: no name, no size, no icon.
+                    var url = $"https://itunes.apple.com/lookup?id={string.Join(',', pending)}"
                               + ItunesStorefront.CountryParam(storefront);
                     using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
                     response.EnsureSuccessStatusCode();
@@ -729,7 +734,9 @@ public sealed class CatalogService
             ct.ThrowIfCancellationRequested();
             try
             {
-                var url = $"https://itunes.apple.com/lookup?{queryParam}&entity=software"
+                // See the batch lookup above: an entity filter on a lookup can hide an app
+                // that the queried storefront really does carry.
+                var url = $"https://itunes.apple.com/lookup?{queryParam}"
                           + ItunesStorefront.CountryParam(storefront);
                 using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();

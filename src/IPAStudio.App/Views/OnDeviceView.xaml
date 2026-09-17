@@ -159,13 +159,12 @@
             <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
             <Setter Property="Opacity" Value="0" />
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-            <!-- Full size at rest: the badge is invisible at rest anyway, so a stopped (rather
-                 than held) storyboard can never leave the tick shrunken. -->
-            <Setter Property="RenderTransform">
-                <Setter.Value>
-                    <ScaleTransform ScaleX="1" ScaleY="1" />
-                </Setter.Value>
-            </Setter>
+            <!-- The scale lives on each badge (see the usages), not in a setter here.
+                 WPF freezes a Freezable used as a style setter value and shares the one
+                 instance across every item the style is applied to, and a frozen transform
+                 cannot be animated: the storyboards below target "RenderTransform.ScaleX",
+                 so the first selection threw XamlParseException ("cannot resolve all
+                 property references in the property path") once per visible row. -->
             <Style.Triggers>
                 <!-- Same reasoning as the Selectable style's Ring/Fill trigger above: this badge
                      is reused by a virtualized ListBox exactly like the row/tile it sits on, so
@@ -480,6 +479,9 @@
                                                          RelativeSource={RelativeSource AncestorType=ListBox},
                                                          Converter={StaticResource BoolToVis},
                                                          ConverterParameter=invert}">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                                        </Border.RenderTransform>
                                         <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
                                                    FontSize="10" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
@@ -701,6 +703,9 @@
                                                          RelativeSource={RelativeSource AncestorType=UserControl},
                                                          Converter={StaticResource BoolToVis},
                                                          ConverterParameter=invert}">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="1" ScaleY="1" />
+                                        </Border.RenderTransform>
                                         <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
                                                    FontSize="10" HorizontalAlignment="Center"
                                                    VerticalAlignment="Center"
