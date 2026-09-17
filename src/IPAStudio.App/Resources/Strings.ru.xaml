@@ -54,6 +54,7 @@
     <sys:String x:Key="L.Login.Confirm">Подтвердить</sys:String>
     <sys:String x:Key="L.Login.CodeNotArrived">Код не пришёл?</sys:String>
     <sys:String x:Key="L.Login.ResendCode">Отправить снова</sys:String>
+    <sys:String x:Key="L.Login.CodeDeliveryHint">Код всегда приходит на доверенные устройства Apple. Во входе в App Store у Apple нет отправки по SMS, поэтому, если ни одно устройство недоступно, добавьте его на appleid.apple.com или войдите на том устройстве, которое у вас осталось.</sys:String>
     <sys:String x:Key="L.Login.SigningIn">Выполняется вход…</sys:String>
     <sys:String x:Key="L.Login.RestoringSession">Проверка сохранённой сессии…</sys:String>
     <sys:String x:Key="L.Login.Skip">Пропустить вход</sys:String>

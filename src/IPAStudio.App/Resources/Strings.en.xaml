@@ -61,6 +61,7 @@
     <sys:String x:Key="L.Login.SwitchToV2">Switch to ipatool v2</sys:String>
     <sys:String x:Key="L.Login.CodeNotArrived">Code didn&apos;t arrive?</sys:String>
     <sys:String x:Key="L.Login.ResendCode">Resend</sys:String>
+    <sys:String x:Key="L.Login.CodeDeliveryHint">The code always goes to your trusted Apple devices. Apple's App Store sign-in has no SMS option, so if no device is reachable, add one at appleid.apple.com or sign in on a device you still have.</sys:String>
 
     <!-- Devices -->
     <sys:String x:Key="L.Devices.Title">Devices</sys:String>

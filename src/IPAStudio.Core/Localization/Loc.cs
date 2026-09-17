@@ -113,6 +113,7 @@ public static class Loc
         ["L.Login.Error.BadCredentials"] = "Incorrect Apple ID or password.",
         ["L.Login.Error.WrongCode"] = "That verification code was not accepted. Please try again.",
         ["L.Login.Error.WrongCodeOrPassword"] = "Apple rejected the sign-in. Apple does not say whether the password or the code was wrong, so check the password and request a new code.",
+        ["L.Login.CodeDeliveryHint"] = "The code always goes to your trusted Apple devices. Apple's App Store sign-in has no SMS option, so if no device is reachable, add one at appleid.apple.com or sign in on a device you still have.",
         ["L.Login.Error.Cancelled"] = "Sign-in was cancelled.",
         ["L.Login.Error.Network"] = "Could not reach Apple. Check your internet connection.",
         ["L.Login.Error.RateLimited"] = "Too many attempts. Wait a few minutes and try again.",
