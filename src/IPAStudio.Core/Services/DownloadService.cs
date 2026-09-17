@@ -291,16 +291,29 @@ public sealed partial class DownloadService
     /// does the same thing, so calling both pays the (multi-second) handshake twice.
     /// Use this only for explicit, user-initiated license checks in the app picker.
     /// </summary>
-    public async Task<LicenseState> CheckLicenseAsync(long appId, CancellationToken ct = default)
+    public async Task<LicenseState> CheckLicenseAsync(
+        long appId, string? bundleIdentifier = null, CancellationToken ct = default)
     {
         try
         {
+            // The SAP backend addresses apps by bundle id only; sending a numeric id makes it
+            // exit on a usage error, which the caller would read as "no licence".
+            if (_tools.UseBetaAppleAuthentication && string.IsNullOrWhiteSpace(bundleIdentifier))
+                return LicenseState.Unknown;
+
+            var target = _tools.UseBetaAppleAuthentication
+                ? new[] { "-b", bundleIdentifier! }
+                : new[] { "-i", appId.ToString() };
+
             IpatoolProfile.RepairCookieJar(_tools);
 
             var result = await _runner.RunAsync(
                 _tools.IpatoolPath,
-                new[] { "purchase", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
-                        "--format", "json" },
+                new[] { "purchase" }.Concat(target).Concat(new[]
+                {
+                    "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
+                    "--format", "json",
+                }).ToArray(),
                 closeStdin: true,
                 workingDirectory: _tools.IpatoolWorkingDirectory,
                 environment: _tools.IpatoolEnvironment,
@@ -709,7 +722,9 @@ public sealed partial class DownloadService
         // below. Never passed on the first attempt: pinning the very first request would
         // stop this from ever picking up an app update.
         if (!string.IsNullOrWhiteSpace(externalVersionId))
-            args.AddRange(new[] { "--external-version-id", externalVersionId });
+            args.AddRange(_tools.UseBetaAppleAuthentication
+                ? new[] { "--version-id", externalVersionId }
+                : new[] { "--external-version-id", externalVersionId });
 
         // NOTE: "--format json" is deliberately NOT passed here.
         // In JSON mode ipatool suppresses the progress bar entirely and prints a single
