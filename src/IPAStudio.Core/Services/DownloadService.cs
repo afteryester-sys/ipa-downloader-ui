@@ -651,8 +651,7 @@ public sealed partial class DownloadService
         long[] sizeHint,
         IProgress<DownloadProgress>? progress,
         int attempt,
-        CancellationToken ct,
-        string? externalVersionId = null)
+        CancellationToken ct)
     {
         // A leftover file from a previous attempt would be read by the poller as
         // instant 100% at an absurd speed, so clear it (and any partials) first.
@@ -684,12 +683,6 @@ public sealed partial class DownloadService
             "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
         });
         if (autoPurchase) args.Add("--purchase");
-
-        // Pins this attempt to a specific build, set only by the empty-songList self-heal
-        // below. Never passed on the first attempt: pinning the very first request would
-        // stop this from ever picking up an app update.
-        if (!string.IsNullOrWhiteSpace(externalVersionId))
-            args.AddRange(new[] { "--external-version-id", externalVersionId });
 
         // NOTE: "--format json" is deliberately NOT passed here.
         // In JSON mode ipatool suppresses the progress bar entirely and prints a single
@@ -1031,37 +1024,44 @@ public sealed partial class DownloadService
         if (result.Success && finalPath is not null && File.Exists(finalPath))
         {
             var finalTotal = new FileInfo(finalPath).Length;
-            if (finalTotal > 0)
-            {
-                Volatile.Write(ref sizeHint[0], finalTotal);
-                app.FileSizeBytes = finalTotal;
+            var license = IpaLicense.Inspect(finalPath);
 
-                // Remember the measured size on disk. For delisted apps this is the only
-                // way to ever learn it: they are absent from Apple's catalog, and Apple
-                // sends no Content-Length for them either, so the first download can only
-                // show bytes-so-far. Recording it now means the next one has a real total
-                // and a bar that fills.
-                RememberSize(app, finalTotal);
+            // Exit code 0 only means ipatool finished writing. Do not expose or cache the file
+            // until the ZIP directory, primary bundle and FairPlay payload have all passed.
+            if (finalTotal <= 0 || !license.IsInstallable)
+            {
+                var detail = finalTotal <= 0 ? "the downloaded file is empty" : license.Describe();
+                AppLog.Warn($"Rejected incomplete download for {app.Name}: {detail}");
+                TryDeleteStaleFiles(finalPath);
+                TryCleanStaging(stagingDir);
+                return (DownloadResult.Fail(
+                    $"The downloaded IPA is incomplete ({detail}). Delete it and download it again."), false);
             }
+
+            var signedInAs = _auth.CurrentAccount?.Email;
+            if (!string.IsNullOrWhiteSpace(signedInAs)
+                && !string.IsNullOrWhiteSpace(license.AppleId)
+                && !string.Equals(signedInAs, license.AppleId, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Warn($"Rejected download for {app.Name}: archive belongs to {license.AppleId}, " +
+                            $"but the active account is {signedInAs}");
+                TryDeleteStaleFiles(finalPath);
+                TryCleanStaging(stagingDir);
+                return (DownloadResult.Fail(
+                    $"The downloaded IPA is licensed to {license.AppleId}, not {signedInAs}."), false);
+            }
+
+            Volatile.Write(ref sizeHint[0], finalTotal);
+            app.FileSizeBytes = finalTotal;
+
+            // Remember only a validated measured size. For delisted apps this is the only
+            // source available to seed a later progress bar.
+            RememberSize(app, finalTotal);
+            AppLog.Info($"Validated download for {app.Name}: {license.Describe()}");
+
             progress?.Report(new DownloadProgress(
                 100, finalTotal, finalTotal, 0, DownloadPhase.Transferring, DateTimeOffset.UtcNow - startedUtc, attempt));
             TryCleanStaging(stagingDir);
-
-            // The repackaging step that puts the FairPlay licence into the archive belongs to
-            // ipatool, and a download that exits 0 without it is indistinguishable from a good
-            // one by size or exit code alone. Record what actually landed on disk: an archive
-            // missing its licence installs cleanly and then will not launch, and this log line
-            // is what tells that apart from a device fault later on.
-            var license = IpaLicense.Inspect(finalPath);
-            if (license.IsDefinitelyUnlicensed)
-                AppLog.Warn($"Downloaded {app.Name} WITHOUT a FairPlay licence — " +
-                            $"it will install but not launch: {license.Describe()}");
-            else if (license.IsPartiallyLicensed)
-                AppLog.Warn($"Downloaded {app.Name} without the blob its manifest names for " +
-                            $"the main binary: {license.Describe()}");
-            else
-                AppLog.Info($"Licence check for {app.Name}: {license.Describe()}");
-
             return (DownloadResult.Ok(finalPath), false);
         }
 
@@ -1083,46 +1083,9 @@ public sealed partial class DownloadService
         var isTransient = TransientRegex().IsMatch(output);
         if (isTransient) TryDeleteStaleFiles(outputPath);
 
-        // Apple sometimes refuses an *unpinned* redownload of an app the account already
-        // owns with an empty "songList" (ipatool surfaces this as "unexpected response:
-        // empty songList", also seen as FailureType 5002). DescribeStoreFailure() above
-        // already recognizes this exact signature, but only to show the user a dead-end
-        // "your ipatool is outdated" message — nothing previously retried it. Apple accepts
-        // the very same redownload once it is pinned to a specific external version id, so
-        // resolving one via ListVersionsAsync and retrying once, pinned, turns that dead end
-        // into a working download.
-        var isEmptySongList = output.Contains("empty songlist", StringComparison.OrdinalIgnoreCase)
-            || output.Contains("failuretype 5002", StringComparison.OrdinalIgnoreCase);
-        if (isEmptySongList && externalVersionId is null && autoPurchase && app.AppStoreId > 0)
-        {
-            AppLog.Info($"download: {app.Name} got an empty songList on an unpinned redownload; " +
-                        "resolving the current external version id and retrying pinned to it");
-
-            string? pinnedVersionId = null;
-            try
-            {
-                var versions = await ListVersionsAsync(app.AppStoreId, ct).ConfigureAwait(false);
-                pinnedVersionId = versions.FirstOrDefault();
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                AppLog.Warn($"download: could not resolve an external version id for {app.Name}: {ex.Message}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(pinnedVersionId))
-            {
-                return await DownloadOnceAsync(
-                    app, outputPath, stagingDir, autoPurchase, sizeHint, progress, attempt, ct,
-                    externalVersionId: pinnedVersionId).ConfigureAwait(false);
-            }
-
-            // ListVersionsAsync is documented above as "ipatool v3+ only" — on the v2/SAP
-            // BETA binaries it comes back empty, so there is nothing to pin to and the
-            // original failure has to stand.
-            AppLog.Warn($"download: no external version id available for {app.Name}; " +
-                        "cannot retry the redownload pinned to a specific build");
-        }
+        // ipatool 2.6.0 owns the complete redownloadProduct/updateProduct recovery chain.
+        // Retrying empty songList through list-versions here would call the same failing
+        // Apple API again and can recurse without producing a more useful result.
 
         return (DownloadResult.Fail(DescribeStoreFailure(output), error), isTransient);
     }
@@ -1727,13 +1690,11 @@ public sealed partial class DownloadService
             // truncated download looks like. Unlike elsewhere — where an unreadable archive
             // is merely logged — here it must veto reuse: proceeding would install a file
             // that was never finished.
-            if (license.ReadError is not null
-                || license.IsDefinitelyUnlicensed
-                || license.IsPartiallyLicensed)
-            {
-                AppLog.Info($"Not reusing '{info.Name}': {license.Describe()}");
-                return null;
-            }
+        if (!license.IsInstallable)
+        {
+            AppLog.Info($"Not reusing '{info.Name}': {license.Describe()}");
+            return null;
+        }
 
             AppLog.Info($"Reusing the copy of {app.Name} already on disk " +
                         $"({info.Length / 1048576.0:F1}MB) instead of downloading it again.");
@@ -1906,9 +1867,8 @@ public sealed partial class DownloadService
             {
                 using var doc = JsonDocument.Parse(line);
                 // ipatool's list-versions logs the field as "externalVersionIdentifiers"
-                // (see cmd/list_versions.go), not "externalVersions" - the previous key
-                // never matched, so this always came back empty and the empty-songList
-                // self-heal above could never pin a retry to a real build.
+                // (see cmd/list_versions.go), not "externalVersions". This parser is used by
+                // the explicit version-listing feature, never as a recursive download retry.
                 if (doc.RootElement.TryGetProperty("externalVersionIdentifiers", out var array))
                     versions.AddRange(array.EnumerateArray()
                         .Select(v => v.ToString())

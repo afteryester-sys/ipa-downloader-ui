@@ -230,8 +230,7 @@
     <sys:String x:Key="L.Settings.Multitasking">Multitasking mode</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Enable multitasking</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Each action becomes a separate operation: send it to the background and start the next one without waiting for the first to finish. Background operations collect in a circle in the corner of the window, and you can return to any of them from there. With the mode off everything works as before — one operation at a time.</sys:String>
-    <sys:String x:Key="L.Settings.ParallelInstalls">Simultaneous installs per device</sys:String>
-    <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Different devices always install in parallel; this only caps a single device. Above 2 rarely helps: the limit is the USB link, not the phone.</sys:String>
+
     <sys:String x:Key="L.Settings.Save">Save</sys:String>
 
     <!-- Updates -->
@@ -514,7 +513,7 @@
     <!-- {0} is the account the file belongs to, {1} the account on the device. Refused up front. -->
     <sys:String x:Key="L.Install.Error.WrongAccount">This file was downloaded under Apple ID {0}, but the device is signed in as {1}. An App Store licence belongs to one account, so the app would never open on this device — the install was cancelled rather than leaving you with a blank screen. Download it again under {1}: the licence for that account is obtained automatically, and the app then opens straight away without touching the App Store on the phone.</sys:String>
     <sys:String x:Key="L.Install.Error.NoLicense">This IPA has no App Store licence, so the app would install but never open. Download it again with the Apple ID that owns it, and make sure that same Apple ID is signed in on the device under Settings › App Store.</sys:String>
-    <sys:String x:Key="L.Install.Error.NotOnDevice">The installer reported success, but the app is not on the device — and a second attempt did not change that. This happens when the device drops one of several concurrent installs. Set “Concurrent installs per device” to 1 in Settings and try again.</sys:String>
+    <sys:String x:Key="L.Install.Error.NotOnDevice">The installer finished, but the app is not listed on the device. Unlock and reconnect the device, then retry the installation.</sys:String>
     <sys:String x:Key="L.Install.Error.Unknown">The app could not be installed. See the log for details.</sys:String>
 
     <!-- Sign-in errors -->
