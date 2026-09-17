@@ -129,6 +129,16 @@ public partial class App : Application
         var settings = Services.GetRequiredService<SettingsService>();
         settings.Load();
 
+        // Sign-in falls back to the SAP-signed backend when Apple refuses the unsigned one.
+        // Persist that here so downloads use the same backend and the next start does not
+        // repeat the attempt Apple already rejected.
+        Services.GetRequiredService<AuthService>().AuthBackendSwitched += (_, useBeta) =>
+        {
+            if (settings.Current.UseBetaAppleAuthentication == useBeta) return;
+            settings.Current.UseBetaAppleAuthentication = useBeta;
+            try { settings.Save(); } catch { /* the running session already switched */ }
+        };
+
         // Push the saved concurrency limits into the services that enforce them. Neither
         // reads SettingsService itself: the throttle is shared by every queue, and the
         // install cap used to be a constant. Settings only re-applies these on Save, so

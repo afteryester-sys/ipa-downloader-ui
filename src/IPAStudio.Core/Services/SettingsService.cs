@@ -79,10 +79,22 @@ public sealed class AppSettings
     public int IpatoolVersion { get; set; } = 2;
 
     /// <summary>
-    /// Uses the experimental Windows SAP-signed Apple authentication backend.
-    /// Off by default so existing installations keep their current login and keychain.
+    /// Uses the SAP-signed Apple authentication backend (ipatool-rs).
+    ///
+    /// On by default since Apple began requiring a signed sign-in handshake: the Go
+    /// ipatool build cannot produce that signature, so its "auth login" is refused by
+    /// Apple before a 2FA code is ever pushed to the trusted device.
     /// </summary>
-    public bool UseBetaAppleAuthentication { get; set; }
+    public bool UseBetaAppleAuthentication { get; set; } = true;
+
+    /// <summary>
+    /// Tracks which authentication-backend migrations have already been applied to this
+    /// settings file. A stored "false" for <see cref="UseBetaAppleAuthentication"/>
+    /// outranks the new default, so without this an existing install keeps using the
+    /// backend Apple no longer accepts - and reinstalling or downgrading the app does not
+    /// help, because the file lives in LocalAppData.
+    /// </summary>
+    public int AppleAuthBackendRevision { get; set; }
 
     /// <summary>Remote support is strictly opt-in and can be revoked locally at any time.</summary>
     public bool RemoteSupportEnabled { get; set; }
@@ -368,6 +380,7 @@ public sealed class SettingsService
             {
                 var json = File.ReadAllText(_tools.SettingsFile);
                 Current = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions) ?? new AppSettings();
+                MigrateAppleAuthBackend();
             }
         }
         catch
@@ -376,6 +389,29 @@ public sealed class SettingsService
         }
         Apply();
     }
+
+    /// <summary>
+    /// Moves installs that predate the SAP requirement onto the signed backend, once.
+    /// Users can still turn it off afterwards; the revision marker means that choice is
+    /// then respected instead of being overwritten on every start.
+    /// </summary>
+    private void MigrateAppleAuthBackend()
+    {
+        if (Current.AppleAuthBackendRevision >= AppleAuthBackendRevisionCurrent) return;
+
+        Current.AppleAuthBackendRevision = AppleAuthBackendRevisionCurrent;
+        if (!Current.UseBetaAppleAuthentication)
+        {
+            Current.UseBetaAppleAuthentication = true;
+            AppLog.Info("Settings: switched Apple authentication to the SAP-signed backend "
+                        + "(the previous one is no longer accepted by Apple).");
+        }
+
+        try { Save(); } catch { /* the in-memory switch still applies for this session */ }
+    }
+
+    /// <summary>Bump when a future change has to re-evaluate the auth backend again.</summary>
+    private const int AppleAuthBackendRevisionCurrent = 1;
 
     public void Save()
     {

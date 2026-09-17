@@ -27,6 +27,12 @@ public sealed partial class AuthService
 
     public event EventHandler<AccountInfo?>? AccountChanged;
 
+    /// <summary>
+    /// Raised when sign-in had to move to the SAP-signed backend. The host persists it so
+    /// the switch also applies to downloads and to the next start.
+    /// </summary>
+    public event EventHandler<bool>? AuthBackendSwitched;
+
     public AuthService(ToolLocator tools, ProcessRunner runner, AuthSecretStore secrets)
     {
         _tools = tools;
@@ -90,16 +96,41 @@ public sealed partial class AuthService
             return Complete(ParseAccount(first.CombinedOutput));
         }
 
-        // Not a 2FA request -> real failure (bad password, iCloud missing, etc.).
+        // Apple now refuses any sign-in that is not signed with its SAP handshake. The Go
+        // ipatool build cannot produce that signature, so Apple rejects the request outright
+        // and - this is the part that looks like a broken app - never pushes a code to the
+        // trusted device. ipatool has no mapping for that response and reports its catch-all
+        // "something went wrong".
         //
-        // Apple no longer answers the first, code-less sign-in of a 2FA account with the
-        // response ipatool recognises, so ipatool reports its catch-all "something went
-        // wrong" instead of asking for a code. The push to the trusted device still goes
-        // out, which is why the same account signs in fine as soon as a code is supplied -
-        // and why this looked like authentication breaking on its own, with no build of the
-        // app able to fix it by being older. Treat that catch-all as a code request and ask
-        // for one; a genuine failure simply repeats below with the code attached.
-        if (!RequiresTwoFactor(first.CombinedOutput) && !IsUnmappedAppleFailure(first.CombinedOutput))
+        // The signed backend (ipatool-rs) is shipped alongside and does the handshake, so
+        // move onto it and start over rather than asking the user for a code that Apple was
+        // never asked to send.
+        if (!first.Success
+            && !_tools.UseBetaAppleAuthentication
+            && IsUnmappedAppleFailure(first.CombinedOutput)
+            && File.Exists(_tools.BetaIpatoolPath))
+        {
+            AppLog.Warn("Login: Apple rejected the unsigned backend; retrying with the SAP-signed one.");
+            _tools.UseBetaAppleAuthentication = true;
+            AuthBackendSwitched?.Invoke(this, true);
+            _tools.EnsureFolders();
+
+            try
+            {
+                first = await RunLoginAsync(email, password, authCode: null, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { AppLog.Error("Login step 1 (SAP) threw.", ex); return AuthResult.Fail(ClassifyException(ex), ex.Message); }
+
+            if (first.Success)
+            {
+                AppLog.Info("Login: succeeded on the SAP-signed backend without 2FA.");
+                return Complete(ParseAccount(first.CombinedOutput));
+            }
+        }
+
+        // Not a 2FA request -> real failure (bad password, iCloud missing, etc.).
+        if (!RequiresTwoFactor(first.CombinedOutput))
         {
             var errText = ExtractError(first.CombinedOutput);
             AppLog.Warn($"Login failed (not a 2FA prompt): {errText}");
@@ -116,9 +147,7 @@ public sealed partial class AuthService
         }
 
         // ---- Step 2: get the code Apple just sent and retry with --auth-code. -------
-        AppLog.Info(IsUnmappedAppleFailure(first.CombinedOutput)
-            ? "Login: Apple returned an unmapped error on the code-less attempt; treating it as a 2FA request."
-            : "Login: ipatool requested a 2FA code; prompting the user.");
+        AppLog.Info("Login: the backend requested a 2FA code; prompting the user.");
         if (twoFactorProvider is null)
             return AuthResult.NeedTwoFactor();
 
@@ -149,17 +178,6 @@ public sealed partial class AuthService
         var lower = second.CombinedOutput.ToLowerInvariant();
         if (lower.Contains("rejected") || lower.Contains("invalid") || RequiresTwoFactor(second.CombinedOutput))
             return AuthResult.Fail(AuthFailureReason.WrongCode, ExtractError(second.CombinedOutput));
-
-        // Apple's catch-all again, now with a code attached: the code was almost certainly
-        // the wrong one or already used, since anything else Apple names explicitly.
-        if (IsUnmappedAppleFailure(second.CombinedOutput))
-        {
-            AppLog.Warn("Login: Apple rejected the attempt without naming a reason, even with a 2FA code.");
-            return AuthResult.Fail(
-                AuthFailureReason.WrongCode,
-                "Apple rejected the sign-in without giving a reason. Request a new code and try again; "
-                + "if it keeps failing, confirm the password at appleid.apple.com.");
-        }
 
         return AuthResult.Fail(Classify(second.CombinedOutput), ExtractError(second.CombinedOutput));
 
