@@ -59,11 +59,14 @@ public sealed class DependencyService
     private const string RepoRaw =
         $"https://raw.githubusercontent.com/kda2495/IPA_Downloader/{LegacyToolsRevision}/MainApp";
 
-    // Reproducible build from majd/ipatool commit 3aa4a86. It retries Apple's
-    // FailureType 5002 through /r/redownload; the official 2.5.0 binary does not.
-    private const string StandardIpatoolBuild = "2.5.0-ipa-studio.1";
+    // Reproducible build of the official majd/ipatool v2.6.0 tag. When Apple answers
+    // volumeStoreDownloadProduct with no package at all - increasingly its reply for
+    // delisted titles the account still owns - 2.6.0 asks the download dispatcher
+    // (redownloadProduct, then updateProduct) instead of giving up. The 2.5.0 fork this
+    // replaces only covered the narrower FailureType 5002 case.
+    private const string StandardIpatoolBuild = "2.6.0-ipa-studio.1";
     private const string StandardIpatoolSha256 =
-        "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286";
+        "d413b9b5fa576fe6e9828a247737a583b648000f16c12375b74ac45f55f593e1";
 
     private const string IpatoolRsZipUrl =
         "https://github.com/Kosthi/ipatool-rs/releases/download/v0.1.7/ipatool-rs-x86_64-pc-windows-msvc.zip";

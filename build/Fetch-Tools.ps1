@@ -5,7 +5,7 @@
 # development).
 #
 # Sources:
-#   - ipatool v2                    -> official majd/ipatool v2.5.0 release
+#   - ipatool v2                    -> official majd/ipatool v2.6.0 release
 #   - ipatool v3 + anisette.exe     -> kda2495/IPA_Downloader, pinned to a commit SHA
 #     because the upstream default branch no longer carries these legacy binaries
 #   - ipatool-rs v0.1.7             -> Kosthi/ipatool-rs (SAP-signed BETA auth)
@@ -39,11 +39,18 @@ $LegacyToolHashes = @{
     "windows_amd64_v3\ipatool.exe"  = "be7e2ca296c7ae96c530d1262bfb85892bc11094df6fe5303bbad8235f9f4f11"
     "windows_amd64_v3\anisette.exe" = "b1151e3fc1b550b1dfe07dd81f922203413ae45b3a05a2c592b875451f864712"
 }
-$IpatoolVersion = "2.5.0-ipa-studio.1"
-$IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
+# v2.6.0 is the first upstream release that stops trusting volumeStoreDownloadProduct on its
+# own: when Apple answers it with HTTP 200 and no package - which it now does for a growing
+# set of titles, owned ones included - the release asks the download dispatcher
+# (redownloadProduct, then updateProduct) instead. That supersedes the forked revision this
+# pin used to carry, whose only addition was the narrower 5002 redownload path. The commit is
+# the v2.6.0 tag; the binary hash is the reproducible -trimpath build of that source with
+# Go 1.25.0 (see .github/workflows/auto-release.yml).
+$IpatoolVersion = "2.6.0-ipa-studio.1"
+$IpatoolSourceRevision = "747d66fc0acd896759f43a206a7ddfa2ab49e584"
 $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
-$IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
-$IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
+$IpatoolSourceSha256 = "e31e599222e3cc24711b0f97843f0292a5eaf4d1d904df7f31c1c1b8ae48f1e3"
+$IpatoolBinarySha256 = "d413b9b5fa576fe6e9828a247737a583b648000f16c12375b74ac45f55f593e1"
 # ipatool-rs is built from source instead of taken from the published release archive: the
 # released binary cannot see what the signed in account owns. Its purchase call sends the
 # full header set, but volumeStoreDownloadProduct - used by both `download` and
@@ -70,7 +77,7 @@ function Download-File {
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 Write-Host "Tools output folder: $OutDir"
 
-# --- ipatool v2 with Apple 5002/redownload fallback --------------------------
+# --- ipatool v2 with the download dispatcher fallback ------------------------
 Write-Host "`n[1/4] patched ipatool v$IpatoolVersion ..."
 $ipatoolArchive = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src.tar.gz"
 $ipatoolExtract = Join-Path $env:TEMP "ipatool-$IpatoolSourceRevision-src"
@@ -148,6 +155,166 @@ foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipato
     [System.IO.File]::WriteAllText($file, $text)
     Write-Host "  -> patched $relative (storefront + token headers)"
 }
+
+# The dispatcher patch. Apple is retiring the legacy volumeStoreDownloadProduct endpoint for
+# more and more titles: it answers HTTP 200 with no songList at all - the same answer it gives
+# for an app the account has never owned - and ipatool reports "empty songList" even for apps
+# the account demonstrably owns and can install from the App Store app. Apple's own clients
+# ask the download dispatcher in that case, and the reference client grew the same fallback in
+# majd/ipatool v2.6.0. This adds it here: the same request body is re-sent to /r/redownload and
+# then, for a pinned build, to /up/updateProduct, which name the version field appExtVrsId
+# rather than externalVersionId. Anything other than a package-less answer (a licence refusal,
+# an expired session, a network failure) is returned untouched, and when the dispatcher refuses
+# as well the original error is what surfaces - so no failure reads differently than before.
+$dispatcherAnchor = @'
+pub async fn get_download_info(
+    client: &AppleClient,
+    app_id: i64,
+    account: &Account,
+    external_version_id: Option<&str>,
+) -> Result<DownloadItem, ClientError> {
+    for attempt in 0..MAX_DOWNLOAD_ATTEMPTS {
+        match try_get_download_info(client, app_id, account, external_version_id).await {
+'@ -replace "`r`n", "`n"
+$dispatcherPatched = @'
+/// Where a download request is sent. All three take the same body; the dispatcher endpoints
+/// name the pinned-version field differently.
+#[derive(Clone, Copy, Debug)]
+enum DownloadEndpoint {
+    VolumeStore,
+    Redownload,
+    UpdateProduct,
+}
+
+impl DownloadEndpoint {
+    fn request_url(self, account: &Account, guid: &str) -> String {
+        match self {
+            DownloadEndpoint::VolumeStore => download_url(account, guid),
+            DownloadEndpoint::Redownload => {
+                format!("https://downloaddispatch.itunes.apple.com/r/redownload?guid={guid}")
+            }
+            DownloadEndpoint::UpdateProduct => {
+                format!("https://downloaddispatch.itunes.apple.com/up/updateProduct?guid={guid}")
+            }
+        }
+    }
+
+    fn version_key(self) -> &'static str {
+        match self {
+            DownloadEndpoint::VolumeStore => "externalVersionId",
+            _ => "appExtVrsId",
+        }
+    }
+}
+
+/// Whether the store neither refused the request nor returned a package - the one answer the
+/// dispatcher endpoints can still satisfy. Licence, session and transport failures say
+/// something definite and are left to the caller.
+fn is_missing_package(result: &Result<DownloadItem, ClientError>) -> bool {
+    matches!(result, Err(ClientError::UnexpectedResponse(message)) if message.contains("songList"))
+}
+
+pub async fn get_download_info(
+    client: &AppleClient,
+    app_id: i64,
+    account: &Account,
+    external_version_id: Option<&str>,
+) -> Result<DownloadItem, ClientError> {
+    let volume_store = get_download_info_from(
+        client,
+        app_id,
+        account,
+        external_version_id,
+        DownloadEndpoint::VolumeStore,
+    )
+    .await;
+    if !is_missing_package(&volume_store) {
+        return volume_store;
+    }
+
+    for endpoint in [
+        DownloadEndpoint::Redownload,
+        DownloadEndpoint::UpdateProduct,
+    ] {
+        // updateProduct serves a specific build; without one to ask for there is nothing to
+        // send it.
+        if matches!(endpoint, DownloadEndpoint::UpdateProduct) && external_version_id.is_none() {
+            continue;
+        }
+
+        tracing::info!(?endpoint, "no package from the store, retrying via the dispatcher");
+        let retry =
+            get_download_info_from(client, app_id, account, external_version_id, endpoint).await;
+        if retry.is_ok() {
+            return retry;
+        }
+    }
+
+    volume_store
+}
+
+async fn get_download_info_from(
+    client: &AppleClient,
+    app_id: i64,
+    account: &Account,
+    external_version_id: Option<&str>,
+    endpoint: DownloadEndpoint,
+) -> Result<DownloadItem, ClientError> {
+    for attempt in 0..MAX_DOWNLOAD_ATTEMPTS {
+        match try_get_download_info(client, app_id, account, external_version_id, endpoint).await {
+'@ -replace "`r`n", "`n"
+$dispatcherRequestAnchor = @'
+async fn try_get_download_info(
+    client: &AppleClient,
+    app_id: i64,
+    account: &Account,
+    external_version_id: Option<&str>,
+) -> Result<DownloadItem, ClientError> {
+    let url = download_url(account, client.guid());
+'@ -replace "`r`n", "`n"
+$dispatcherRequestPatched = @'
+async fn try_get_download_info(
+    client: &AppleClient,
+    app_id: i64,
+    account: &Account,
+    external_version_id: Option<&str>,
+    endpoint: DownloadEndpoint,
+) -> Result<DownloadItem, ClientError> {
+    let url = endpoint.request_url(account, client.guid());
+'@ -replace "`r`n", "`n"
+$dispatcherVersionAnchor = @'
+    if let Some(vid) = external_version_id {
+        body.insert(
+            "externalVersionId".into(),
+            plist::Value::String(vid.to_string()),
+        );
+    }
+'@ -replace "`r`n", "`n"
+$dispatcherVersionPatched = @'
+    if let Some(vid) = external_version_id {
+        body.insert(
+            endpoint.version_key().into(),
+            plist::Value::String(vid.to_string()),
+        );
+    }
+'@ -replace "`r`n", "`n"
+$downloadApiRelative = "crates\ipatool-core\src\api\download.rs"
+$downloadApi = Join-Path $ipatoolRsExtract $downloadApiRelative
+if (-not (Test-Path $downloadApi)) { throw "ipatool-rs source is missing $downloadApiRelative; the dispatcher patch cannot be applied." }
+$downloadApiText = (Get-Content -Path $downloadApi -Raw) -replace "`r`n", "`n"
+foreach ($step in @(
+    @{ Name = "entry point";     Anchor = $dispatcherAnchor;               Patched = $dispatcherPatched },
+    @{ Name = "request";         Anchor = $dispatcherRequestAnchor;        Patched = $dispatcherRequestPatched },
+    @{ Name = "version field";   Anchor = $dispatcherVersionAnchor;        Patched = $dispatcherVersionPatched }
+)) {
+    $found = ([regex]::Matches($downloadApiText, [regex]::Escape($step.Anchor))).Count
+    if ($found -ne 1) {
+        throw "Expected exactly one $($step.Name) anchor for the dispatcher patch in $downloadApiRelative, found $found. Re-check it against ipatool-rs v$IpatoolRsVersion."
+    }
+    $downloadApiText = $downloadApiText.Replace($step.Anchor, $step.Patched)
+}
+[System.IO.File]::WriteAllText($downloadApi, $downloadApiText)
+Write-Host "  -> patched $downloadApiRelative (redownload/updateProduct fallback)"
 
 # The purchase patch. Apple reports "this account does not have the app" in two different
 # shapes: failureType 9610, which ipatool recognises, and - for an app the account has never
