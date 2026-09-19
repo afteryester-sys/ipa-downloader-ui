@@ -1151,6 +1151,13 @@ public sealed partial class DownloadService
                 AppLog.Warn($"download: could not resolve an external version id for {app.Name}: {ex.Message}");
             }
 
+            if (string.IsNullOrWhiteSpace(pinnedVersionId))
+            {
+                try { pinnedVersionId = await ResolveExternalVersionIdAsync(app.AppStoreId, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { AppLog.Warn($"catalog lookup failed for {app.Name}: {ex.Message}"); }
+            }
+
             if (!string.IsNullOrWhiteSpace(pinnedVersionId))
             {
                 return await DownloadOnceAsync(
@@ -1158,11 +1165,6 @@ public sealed partial class DownloadService
                     externalVersionId: pinnedVersionId).ConfigureAwait(false);
             }
 
-            // ListVersionsAsync is documented above as "ipatool v3+ only" — on the v2/SAP
-            // BETA binaries it comes back empty, so there is nothing to pin to and the
-            // original failure has to stand.
-            AppLog.Warn($"download: no external version id available for {app.Name}; " +
-                        "cannot retry the redownload pinned to a specific build");
         }
 
         return (DownloadResult.Fail(DescribeStoreFailure(output), error), isTransient);
@@ -1906,6 +1908,35 @@ public sealed partial class DownloadService
             catch (JsonException) { }
         }
         return apps;
+    }
+
+    private async Task<string?> ResolveExternalVersionIdAsync(long appId, CancellationToken ct)
+    {
+        foreach (var storefront in ItunesStorefront.Candidates)
+        {
+            try
+            {
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(TimeSpan.FromSeconds(6));
+                var cc = string.IsNullOrEmpty(storefront) ? "us" : storefront;
+                var url = $"https://uclient-api.itunes.apple.com/WebObjects/MZStorePlatform.woa/wa/lookup?version=2&id={appId}&p=mdm-lockup&caller=MDM&platform=iphone&l=en&cc={cc}";
+                using var response = await _http.GetAsync(url, cts.Token).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                await using var stream = await response.Content.ReadAsStreamAsync(cts.Token).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cts.Token).ConfigureAwait(false);
+                if (!doc.RootElement.TryGetProperty("results", out var results) || results.ValueKind != JsonValueKind.Object
+                    || !results.TryGetProperty(appId.ToString(), out var entry) || !entry.TryGetProperty("offers", out var offers)
+                    || offers.ValueKind != JsonValueKind.Array || offers.GetArrayLength() == 0
+                    || !offers[0].TryGetProperty("version", out var version) || !version.TryGetProperty("externalId", out var externalId))
+                    continue;
+                if (externalId.ValueKind == JsonValueKind.Number) return externalId.GetInt64().ToString();
+                var text = externalId.GetString();
+                if (!string.IsNullOrWhiteSpace(text)) return text;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { AppLog.Warn($"catalog lookup failed for {appId}: {ex.Message}"); }
+        }
+        return null;
     }
 
     /// <summary>Lists available external version identifiers (ipatool v3+ only).</summary>
