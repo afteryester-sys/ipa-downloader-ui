@@ -307,8 +307,8 @@ public partial class QuickTransferDialog : Window
             {
                 var photoProgress = new Progress<PhotoTransferProgress>(p =>
                 {
-                    ProgressBarControl.Value = p.Total > 0 ? (double)p.Done / p.Total * 100 : 0;
-                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.ImportingPhotos", p.Done, p.Total, p.CurrentFile);
+                    ProgressBarControl.Value = p.Total > 0 ? (double)p.Completed / p.Total * 100 : 0;
+                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.ImportingPhotos", p.Completed, p.Total, p.CurrentFile);
                 });
                 var result = await _photos.ImportAsync(_device.Udid, cameraRollFiles, photoProgress, _cts.Token);
                 photosDone = result.Copied;
