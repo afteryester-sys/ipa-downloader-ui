@@ -36,10 +36,11 @@ public static class IpatoolProfile
     }
 
     public static string CookieJarPath(ToolLocator tools) => Path.Combine(ConfigFolder(tools), "cookies");
+    public static string RustCookieJarPath(ToolLocator tools) => Path.Combine(ConfigFolder(tools), "cookies.json");
 
     /// <summary>
-    /// True when tool output is the cookie-jar startup panic rather than a real
-    /// authentication or download error.
+    /// True when tool output is the cookie-jar startup panic or deserialization failure
+    /// rather than a real authentication or download error.
     /// </summary>
     public static bool IsCookieJarFailure(string? output)
     {
@@ -47,41 +48,83 @@ public static class IpatoolProfile
         var lower = output.ToLowerInvariant();
         return lower.Contains("cannot load cookies")
             || (lower.Contains("cookiejar") && lower.Contains("panic"))
-            || (lower.Contains("cookies") && lower.Contains("looking for beginning of value"));
+            || (lower.Contains("cookies") && lower.Contains("looking for beginning of value"))
+            || (lower.Contains("cookie") && lower.Contains("serde"))
+            || lower.Contains("cannot deserialize cookies");
     }
 
     /// <summary>
-    /// Discards the cookie jar when it is not loadable JSON. Returns true when something was
-    /// removed, so callers can retry the command they were about to run.
-    ///
-    /// Run before every ipatool invocation: the check is a few hundred bytes of JSON parsing,
-    /// and skipping it means the panic surfaces as a misleading login error.
+    /// True when Apple's gateway, WAF or network connection dropped / timed out or returned
+    /// an HTML error page (504, 502, 503) instead of a plist dictionary.
+    /// These failures are transient and warrant an immediate retry with purged cookies.
+    /// </summary>
+    public static bool IsTransientAuthFailure(string? output)
+    {
+        if (string.IsNullOrEmpty(output)) return false;
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("operation timed out")
+            || lower.Contains("timed out")
+            || lower.Contains("timeout")
+            || lower.Contains("invalid type: string \"<html>\"")
+            || lower.Contains("invalid type: string '<html>'")
+            || lower.Contains("<html>")
+            || lower.Contains("504 gateway")
+            || lower.Contains("502 bad gateway")
+            || lower.Contains("503 service unavailable")
+            || lower.Contains("connection reset")
+            || lower.Contains("connection refused")
+            || lower.Contains("tls handshake")
+            || lower.Contains("broken pipe");
+    }
+
+    /// <summary>
+    /// Discards cookie jars (both Go 'cookies' and Rust 'cookies.json') when invalid or forced.
+    /// Returns true when something was reset.
     /// </summary>
     public static bool RepairCookieJar(ToolLocator tools, bool force = false)
     {
+        var cleaned = false;
         try
         {
             var folder = ConfigFolder(tools);
             Directory.CreateDirectory(folder);
 
-            var path = Path.Combine(folder, "cookies");
-            if (!File.Exists(path)) return false;
+            var targets = new[]
+            {
+                Path.Combine(folder, "cookies"),
+                Path.Combine(folder, "cookies.json")
+            };
 
-            if (!force && IsLoadableJson(path)) return false;
+            foreach (var path in targets)
+            {
+                if (!File.Exists(path)) continue;
 
-            // Keep one copy for diagnostics instead of deleting outright; a stale quarantine
-            // file is harmless, and it is the only evidence of what corrupted the jar.
-            var quarantine = path + ".corrupt";
-            if (File.Exists(quarantine)) File.Delete(quarantine);
-            File.Move(path, quarantine);
+                if (!force && IsLoadableJson(path)) continue;
 
-            AppLog.Warn($"ipatool cookie jar was unusable and has been reset ({path}).");
-            return true;
+                var quarantine = path + ".corrupt";
+                if (File.Exists(quarantine))
+                {
+                    try { File.Delete(quarantine); } catch { /* ignore */ }
+                }
+
+                try
+                {
+                    File.Move(path, quarantine);
+                    cleaned = true;
+                    AppLog.Warn($"ipatool cookie jar was reset: {Path.GetFileName(path)}");
+                }
+                catch
+                {
+                    try { File.Delete(path); cleaned = true; } catch { /* ignore */ }
+                }
+            }
+
+            return cleaned;
         }
         catch (Exception ex)
         {
-            AppLog.Warn($"Could not reset the ipatool cookie jar: {ex.Message}");
-            return false;
+            AppLog.Warn($"Could not reset ipatool cookie jars: {ex.Message}");
+            return cleaned;
         }
     }
 
