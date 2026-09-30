@@ -888,6 +888,9 @@
     <sys:String x:Key="L.QuickTransfer.CopyingFile">File {0} of {1}: {2} → {3}</sys:String>
     <sys:String x:Key="L.QuickTransfer.Verified">Done: {0} file(s) verified; {1} IPA file(s) queued.</sys:String>
     <sys:String x:Key="L.QuickTransfer.TransferFailed">Transfer stopped: {0}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.RecommendedFor">Recommended for: {0} ({1})</sys:String>
+    <sys:String x:Key="L.QuickTransfer.SelectApp">Choose destination app for transfer:</sys:String>
+    <sys:String x:Key="L.QuickTransfer.RecommendedTag">Recommended</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
 
     <!-- IPSW firmware -->

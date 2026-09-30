@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -17,8 +18,8 @@ namespace IPAStudio.App.Views;
 
 /// <summary>
 /// Routes IPA archives to installd and every other file to an installed app that exposes
-/// Apple File Sharing. System Photos/Music libraries are intentionally not promised: copying
-/// bytes into their private storage is not an import on current iOS.
+/// Apple File Sharing (house_arrest / AFC). Intelligently recommends compatible destination
+/// apps based on dropped file types (iMazing-style Quick Transfer).
 /// </summary>
 public partial class QuickTransferDialog : Window
 {
@@ -26,9 +27,12 @@ public partial class QuickTransferDialog : Window
     private readonly FileSharingService _sharing;
     private readonly OperationService _operations;
     private readonly CancellationTokenSource _cts = new();
-    private List<string> _files = new();
-    private IReadOnlyList<FileSharingApp> _destinations = Array.Empty<FileSharingApp>();
+
+    private List<string> _rawFilePaths = new();
+    private IReadOnlyList<FileSharingApp> _availableApps = Array.Empty<FileSharingApp>();
+    private FileSharingApp? _userSelectedApp;
     private bool _isBusy;
+    private bool _isRefreshing;
 
     public QuickTransferDialog(Device device, FileSharingService sharing, OperationService operations)
     {
@@ -47,20 +51,22 @@ public partial class QuickTransferDialog : Window
         try
         {
             var scan = await _sharing.GetAvailableAppsAsync(_device.Udid, _cts.Token);
-            _destinations = scan.Apps;
-            DestinationPicker.ItemsSource = _destinations;
-            if (_destinations.Count > 0) DestinationPicker.SelectedIndex = 0;
+            _availableApps = scan.Apps;
 
-            DestinationHint.Text = _destinations.Count > 0
-                ? scan.HasInfrastructureErrors
-                    ? Loc.Format("L.QuickTransfer.ScanPartial", _destinations.Count,
-                        scan.CheckedApps, FirstScanError(scan))
-                    : Loc.Get("L.QuickTransfer.FileSharingHint")
-                : scan.HasInfrastructureErrors
+            DestinationPicker.IsEnabled = _availableApps.Count > 0;
+            RefreshState();
+
+            if (_availableApps.Count == 0)
+            {
+                DestinationHint.Text = scan.HasInfrastructureErrors
                     ? Loc.Format("L.QuickTransfer.ScanFailed", FirstScanError(scan))
                     : Loc.Get("L.QuickTransfer.NoFileSharingApps");
-            DestinationPicker.IsEnabled = _destinations.Count > 0;
-            RefreshState();
+            }
+            else if (scan.HasInfrastructureErrors)
+            {
+                DestinationHint.Text = Loc.Format("L.QuickTransfer.ScanPartial", _availableApps.Count,
+                    scan.CheckedApps, FirstScanError(scan));
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -91,7 +97,10 @@ public partial class QuickTransferDialog : Window
     {
         DropZone.BorderBrush = (Brush)FindResource("Brush.Border");
         e.Handled = true;
-        if (!_isBusy && e.Data.GetData(DataFormats.FileDrop) is string[] paths) SetFiles(ExpandPaths(paths));
+        if (!_isBusy && e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+        {
+            SetFiles(paths);
+        }
     }
 
     private void OnBrowseClicked(object sender, RoutedEventArgs e)
@@ -104,61 +113,117 @@ public partial class QuickTransferDialog : Window
             Filter = Loc.Get("L.QuickTransfer.FilterAll"),
             CheckFileExists = true,
         };
-        if (dialog.ShowDialog(this) == true) SetFiles(dialog.FileNames);
-    }
-
-    private static IEnumerable<string> ExpandPaths(IEnumerable<string> paths)
-    {
-        foreach (var path in paths)
+        if (dialog.ShowDialog(this) == true)
         {
-            if (Directory.Exists(path))
-            {
-                IEnumerable<string> files;
-                try { files = Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories); }
-                catch { continue; }
-                foreach (var file in files) yield return file;
-            }
-            else if (File.Exists(path)) yield return path;
+            SetFiles(dialog.FileNames);
         }
     }
 
-    private void SetFiles(IEnumerable<string> files)
+    private void OnClearClicked(object sender, RoutedEventArgs e)
     {
-        _files = files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (_isBusy) return;
+        _rawFilePaths.Clear();
+        _userSelectedApp = null;
         RefreshState();
     }
 
-    private void OnDestinationChanged(object sender, SelectionChangedEventArgs e) => RefreshState();
+    private void SetFiles(IEnumerable<string> paths)
+    {
+        _rawFilePaths = FileClassifier.ExpandPaths(paths).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        _userSelectedApp = null; // Reset to allow smart recommendation for newly dropped set
+        RefreshState();
+    }
+
+    private void OnDestinationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isRefreshing) return;
+        if (DestinationPicker.SelectedItem is AppMatchScore score)
+        {
+            _userSelectedApp = score.App;
+            RefreshState();
+        }
+    }
 
     private void RefreshState()
     {
-        if (FilesList is null) return;
-        var destination = DestinationPicker.SelectedItem as FileSharingApp;
-        FilesList.ItemsSource = _files.Select(path => Describe(path, destination?.Name)).ToList();
-        SummaryLine.Text = Loc.Format("L.QuickTransfer.Summary", _files.Count);
-        EmptyState.Visibility = _files.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ResultState.Visibility = _files.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        if (FilesList is null || DestinationPicker is null) return;
+        _isRefreshing = true;
 
-        var onlyIpa = _files.Count > 0 && _files.All(IsIpa);
-        TransferButton.IsEnabled = !_isBusy && _files.Count > 0 && (onlyIpa || destination is not null);
-    }
-
-    private static TransferFileRow Describe(string path, string? appName)
-    {
-        var extension = Path.GetExtension(path).ToLowerInvariant();
-        var (type, glyph) = extension switch
+        try
         {
-            ".ipa" => (Loc.Get("L.QuickTransfer.TypeApp"), "\uE7BA"),
-            ".jpg" or ".jpeg" or ".png" or ".heic" or ".heif" or ".gif" or ".webp" or ".tif" or ".tiff" or ".bmp" or ".dng" or ".cr2" or ".nef" or ".arw" or ".aae" => (Loc.Get("L.QuickTransfer.TypeImage"), "\uEB9F"),
-            ".mov" or ".mp4" or ".m4v" or ".avi" or ".3gp" or ".mkv" or ".webm" => (Loc.Get("L.QuickTransfer.TypeVideo"), "\uE714"),
-            ".mp3" or ".m4a" or ".aac" or ".wav" or ".aiff" or ".aif" or ".flac" or ".ogg" or ".opus" or ".m4r" => (Loc.Get("L.QuickTransfer.TypeAudio"), "\uE8D6"),
-            ".pdf" or ".epub" or ".mobi" or ".azw" or ".azw3" => (Loc.Get("L.QuickTransfer.TypeBook"), "\uE82D"),
-            ".doc" or ".docx" or ".xls" or ".xlsx" or ".ppt" or ".pptx" or ".pages" or ".numbers" or ".key" or ".txt" or ".rtf" or ".md" or ".csv" or ".json" or ".xml" => (Loc.Get("L.QuickTransfer.TypeDocument"), "\uE8A5"),
-            ".zip" or ".7z" or ".rar" or ".tar" or ".gz" or ".bz2" or ".xz" => (Loc.Get("L.QuickTransfer.TypeArchive"), "\uF012"),
-            _ => (Loc.Get("L.QuickTransfer.TypeOther"), "\uE8A5"),
-        };
-        return new TransferFileRow(Path.GetFileName(path), type, glyph,
-            IsIpa(path) ? Loc.Get("L.QuickTransfer.Apps") : appName ?? Loc.Get("L.QuickTransfer.NoDestination"));
+            // Evaluate payloads preliminarily with current manual app if any
+            var preliminary = _rawFilePaths
+                .Select(p => FileClassifier.Describe(p, _userSelectedApp?.Name))
+                .ToList();
+
+            // Rank available apps by compatibility with the dropped files
+            var ranked = AppRecommendationEngine.RankApps(preliminary, _availableApps);
+
+            // Determine active target app
+            FileSharingApp? activeApp = null;
+            if (_userSelectedApp != null)
+            {
+                activeApp = _availableApps.FirstOrDefault(a =>
+                    string.Equals(a.BundleId, _userSelectedApp.BundleId, StringComparison.OrdinalIgnoreCase))
+                    ?? (ranked.Count > 0 ? ranked[0].App : null);
+            }
+            else
+            {
+                activeApp = ranked.Count > 0 ? ranked[0].App : null;
+            }
+
+            // Build final payloads with active app display name
+            var finalPayloads = _rawFilePaths
+                .Select(p => FileClassifier.Describe(p, activeApp?.Name))
+                .ToList();
+
+            FilesList.ItemsSource = finalPayloads;
+            DestinationPicker.ItemsSource = ranked;
+
+            if (activeApp != null)
+            {
+                var matchingScore = ranked.FirstOrDefault(s =>
+                    string.Equals(s.BundleId, activeApp.BundleId, StringComparison.OrdinalIgnoreCase));
+                DestinationPicker.SelectedItem = matchingScore ?? (ranked.Count > 0 ? ranked[0] : null);
+            }
+            else if (ranked.Count > 0)
+            {
+                DestinationPicker.SelectedIndex = 0;
+            }
+
+            // Update destination hint text
+            if (DestinationPicker.SelectedItem is AppMatchScore selectedScore)
+            {
+                if (selectedScore.IsRecommended && !string.IsNullOrWhiteSpace(selectedScore.MatchReason))
+                {
+                    DestinationHint.Text = selectedScore.MatchReason;
+                }
+                else
+                {
+                    DestinationHint.Text = Loc.Get("L.QuickTransfer.FileSharingHint");
+                }
+            }
+            else if (_availableApps.Count == 0)
+            {
+                DestinationHint.Text = Loc.Get("L.QuickTransfer.NoFileSharingApps");
+            }
+            else
+            {
+                DestinationHint.Text = Loc.Get("L.QuickTransfer.FileSharingHint");
+            }
+
+            SummaryLine.Text = Loc.Format("L.QuickTransfer.Summary", finalPayloads.Count);
+            EmptyState.Visibility = finalPayloads.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ResultState.Visibility = finalPayloads.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+
+            var onlyIpa = finalPayloads.Count > 0 && finalPayloads.All(p => p.Category == FileCategory.App);
+            var hasDestination = activeApp != null || DestinationPicker.SelectedItem != null;
+            TransferButton.IsEnabled = !_isBusy && finalPayloads.Count > 0 && (onlyIpa || hasDestination);
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
     }
 
     private async void OnTransferClicked(object sender, RoutedEventArgs e)
@@ -170,8 +235,10 @@ public partial class QuickTransferDialog : Window
         ResultState.Visibility = Visibility.Collapsed;
         ProgressState.Visibility = Visibility.Visible;
 
-        var ipaFiles = _files.Where(IsIpa).ToList();
-        var documentFiles = _files.Where(path => !IsIpa(path)).ToList();
+        var payloads = _rawFilePaths.Select(p => FileClassifier.Describe(p)).ToList();
+        var ipaFiles = payloads.Where(p => p.Category == FileCategory.App).Select(p => p.FullPath).ToList();
+        var documentFiles = payloads.Where(p => p.Category != FileCategory.App).Select(p => p.FullPath).ToList();
+
         if (ipaFiles.Count > 0)
         {
             _operations.StartQueueOperation(OperationKind.Install, ViewModels.Page.Devices,
@@ -183,23 +250,44 @@ public partial class QuickTransferDialog : Window
         {
             if (documentFiles.Count > 0)
             {
-                var destination = DestinationPicker.SelectedItem as FileSharingApp
+                var destination = (_userSelectedApp ?? (DestinationPicker.SelectedItem as AppMatchScore)?.App)
                     ?? throw new InvalidOperationException(Loc.Get("L.QuickTransfer.NoFileSharingApps"));
+
                 for (var index = 0; index < documentFiles.Count; index++)
                 {
                     _cts.Token.ThrowIfCancellationRequested();
                     var fileNumber = index + 1;
+                    var filePath = documentFiles[index];
+                    var sw = Stopwatch.StartNew();
+                    long lastBytes = 0;
+                    long lastTickMs = 0;
+
                     var progress = new Progress<FileSharingProgress>(p =>
                     {
                         ProgressBarControl.Value = p.Percent;
                         ProgressLabel.Text = Loc.Format("L.QuickTransfer.CopyingFile", fileNumber,
                             documentFiles.Count, p.FileName, destination.Name);
+
+                        var elapsedMs = sw.ElapsedMilliseconds;
+                        var dtSeconds = (elapsedMs - lastTickMs) / 1000.0;
+                        if (dtSeconds >= 0.2 || p.BytesWritten == p.TotalBytes)
+                        {
+                            var bytesDiff = p.BytesWritten - lastBytes;
+                            var speed = dtSeconds > 0 ? bytesDiff / dtSeconds : 0;
+                            var speedText = FormatSpeed(speed);
+                            var bytesText = $"{FormatBytes(p.BytesWritten)} / {FormatBytes(p.TotalBytes)}";
+                            ProgressSpeedLabel.Text = $"{speedText} • {bytesText}";
+                            lastBytes = p.BytesWritten;
+                            lastTickMs = elapsedMs;
+                        }
                     });
-                    await _sharing.UploadAsync(_device.Udid, destination, documentFiles[index], progress, _cts.Token);
+
+                    await _sharing.UploadAsync(_device.Udid, destination, filePath, progress, _cts.Token);
                 }
             }
 
             ProgressBarControl.Value = 100;
+            ProgressSpeedLabel.Text = string.Empty;
             ProgressLabel.Text = Loc.Format("L.QuickTransfer.Verified", documentFiles.Count, ipaFiles.Count);
             CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
             CancelButton.IsEnabled = true;
@@ -211,6 +299,7 @@ public partial class QuickTransferDialog : Window
         catch (Exception ex)
         {
             ProgressBarControl.Value = 0;
+            ProgressSpeedLabel.Text = string.Empty;
             ProgressLabel.Text = Loc.Format("L.QuickTransfer.TransferFailed", ex.Message);
             CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
             CancelButton.IsEnabled = true;
@@ -219,6 +308,21 @@ public partial class QuickTransferDialog : Window
         {
             _isBusy = false;
         }
+    }
+
+    private static string FormatSpeed(double bytesPerSec)
+    {
+        if (bytesPerSec >= 1_048_576) return $"{bytesPerSec / 1_048_576.0:0.0} MB/s";
+        if (bytesPerSec >= 1024) return $"{bytesPerSec / 1024.0:0.0} KB/s";
+        return $"{bytesPerSec:0} B/s";
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1_073_741_824) return $"{bytes / 1_073_741_824.0:0.0} GB";
+        if (bytes >= 1_048_576) return $"{bytes / 1_048_576.0:0.0} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:0.0} KB";
+        return $"{bytes} B";
     }
 
     private void OnCancelClicked(object sender, RoutedEventArgs e)
@@ -233,9 +337,4 @@ public partial class QuickTransferDialog : Window
         _cts.Dispose();
         base.OnClosed(e);
     }
-
-    private static bool IsIpa(string path) =>
-        string.Equals(Path.GetExtension(path), ".ipa", StringComparison.OrdinalIgnoreCase);
-
-    private sealed record TransferFileRow(string Name, string Type, string Glyph, string Destination);
 }
