@@ -225,10 +225,22 @@ public static class TransferTuning
         {
             Directory.CreateDirectory(stagingFolder);
 
-            // Honoured by Go's os.TempDir on Windows (TMP/TEMP) and on Unix (TMPDIR).
-            env["TMP"] = stagingFolder;
-            env["TEMP"] = stagingFolder;
-            env["TMPDIR"] = stagingFolder;
+            // Ensure the temporary directory handed to child tools contains only ASCII characters.
+            // Non-ASCII paths in TMP/TEMP cause native runtimes (MinGW GCC std::filesystem, libcurl)
+            // to crash with "filesystem error: Cannot convert character sequence: Illegal byte sequence".
+            var safeFolder = NativePathHelper.TryGetShortPath(stagingFolder);
+            if (string.IsNullOrEmpty(safeFolder) || !NativePathHelper.IsPureAscii(safeFolder))
+            {
+                safeFolder = NativePathHelper.GetSafeAsciiDirectory(stagingFolder);
+            }
+
+            if (!string.IsNullOrEmpty(safeFolder) && NativePathHelper.IsPureAscii(safeFolder))
+            {
+                // Honoured by Go's os.TempDir on Windows (TMP/TEMP) and on Unix (TMPDIR).
+                env["TMP"] = safeFolder;
+                env["TEMP"] = safeFolder;
+                env["TMPDIR"] = safeFolder;
+            }
         }
         catch
         {

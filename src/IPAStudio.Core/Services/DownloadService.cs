@@ -683,9 +683,19 @@ public sealed partial class DownloadService
         CancellationToken ct,
         string? externalVersionId = null)
     {
+        var ipatoolTarget = NativePathHelper.ResolveSafeNativeOutputPath(outputPath, app.AppStoreId, out var stagedToMove);
+        if (!string.Equals(ipatoolTarget, outputPath, StringComparison.OrdinalIgnoreCase))
+        {
+            AppLog.Info($"Path mapping: '{outputPath}' -> native '{ipatoolTarget}'" +
+                        (stagedToMove is not null ? " (staged move)" : " (8.3 alias)"));
+        }
+
         // A leftover file from a previous attempt would be read by the poller as
         // instant 100% at an absurd speed, so clear it (and any partials) first.
         TryDeleteStaleFiles(outputPath);
+        if (stagedToMove is not null) TryDeleteStaleFiles(stagedToMove);
+        if (!string.Equals(ipatoolTarget, outputPath, StringComparison.OrdinalIgnoreCase))
+            TryDeleteStaleFiles(ipatoolTarget);
         TryCleanStaging(stagingDir);
 
         // The numeric store id is preferred: it names the exact app and still works for
@@ -709,7 +719,7 @@ public sealed partial class DownloadService
 
         args.AddRange(new[]
         {
-            "-o", outputPath,
+            "-o", ipatoolTarget,
             "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
         });
         if (autoPurchase) args.Add("--purchase");
@@ -870,7 +880,9 @@ public sealed partial class DownloadService
                     var now = DateTimeOffset.UtcNow;
 
                     // On-disk size is the fallback when the tool prints no numbers.
-                    var onDisk = ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime);
+                    var onDisk = Math.Max(
+                        ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime),
+                        ProbeSize(ipatoolTarget, stagingDir, startedUtc.UtcDateTime));
                     var parsed = state.Downloaded;
                     var downloaded = Math.Max(onDisk, parsed);
                     var total = Volatile.Read(ref sizeHint[0]);
@@ -1047,6 +1059,9 @@ public sealed partial class DownloadService
             ct.ThrowIfCancellationRequested();
 
             TryDeleteStaleFiles(outputPath);
+            if (stagedToMove is not null) TryDeleteStaleFiles(stagedToMove);
+            if (!string.Equals(ipatoolTarget, outputPath, StringComparison.OrdinalIgnoreCase))
+                TryDeleteStaleFiles(ipatoolTarget);
             return (DownloadResult.Fail(Loc.Get("L.Error.ConnectionStalled")), true);
         }
         finally
@@ -1058,13 +1073,41 @@ public sealed partial class DownloadService
         if (watchdogFired)
         {
             TryDeleteStaleFiles(outputPath);
+            if (stagedToMove is not null) TryDeleteStaleFiles(stagedToMove);
+            if (!string.Equals(ipatoolTarget, outputPath, StringComparison.OrdinalIgnoreCase))
+                TryDeleteStaleFiles(ipatoolTarget);
             return (DownloadResult.Fail(Loc.Get("L.Error.ConnectionStalled")), true);
         }
 
         var output = result.CombinedOutput;
 
+        // Move staged file to desired output path if staging was required
+        if (result.Success && stagedToMove is not null && File.Exists(stagedToMove))
+        {
+            try
+            {
+                if (File.Exists(outputPath)) File.Delete(outputPath);
+                File.Move(stagedToMove, outputPath);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"Could not move staged download to \"{outputPath}\" ({ex.Message}); copying instead.");
+                try
+                {
+                    File.Copy(stagedToMove, outputPath, overwrite: true);
+                    File.Delete(stagedToMove);
+                }
+                catch (Exception copyEx)
+                {
+                    AppLog.Warn($"Copy also failed: {copyEx.Message}");
+                }
+            }
+        }
+
         // ---- Success ---------------------------------------------------------------
-        var finalPath = File.Exists(outputPath) ? outputPath : ResolveOutputPath(output, outputPath);
+        var finalPath = File.Exists(outputPath)
+            ? outputPath
+            : (File.Exists(ipatoolTarget) ? ipatoolTarget : ResolveOutputPath(output, outputPath));
         if (result.Success && finalPath is not null && File.Exists(finalPath))
         {
             var finalTotal = new FileInfo(finalPath).Length;
@@ -1118,7 +1161,13 @@ public sealed partial class DownloadService
             return (DownloadResult.NeedsLicense(error), false);
 
         var isTransient = TransientRegex().IsMatch(output);
-        if (isTransient) TryDeleteStaleFiles(outputPath);
+        if (isTransient)
+        {
+            TryDeleteStaleFiles(outputPath);
+            if (stagedToMove is not null) TryDeleteStaleFiles(stagedToMove);
+            if (!string.Equals(ipatoolTarget, outputPath, StringComparison.OrdinalIgnoreCase))
+                TryDeleteStaleFiles(ipatoolTarget);
+        }
 
         // Apple sometimes refuses an *unpinned* redownload of an app the account already
         // owns with an empty "songList" (ipatool surfaces this as "unexpected response:
