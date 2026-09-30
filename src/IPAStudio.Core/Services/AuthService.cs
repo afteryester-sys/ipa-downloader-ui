@@ -241,8 +241,6 @@ public sealed partial class AuthService
             args.Add("--auth-code");
             args.Add(authCode!.Trim());
         }
-        if (_tools.UseBetaAppleAuthentication)
-            args.Add("--non-interactive");
 
         const int maxAttempts = 3;
         ProcessResult? result = null;

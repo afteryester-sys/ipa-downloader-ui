@@ -88,6 +88,7 @@ public sealed class ToolLocator
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["HOME"] = BetaHomeFolder,
+                ["USERPROFILE"] = BetaHomeFolder,
             }
             : null;
 

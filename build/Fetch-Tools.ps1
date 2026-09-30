@@ -44,19 +44,11 @@ $IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
 $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
 $IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
 $IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
-# ipatool-rs is built from source instead of taken from the published release archive: the
-# released binary cannot see what the signed in account owns. Its purchase call sends the
-# full header set, but volumeStoreDownloadProduct - used by both `download` and
-# `version list` - sends neither X-Apple-Store-Front nor X-Token, so Apple answers those two
-# against the default (US) storefront and, with no password token, as if nobody were signed
-# in. Both omissions produce the same answer: HTTP 200 with an empty "songList", which
-# ipatool surfaces as "unexpected response: empty songList" - for region-limited apps and
-# for apps the account demonstrably owns alike. The reference client (majd/ipatool) sends
-# X-Dsid, X-Apple-Store-Front and X-Token on this request; the patch below restores the two
-# that are missing. Everything else is upstream v0.1.8.
-$IpatoolRsVersion = "0.1.8"
-$IpatoolRsSource = "https://api.github.com/repos/Kosthi/ipatool-rs/tarball/v$IpatoolRsVersion"
-$IpatoolRsSourceSha256 = "fc31035e95a22e27c06f0d05c3b81f97e4cd79ffa493c375d16f400e9499a4e6"
+# ipatool-cpp (Sorvigolova, FairPlay Unicorn emulation with SAP & kbsync)
+$IpatoolCppVersion = "1.0.9"
+$IpatoolCppUrl = "https://github.com/Sorvigolova/ipatool/releases/download/$IpatoolCppVersion/windows_amd64_ipatool-cpp.zip"
+$IpatoolCppZipSha256 = "264be72d4b70e8a5540647277690fb47fcf1d7d6178acf84629e93c0e564a331"
+$IpatoolCppExeSha256 = "394e8953d317f39645f03a1bfe039d0dc0ffc04291eb9d0f535bd1bbca4f4581"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {
@@ -109,188 +101,32 @@ Write-Host "`n[2/4] ipatool v3 + anisette ..."
 Download-File "$RepoRaw/windows_amd64_v3/ipatool.exe"  (Join-Path $OutDir "windows_amd64_v3\ipatool.exe")
 Download-File "$RepoRaw/windows_amd64_v3/anisette.exe" (Join-Path $OutDir "windows_amd64_v3\anisette.exe")
 
-# --- ipatool-rs SAP BETA (patched: storefront + token headers) -----------------
-Write-Host "`n[3/4] ipatool-rs v$IpatoolRsVersion (SAP BETA, built from source) ..."
-$ipatoolRsArchive = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src.tar.gz"
-$ipatoolRsExtract = Join-Path $env:TEMP "ipatool-rs-$IpatoolRsVersion-src"
-Download-File $IpatoolRsSource $ipatoolRsArchive
-$ipatoolRsActualHash = (Get-FileHash -Path $ipatoolRsArchive -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($ipatoolRsActualHash -ne $IpatoolRsSourceSha256) {
-    throw "ipatool-rs source checksum mismatch: expected $IpatoolRsSourceSha256, got $ipatoolRsActualHash"
+# --- ipatool-cpp (Sorvigolova, FairPlay Unicorn emulation with SAP & kbsync) ---
+Write-Host "`n[3/4] ipatool-cpp v$IpatoolCppVersion (SAP & kbsync engine) ..."
+$ipatoolCppZip = Join-Path $env:TEMP "windows_amd64_ipatool-cpp-$IpatoolCppVersion.zip"
+$ipatoolCppExtract = Join-Path $env:TEMP "windows_amd64_ipatool-cpp-$IpatoolCppVersion"
+Download-File $IpatoolCppUrl $ipatoolCppZip
+$actualZipHash = (Get-FileHash -Path $ipatoolCppZip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualZipHash -ne $IpatoolCppZipSha256) {
+    throw "ipatool-cpp zip checksum mismatch: expected $IpatoolCppZipSha256, got $actualZipHash"
 }
-if (Test-Path $ipatoolRsExtract) { Remove-Item $ipatoolRsExtract -Recurse -Force }
-New-Item -ItemType Directory -Path $ipatoolRsExtract -Force | Out-Null
-& tar.exe -xzf $ipatoolRsArchive -C $ipatoolRsExtract --strip-components=1
-if ($LASTEXITCODE -ne 0) { throw "Failed to extract the pinned ipatool-rs source archive." }
+if (Test-Path $ipatoolCppExtract) { Remove-Item $ipatoolCppExtract -Recurse -Force }
+Expand-Archive -Path $ipatoolCppZip -DestinationPath $ipatoolCppExtract -Force
 
-# The storefront patch. Applied by exact-match replacement with a count check rather than a
-# diff so that a source bump which moves these lines fails the build loudly instead of
-# silently shipping a binary that cannot see a non-US catalog again.
-$storefrontAnchor = @'
-        .header("X-Dsid", &account.directory_services_id)
-'@ -replace "`r`n", "`n"
-$storefrontPatched = @'
-        .header("X-Dsid", &account.directory_services_id)
-        .header("X-Apple-Store-Front", &account.store_front)
-        .header("X-Token", &account.password_token)
-'@ -replace "`r`n", "`n"
-foreach ($relative in @("crates\ipatool-core\src\api\download.rs", "crates\ipatool-core\src\api\versions.rs")) {
-    $file = Join-Path $ipatoolRsExtract $relative
-    if (-not (Test-Path $file)) { throw "ipatool-rs source is missing $relative; the storefront patch cannot be applied." }
-    $text = (Get-Content -Path $file -Raw) -replace "`r`n", "`n"
-    $occurrences = ([regex]::Matches($text, [regex]::Escape($storefrontAnchor))).Count
-    if ($occurrences -ne 1) {
-        throw "Expected exactly one X-Dsid request header in $relative, found $occurrences. Re-check the storefront patch against ipatool-rs v$IpatoolRsVersion."
-    }
-    if ($text.Contains('X-Apple-Store-Front')) { throw "$relative already sends X-Apple-Store-Front; drop the patch." }
-    if ($text.Contains('X-Token')) { throw "$relative already sends X-Token; drop the patch." }
-    $text = $text.Replace($storefrontAnchor, $storefrontPatched)
-    [System.IO.File]::WriteAllText($file, $text)
-    Write-Host "  -> patched $relative (storefront + token headers)"
+$ipatoolCppDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
+New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolCppDestination) -Force | Out-Null
+$extractedExe = Join-Path $ipatoolCppExtract "ipatool-cpp-windows-amd64.exe"
+if (-not (Test-Path $extractedExe)) {
+    throw "ipatool-cpp archive is missing ipatool-cpp-windows-amd64.exe"
 }
-
-# The purchase patch. Apple reports "this account does not have the app" in two different
-# shapes: failureType 9610, which ipatool recognises, and - for an app the account has never
-# obtained - plain HTTP 200 with an empty songList and no failureType at all. Only the first
-# triggers --purchase, so every app missing from the library failed with "empty songList"
-# instead of being acquired. Treat the second shape the same way, but only for an unpinned
-# request: with an explicit version id an empty songList means that build is gone, not that a
-# licence is missing, and buying the app would not bring it back.
-$purchaseAnchor = @'
-            Err(e) if version_id.is_some() && is_empty_song_list_error(&e) => {
-'@ -replace "`r`n", "`n"
-$purchasePatched = @'
-            Err(e)
-                if version_id.is_none()
-                    && is_empty_song_list_error(&e)
-                    && do_purchase
-                    && !purchase_attempted =>
-            {
-                last_download_error = Some(e.to_string());
-                eprintln!("License not found (empty songList), purchasing...");
-                purchase_for_download(client, resolved_app_id, &mut account).await?;
-                purchase_attempted = true;
-                eprintln!("Purchase successful");
-            }
-            Err(e) if version_id.is_some() && is_empty_song_list_error(&e) => {
-'@ -replace "`r`n", "`n"
-$downloadCmdRelative = "crates\ipatool-cli\src\commands\download.rs"
-$downloadCmd = Join-Path $ipatoolRsExtract $downloadCmdRelative
-if (-not (Test-Path $downloadCmd)) { throw "ipatool-rs source is missing $downloadCmdRelative; the purchase patch cannot be applied." }
-$downloadCmdText = (Get-Content -Path $downloadCmd -Raw) -replace "`r`n", "`n"
-$purchaseOccurrences = ([regex]::Matches($downloadCmdText, [regex]::Escape($purchaseAnchor))).Count
-if ($purchaseOccurrences -ne 1) {
-    throw "Expected exactly one pinned-version empty-songList arm in $downloadCmdRelative, found $purchaseOccurrences. Re-check the purchase patch against ipatool-rs v$IpatoolRsVersion."
+$actualExeHash = (Get-FileHash -Path $extractedExe -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualExeHash -ne $IpatoolCppExeSha256) {
+    throw "ipatool-cpp binary checksum mismatch: expected $IpatoolCppExeSha256, got $actualExeHash"
 }
-[System.IO.File]::WriteAllText($downloadCmd, $downloadCmdText.Replace($purchaseAnchor, $purchasePatched))
-Write-Host "  -> patched $downloadCmdRelative (purchase on empty songList)"
-
-# The pricing patch. Apple refuses a free "purchase" with a flat failure code when the
-# pricing parameter does not describe how the item is sold: 2059 for an Arcade title, and
-# 2040 ("Purchase of this item is not currently available") for apps the very same account
-# can install from the App Store app moments later. Upstream only ever retries 2059, and only
-# with GAME, so a 2040 ended the download outright. Try the other two parameters Apple's own
-# clients send - GAME (Arcade) and PLUS (the reacquire price Configurator uses) - before
-# giving up. A parameter that does not apply is simply refused again, so the extra attempts
-# cannot obtain anything the account was not entitled to.
-$pricingAnchor = @'
-        let result = match try_purchase(client, app_id, account, "STDQ").await {
-            Err(ClientError::Store(StoreError::TemporarilyUnavailable)) => {
-                tracing::info!("STDQ unavailable, trying GAME pricing");
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                try_purchase(client, app_id, account, "GAME").await
-            }
-            other => other,
-        };
-'@ -replace "`r`n", "`n"
-$pricingPatched = @'
-        let mut result = try_purchase(client, app_id, account, "STDQ").await;
-        for pricing in ["GAME", "PLUS"] {
-            match &result {
-                Err(ClientError::Store(err)) if pricing_rejected(err) => {}
-                _ => break,
-            }
-            tracing::info!("pricing rejected by the store, retrying as {}", pricing);
-            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            result = try_purchase(client, app_id, account, pricing).await;
-        }
-'@ -replace "`r`n", "`n"
-$pricingHelperAnchor = @'
-fn buy_url(account: &Account) -> String {
-'@ -replace "`r`n", "`n"
-$pricingHelperPatched = @'
-/// Whether Apple's refusal is about how the item is priced rather than about the account or
-/// the item itself, and so is worth repeating with a different pricing parameter.
-fn pricing_rejected(err: &StoreError) -> bool {
-    match err {
-        StoreError::TemporarilyUnavailable | StoreError::PurchaseFailed => true,
-        StoreError::Unknown { code, .. } => code.as_str() == "2040" || code.as_str() == "2059",
-        _ => false,
-    }
-}
-
-fn buy_url(account: &Account) -> String {
-'@ -replace "`r`n", "`n"
-$purchaseApiRelative = "crates\ipatool-core\src\api\purchase.rs"
-$purchaseApi = Join-Path $ipatoolRsExtract $purchaseApiRelative
-if (-not (Test-Path $purchaseApi)) { throw "ipatool-rs source is missing $purchaseApiRelative; the pricing patch cannot be applied." }
-$purchaseApiText = (Get-Content -Path $purchaseApi -Raw) -replace "`r`n", "`n"
-$pricingCount = ([regex]::Matches($purchaseApiText, [regex]::Escape($pricingAnchor))).Count
-if ($pricingCount -ne 1) {
-    throw "Expected exactly one STDQ/GAME pricing block in $purchaseApiRelative, found $pricingCount. Re-check the pricing patch against ipatool-rs v$IpatoolRsVersion."
-}
-$purchaseApiText = $purchaseApiText.Replace($pricingAnchor, $pricingPatched)
-
-$helperCount = ([regex]::Matches($purchaseApiText, [regex]::Escape($pricingHelperAnchor))).Count
-if ($helperCount -ne 1) {
-    throw "Expected exactly one buy_url definition in $purchaseApiRelative, found $helperCount. Re-check the pricing patch against ipatool-rs v$IpatoolRsVersion."
-}
-$purchaseApiText = $purchaseApiText.Replace($pricingHelperAnchor, $pricingHelperPatched)
-[System.IO.File]::WriteAllText($purchaseApi, $purchaseApiText)
-Write-Host "  -> patched $purchaseApiRelative (GAME/PLUS pricing fallback, incl. 2040)"
-
-# The metadata patch. iTunesMetadata.plist carries the Apple ID the archive belongs to, and
-# iOS matches it against the account signed in on the device character for character.
-# Upstream writes back exactly what was typed at the login prompt, so an address entered with
-# capitals produced an archive the phone could not match to any signed-in account - which is
-# when it shows the "sign in to the iTunes Store" sheet that then does nothing at all. Apple
-# keeps the address in lower case; normalising to it makes the two agree.
-$metadataAnchor = @'
-    meta_dict.insert("apple-id".into(), plist::Value::String(email.into()));
-    meta_dict.insert("userName".into(), plist::Value::String(email.into()));
-'@ -replace "`r`n", "`n"
-$metadataPatched = @'
-    let account_id = email.trim().to_ascii_lowercase();
-    meta_dict.insert("apple-id".into(), plist::Value::String(account_id.clone()));
-    meta_dict.insert("userName".into(), plist::Value::String(account_id));
-'@ -replace "`r`n", "`n"
-$ipaPatchRelative = "crates\ipatool-core\src\ipa\patch.rs"
-$ipaPatch = Join-Path $ipatoolRsExtract $ipaPatchRelative
-if (-not (Test-Path $ipaPatch)) { throw "ipatool-rs source is missing $ipaPatchRelative; the metadata patch cannot be applied." }
-$ipaPatchText = (Get-Content -Path $ipaPatch -Raw) -replace "`r`n", "`n"
-$metadataOccurrences = ([regex]::Matches($ipaPatchText, [regex]::Escape($metadataAnchor))).Count
-if ($metadataOccurrences -ne 1) {
-    throw "Expected exactly one apple-id/userName pair in $ipaPatchRelative, found $metadataOccurrences. Re-check the metadata patch against ipatool-rs v$IpatoolRsVersion."
-}
-[System.IO.File]::WriteAllText($ipaPatch, $ipaPatchText.Replace($metadataAnchor, $metadataPatched))
-Write-Host "  -> patched $ipaPatchRelative (lower-case Apple ID in iTunesMetadata)"
-
-$ipatoolRsDestination = Join-Path $OutDir "windows_amd64_sap_beta\ipatool.exe"
-New-Item -ItemType Directory -Path (Split-Path -Parent $ipatoolRsDestination) -Force | Out-Null
-Push-Location $ipatoolRsExtract
-try {
-    & cargo build --release --locked --bin ipatool
-    if ($LASTEXITCODE -ne 0) { throw "Failed to build the patched ipatool-rs backend (is the Rust toolchain installed?)." }
-}
-finally {
-    Pop-Location
-}
-$ipatoolRsBuilt = Join-Path $ipatoolRsExtract "target\release\ipatool.exe"
-if (-not (Test-Path $ipatoolRsBuilt)) { throw "cargo reported success but ipatool.exe was not produced." }
-Copy-Item $ipatoolRsBuilt -Destination $ipatoolRsDestination -Force
-Write-Host ("  -> SAP backend SHA-256: " + (Get-FileHash -Path $ipatoolRsDestination -Algorithm SHA256).Hash.ToLowerInvariant())
-Remove-Item $ipatoolRsArchive -Force -ErrorAction SilentlyContinue
-Remove-Item $ipatoolRsExtract -Recurse -Force -ErrorAction SilentlyContinue
+Copy-Item $extractedExe -Destination $ipatoolCppDestination -Force
+Write-Host "  -> ipatool-cpp backend SHA-256: $actualExeHash"
+Remove-Item $ipatoolCppZip -Force -ErrorAction SilentlyContinue
+Remove-Item $ipatoolCppExtract -Recurse -Force -ErrorAction SilentlyContinue
 
 # --- libimobiledevice suite ----------------------------------------------------
 Write-Host "`n[4/4] libimobiledevice suite (ideviceinstaller, idevice_id, ideviceinfo) ..."

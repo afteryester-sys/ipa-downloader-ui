@@ -27,9 +27,10 @@ public static class IpatoolProfile
     /// <summary>The profile folder ipatool resolves from HOME for the active backend.</summary>
     public static string ConfigFolder(ToolLocator tools)
     {
-        var home = tools.IpatoolEnvironment is { } env && env.TryGetValue("HOME", out var beta)
-            ? beta
-            : Environment.GetEnvironmentVariable("HOME")
+        var home = tools.IpatoolEnvironment is { } env && (env.TryGetValue("USERPROFILE", out var userProfile) || env.TryGetValue("HOME", out userProfile))
+            ? userProfile
+            : Environment.GetEnvironmentVariable("USERPROFILE")
+              ?? Environment.GetEnvironmentVariable("HOME")
               ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
         return Path.Combine(home, ".ipatool");

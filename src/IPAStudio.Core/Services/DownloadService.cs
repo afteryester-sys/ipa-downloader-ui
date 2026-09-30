@@ -118,7 +118,7 @@ public sealed partial class DownloadService
 
     // ---- Progress-bar parsing (ipatool v2 and v3 both render a CR progress bar) ----
 
-    [GeneratedRegex(@"(\d{1,3}(?:[.,]\d+)?)\s*%")]
+    [GeneratedRegex(@"PROGRESS:\s*(\d{1,3})|(\d{1,3}(?:[.,]\d+)?)\s*%")]
     private static partial Regex PercentRegex();
 
     /// <summary>Matches "12.3/45.6 MB" and "12.3 MB/45.6 MB" inside the progress bar.</summary>
@@ -300,13 +300,8 @@ public sealed partial class DownloadService
     {
         try
         {
-            // The SAP backend addresses apps by bundle id only; sending a numeric id makes it
-            // exit on a usage error, which the caller would read as "no licence".
-            if (_tools.UseBetaAppleAuthentication && string.IsNullOrWhiteSpace(bundleIdentifier))
-                return LicenseState.Unknown;
-
-            var target = _tools.UseBetaAppleAuthentication
-                ? new[] { "-b", bundleIdentifier! }
+            var target = !string.IsNullOrWhiteSpace(bundleIdentifier)
+                ? new[] { "-b", bundleIdentifier }
                 : new[] { "-i", appId.ToString() };
 
             IpatoolProfile.RepairCookieJar(_tools);
@@ -356,11 +351,8 @@ public sealed partial class DownloadService
         string? bundleIdentifier = null,
         CancellationToken ct = default)
     {
-        if (_tools.UseBetaAppleAuthentication && string.IsNullOrWhiteSpace(bundleIdentifier))
-            return (false, "Для получения лицензии BETA-методу нужен bundle identifier приложения.", false);
-
-        var purchaseTarget = _tools.UseBetaAppleAuthentication
-            ? new[] { "-b", bundleIdentifier! }
+        var purchaseTarget = !string.IsNullOrWhiteSpace(bundleIdentifier)
+            ? new[] { "-b", bundleIdentifier }
             : new[] { "-i", appId.ToString() };
         var purchaseArgs = new List<string> { "purchase" };
         purchaseArgs.AddRange(purchaseTarget);
@@ -726,9 +718,7 @@ public sealed partial class DownloadService
         // below. Never passed on the first attempt: pinning the very first request would
         // stop this from ever picking up an app update.
         if (!string.IsNullOrWhiteSpace(externalVersionId))
-            args.AddRange(_tools.UseBetaAppleAuthentication
-                ? new[] { "--version-id", externalVersionId }
-                : new[] { "--external-version-id", externalVersionId });
+            args.AddRange(new[] { "--external-version-id", externalVersionId });
 
         // NOTE: "--format json" is deliberately NOT passed here.
         // In JSON mode ipatool suppresses the progress bar entirely and prints a single
@@ -819,10 +809,16 @@ public sealed partial class DownloadService
             }
 
             var pct = PercentRegex().Match(segment);
-            if (pct.Success && TryParseNumber(pct.Groups[1].Value, out var pctVal))
+            if (pct.Success)
             {
-                if (state.AdvancePercent(Math.Clamp(pctVal, 0, 100))) movedForward = true;
-                sawNumbers = true;
+                var valStr = pct.Groups[1].Success && pct.Groups[1].Length > 0
+                    ? pct.Groups[1].Value
+                    : pct.Groups[2].Value;
+                if (TryParseNumber(valStr, out var pctVal))
+                {
+                    if (state.AdvancePercent(Math.Clamp(pctVal, 0, 100))) movedForward = true;
+                    sawNumbers = true;
+                }
             }
 
             // Only real forward movement resets the stall timer.
@@ -1942,11 +1938,8 @@ public sealed partial class DownloadService
     /// <summary>Lists available external version identifiers (ipatool v3+ only).</summary>
     public async Task<IReadOnlyList<string>> ListVersionsAsync(long appId, CancellationToken ct = default)
     {
-        var args = _tools.UseBetaAppleAuthentication
-            ? new[] { "version", "list", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
-                      "--format", "json" }
-            : new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
-                      "--format", "json" };
+        var args = new[] { "list-versions", "-i", appId.ToString(), "--keychain-passphrase", _auth.ActiveKeychainPassphrase,
+                  "--format", "json" };
         IpatoolProfile.RepairCookieJar(_tools);
 
         var result = await _runner.RunAsync(
@@ -1958,39 +1951,25 @@ public sealed partial class DownloadService
             ct: ct).ConfigureAwait(false);
 
         var versions = new List<string>();
-        if (_tools.UseBetaAppleAuthentication && result.Success)
-        {
-            try
-            {
-                using var document = JsonDocument.Parse(result.StdOut);
-                if (document.RootElement.TryGetProperty("versions", out var array))
-                {
-                    versions.AddRange(array.EnumerateArray()
-                        .Select(item => item.TryGetProperty("external_version_id", out var id)
-                            ? id.GetString()
-                            : null)
-                        .Where(id => !string.IsNullOrWhiteSpace(id))
-                        .Select(id => id!));
-                }
-            }
-            catch (JsonException) { }
-            return versions;
-        }
-
-        foreach (var line in result.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var line in result.CombinedOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (!line.StartsWith('{')) continue;
             try
             {
                 using var doc = JsonDocument.Parse(line);
-                // ipatool's list-versions logs the field as "externalVersionIdentifiers"
-                // (see cmd/list_versions.go), not "externalVersions" - the previous key
-                // never matched, so this always came back empty and the empty-songList
-                // self-heal above could never pin a retry to a real build.
                 if (doc.RootElement.TryGetProperty("externalVersionIdentifiers", out var array))
+                {
                     versions.AddRange(array.EnumerateArray()
                         .Select(v => v.ToString())
                         .Where(v => !string.IsNullOrEmpty(v)));
+                }
+                else if (doc.RootElement.TryGetProperty("versions", out var array2))
+                {
+                    versions.AddRange(array2.EnumerateArray()
+                        .Select(item => item.TryGetProperty("external_version_id", out var id) ? id.GetString() : null)
+                        .Where(id => !string.IsNullOrWhiteSpace(id))
+                        .Select(id => id!));
+                }
             }
             catch (JsonException) { }
         }
