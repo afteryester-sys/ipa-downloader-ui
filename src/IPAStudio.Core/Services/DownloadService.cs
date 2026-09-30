@@ -118,7 +118,7 @@ public sealed partial class DownloadService
 
     // ---- Progress-bar parsing (ipatool v2 and v3 both render a CR progress bar) ----
 
-    [GeneratedRegex(@"PROGRESS:\s*(\d{1,3})|(\d{1,3}(?:[.,]\d+)?)\s*%")]
+    [GeneratedRegex(@"PROGRESS:\s*(\d{1,3}(?:[.,]\d+)?)|(\d{1,3}(?:[.,]\d+)?)\s*%")]
     private static partial Regex PercentRegex();
 
     /// <summary>Matches "12.3/45.6 MB" and "12.3 MB/45.6 MB" inside the progress bar.</summary>
@@ -883,6 +883,9 @@ public sealed partial class DownloadService
                     var onDisk = Math.Max(
                         ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime),
                         ProbeSize(ipatoolTarget, stagingDir, startedUtc.UtcDateTime));
+                    if (stagedToMove is not null)
+                        onDisk = Math.Max(onDisk, ProbeSize(stagedToMove, stagingDir, startedUtc.UtcDateTime));
+
                     var parsed = state.Downloaded;
                     var downloaded = Math.Max(onDisk, parsed);
                     var total = Volatile.Read(ref sizeHint[0]);
@@ -900,6 +903,14 @@ public sealed partial class DownloadService
                         total = 0;
                     }
 
+                    // If total is known (e.g. from app metadata/catalog or previously learned)
+                    // but downloaded is not yet readable from disk/tool, synthesize downloaded
+                    // from reported percent so the user sees both % and MB immediately.
+                    if (total > 0 && downloaded <= 0 && state.ReportedPercent > 0)
+                    {
+                        downloaded = (long)(total * (state.ReportedPercent / 100.0));
+                    }
+
                     // Still no total: derive one from the percentage the tool prints and the
                     // bytes we can see. This is the case for apps Apple has delisted - the
                     // catalog has no entry to look up and the transfer carries no
@@ -913,7 +924,7 @@ public sealed partial class DownloadService
                     // (at 5% it can be out by a tenth) and sharpens as the download runs;
                     // kept in a local so it is never mistaken for a measured size, learned,
                     // or remembered across runs.
-                    if (total <= 0 && downloaded > 0 && state.ReportedPercent >= 5)
+                    if (total <= 0 && downloaded > 0 && state.ReportedPercent >= 1)
                     {
                         var derived = (long)(downloaded / (state.ReportedPercent / 100.0));
                         if (derived > downloaded)
@@ -924,11 +935,19 @@ public sealed partial class DownloadService
                                     $"the total from {state.ReportedPercent:F0}% of " +
                                     $"{downloaded / 1048576.0:F1}MB -> {derived / 1048576.0:F1}MB");
                             derivedTotal = derived;
+                            Volatile.Write(ref sizeHint[0], derived);
                         }
                     }
                     if (total <= 0) total = derivedTotal;
 
-                    if (downloaded > 0)
+                    // If total was derived and downloaded is still 0 (e.g. disk buffering),
+                    // calculate downloaded from total and percentage.
+                    if (total > 0 && downloaded <= 0 && state.ReportedPercent > 0)
+                    {
+                        downloaded = (long)(total * (state.ReportedPercent / 100.0));
+                    }
+
+                    if (downloaded > 0 || state.ReportedPercent > 0)
                     {
                         if (!sawBytes)
                         {
@@ -942,11 +961,11 @@ public sealed partial class DownloadService
                             // Which source actually produced the first bytes, and how
                             // long it took to leave the Connecting phase.
                             AppLog.Info(
-                                $"progress: first bytes after {(now - startedUtc).TotalSeconds:F1}s " +
+                                $"progress: first progress after {(now - startedUtc).TotalSeconds:F1}s " +
                                 $"(disk={onDisk / 1048576.0:F1}MB parsed={parsed / 1048576.0:F1}MB " +
-                                $"total={total / 1048576.0:F1}MB)");
+                                $"pct={state.ReportedPercent:F1}% total={total / 1048576.0:F1}MB)");
                         }
-                        if (downloaded > prevBytes) state.Touch();
+                        if (downloaded > prevBytes || state.ReportedPercent > 0) state.Touch();
                     }
 
                     // Speed: prefer the tool's own figure, else a smoothed local estimate.
@@ -965,17 +984,26 @@ public sealed partial class DownloadService
                     // Percent: byte ratio when the total is known, else the tool's own
                     // percent, else 0 (UI shows an indeterminate bar — never a fake value).
                     double percent;
-                    if (total > 0 && downloaded > 0)
+                    if (state.ReportedPercent > 0)
+                    {
+                        var bytePercent = total > 0 && downloaded > 0
+                            ? Math.Clamp(downloaded / (double)total * 100.0, 0, 99.5)
+                            : 0;
+                        percent = Math.Clamp(Math.Max(state.ReportedPercent, bytePercent), 0, 99.5);
+                    }
+                    else if (total > 0 && downloaded > 0)
+                    {
                         percent = Math.Clamp(downloaded / (double)total * 100.0, 0, 99.5);
-                    else if (state.ReportedPercent > 0)
-                        percent = Math.Min(state.ReportedPercent, 99.5);
+                    }
                     else
+                    {
                         percent = 0;
+                    }
 
                     var idleFor = now - state.LastActivity;
 
                     DownloadPhase phase;
-                    if (downloaded <= 0)
+                    if (downloaded <= 0 && state.ReportedPercent <= 0)
                     {
                         phase = DownloadPhase.Connecting;
                     }
@@ -983,7 +1011,11 @@ public sealed partial class DownloadService
                     {
                         phase = DownloadPhase.Finalizing;
                     }
-                    else if (total <= 0 && idleFor.TotalSeconds > 4.0)
+                    else if (state.ReportedPercent >= 99.5 && idleFor.TotalSeconds > 1.5)
+                    {
+                        phase = DownloadPhase.Finalizing;
+                    }
+                    else if (total <= 0 && downloaded > 0 && idleFor.TotalSeconds > 4.0)
                     {
                         // Unknown total and the bytes stopped: most likely repackaging.
                         phase = DownloadPhase.Finalizing;
@@ -1514,7 +1546,9 @@ public sealed partial class DownloadService
     /// </summary>
     private static long ProbeSize(string outputPath, string stagingDir, DateTime startedUtc)
     {
-        var best = LiveLength(outputPath);
+        var best = Math.Max(LiveLength(outputPath), LiveLength(outputPath + ".tmp"));
+        var dotPart = LiveLength(outputPath + ".part");
+        if (dotPart > best) best = dotPart;
 
         // Fresh candidates in the destination folder. ipatool does not always honour
         // the requested -o name (ResolveOutputPath exists for exactly that reason), so
@@ -1524,14 +1558,19 @@ public sealed partial class DownloadService
         {
             try
             {
+                var baseName = Path.GetFileNameWithoutExtension(outputPath);
                 var cutoff = startedUtc.AddSeconds(-10);
                 foreach (var f in new DirectoryInfo(dir).EnumerateFiles("*", SearchOption.TopDirectoryOnly))
                 {
                     if (!LooksLikePayload(f.Name)) continue;
 
-                    // CreationTimeUtc is dependable here. LastWriteTimeUtc is not, for
-                    // the same stale-metadata reason documented on LiveLength.
-                    if (f.CreationTimeUtc < cutoff) continue;
+                    var isDirectCandidate = !string.IsNullOrEmpty(baseName) &&
+                        f.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase);
+
+                    // If it matches the exact target file base name, trust it regardless of creation time
+                    // (guards against NTFS file system tunneling restoring an old creation time).
+                    // Otherwise, only consider candidates created since this attempt began.
+                    if (!isDirectCandidate && f.CreationTimeUtc < cutoff) continue;
 
                     var len = LiveLength(f.FullName);
                     if (len > best) best = len;

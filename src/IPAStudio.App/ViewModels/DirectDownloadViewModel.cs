@@ -545,8 +545,16 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 // Same wording as the queue screen: label the number as bytes-so-far, so
                 // it cannot be misread as the (unknown) total sitting next to it.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
-                StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
-                    + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
+                if (p.Percent > 0)
+                {
+                    var bytesInfo = p.DownloadedBytes > 0 ? $" · {FormatBytes(p.DownloadedBytes)}" : "";
+                    StatusText = $"{p.Percent:0.0}%{bytesInfo}{speed}";
+                }
+                else
+                {
+                    StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
+                        + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
+                }
             }
 
             operation.Progress = Progress;

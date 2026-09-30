@@ -582,9 +582,17 @@ public sealed class QueueService
                 // Label it explicitly instead, so the running total and the unknown total
                 // can't be confused for each other.
                 var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
-                item.StatusDetail =
-                    Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
-                    + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}{retrySuffix}";
+                if (p.Percent > 0)
+                {
+                    var bytesInfo = p.DownloadedBytes > 0 ? $" · {FormatBytes(p.DownloadedBytes)}" : "";
+                    item.StatusDetail = $"{p.Percent:0.0}%{bytesInfo}{speed}{retrySuffix}";
+                }
+                else
+                {
+                    item.StatusDetail =
+                        Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
+                        + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}{retrySuffix}";
+                }
             }
 
             Notify(item);
