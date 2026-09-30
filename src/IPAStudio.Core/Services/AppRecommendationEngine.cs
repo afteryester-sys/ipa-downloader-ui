@@ -45,6 +45,7 @@ public static class AppRecommendationEngine
         ["com.microsoft.Office.Word"] = new[] { FileCategory.Document },
         ["com.microsoft.Office.Excel"] = new[] { FileCategory.Document },
         ["com.microsoft.Office.Powerpoint"] = new[] { FileCategory.Document },
+        ["com.microsoft.Office.Outlook"] = new[] { FileCategory.Contact },
         ["com.apple.Pages"] = new[] { FileCategory.Document },
         ["com.apple.Numbers"] = new[] { FileCategory.Document },
         ["com.apple.Keynote"] = new[] { FileCategory.Document },
@@ -161,6 +162,7 @@ public static class AppRecommendationEngine
             FileCategory.Document => nameLower.Contains("office") || nameLower.Contains("doc") || nameLower.Contains("word") || nameLower.Contains("excel") || nameLower.Contains("sheet") || nameLower.Contains("text"),
             FileCategory.Archive => nameLower.Contains("zip") || nameLower.Contains("rar") || nameLower.Contains("archive") || nameLower.Contains("file"),
             FileCategory.Photo => nameLower.Contains("photo") || nameLower.Contains("image") || nameLower.Contains("pic"),
+            FileCategory.Contact => nameLower.Contains("contact") || nameLower.Contains("vcf") || nameLower.Contains("vcard") || nameLower.Contains("address") || nameLower.Contains("outlook") || nameLower.Contains("mail"),
             _ => false
         };
 

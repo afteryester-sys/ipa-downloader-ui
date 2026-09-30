@@ -17,6 +17,7 @@ public enum FileCategory
     Photo,
     Archive,
     App,
+    Contact,
 }
 
 /// <summary>

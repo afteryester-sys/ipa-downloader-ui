@@ -24,7 +24,8 @@ public partial class DevicesView : UserControl
         var dialog = new QuickTransferDialog(
             device.Device,
             App.Services.GetRequiredService<FileSharingService>(),
-            App.Services.GetRequiredService<OperationService>())
+            App.Services.GetRequiredService<OperationService>(),
+            App.Services.GetService<PhotoService>())
         {
             Owner = Window.GetWindow(this),
         };

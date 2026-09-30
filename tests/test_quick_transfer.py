@@ -23,6 +23,7 @@ CATEGORY_DOCUMENT = "Document"
 CATEGORY_PHOTO = "Photo"
 CATEGORY_ARCHIVE = "Archive"
 CATEGORY_APP = "App"
+CATEGORY_CONTACT = "Contact"
 
 VIDEO_EXTS = {
     ".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm", ".3gp", ".3g2",
@@ -56,6 +57,21 @@ ARCHIVE_EXTS = {
     ".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".xz", ".txz", ".cab", ".iso"
 }
 
+CONTACT_EXTS = {
+    ".vcf", ".vcard"
+}
+
+CAMERA_ROLL_EXTS = {
+    ".jpg", ".jpeg", ".png", ".heic", ".heif", ".gif", ".webp",
+    ".tif", ".tiff", ".bmp", ".dng", ".cr2", ".cr3", ".nef", ".arw",
+    ".mov", ".mp4", ".m4v", ".3gp"
+}
+
+def is_camera_roll_media(path: str) -> bool:
+    if not path or not path.strip(): return False
+    _, ext = os.path.splitext(path)
+    return ext.lower() in CAMERA_ROLL_EXTS
+
 def classify_file(path: str) -> str:
     if not path or not path.strip():
         return CATEGORY_OTHER
@@ -66,6 +82,8 @@ def classify_file(path: str) -> str:
 
     if ext_lower == ".ipa":
         return CATEGORY_APP
+    if ext_lower in CONTACT_EXTS:
+        return CATEGORY_CONTACT
     if ext_lower in VIDEO_EXTS:
         return CATEGORY_VIDEO
     if ext_lower in AUDIO_EXTS:
@@ -96,6 +114,7 @@ KNOWN_PROFILES = {
     "kolyvan.kybook": [CATEGORY_BOOK],
     "com.microsoft.Office.Word": [CATEGORY_DOCUMENT],
     "com.microsoft.Office.Excel": [CATEGORY_DOCUMENT],
+    "com.microsoft.Office.Outlook": [CATEGORY_CONTACT],
     "com.apple.Pages": [CATEGORY_DOCUMENT],
     "com.apple.Numbers": [CATEGORY_DOCUMENT],
     "com.readdle.ReaddleDocsIPad": [CATEGORY_VIDEO, CATEGORY_AUDIO, CATEGORY_BOOK, CATEGORY_DOCUMENT, CATEGORY_PHOTO, CATEGORY_ARCHIVE],
@@ -130,6 +149,8 @@ def evaluate_app(app: FileSharingApp, primary_category: str) -> int:
         keyword_match = any(k in name_lower for k in ["zip", "rar", "archive", "file"])
     elif primary_category == CATEGORY_PHOTO:
         keyword_match = any(k in name_lower for k in ["photo", "image", "pic"])
+    elif primary_category == CATEGORY_CONTACT:
+        keyword_match = any(k in name_lower for k in ["contact", "vcf", "vcard", "address", "outlook", "mail"])
 
     if keyword_match and not has_exact:
         score += 50
@@ -200,6 +221,8 @@ def run_tests():
     assert_eq(classify_file("archive.7z"), CATEGORY_ARCHIVE, "7z is Archive")
     assert_eq(classify_file("archive.tar.gz"), CATEGORY_ARCHIVE, "tar.gz is Archive")
     assert_eq(classify_file("app.ipa"), CATEGORY_APP, "ipa is App")
+    assert_eq(classify_file("contact.vcf"), CATEGORY_CONTACT, "vcf is Contact")
+    assert_eq(classify_file("address.vcard"), CATEGORY_CONTACT, "vcard is Contact")
 
     print("\n=== 2. Testing Cyrillic and Complex Filenames ===")
     assert_eq(classify_file("Фильм_2026_1080p.mkv"), CATEGORY_VIDEO, "Cyrillic movie filename")
@@ -207,6 +230,7 @@ def run_tests():
     assert_eq(classify_file("Отчёт_за_сентябрь.docx"), CATEGORY_DOCUMENT, "Cyrillic document filename")
     assert_eq(classify_file("Песня_Группа.flac"), CATEGORY_AUDIO, "Cyrillic audio filename")
     assert_eq(classify_file("Архив_проекта.7z"), CATEGORY_ARCHIVE, "Cyrillic archive filename")
+    assert_eq(classify_file("Контакты_Клиенты.vcf"), CATEGORY_CONTACT, "Cyrillic contact filename")
 
     print("\n=== 3. Testing Edge Cases & Null/Empty Handlers ===")
     assert_eq(classify_file(""), CATEGORY_OTHER, "Empty string is Other")
@@ -220,9 +244,10 @@ def run_tests():
     books = FileSharingApp("com.apple.iBooks", "Books")
     readdle = FileSharingApp("com.readdle.ReaddleDocsIPad", "Documents")
     word = FileSharingApp("com.microsoft.Office.Word", "Word")
+    outlook = FileSharingApp("com.microsoft.Office.Outlook", "Outlook")
     generic = FileSharingApp("com.example.fileshare", "Generic App")
 
-    apps = [generic, word, books, readdle, vlc]
+    apps = [generic, word, books, readdle, vlc, outlook]
 
     # Test Video: VLC must rank #1
     ranked_video = rank_apps(["avatar.mkv"], apps)
@@ -237,9 +262,13 @@ def run_tests():
     ranked_doc = rank_apps(["report.docx"], apps)
     assert_eq(ranked_doc[0][0].bundle_id, "com.microsoft.Office.Word", "Word is #1 recommendation for DOCX")
 
+    # Test Contact: Outlook must rank #1
+    ranked_contact = rank_apps(["clients.vcf"], apps)
+    assert_eq(ranked_contact[0][0].bundle_id, "com.microsoft.Office.Outlook", "Outlook is #1 recommendation for VCF")
+
     # Test Fallback: Unknown file type falls back gracefully to file sharing container
     ranked_other = rank_apps(["data.bin"], apps)
-    assert_eq(len(ranked_other), 5, "All 5 apps ranked for binary file")
+    assert_eq(len(ranked_other), 6, "All 6 apps ranked for binary file")
     assert_eq(ranked_other[0][1] > 0, True, "Top fallback app has positive score")
 
     # Test Multiple Files with Mixed Types
@@ -266,14 +295,40 @@ def run_tests():
     assert_eq(format_size(2_684_354_560), "2.5 GB", "2.5 GB formatted")
     assert_eq(format_speed(25_000_000), "23.8 MB/s", "25MB/s speed formatted")
 
-    print("\n=== 6. Testing Mixed Payload Separation (IPA vs Documents) ===")
-    mixed_files = ["test.ipa", "video.mp4", "another.ipa", "book.pdf"]
-    ipas = [f for f in mixed_files if classify_file(f) == CATEGORY_APP]
-    docs = [f for f in mixed_files if classify_file(f) != CATEGORY_APP]
-    assert_eq(len(ipas), 2, "2 IPAs identified in mixed set")
-    assert_eq(len(docs), 2, "2 documents/media identified in mixed set")
-    assert_eq("test.ipa" in ipas and "another.ipa" in ipas, True, "All IPAs separated for installd queue")
-    assert_eq("video.mp4" in docs and "book.pdf" in docs, True, "Documents/media separated for Apple File Sharing")
+    print("\n=== 6. Testing Camera Roll Media Detection ===")
+    assert_eq(is_camera_roll_media("photo.jpg"), True, "jpg is Camera Roll")
+    assert_eq(is_camera_roll_media("photo.heic"), True, "heic is Camera Roll")
+    assert_eq(is_camera_roll_media("photo.PNG"), True, "PNG is Camera Roll")
+    assert_eq(is_camera_roll_media("clip.mov"), True, "mov is Camera Roll")
+    assert_eq(is_camera_roll_media("video.mp4"), True, "mp4 is Camera Roll")
+    assert_eq(is_camera_roll_media("movie.mkv"), False, "mkv is NOT Camera Roll (needs player)")
+    assert_eq(is_camera_roll_media("song.mp3"), False, "mp3 is NOT Camera Roll")
+    assert_eq(is_camera_roll_media("doc.pdf"), False, "pdf is NOT Camera Roll")
+
+    print("\n=== 7. Testing Full Multi-Target Batch Separation (iMazing-style) ===")
+    batch = [
+        "family.jpg",
+        "vacation.mov",
+        "game.ipa",
+        "movie.mkv",
+        "novel.epub",
+        "contacts.vcf",
+        "report.docx"
+    ]
+    # Native targets:
+    # 1. IPAs -> direct installation
+    batch_ipas = [f for f in batch if classify_file(f) == CATEGORY_APP]
+    # 2. Camera Roll media -> native Photos
+    batch_photos = [f for f in batch if is_camera_roll_media(f)]
+    # 3. Contacts -> Contacts / vCard
+    batch_contacts = [f for f in batch if classify_file(f) == CATEGORY_CONTACT]
+    # 4. App documents / third-party files (MKV, DOCX, EPUB)
+    batch_app_files = [f for f in batch if f not in batch_ipas and f not in batch_photos and f not in batch_contacts]
+
+    assert_eq(batch_ipas, ["game.ipa"], "IPA identified for direct install")
+    assert_eq(batch_photos, ["family.jpg", "vacation.mov"], "Photos and native videos identified for Camera Roll")
+    assert_eq(batch_contacts, ["contacts.vcf"], "vCard identified for Contacts")
+    assert_eq(batch_app_files, ["movie.mkv", "novel.epub", "report.docx"], "Third-party files identified for app transfer")
 
     print("\n---------------------------------------------------")
     print(f"Tests finished: {total_passed} passed, {total_failed} failed.")

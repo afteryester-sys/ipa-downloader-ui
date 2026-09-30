@@ -51,6 +51,28 @@ public static class FileClassifier
         ".zip", ".7z", ".rar", ".tar", ".gz", ".tgz", ".bz2", ".tbz2", ".xz", ".txz", ".cab", ".iso"
     };
 
+    private static readonly HashSet<string> ContactExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".vcf", ".vcard"
+    };
+
+    private static readonly HashSet<string> CameraRollExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".heic", ".heif", ".gif", ".webp",
+        ".tif", ".tiff", ".bmp", ".dng", ".cr2", ".cr3", ".nef", ".arw",
+        ".mov", ".mp4", ".m4v", ".3gp"
+    };
+
+    /// <summary>
+    /// Whether a file can be imported directly into the native iOS Camera Roll (Photos library).
+    /// </summary>
+    public static bool IsCameraRollMedia(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        var ext = Path.GetExtension(path);
+        return !string.IsNullOrEmpty(ext) && CameraRollExtensions.Contains(ext);
+    }
+
     /// <summary>
     /// Detects the category of a file by its extension.
     /// </summary>
@@ -63,6 +85,7 @@ public static class FileClassifier
         if (string.Equals(ext, ".ipa", StringComparison.OrdinalIgnoreCase))
             return FileCategory.App;
 
+        if (ContactExtensions.Contains(ext)) return FileCategory.Contact;
         if (VideoExtensions.Contains(ext)) return FileCategory.Video;
         if (AudioExtensions.Contains(ext)) return FileCategory.Audio;
         if (BookExtensions.Contains(ext)) return FileCategory.Book;
@@ -79,6 +102,7 @@ public static class FileClassifier
     public static string GetGlyph(FileCategory category) => category switch
     {
         FileCategory.App => "\uE7BA",      // AllApps / Package
+        FileCategory.Contact => "\uE77B",  // Contact / Person
         FileCategory.Video => "\uE714",    // Video
         FileCategory.Audio => "\uE8D6",    // Audio
         FileCategory.Book => "\uE82D",     // Library / Book
@@ -94,6 +118,7 @@ public static class FileClassifier
     public static string GetCategoryDisplayName(FileCategory category) => category switch
     {
         FileCategory.App => Loc.Get("L.QuickTransfer.TypeApp"),
+        FileCategory.Contact => Loc.Get("L.QuickTransfer.TypeContact"),
         FileCategory.Video => Loc.Get("L.QuickTransfer.TypeVideo"),
         FileCategory.Audio => Loc.Get("L.QuickTransfer.TypeAudio"),
         FileCategory.Book => Loc.Get("L.QuickTransfer.TypeBook"),

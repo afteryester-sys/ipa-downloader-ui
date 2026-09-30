@@ -29,8 +29,14 @@ public static class QuickTransferTests
         AssertEqual(FileClassifier.Classify("photo.heic"), FileCategory.Photo, "heic is Photo");
         AssertEqual(FileClassifier.Classify("archive.7z"), FileCategory.Archive, "7z is Archive");
         AssertEqual(FileClassifier.Classify("app.ipa"), FileCategory.App, "ipa is App");
+        AssertEqual(FileClassifier.Classify("contact.vcf"), FileCategory.Contact, "vcf is Contact");
+        AssertEqual(FileClassifier.Classify("cards.vcard"), FileCategory.Contact, "vcard is Contact");
         AssertEqual(FileClassifier.Classify("other.xyz"), FileCategory.Other, "xyz is Other");
         AssertEqual(FileClassifier.Classify(""), FileCategory.Other, "Empty is Other");
+
+        AssertEqual(FileClassifier.IsCameraRollMedia("photo.jpg"), true, "jpg is Camera Roll");
+        AssertEqual(FileClassifier.IsCameraRollMedia("video.mov"), true, "mov is Camera Roll");
+        AssertEqual(FileClassifier.IsCameraRollMedia("movie.mkv"), false, "mkv is NOT Camera Roll");
     }
 
     public static void TestRecommendations()
@@ -39,8 +45,9 @@ public static class QuickTransferTests
         var books = new FileSharingApp("com.apple.iBooks", "Books");
         var readdle = new FileSharingApp("com.readdle.ReaddleDocsIPad", "Documents");
         var word = new FileSharingApp("com.microsoft.Office.Word", "Word");
+        var outlook = new FileSharingApp("com.microsoft.Office.Outlook", "Outlook");
 
-        var apps = new[] { readdle, word, books, vlc };
+        var apps = new[] { readdle, word, books, vlc, outlook };
 
         // Test Video recommendation
         var videoPayloads = new[] { FileClassifier.Describe("film.mkv") };
@@ -56,6 +63,11 @@ public static class QuickTransferTests
         var docPayloads = new[] { FileClassifier.Describe("report.docx") };
         var bestDoc = AppRecommendationEngine.GetBestRecommendation(docPayloads, apps);
         AssertEqual(bestDoc?.BundleId, "com.microsoft.Office.Word", "Word recommended for DOCX");
+
+        // Test Contact recommendation
+        var contactPayloads = new[] { FileClassifier.Describe("clients.vcf") };
+        var bestContact = AppRecommendationEngine.GetBestRecommendation(contactPayloads, apps);
+        AssertEqual(bestContact?.BundleId, "com.microsoft.Office.Outlook", "Outlook recommended for VCF");
     }
 
     private static void AssertEqual<T>(T actual, T expected, string testName)

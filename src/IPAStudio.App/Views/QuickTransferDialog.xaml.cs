@@ -17,15 +17,19 @@ using Microsoft.Win32;
 namespace IPAStudio.App.Views;
 
 /// <summary>
-/// Routes IPA archives to installd and every other file to an installed app that exposes
-/// Apple File Sharing (house_arrest / AFC). Intelligently recommends compatible destination
-/// apps based on dropped file types (iMazing-style Quick Transfer).
+/// Routes files intelligently to their native iOS destinations or app sandboxes (iMazing-style):
+/// - IPAs -> direct Home Screen installation via installd
+/// - Photos & Videos -> direct Camera Roll import via PhotoService into native Photos
+/// - Contacts -> vCard parsing and direct transfer for 1-tap phone book import
+/// - Books -> Apple Books or reader
+/// - Other media & docs -> specialized player or file manager via Apple File Sharing (house_arrest)
 /// </summary>
 public partial class QuickTransferDialog : Window
 {
     private readonly Device _device;
     private readonly FileSharingService _sharing;
     private readonly OperationService _operations;
+    private readonly PhotoService? _photos;
     private readonly CancellationTokenSource _cts = new();
 
     private List<string> _rawFilePaths = new();
@@ -34,12 +38,17 @@ public partial class QuickTransferDialog : Window
     private bool _isBusy;
     private bool _isRefreshing;
 
-    public QuickTransferDialog(Device device, FileSharingService sharing, OperationService operations)
+    public QuickTransferDialog(
+        Device device,
+        FileSharingService sharing,
+        OperationService operations,
+        PhotoService? photos = null)
     {
         InitializeComponent();
         _device = device;
         _sharing = sharing;
         _operations = operations;
+        _photos = photos ?? App.Services?.GetService(typeof(PhotoService)) as PhotoService;
         DeviceLine.Text = Loc.Format("L.QuickTransfer.Device", device.Name);
         Loaded += OnLoaded;
     }
@@ -172,10 +181,32 @@ public partial class QuickTransferDialog : Window
                 activeApp = ranked.Count > 0 ? ranked[0].App : null;
             }
 
-            // Build final payloads with active app display name
-            var finalPayloads = _rawFilePaths
-                .Select(p => FileClassifier.Describe(p, activeApp?.Name))
-                .ToList();
+            // Build final payloads with specific target display names
+            var finalPayloads = new List<TransferPayload>();
+            foreach (var path in _rawFilePaths)
+            {
+                var category = FileClassifier.Classify(path);
+                string targetName;
+
+                if (category == FileCategory.App)
+                {
+                    targetName = Loc.Get("L.QuickTransfer.TargetInstall");
+                }
+                else if (FileClassifier.IsCameraRollMedia(path) && _photos != null && _userSelectedApp == null)
+                {
+                    targetName = Loc.Get("L.QuickTransfer.TargetPhotos");
+                }
+                else if (category == FileCategory.Contact && _userSelectedApp == null)
+                {
+                    targetName = activeApp?.Name ?? Loc.Get("L.QuickTransfer.TargetContacts");
+                }
+                else
+                {
+                    targetName = activeApp?.Name ?? Loc.Get("L.QuickTransfer.NoDestination");
+                }
+
+                finalPayloads.Add(FileClassifier.Describe(path, targetName));
+            }
 
             FilesList.ItemsSource = finalPayloads;
             DestinationPicker.ItemsSource = ranked;
@@ -192,7 +223,24 @@ public partial class QuickTransferDialog : Window
             }
 
             // Update destination hint text
-            if (DestinationPicker.SelectedItem is AppMatchScore selectedScore)
+            var hasOnlyCameraRoll = finalPayloads.Count > 0 && finalPayloads.All(p => FileClassifier.IsCameraRollMedia(p.FullPath));
+            var hasOnlyIpa = finalPayloads.Count > 0 && finalPayloads.All(p => p.Category == FileCategory.App);
+            var hasOnlyContacts = finalPayloads.Count > 0 && finalPayloads.All(p => p.Category == FileCategory.Contact);
+
+            if (hasOnlyIpa)
+            {
+                DestinationHint.Text = Loc.Get("L.QuickTransfer.TargetInstall") + " — " + Loc.Get("L.QuickTransfer.Supported");
+            }
+            else if (hasOnlyCameraRoll && _userSelectedApp == null)
+            {
+                DestinationHint.Text = Loc.Get("L.QuickTransfer.TargetPhotos") + " — " + Loc.Get("L.QuickTransfer.Supported");
+            }
+            else if (hasOnlyContacts)
+            {
+                DestinationHint.Text = string.Format(Loc.Get("L.QuickTransfer.RecommendedFor"),
+                    Loc.Get("L.QuickTransfer.TypeContact"), activeApp?.Name ?? "iOS");
+            }
+            else if (DestinationPicker.SelectedItem is AppMatchScore selectedScore)
             {
                 if (selectedScore.IsRecommended && !string.IsNullOrWhiteSpace(selectedScore.MatchReason))
                 {
@@ -216,9 +264,9 @@ public partial class QuickTransferDialog : Window
             EmptyState.Visibility = finalPayloads.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             ResultState.Visibility = finalPayloads.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
 
-            var onlyIpa = finalPayloads.Count > 0 && finalPayloads.All(p => p.Category == FileCategory.App);
+            var canTransferNative = hasOnlyIpa || (hasOnlyCameraRoll && _photos != null);
             var hasDestination = activeApp != null || DestinationPicker.SelectedItem != null;
-            TransferButton.IsEnabled = !_isBusy && finalPayloads.Count > 0 && (onlyIpa || hasDestination);
+            TransferButton.IsEnabled = !_isBusy && finalPayloads.Count > 0 && (canTransferNative || hasDestination);
         }
         finally
         {
@@ -235,10 +283,15 @@ public partial class QuickTransferDialog : Window
         ResultState.Visibility = Visibility.Collapsed;
         ProgressState.Visibility = Visibility.Visible;
 
-        var payloads = _rawFilePaths.Select(p => FileClassifier.Describe(p)).ToList();
-        var ipaFiles = payloads.Where(p => p.Category == FileCategory.App).Select(p => p.FullPath).ToList();
-        var documentFiles = payloads.Where(p => p.Category != FileCategory.App).Select(p => p.FullPath).ToList();
+        var ipaFiles = _rawFilePaths.Where(p => FileClassifier.Classify(p) == FileCategory.App).ToList();
+        var cameraRollFiles = _rawFilePaths.Where(p =>
+            FileClassifier.Classify(p) != FileCategory.App &&
+            FileClassifier.IsCameraRollMedia(p) &&
+            (_userSelectedApp == null && _photos != null)).ToList();
+        var appFiles = _rawFilePaths.Where(p =>
+            !ipaFiles.Contains(p) && !cameraRollFiles.Contains(p)).ToList();
 
+        // 1. IPAs to installd
         if (ipaFiles.Count > 0)
         {
             _operations.StartQueueOperation(OperationKind.Install, ViewModels.Page.Devices,
@@ -248,16 +301,31 @@ public partial class QuickTransferDialog : Window
 
         try
         {
-            if (documentFiles.Count > 0)
+            int photosDone = 0;
+            // 2. Photos to Camera Roll
+            if (cameraRollFiles.Count > 0 && _photos != null)
+            {
+                var photoProgress = new Progress<PhotoTransferProgress>(p =>
+                {
+                    ProgressBarControl.Value = p.Total > 0 ? (double)p.Done / p.Total * 100 : 0;
+                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.ImportingPhotos", p.Done, p.Total, p.CurrentFile);
+                });
+                var result = await _photos.ImportAsync(_device.Udid, cameraRollFiles, photoProgress, _cts.Token);
+                photosDone = result.Copied;
+            }
+
+            int appFilesDone = 0;
+            // 3. Document / Media / Contact files to destination app
+            if (appFiles.Count > 0)
             {
                 var destination = (_userSelectedApp ?? (DestinationPicker.SelectedItem as AppMatchScore)?.App)
                     ?? throw new InvalidOperationException(Loc.Get("L.QuickTransfer.NoFileSharingApps"));
 
-                for (var index = 0; index < documentFiles.Count; index++)
+                for (var index = 0; index < appFiles.Count; index++)
                 {
                     _cts.Token.ThrowIfCancellationRequested();
                     var fileNumber = index + 1;
-                    var filePath = documentFiles[index];
+                    var filePath = appFiles[index];
                     var sw = Stopwatch.StartNew();
                     long lastBytes = 0;
                     long lastTickMs = 0;
@@ -266,7 +334,7 @@ public partial class QuickTransferDialog : Window
                     {
                         ProgressBarControl.Value = p.Percent;
                         ProgressLabel.Text = Loc.Format("L.QuickTransfer.CopyingFile", fileNumber,
-                            documentFiles.Count, p.FileName, destination.Name);
+                            appFiles.Count, p.FileName, destination.Name);
 
                         var elapsedMs = sw.ElapsedMilliseconds;
                         var dtSeconds = (elapsedMs - lastTickMs) / 1000.0;
@@ -283,12 +351,13 @@ public partial class QuickTransferDialog : Window
                     });
 
                     await _sharing.UploadAsync(_device.Udid, destination, filePath, progress, _cts.Token);
+                    appFilesDone++;
                 }
             }
 
             ProgressBarControl.Value = 100;
             ProgressSpeedLabel.Text = string.Empty;
-            ProgressLabel.Text = Loc.Format("L.QuickTransfer.Verified", documentFiles.Count, ipaFiles.Count);
+            ProgressLabel.Text = Loc.Format("L.QuickTransfer.VerifiedAll", photosDone, appFilesDone, ipaFiles.Count);
             CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
             CancelButton.IsEnabled = true;
         }

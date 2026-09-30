@@ -891,6 +891,12 @@
     <sys:String x:Key="L.QuickTransfer.RecommendedFor">Recommended for: {0} ({1})</sys:String>
     <sys:String x:Key="L.QuickTransfer.SelectApp">Choose destination app for transfer:</sys:String>
     <sys:String x:Key="L.QuickTransfer.RecommendedTag">Recommended</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TypeContact">Contacts / vCard</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TargetPhotos">Photos Library (iPhone)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TargetInstall">Install to iPhone</sys:String>
+    <sys:String x:Key="L.QuickTransfer.TargetContacts">Contacts</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingPhotos">Importing to Photos {0} of {1}: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.VerifiedAll">Done: Photos — {0}; files — {1}; IPAs queued — {2}.</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
 
     <!-- IPSW firmware -->
