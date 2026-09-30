@@ -348,64 +348,182 @@ public sealed partial class AuthService
                 environment: _tools.IpatoolEnvironment,
                 ct: ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) { throw; }
-        catch { /* best effort */ }
         finally
         {
             CurrentAccount = null;
+            SignedInAtUtc = null;
+
+            // Signing out must also forget the password, or a later expiry would silently
+            // sign the user back into the account they just left.
             _reauth = null;
+
             AccountChanged?.Invoke(this, null);
         }
     }
 
-    // ---- In-memory re-authentication ---------------------------------------
+    // ---- Parsing helpers ----
 
-    private sealed record ReauthCredentials(string Email, string Password);
+    private static AccountInfo? ParseAccount(string output)
+    {
+        // ipatool-rs prints pretty (multi-line) JSON and returns the account object
+        // directly. Parse that complete document before trying the legacy JSON-lines
+        // envelopes used by the Go backends.
+        var start = output.IndexOf('{');
+        var end = output.LastIndexOf('}');
+        if (start >= 0 && end > start)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(output[start..(end + 1)]);
+                var root = document.RootElement;
+                var account = root.TryGetProperty("account", out var nested) ? nested : root;
+                var email = account.TryGetProperty("email", out var emailElement)
+                    ? emailElement.GetString()
+                    : null;
+                var name = account.TryGetProperty("name", out var nameElement)
+                    ? nameElement.GetString()
+                    : null;
+                if (!string.IsNullOrWhiteSpace(email))
+                    return new AccountInfo { Email = email!, Name = name ?? "" };
+            }
+            catch (JsonException)
+            {
+                // Fall through to the legacy line-by-line parser.
+            }
+        }
 
-    private ReauthCredentials? _reauth;
-    private Task<bool>? _inFlightReauth;
-    private readonly object _reauthLock = new();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!line.StartsWith('{'))
+            {
+                // Text format from "ipatool auth info": e.g. "email=user@example.com name=..."
+                var m = EmailRegex().Match(line);
+                if (m.Success)
+                    return new AccountInfo { Email = m.Groups[1].Value.Trim() };
+                continue;
+            }
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+                var root = doc.RootElement;
+
+                // ipatool auth info: { "success": true, "account": { "email": ..., "name": ... } }
+                if (root.TryGetProperty("account", out var acc))
+                {
+                    var email = acc.TryGetProperty("email", out var e) ? e.GetString() : null;
+                    var name = acc.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (!string.IsNullOrEmpty(email))
+                        return new AccountInfo { Email = email!, Name = name ?? "" };
+                }
+
+                // ipatool auth login: { "email": ..., "name": ..., "success": true }
+                if (root.TryGetProperty("email", out var e2))
+                {
+                    var email = e2.GetString();
+                    var name = root.TryGetProperty("name", out var n2) ? n2.GetString() : null;
+                    if (!string.IsNullOrEmpty(email))
+                        return new AccountInfo { Email = email!, Name = name ?? "" };
+                }
+            }
+            catch (JsonException)
+            {
+                // Not a JSON line; keep scanning.
+            }
+        }
+        return null;
+    }
 
     /// <summary>
-    /// When the current session was created or restored. Used to track whether a token has
-    /// been alive long enough that a failure could genuinely be expiration (Apple tokens
-    /// live around 20-30 minutes of active use) rather than a bad download request.
+    /// True when ipatool says the keychain/account file is not protected or the
+    /// session is no longer valid. The user must sign in again so ipatool can
+    /// re-create the file with the correct passphrase.
+    /// Messages observed:
+    ///   "account file is not protected. Please run 'auth login' again."
+    ///   "not logged in"
+    /// </summary>
+    public static bool IsSessionExpiredError(string output)
+    {
+        var lower = output.ToLowerInvariant();
+        return lower.Contains("account file is not protected")
+            || lower.Contains("not logged in")
+            || lower.Contains("please run 'auth login'")
+            || lower.Contains("please run \"auth login\"")
+            // ipatool's wording once Apple has invalidated the stored token. This is the form
+            // users actually hit, because "auth info" only reads the local keychain and never
+            // asks Apple: the app keeps showing a signed-in account long after the token
+            // behind it died, and a download is the first thing that finds out.
+            || lower.Contains("password token is expired")
+            || lower.Contains("password token has expired");
+    }
+
+    /// <summary>
+    /// Drops the cached account after something that talks to Apple reported the session
+    /// dead, without running "auth revoke".
+    ///
+    /// Needed because the cached account comes from the local keychain, which stays readable
+    /// after Apple stops honouring the token in it. Leaving it in place let the window go on
+    /// naming a signed-in Apple ID while every download failed asking the user to sign in —
+    /// the contradiction that made the message look like a bug rather than an instruction.
+    /// The keychain is deliberately left alone so a fresh login can reuse it.
+    /// </summary>
+    public void InvalidateSession()
+    {
+        if (CurrentAccount is null) return;
+
+        // Log how long the token actually survived. "Sometimes I have to sign in again"
+        // is impossible to act on without this: a token dying after minutes points at the
+        // keychain passphrase or anisette, whereas one dying after hours or days is simply
+        // Apple's normal expiry and argues for re-authenticating silently instead.
+        var age = SignedInAtUtc is { } since
+            ? $" after {(DateTime.UtcNow - since).TotalMinutes:F0} min"
+            : "";
+
+        AppLog.Warn($"Apple rejected the active session{age}; clearing the cached account.");
+        CurrentAccount = null;
+        AccountChanged?.Invoke(this, null);
+    }
+
+    /// <summary>
+    /// When the current session was established, used to report how long a token lasted
+    /// before Apple rejected it. Null after a restore from the keychain, where the
+    /// original sign-in time is not recorded anywhere.
     /// </summary>
     public DateTime? SignedInAtUtc { get; private set; }
 
     /// <summary>
-    /// Silently re-authenticates with Apple using the credentials remembered from the
-    /// initial login, renewing the session token.
+    /// Credentials for silent re-authentication, held for the lifetime of the process only.
     ///
-    /// Coalesces concurrent calls: when three parallel downloads hit token expiration at the
-    /// same instant, all three wait on a single "auth login" run rather than racing to
-    /// rewrite the keychain.
+    /// Deliberately not persisted. Writing the password to disk (even DPAPI-encrypted)
+    /// would make an Apple ID password recoverable by anything running as this user, which
+    /// is a poor trade for saving one prompt; ipatool's own keychain already covers the
+    /// across-restarts case. This exists for the case the user actually hits: a token that
+    /// dies in the middle of a session, where the password is still known because they
+    /// typed it minutes ago.
     /// </summary>
-    public Task<bool> TryReauthenticateAsync(CancellationToken ct = default)
+    private sealed record ReauthCredentials(string Email, string Password);
+
+    private ReauthCredentials? _reauth;
+
+    /// <summary>
+    /// True when a silent re-login can be attempted without asking the user anything.
+    /// </summary>
+    public bool CanReauthenticate => _reauth is not null;
+
+    /// <summary>
+    /// Signs in again with the credentials from this session's sign-in, for use when Apple
+    /// expired the token while the app was running.
+    ///
+    /// Returns true only on a clean success. Anything that needs the user — a 2FA code, a
+    /// changed password — returns false, and the caller falls back to the normal
+    /// "please sign in again" path: no <c>twoFactorProvider</c> is passed, precisely so
+    /// that this can never put a dialog on screen behind the user's back.
+    /// </summary>
+    public async Task<bool> TryReauthenticateAsync(CancellationToken ct = default)
     {
-        lock (_reauthLock)
-        {
-            if (_inFlightReauth is { IsCompleted: false } running)
-                return running;
+        var creds = _reauth;
+        if (creds is null) return false;
 
-            var task = DoReauthenticateAsync(ct);
-            _inFlightReauth = task;
-            return task;
-        }
-    }
-
-    private async Task<bool> DoReauthenticateAsync(CancellationToken ct)
-    {
-        ReauthCredentials? creds;
-        lock (_reauthLock) creds = _reauth;
-
-        if (creds is null)
-        {
-            AppLog.Warn("Silent re-authentication skipped: no credentials in memory.");
-            return false;
-        }
-
-        AppLog.Info($"Silent re-authentication: refreshing session for {creds.Email}.");
+        AppLog.Info("The active Apple session expired; signing in again silently.");
 
         try
         {
@@ -418,7 +536,11 @@ public sealed partial class AuthService
                 return true;
             }
 
-            AppLog.Warn($"Silent re-authentication failed ({result.Reason}): {result.Error}");
+            // Apple wants a code (or the password no longer works): that needs the user, so
+            // stop trying and drop the stored credentials rather than retrying in a loop.
+            AppLog.Warn($"Silent re-authentication did not succeed ({result.Reason}); " +
+                        "the user will be asked to sign in.");
+            _reauth = null;
             return false;
         }
         catch (OperationCanceledException) { throw; }
@@ -427,80 +549,19 @@ public sealed partial class AuthService
             AppLog.Error("Silent re-authentication threw.", ex);
             return false;
         }
-        finally
-        {
-            lock (_reauthLock)
-            {
-                if (ReferenceEquals(_inFlightReauth, Task.FromResult(true))) { }
-                _inFlightReauth = null;
-            }
-        }
-    }
-
-    // ---- Helpers -----------------------------------------------------------
-
-    private static AccountInfo? ParseAccount(string output)
-    {
-        // Try the JSON payload first: ipatool emits one JSON line with --format json.
-        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            if (!line.StartsWith('{')) continue;
-            try
-            {
-                using var doc = JsonDocument.Parse(line);
-                var root = doc.RootElement;
-
-                // Support both "email" and "name" properties across ipatool versions.
-                string? email = null;
-                string name = "";
-
-                if (root.TryGetProperty("email", out var emailProp))
-                    email = emailProp.GetString();
-
-                if (root.TryGetProperty("name", out var nameProp))
-                    name = nameProp.GetString() ?? "";
-
-                if (!string.IsNullOrWhiteSpace(email))
-                    return new AccountInfo { Email = email, Name = name };
-            }
-            catch (JsonException) { }
-        }
-
-        // Fallback: parse plain text output.
-        var emailMatch = EmailRegex().Match(output);
-        if (emailMatch.Success)
-            return new AccountInfo { Email = emailMatch.Groups[1].Value.Trim() };
-
-        return null;
     }
 
     /// <summary>
-    /// True when the error output indicates the session is expired or invalid.
-    /// Covers: "session has expired", "unprotected", "invalid token", "status 401", etc.
-    /// </summary>
-    public static bool IsSessionExpiredError(string output)
-    {
-        var lower = output.ToLowerInvariant();
-        return lower.Contains("session has expired")
-            || lower.Contains("session expired")
-            || lower.Contains("token expired")
-            || lower.Contains("unprotected")
-            || lower.Contains("not logged in")
-            || lower.Contains("no account found")
-            || lower.Contains("run `auth login` first")
-            || lower.Contains("invalid token");
-    }
-
-    /// <summary>
-    /// True when anisette reports that iCloud is not installed (ipatool v3 error).
-    /// Typically contains "iCloud Not Found" or "Unable to locate iCloud".
+    /// True when anisette exits with "iCloud Not Found" — ipatool v3 requires
+    /// Apple iCloud for Windows to be installed locally.
+    /// Messages observed:
+    ///   "iCloud Not Found (1)"
+    ///   "anisette exited with code 1"
     /// </summary>
     public static bool IsICloudNotFoundError(string output)
     {
         var lower = output.ToLowerInvariant();
         return lower.Contains("icloud not found")
-            || lower.Contains("unable to locate icloud")
-            || lower.Contains("icloud for windows is required")
             || (lower.Contains("anisette") && lower.Contains("code 1"));
     }
 
