@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -305,7 +306,7 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
                 path = Path.Combine(downloadsDir, "iTunes64Setup.exe");
             }
 
-            if (File.Exists(path))
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
             {
                 Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "runas" });
             }
