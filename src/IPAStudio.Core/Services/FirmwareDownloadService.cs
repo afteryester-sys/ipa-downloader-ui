@@ -125,6 +125,14 @@ public sealed class FirmwareDownloadService
         DownloadToAsync(firmware, folder, Path.Combine(folder, BuildFileName(device.Name, firmware.Version)),
             segmentCount, progress, ct);
 
+    public Task<string> DownloadToFileAsync(
+        FirmwareRelease firmware,
+        string destinationPath,
+        int segmentCount,
+        IProgress<FirmwareDownloadProgress>? progress,
+        CancellationToken ct) =>
+        DownloadToAsync(firmware, Path.GetDirectoryName(destinationPath) ?? "", destinationPath, segmentCount, progress, ct);
+
     private async Task<string> DownloadToAsync(
         FirmwareRelease firmware,
         string folder,
@@ -161,53 +169,65 @@ public sealed class FirmwareDownloadService
         long initialBytes = manifest.Segments.Sum(s => Math.Min(s.Downloaded, s.End - s.Start + 1));
         long sessionBytes = 0;
 
-        await Parallel.ForEachAsync(manifest.Segments, new ParallelOptions
+        try
         {
-            MaxDegreeOfParallelism = segmentCount,
-            CancellationToken = ct,
-        }, async (segment, token) =>
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(segment.PartPath)!);
-            var expected = segment.End - segment.Start + 1;
-            var existing = File.Exists(segment.PartPath) ? new FileInfo(segment.PartPath).Length : 0;
-            segment.Downloaded = Math.Clamp(existing, 0, expected);
-            if (segment.Downloaded >= expected) return;
-
-            using var response = await SendWithReconnectAsync(() =>
+            await Parallel.ForEachAsync(manifest.Segments, new ParallelOptions
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, firmware.Url);
-                request.Headers.Range = new RangeHeaderValue(segment.Start + segment.Downloaded, segment.End);
-                if (!string.IsNullOrWhiteSpace(manifest.ETag)) request.Headers.TryAddWithoutValidation("If-Range", manifest.ETag);
-                return request;
-            }, token).ConfigureAwait(false);
-            if (segmentCount > 1 && response.StatusCode != HttpStatusCode.PartialContent)
-                throw new InvalidDataException("Apple CDN did not honor the Range request; the partial file was kept.");
-            response.EnsureSuccessStatusCode();
-
-            await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-            await using var output = new FileStream(segment.PartPath, FileMode.Append, FileAccess.Write, FileShare.Read,
-                1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var buffer = new byte[1024 * 1024];
-            var lastSave = Stopwatch.StartNew();
-            while (segment.Downloaded < expected)
+                MaxDegreeOfParallelism = segmentCount,
+                CancellationToken = ct,
+            }, async (segment, token) =>
             {
-                var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, expected - segment.Downloaded)), token)
-                    .ConfigureAwait(false);
-                if (read == 0) break;
-                await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
-                segment.Downloaded += read;
-                Interlocked.Add(ref sessionBytes, read);
-                var downloaded = initialBytes + Interlocked.Read(ref sessionBytes);
-                var speed = started.Elapsed.TotalSeconds > 0 ? sessionBytes / started.Elapsed.TotalSeconds : 0;
-                progress?.Report(new FirmwareDownloadProgress(downloaded, length, speed));
-                if (lastSave.ElapsedMilliseconds >= 1000)
+                Directory.CreateDirectory(Path.GetDirectoryName(segment.PartPath)!);
+                var expected = segment.End - segment.Start + 1;
+                var existing = File.Exists(segment.PartPath) ? new FileInfo(segment.PartPath).Length : 0;
+                segment.Downloaded = Math.Clamp(existing, 0, expected);
+                if (segment.Downloaded >= expected) return;
+
+                using var response = await SendWithReconnectAsync(() =>
                 {
-                    await SaveManifestAsync(manifestPath, manifest, token).ConfigureAwait(false);
-                    lastSave.Restart();
+                    var request = new HttpRequestMessage(HttpMethod.Get, firmware.Url);
+                    request.Headers.Range = new RangeHeaderValue(segment.Start + segment.Downloaded, segment.End);
+                    if (!string.IsNullOrWhiteSpace(manifest.ETag)) request.Headers.TryAddWithoutValidation("If-Range", manifest.ETag);
+                    return request;
+                }, token).ConfigureAwait(false);
+                if (segmentCount > 1 && response.StatusCode != HttpStatusCode.PartialContent)
+                    throw new InvalidDataException("Apple CDN did not honor the Range request; the partial file was kept.");
+                response.EnsureSuccessStatusCode();
+
+                await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+                await using var output = new FileStream(segment.PartPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite,
+                    1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                var buffer = new byte[1024 * 1024];
+                var lastSave = Stopwatch.StartNew();
+                while (segment.Downloaded < expected)
+                {
+                    var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, expected - segment.Downloaded)), token)
+                        .ConfigureAwait(false);
+                    if (read == 0) break;
+                    await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
+                    segment.Downloaded += read;
+                    Interlocked.Add(ref sessionBytes, read);
+                    var downloaded = initialBytes + Interlocked.Read(ref sessionBytes);
+                    var speed = started.Elapsed.TotalSeconds > 0 ? sessionBytes / started.Elapsed.TotalSeconds : 0;
+                    progress?.Report(new FirmwareDownloadProgress(downloaded, length, speed));
+                    if (lastSave.ElapsedMilliseconds >= 1000)
+                    {
+                        await SaveManifestAsync(manifestPath, manifest, token).ConfigureAwait(false);
+                        lastSave.Restart();
+                    }
                 }
+                if (segment.Downloaded != expected) throw new EndOfStreamException("Firmware download ended before the segment was complete.");
+            }).ConfigureAwait(false);
+        }
+        catch (Exception) when (ct.IsCancellationRequested)
+        {
+            try
+            {
+                await SaveManifestAsync(manifestPath, manifest, CancellationToken.None).ConfigureAwait(false);
             }
-            if (segment.Downloaded != expected) throw new EndOfStreamException("Firmware download ended before the segment was complete.");
-        }).ConfigureAwait(false);
+            catch { }
+            throw new OperationCanceledException(ct);
+        }
 
         await SaveManifestAsync(manifestPath, manifest, ct).ConfigureAwait(false);
         var temp = destination + ".assembling";

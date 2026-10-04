@@ -1,7 +1,7 @@
 # Tasks: Production Firmware IPSW Center & Intelligent Driver Setup Recovery
 
 **Feature**: [spec.md](spec.md) | [plan.md](plan.md)  
-**Target Version**: `1.8.40`  
+**Target Version**: `1.8.42`  
 
 ## Task Checklist
 
@@ -51,3 +51,16 @@
   - Replace sharp square device glyphs (`&#xE8EA;`) with concentric circular badges and rounded Apple device silhouettes across empty states, tabs, and device list items.
   - Implement fluid tactile hover & press micro-interaction scale animations (`0.96` press compression, `1.02` hover) across all button styles in `Theme.xaml`, `MainWindow.xaml`, and `FirmwareView.xaml`.
   - Bump version to `1.8.41` in `IPAStudio.App.csproj`.
+
+- [x] **[T009]** Fluid Micro-Animations, Pause/Resume Reliability & Layout Fixes (v1.8.42):
+  - Integer rounding for ETA / remaining time in `FirmwareDownloadJob.cs` (`RemainingText`), completely eliminating layout jitter.
+  - Fix single download badge (`⚡ Одиночное`) text clipping via `DockPanel` layout with `LastChildFill="True"`.
+  - Fix download pause/resume bug in `FirmwareViewModel.cs` and `FirmwareDownloadService.cs`:
+    - Preserve `DestinationPath` and `.download.json` manifest across pause and resume.
+    - Set `FileShare.ReadWrite` to avoid file locks.
+    - Handle socket abort exceptions (`OperationCanceledException`, `AggregateException`, `IsCancellationRequested`) to ensure clean `Paused` state instead of `Failed`.
+    - Save manifest reliably on cancel using uncancelled token.
+    - Dynamic pause/resume glyph: Play (`&#xE768;`) when paused, Pause (`&#xE769;`) when active, with dynamic tooltips.
+    - Dynamic status indicator dot in shared bottom download dock: green `#30D158` when active, amber `Brush.Warning` when paused, red `Brush.Danger` when failed.
+  - True fluid WPF Storyboards with `CubicEase EasingMode="EaseOut"` for hover, press, and release across buttons, sliders, segmented toggles, tabs, and checkboxes.
+  - Bump version to `1.8.42` in `IPAStudio.App.csproj`.

@@ -105,10 +105,26 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
         get
         {
             if (BytesPerSecond <= 0 || ExpectedTotal <= Downloaded) return "";
-            var seconds = (ExpectedTotal - Downloaded) / BytesPerSecond;
-            return seconds >= 3600
-                ? string.Format(Loc.Get("L.Firmware.Job.LeftHours"), seconds / 3600, seconds % 3600 / 60)
-                : string.Format(Loc.Get("L.Firmware.Job.LeftMinutes"), Math.Max(1, seconds / 60));
+            var totalSec = (long)Math.Ceiling((ExpectedTotal - Downloaded) / BytesPerSecond);
+            if (totalSec <= 0) return "";
+            if (totalSec < 60)
+            {
+                var fmt = Loc.Get("L.Firmware.Job.LeftSeconds");
+                return string.IsNullOrEmpty(fmt)
+                    ? string.Format(Loc.Get("L.Firmware.Job.LeftMinutes"), 1)
+                    : string.Format(fmt, totalSec);
+            }
+            if (totalSec >= 3600)
+            {
+                var hours = totalSec / 3600;
+                var mins = (totalSec % 3600) / 60;
+                return string.Format(Loc.Get("L.Firmware.Job.LeftHours"), hours, mins);
+            }
+            else
+            {
+                var mins = Math.Max(1, (long)Math.Round(totalSec / 60.0));
+                return string.Format(Loc.Get("L.Firmware.Job.LeftMinutes"), mins);
+            }
         }
     }
 

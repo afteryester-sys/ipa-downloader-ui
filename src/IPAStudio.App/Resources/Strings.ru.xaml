@@ -953,6 +953,7 @@
     <sys:String x:Key="L.Firmware.Job.Recovered">Восстановлена после перезапуска</sys:String>
     <sys:String x:Key="L.Firmware.Job.LeftHours">осталось {0} ч {1} мин</sys:String>
     <sys:String x:Key="L.Firmware.Job.LeftMinutes">осталось {0} мин</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftSeconds">осталось {0} сек</sys:String>
     <sys:String x:Key="L.Refresh">Обновить</sys:String>
 
     <sys:String x:Key="L.Firmware.Tab.MyDevices">Мои устройства</sys:String>

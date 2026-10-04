@@ -955,6 +955,7 @@
     <sys:String x:Key="L.Firmware.Job.Recovered">Recovered after restart</sys:String>
     <sys:String x:Key="L.Firmware.Job.LeftHours">{0} h {1} min left</sys:String>
     <sys:String x:Key="L.Firmware.Job.LeftMinutes">{0} min left</sys:String>
+    <sys:String x:Key="L.Firmware.Job.LeftSeconds">{0} sec left</sys:String>
     <sys:String x:Key="L.Refresh">Refresh</sys:String>
 
     <sys:String x:Key="L.Firmware.Tab.MyDevices">My Devices</sys:String>

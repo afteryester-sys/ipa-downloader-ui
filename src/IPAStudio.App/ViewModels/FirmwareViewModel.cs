@@ -25,6 +25,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private List<FirmwareDevice> _allDevices = new();
     private List<FirmwareRelease> _deviceFirmwares = new();
     private readonly Dictionary<FirmwareDownloadJob, Operation> _jobOperations = new();
+    private readonly Dictionary<FirmwareDownloadJob, Task> _runningJobs = new();
     private bool _startupResumeAsked;
 
     public IReadOnlyList<FirmwareDevice> AllDevices => _allDevices;
@@ -348,15 +349,11 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private void PauseJob(FirmwareDownloadJob job)
     {
-        if (job.State is FirmwareJobState.Queued)
-        {
-            // Not started yet: park it without spinning up a request at all.
-            job.State = FirmwareJobState.Paused;
-            job.StatusText = Loc.Get("L.Firmware.Paused");
-            RecomputeAggregate();
-            return;
-        }
+        job.State = FirmwareJobState.Paused;
+        job.StatusText = Loc.Get("L.Firmware.Paused");
+        job.BytesPerSecond = 0;
         job.Cts?.Cancel();
+        RecomputeAggregate();
     }
 
     private void ResumeJob(FirmwareDownloadJob job)
@@ -383,12 +380,20 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private async Task RunJobAsync(FirmwareDownloadJob job)
     {
+        if (_runningJobs.TryGetValue(job, out var priorTask) && !priorTask.IsCompleted)
+        {
+            try { await Task.WhenAny(priorTask, Task.Delay(350)); } catch { }
+        }
+
         job.Cts?.Dispose();
         job.Cts = new CancellationTokenSource();
         job.State = FirmwareJobState.Running;
         job.StatusText = Loc.Get("L.Firmware.Job.Running");
         job.ErrorText = null;
         RecomputeAggregate();
+
+        var tcs = new TaskCompletionSource<bool>();
+        _runningJobs[job] = tcs.Task;
 
         if (!_jobOperations.TryGetValue(job, out var operation))
         {
@@ -399,6 +404,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         var reporter = new Progress<FirmwareDownloadProgress>(p =>
         {
+            if (job.State != FirmwareJobState.Running) return;
             job.Downloaded = p.Downloaded;
             job.Total = p.Total;
             job.BytesPerSecond = p.BytesPerSecond;
@@ -416,7 +422,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             {
                 try
                 {
-                    savedPath = await _downloads.DownloadAsync(job.Device, job.Firmware, DestinationFolder,
+                    savedPath = await _downloads.DownloadToFileAsync(job.Firmware, job.DestinationPath,
                         SegmentCount, reporter, job.Cts.Token);
                     break;
                 }
@@ -440,13 +446,17 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             _jobOperations.Remove(job);
             RecordCompletedDownload(job.Device, job.Firmware, savedPath);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||
+                                   ex is OperationCanceledException ||
+                                   (ex is AggregateException agg && agg.Flatten().InnerExceptions.All(e => e is OperationCanceledException)))
         {
             job.State = FirmwareJobState.Paused;
             job.BytesPerSecond = 0;
             job.StatusText = Loc.Get("L.Firmware.Paused");
-            operation.Finish(OperationState.Cancelled, job.StatusText);
-            _jobOperations.Remove(job);
+            if (_jobOperations.Remove(job, out var op))
+            {
+                op.Finish(OperationState.Cancelled, job.StatusText);
+            }
         }
         catch (Exception ex)
         {
@@ -454,11 +464,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.BytesPerSecond = 0;
             job.ErrorText = ex.Message;
             job.StatusText = Loc.Get("L.Firmware.Failed");
-            operation.Finish(OperationState.Failed, ex.Message);
-            _jobOperations.Remove(job);
+            if (_jobOperations.Remove(job, out var op))
+            {
+                op.Finish(OperationState.Failed, ex.Message);
+            }
         }
         finally
         {
+            tcs.TrySetResult(true);
             RecomputeAggregate();
         }
     }
@@ -506,7 +519,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             operation.Finish(OperationState.Done, job.StatusText);
             TouchLastDownload();
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||
+                                   ex is OperationCanceledException ||
+                                   (ex is AggregateException agg && agg.Flatten().InnerExceptions.All(e => e is OperationCanceledException)))
         {
             job.State = FirmwareJobState.Paused;
             job.StatusText = Loc.Get("L.Firmware.Paused");
