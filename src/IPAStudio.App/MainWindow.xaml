@@ -237,7 +237,11 @@
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="bg" CornerRadius="17"
                                 Background="Transparent" BorderThickness="1"
-                                BorderBrush="Transparent">
+                                BorderBrush="Transparent"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
+                            </Border.RenderTransform>
                             <Grid>
                                 <!-- Settings (gear) glyph -->
                                 <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets"
@@ -254,6 +258,13 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="bg" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
                                 <Setter TargetName="bg" Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+                                <Setter TargetName="PressScale" Property="ScaleX" Value="1.04" />
+                                <Setter TargetName="PressScale" Property="ScaleY" Value="1.04" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
+                                <Setter TargetName="PressScale" Property="ScaleX" Value="0.92" />
+                                <Setter TargetName="PressScale" Property="ScaleY" Value="0.92" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

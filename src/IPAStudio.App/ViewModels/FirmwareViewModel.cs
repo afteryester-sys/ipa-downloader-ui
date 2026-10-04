@@ -194,6 +194,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OfferPendingResume();
     }
 
+    [RelayCommand] private void GoBack() => _navigator?.GoBack();
     [RelayCommand] private void GoHome() => _navigator?.GoHome();
 
     [RelayCommand]

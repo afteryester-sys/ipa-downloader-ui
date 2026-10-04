@@ -44,3 +44,10 @@
 
 - [x] **[T007]** Verification & Release:
   - Push commit to GitHub to trigger `auto-release.yml` for `v1.8.40`.
+
+- [x] **[T008]** Apple HIG Design Polish, Tactile Motion & Bugfixes (v1.8.41):
+  - Fix Back (`< Назад`) button by adding `GoBackCommand` in `FirmwareViewModel.cs`.
+  - Add 56px clearance margin (`Margin="0,0,56,0"`) to header segmented control in `FirmwareView.xaml` to eliminate overlap with MainWindow settings gear.
+  - Replace sharp square device glyphs (`&#xE8EA;`) with concentric circular badges and rounded Apple device silhouettes across empty states, tabs, and device list items.
+  - Implement fluid tactile hover & press micro-interaction scale animations (`0.96` press compression, `1.02` hover) across all button styles in `Theme.xaml`, `MainWindow.xaml`, and `FirmwareView.xaml`.
+  - Bump version to `1.8.41` in `IPAStudio.App.csproj`.

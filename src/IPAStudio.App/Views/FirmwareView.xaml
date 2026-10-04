@@ -58,6 +58,39 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
         </Style>
+
+        <!-- Segmented thread selection button with tactile hover and press scale -->
+        <Style x:Key="SegmentThreadButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="12,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="BtnScale" ScaleX="1" ScaleY="1" />
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="BtnScale" Property="ScaleX" Value="1.04" />
+                                <Setter TargetName="BtnScale" Property="ScaleY" Value="1.04" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="BtnScale" Property="ScaleX" Value="0.94" />
+                                <Setter TargetName="BtnScale" Property="ScaleY" Value="0.94" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32,20,32,28">
@@ -85,8 +118,8 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- Right: Segmented Mode Switcher & Settings Button -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Right: Segmented Mode Switcher & Settings Button (56px margin keeps clear of MainWindow gear button) -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,56,0">
                 <!-- Apple Segmented Control -->
                 <Border Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
                         BorderThickness="1" CornerRadius="8" Padding="2" Margin="0">
@@ -102,9 +135,23 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                                        Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform x:Name="TabScale" ScaleX="1" ScaleY="1" />
+                                                    </Border.RenderTransform>
                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="1.02" />
+                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="1.02" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="0.96" />
+                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="0.96" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
@@ -118,7 +165,14 @@
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <!-- Rounded Apple device silhouette with pill notch -->
+                                <Border Width="11" Height="17" CornerRadius="2.5"
+                                        BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                        BorderThickness="1.2" Margin="0,0,7,0" VerticalAlignment="Center">
+                                    <Border Width="5" Height="1.2" CornerRadius="0.6"
+                                            Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                            VerticalAlignment="Top" Margin="0,1.5,0,0" />
+                                </Border>
                                 <TextBlock Text="{DynamicResource L.Firmware.Tab.MyDevices}" FontSize="12" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding MyDevices.Count, StringFormat=' ({0})'}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
                             </StackPanel>
@@ -135,9 +189,23 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                                        Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+                                                    <Border.RenderTransform>
+                                                        <ScaleTransform x:Name="TabScale" ScaleX="1" ScaleY="1" />
+                                                    </Border.RenderTransform>
                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="1.02" />
+                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="1.02" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="0.96" />
+                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="0.96" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Setter.Value>
                                     </Setter>
@@ -191,10 +259,18 @@
                         <!-- Empty state when no devices yet -->
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="14"
                                      Visibility="{Binding MyDevices.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}">
-                            <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="26"
-                                       Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" Opacity="0.35" Margin="0,0,0,8" />
+                            <!-- Circular badge container with rounded Apple device silhouette -->
+                            <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource Brush.SurfaceHover}"
+                                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                    HorizontalAlignment="Center" Margin="0,0,0,10">
+                                <Border Width="20" Height="32" CornerRadius="4" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.6"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Border Width="8" Height="2" CornerRadius="1" Background="{DynamicResource Brush.Accent}"
+                                            VerticalAlignment="Top" Margin="0,3,0,0" />
+                                </Border>
+                            </Border>
                             <TextBlock Text="Нет устройств" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" />
+                                       Foreground="{DynamicResource Brush.Text}" HorizontalAlignment="Center" />
                             <TextBlock Text="Нажмите «+ Добавить», чтобы отслеживать прошивки"
                                        FontSize="10" Foreground="{DynamicResource Brush.TextMuted}" TextAlignment="Center"
                                        TextWrapping="Wrap" Opacity="0.75" Margin="0,4,0,0" />
@@ -208,14 +284,26 @@
                                 <DataTemplate>
                                     <Grid Margin="6,4">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center">
+                                        <!-- Circular device badge -->
+                                        <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
+                                                Background="{DynamicResource Brush.SurfaceHover}"
+                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                                Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <Border Width="10" Height="16" CornerRadius="2.5" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.2"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Border Width="4" Height="1" CornerRadius="0.5" Background="{DynamicResource Brush.Accent}"
+                                                        VerticalAlignment="Top" Margin="0,1.5,0,0" />
+                                            </Border>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Identifier}" Style="{StaticResource Text.Caption}" FontSize="10" />
                                         </StackPanel>
-                                        <Button Grid.Column="1" Style="{StaticResource Button.Ghost}" Padding="4,2"
+                                        <Button Grid.Column="2" Style="{StaticResource Button.Ghost}" Padding="4,2"
                                                 ToolTip="{DynamicResource L.Firmware.RemoveDevice}"
                                                 Command="{Binding DataContext.RemoveDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
@@ -325,10 +413,15 @@
                         <Grid Visibility="{Binding SelectedDevice, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
                               HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
                             <StackPanel HorizontalAlignment="Center" MaxWidth="440">
+                                <!-- Circular container with rounded Apple device silhouette -->
                                 <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource Brush.SurfaceHover}"
+                                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
                                         HorizontalAlignment="Center" Margin="0,0,0,16">
-                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="28"
-                                               Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border Width="24" Height="38" CornerRadius="4.5" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.8"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Border Width="10" Height="2" CornerRadius="1" Background="{DynamicResource Brush.Accent}"
+                                                VerticalAlignment="Top" Margin="0,3.5,0,0" />
+                                    </Border>
                                 </Border>
                                 <TextBlock Text="Выберите устройство" FontSize="17" FontWeight="SemiBold"
                                            HorizontalAlignment="Center" Margin="0,0,0,8" />
@@ -549,8 +642,16 @@
                             <Grid Visibility="{Binding SelectedSingleDevice, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32">
                                 <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="32"
-                                               Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" Opacity="0.3" Margin="0,0,0,12" />
+                                    <!-- Circular container with rounded Apple device silhouette -->
+                                    <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource Brush.SurfaceHover}"
+                                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                            HorizontalAlignment="Center" Margin="0,0,0,16">
+                                        <Border Width="24" Height="38" CornerRadius="4.5" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.8"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Border Width="10" Height="2" CornerRadius="1" Background="{DynamicResource Brush.Accent}"
+                                                    VerticalAlignment="Top" Margin="0,3.5,0,0" />
+                                        </Border>
+                                    </Border>
                                     <TextBlock Text="Выберите модель устройства в выпадающем списке выше"
                                                FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" />
                                     <TextBlock Text="Либо вставьте прямую ссылку на .ipsw файл для мгновенной загрузки"
@@ -779,22 +880,9 @@
                                         HorizontalAlignment="Right" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <!-- Thread 2 -->
-                                        <Button Content="2" Command="{Binding SetThreadsCommand}" CommandParameter="2"
-                                                Padding="12,4" Cursor="Hand" BorderThickness="0">
+                                        <Button Content="2" Command="{Binding SetThreadsCommand}" CommandParameter="2">
                                             <Button.Style>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
-                                                    <Setter Property="FontSize" Value="11" />
-                                                    <Setter Property="Template">
-                                                        <Setter.Value>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
-                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                            </ControlTemplate>
-                                                        </Setter.Value>
-                                                    </Setter>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SegmentThreadButton}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding SegmentCount}" Value="2">
                                                             <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
@@ -807,22 +895,9 @@
                                         </Button>
 
                                         <!-- Thread 4 -->
-                                        <Button Content="4" Command="{Binding SetThreadsCommand}" CommandParameter="4"
-                                                Padding="12,4" Cursor="Hand" BorderThickness="0">
+                                        <Button Content="4" Command="{Binding SetThreadsCommand}" CommandParameter="4">
                                             <Button.Style>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
-                                                    <Setter Property="FontSize" Value="11" />
-                                                    <Setter Property="Template">
-                                                        <Setter.Value>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
-                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                            </ControlTemplate>
-                                                        </Setter.Value>
-                                                    </Setter>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SegmentThreadButton}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding SegmentCount}" Value="4">
                                                             <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
@@ -835,22 +910,9 @@
                                         </Button>
 
                                         <!-- Thread 8 -->
-                                        <Button Content="8" Command="{Binding SetThreadsCommand}" CommandParameter="8"
-                                                Padding="12,4" Cursor="Hand" BorderThickness="0">
+                                        <Button Content="8" Command="{Binding SetThreadsCommand}" CommandParameter="8">
                                             <Button.Style>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
-                                                    <Setter Property="FontSize" Value="11" />
-                                                    <Setter Property="Template">
-                                                        <Setter.Value>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
-                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                            </ControlTemplate>
-                                                        </Setter.Value>
-                                                    </Setter>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SegmentThreadButton}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding SegmentCount}" Value="8">
                                                             <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
@@ -863,22 +925,9 @@
                                         </Button>
 
                                         <!-- Thread 16 -->
-                                        <Button Content="16" Command="{Binding SetThreadsCommand}" CommandParameter="16"
-                                                Padding="12,4" Cursor="Hand" BorderThickness="0">
+                                        <Button Content="16" Command="{Binding SetThreadsCommand}" CommandParameter="16">
                                             <Button.Style>
-                                                <Style TargetType="Button">
-                                                    <Setter Property="Background" Value="Transparent" />
-                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
-                                                    <Setter Property="FontSize" Value="11" />
-                                                    <Setter Property="Template">
-                                                        <Setter.Value>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
-                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                            </ControlTemplate>
-                                                        </Setter.Value>
-                                                    </Setter>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SegmentThreadButton}">
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding SegmentCount}" Value="16">
                                                             <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
