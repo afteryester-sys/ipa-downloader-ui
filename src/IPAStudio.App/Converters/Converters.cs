@@ -327,3 +327,85 @@ public sealed class PercentToArcConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>
+/// Converts a 0-100 percentage into an arc geometry for the multi-segment operations circle.
+/// Parameter format: "full,34" | "half1,34" (12 to 6 o'clock) | "half2,34" (6 to 12 o'clock).
+/// </summary>
+public sealed class SectorArcConverter : IValueConverter
+{
+    private const double Stroke = 3;
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var percent = value is double d && !double.IsNaN(d) ? Math.Clamp(d, 0, 100) : 0;
+        var param = parameter as string ?? "full,34";
+        var parts = param.Split(',');
+        var sector = parts[0].Trim().ToLowerInvariant();
+        var diameter = parts.Length > 1 && double.TryParse(parts[1], NumberStyles.Any, CultureInfo.InvariantCulture, out var dVal)
+            ? dVal
+            : 34;
+
+        var radius = (diameter - Stroke) / 2;
+        var centre = diameter / 2;
+        var geometry = new StreamGeometry();
+
+        if (percent <= 0 || radius <= 0)
+        {
+            geometry.Freeze();
+            return geometry;
+        }
+
+        double startAngleDeg;
+        double maxSweepDeg;
+
+        switch (sector)
+        {
+            case "half1":
+                startAngleDeg = -90; // 12 o'clock
+                maxSweepDeg = 179.9;
+                break;
+            case "half2":
+                startAngleDeg = 90;  // 6 o'clock
+                maxSweepDeg = 179.9;
+                break;
+            default:
+                startAngleDeg = -90;
+                maxSweepDeg = 359.9;
+                break;
+        }
+
+        var sweep = percent / 100.0 * maxSweepDeg;
+        if (sweep < 0.1)
+        {
+            geometry.Freeze();
+            return geometry;
+        }
+
+        var startRad = startAngleDeg * Math.PI / 180.0;
+        var endRad = (startAngleDeg + sweep) * Math.PI / 180.0;
+
+        var start = new Point(centre + radius * Math.Cos(startRad), centre + radius * Math.Sin(startRad));
+        var end = new Point(centre + radius * Math.Cos(endRad), centre + radius * Math.Sin(endRad));
+
+        using (var context = geometry.Open())
+        {
+            context.BeginFigure(start, isFilled: false, isClosed: false);
+            context.ArcTo(
+                end,
+                new Size(radius, radius),
+                rotationAngle: 0,
+                isLargeArc: sweep > 180,
+                SweepDirection.Clockwise,
+                isStroked: true,
+                isSmoothJoin: false);
+        }
+
+        geometry.Freeze();
+        return geometry;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+

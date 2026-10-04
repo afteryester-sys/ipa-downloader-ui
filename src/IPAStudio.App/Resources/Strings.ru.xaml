@@ -39,6 +39,10 @@
     <sys:String x:Key="L.Setup.DriversInstallNote">Драйверы Apple не найдены. Установите iTunes — он включает все необходимые драйверы.</sys:String>
     <sys:String x:Key="L.Setup.InstallITunesLink">Скачать iTunes</sys:String>
     <sys:String x:Key="L.Setup.OrDownloadManual">Или скачайте вручную:</sys:String>
+    <sys:String x:Key="L.Setup.LegacyConflictTitle">Обнаружена устаревшая версия iTunes</sys:String>
+    <sys:String x:Key="L.Setup.LegacyConflictHint">Установлена старая версия iTunes (например, 12.6.5.3), компоненты которой блокируют автоматическую установку современных драйверов. Удалите старую версию в 1 клик или запустите скачанный установщик.</sys:String>
+    <sys:String x:Key="L.Setup.UninstallLegacy">Удалить старый iTunes</sys:String>
+    <sys:String x:Key="L.Setup.RunDownloadedInstaller">Запустить установщик</sys:String>
     <sys:String x:Key="L.Setup.ICloud">iCloud для Windows (требуется для ipatool v3)</sys:String>
     <sys:String x:Key="L.Setup.ICloudHint">ipatool v3 использует iCloud для получения anisette-данных при входе в Apple ID. Нажмите кнопку — приложение само скачает классический установщик iCloud с серверов Apple и запустит его. Если вход не заработает — переключитесь на ipatool v2 (iCloud не требуется).</sys:String>
     <sys:String x:Key="L.Setup.OpenICloudPage">Скачать и установить iCloud</sys:String>
@@ -951,4 +955,29 @@
     <sys:String x:Key="L.Firmware.Job.LeftMinutes">осталось {0} мин</sys:String>
     <sys:String x:Key="L.Refresh">Обновить</sys:String>
 
+    <sys:String x:Key="L.Firmware.Tab.MyDevices">Мои устройства</sys:String>
+    <sys:String x:Key="L.Firmware.Tab.SingleDownload">⚡ Одиночное скачивание</sys:String>
+    <sys:String x:Key="L.Firmware.AutoCheck">Автопроверка</sys:String>
+    <sys:String x:Key="L.Firmware.AutoCheck.On">Включена</sys:String>
+    <sys:String x:Key="L.Firmware.AutoCheck.Off">Отключена</sys:String>
+    <sys:String x:Key="L.Firmware.Single.Title">Разовая загрузка прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Single.Subtitle">Без постановки на постоянную автопроверку</sys:String>
+    <sys:String x:Key="L.Firmware.Single.Model">Модель Apple:</sys:String>
+    <sys:String x:Key="L.Firmware.Single.DirectUrl">Или прямая ссылка на IPSW:</sys:String>
+    <sys:String x:Key="L.Firmware.Single.DirectUrlPlaceholder">https://updates.cdn-apple.com/...Restore.ipsw</sys:String>
+    <sys:String x:Key="L.Firmware.Single.DownloadUrl">Загрузить URL</sys:String>
+    <sys:String x:Key="L.Firmware.Single.DownloadOnce">Скачать разово</sys:String>
+    <sys:String x:Key="L.Firmware.SingleBadge">Одиночное</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.Title">Настройки прошивок (IPSW)</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.Subtitle">Параметры фоновой загрузки, потоков и мониторинга</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.Network">⚡ Загрузка и Сеть</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoCheck">🔄 Автопроверка</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.Storage">🛡️ Хранилище и Хэш</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.VerifySha">Верификация хэша после загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Сверяет SHA с официальным реестром Apple (защита от повреждения)</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CleanCache">Очистить временные файлы</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Удаляет незавершённые .part и .download.json файлы</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.Apply">Применить</sys:String>
+    <sys:String x:Key="L.Firmware.TssSigned">Подписана Apple TSS</sys:String>
+    <sys:String x:Key="L.Firmware.TssUnsigned">Подпись отозвана</sys:String>
 </ResourceDictionary>

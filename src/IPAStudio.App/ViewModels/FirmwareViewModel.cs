@@ -51,11 +51,24 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         _operations = operations;
         DestinationFolder = settings.Current.FirmwareFolder ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
-        SegmentCount = Math.Clamp(settings.Current.FirmwareDownloadThreads, 1, 8);
+        SegmentCount = Math.Clamp(settings.Current.FirmwareDownloadThreads, 1, 16);
         AutoCheckIntervalHours = Math.Clamp(settings.Current.FirmwareCheckIntervalHours, 1, 168);
+        IsAutoCheckEnabled = settings.Current.FirmwareAutoCheckEnabled;
+        VerifyHash = settings.Current.FirmwareVerifyHash;
         Jobs.CollectionChanged += OnJobsChanged;
         RefreshAutoUpdateTimestamps();
     }
+
+    [ObservableProperty] private bool _isSingleDownloadMode;
+    [ObservableProperty] private bool _isAutoCheckEnabled = true;
+    [ObservableProperty] private FirmwareDevice? _selectedSingleDevice;
+    [ObservableProperty] private string _directUrlInput = "";
+    [ObservableProperty] private bool _isSettingsOpen;
+    [ObservableProperty] private int _settingsTab;
+    [ObservableProperty] private bool _verifyHash = true;
+
+    public ObservableCollection<FirmwareRelease> SingleFirmwares { get; } = new();
+    public FirmwareDownloadJob? ActiveJob => Jobs.FirstOrDefault(j => j.IsActive) ?? Jobs.LastOrDefault();
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private FirmwareDevice? _selectedCatalogDevice;
@@ -91,8 +104,74 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     partial void OnSearchTextChanged(string value) => ApplyDeviceFilter();
-    partial void OnSignedOnlyChanged(bool value) => ApplyFirmwareFilter();
+
+    partial void OnSignedOnlyChanged(bool value)
+    {
+        ApplyFirmwareFilter();
+        if (SelectedSingleDevice is not null)
+            _ = LoadSingleFirmwaresAsync(SelectedSingleDevice);
+    }
+
+    partial void OnSelectedSingleDeviceChanged(FirmwareDevice? value)
+    {
+        _ = LoadSingleFirmwaresAsync(value);
+    }
+
+    partial void OnVerifyHashChanged(bool value)
+    {
+        _settings.Current.FirmwareVerifyHash = value;
+        _settings.Save();
+    }
+
     partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => EnqueueDownloadCommand.NotifyCanExecuteChanged();
+
+    [RelayCommand] private void SwitchToDevicesMode() => IsSingleDownloadMode = false;
+    [RelayCommand] private void SwitchToSingleMode() => IsSingleDownloadMode = true;
+
+    [RelayCommand]
+    private void ToggleAutoCheck()
+    {
+        IsAutoCheckEnabled = !IsAutoCheckEnabled;
+        _settings.Current.FirmwareAutoCheckEnabled = IsAutoCheckEnabled;
+        _settings.Save();
+    }
+
+    [RelayCommand] private void ToggleSettings() => IsSettingsOpen = !IsSettingsOpen;
+    [RelayCommand] private void OpenSettings() => IsSettingsOpen = true;
+    [RelayCommand] private void CloseSettings() => IsSettingsOpen = false;
+
+    [RelayCommand]
+    private void SetThreads(object? arg)
+    {
+        if (arg is string s && int.TryParse(s, out var t))
+            SegmentCount = Math.Clamp(t, 1, 16);
+        else if (arg is int i)
+            SegmentCount = Math.Clamp(i, 1, 16);
+        PersistDownloadSettings();
+    }
+
+    [RelayCommand]
+    private void CleanCache()
+    {
+        _downloads.CleanupInvalidTemporaryFiles(DestinationFolder, TimeSpan.Zero);
+        StatusText = Loc.Get("L.Firmware.Settings.CleanCache");
+    }
+
+    [RelayCommand]
+    private void ToggleActiveJobPause()
+    {
+        var job = ActiveJob;
+        if (job is null) return;
+        if (job.CanPause) PauseJob(job);
+        else if (job.CanResume) ResumeJob(job);
+    }
+
+    [RelayCommand]
+    private void CancelActiveJob()
+    {
+        var job = ActiveJob;
+        if (job is not null) StopJob(job);
+    }
 
     partial void OnSelectedDeviceChanged(FirmwareDevice? value)
     {
@@ -161,6 +240,83 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         var job = new FirmwareDownloadJob(SelectedDevice, SelectedFirmware, destination, PauseJob, ResumeJob, StopJob);
         Jobs.Add(job);
+        _ = RunJobAsync(job);
+    }
+
+    [RelayCommand]
+    private void DownloadSingleFirmware(FirmwareRelease? release)
+    {
+        if (release is null) return;
+        var device = SelectedSingleDevice ?? SelectedDevice ?? new FirmwareDevice
+        {
+            Name = !string.IsNullOrWhiteSpace(release.Identifier) ? release.Identifier : "Apple Device",
+            Identifier = release.Identifier
+        };
+
+        PersistDownloadSettings();
+        var destination = Path.Combine(DestinationFolder,
+            FirmwareDownloadService.BuildFileName(device.Name, release.Version));
+
+        var existing = Jobs.FirstOrDefault(j =>
+            string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.CanResume) ResumeJob(existing);
+            return;
+        }
+
+        var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: true);
+        Jobs.Add(job);
+        _ = RunJobAsync(job);
+    }
+
+    [RelayCommand]
+    private void StartDirectUrlDownload()
+    {
+        var url = DirectUrlInput?.Trim();
+        if (string.IsNullOrWhiteSpace(url)) return;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            ErrorText = "Некорректная ссылка на IPSW файл.";
+            return;
+        }
+
+        var fileName = Path.GetFileName(uri.LocalPath);
+        if (string.IsNullOrWhiteSpace(fileName) || !fileName.EndsWith(".ipsw", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = "Apple Firmware.ipsw";
+        }
+
+        var device = new FirmwareDevice
+        {
+            Name = "Direct Download",
+            Identifier = "direct-ipsw"
+        };
+        var release = new FirmwareRelease
+        {
+            Identifier = "direct",
+            Version = fileName.Replace(".ipsw", "", StringComparison.OrdinalIgnoreCase),
+            BuildId = "Direct URL",
+            Url = url,
+            Signed = true
+        };
+
+        PersistDownloadSettings();
+        var destination = Path.Combine(DestinationFolder, fileName);
+
+        var existing = Jobs.FirstOrDefault(j =>
+            string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.CanResume) ResumeJob(existing);
+            DirectUrlInput = "";
+            return;
+        }
+
+        var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: true);
+        Jobs.Add(job);
+        DirectUrlInput = "";
         _ = RunJobAsync(job);
     }
 
@@ -423,6 +579,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OverallSpeedText = speed > 0 ? $"{speed / 1024d / 1024d:F1} MB/s" : "";
         ActiveCount = active;
         FinishedCount = finished;
+        OnPropertyChanged(nameof(ActiveJob));
         ResumeAllCommand.NotifyCanExecuteChanged();
     }
 
@@ -482,12 +639,36 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         try
         {
             _allDevices = (await _catalog.GetDevicesAsync(_loadCts.Token)).ToList();
+            OnPropertyChanged(nameof(AllDevices));
             RestoreMyDevices();
             ApplyDeviceFilter();
+            SelectedSingleDevice ??= _allDevices.FirstOrDefault(d => d.Identifier.StartsWith("iPhone16", StringComparison.OrdinalIgnoreCase))
+                ?? _allDevices.FirstOrDefault(d => d.Identifier.StartsWith("iPhone15", StringComparison.OrdinalIgnoreCase))
+                ?? _allDevices.FirstOrDefault();
             StatusText = string.Format(Loc.Get("L.Firmware.DevicesLoaded"), _allDevices.Count);
         }
         catch (Exception ex) { ErrorText = ex.Message; }
         finally { IsLoading = false; }
+    }
+
+    private async Task LoadSingleFirmwaresAsync(FirmwareDevice? device)
+    {
+        SingleFirmwares.Clear();
+        if (device is null) return;
+        try
+        {
+            var details = await _catalog.GetDeviceAsync(device.Identifier);
+            var query = details.Firmwares.AsEnumerable();
+            if (SignedOnly) query = query.Where(f => f.Signed);
+            foreach (var fw in query.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate))
+            {
+                SingleFirmwares.Add(fw);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorText = ex.Message;
+        }
     }
 
     private async Task LoadFirmwaresAsync(FirmwareDevice? device)

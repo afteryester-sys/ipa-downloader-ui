@@ -34,6 +34,9 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     [ObservableProperty] private DependencyState _itunesState;
     [ObservableProperty] private DependencyState _toolsState;
     [ObservableProperty] private DependencyState _iCloudState = DependencyState.Unknown;
+    [ObservableProperty] private bool _hasLegacyConflict;
+    [ObservableProperty] private string? _installedITunesVersion;
+    [ObservableProperty] private string? _downloadedInstallerPath;
 
     /// <summary>True when using ipatool v3 — iCloud for Windows is then required.</summary>
     [ObservableProperty] private bool _needsICloud;
@@ -42,6 +45,7 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
     [NotifyCanExecuteChangedFor(nameof(InstallITunesCommand))]
     [NotifyCanExecuteChangedFor(nameof(InstallToolsCommand))]
     [NotifyCanExecuteChangedFor(nameof(InstallICloudCommand))]
+    [NotifyCanExecuteChangedFor(nameof(UninstallLegacyITunesCommand))]
     [NotifyCanExecuteChangedFor(nameof(RecheckCommand))]
     private bool _isBusy;
 
@@ -91,6 +95,9 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
             ItunesState  = _deps.Status.ITunes;
             ToolsState   = _deps.Status.CliTools;
             AllReady     = _deps.Status.AllReady;
+            HasLegacyConflict = _deps.Status.HasLegacyConflict;
+            InstalledITunesVersion = _deps.Status.InstalledITunesVersion;
+            DownloadedInstallerPath = _deps.Status.DownloadedInstallerPath;
         });
     }
 
@@ -261,6 +268,53 @@ public sealed partial class SetupViewModel : ObservableObject, IPageAware
             try { Process.Start(new ProcessStartInfo(ICloudStoreWebUrl) { UseShellExecute = true }); }
             catch { /* ignore */ }
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunInstall))]
+    private async Task UninstallLegacyITunesAsync()
+    {
+        IsBusy = true;
+        ErrorMessage = null;
+        try
+        {
+            var ok = await _deps.UninstallLegacyITunesAsync();
+            if (!ok)
+            {
+                ErrorMessage = "Не удалось автоматически удалить старую версию iTunes. Удалите её через «Программы и компоненты» Windows.";
+            }
+            else
+            {
+                await RunChecksAsync();
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDownloadedInstaller()
+    {
+        try
+        {
+            var path = DownloadedInstallerPath;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                var downloadsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                path = Path.Combine(downloadsDir, "iTunes64Setup.exe");
+            }
+
+            if (File.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true, Verb = "runas" });
+            }
+            else
+            {
+                OpenITunesPage();
+            }
+        }
+        catch { /* ignore */ }
     }
 
     [RelayCommand]

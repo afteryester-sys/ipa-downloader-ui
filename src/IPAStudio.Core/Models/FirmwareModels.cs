@@ -29,6 +29,7 @@ public sealed class FirmwareRelease
     [JsonPropertyName("signed")] public bool Signed { get; set; }
     [JsonIgnore] public string SizeText => FileSize <= 0 ? "—" : $"{FileSize / 1024d / 1024d / 1024d:F2} GB";
     [JsonIgnore] public string StatusText => Signed ? "Signed" : "Unsigned";
+    [JsonIgnore] public string ReleaseDateText => ReleaseDate?.LocalDateTime.ToString("dd.MM.yyyy") ?? UploadDate?.LocalDateTime.ToString("dd.MM.yyyy") ?? "—";
 }
 
 public sealed class FirmwareSubscription

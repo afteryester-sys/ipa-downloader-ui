@@ -15,6 +15,7 @@
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:SubtractConverter x:Key="Subtract" />
         <conv:PercentToArcConverter x:Key="PercentToArc" />
+        <conv:SectorArcConverter x:Key="SectorArc" />
         <DataTemplate DataType="{x:Type vm:SetupViewModel}">
             <views:SetupView />
         </DataTemplate>
@@ -507,11 +508,87 @@
                                  top as the work completes. -->
                             <Ellipse Stroke="{StaticResource Brush.Border}" StrokeThickness="3"
                                      Fill="{StaticResource Brush.Surface}" Margin="1.5" />
+
+                            <!-- Single Circle Mode: Blue Arc (Apps / Queue) -->
                             <Path Stroke="{StaticResource Brush.Accent}" StrokeThickness="3"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   Data="{Binding OverallProgress,
-                                         Converter={StaticResource PercentToArc},
-                                         ConverterParameter=34}" />
+                                         Converter={StaticResource SectorArc},
+                                         ConverterParameter='full,34'}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasRunning}" Value="True" />
+                                                    <Condition Binding="{Binding IsSplitCircle}" Value="False" />
+                                                    <Condition Binding="{Binding IsSingleFirmwareCircle}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+
+                            <!-- Single Circle Mode: Orange Arc (Firmware) -->
+                            <Path Stroke="{StaticResource Brush.Warning}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="{Binding FirmwareProgress,
+                                         Converter={StaticResource SectorArc},
+                                         ConverterParameter='full,34'}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasRunning}" Value="True" />
+                                                    <Condition Binding="{Binding IsSingleFirmwareCircle}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+
+                            <!-- Split Mode: Half 1 - Blue Arc (Apps, 12 to 6 o'clock) -->
+                            <Path Stroke="{StaticResource Brush.Accent}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="{Binding AppProgress,
+                                         Converter={StaticResource SectorArc},
+                                         ConverterParameter='half1,34'}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSplitCircle}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
+
+                            <!-- Split Mode: Half 2 - Orange Arc (Firmware, 6 to 12 o'clock) -->
+                            <Path Stroke="{StaticResource Brush.Warning}" StrokeThickness="3"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="{Binding FirmwareProgress,
+                                         Converter={StaticResource SectorArc},
+                                         ConverterParameter='half2,34'}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSplitCircle}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                            </Path>
 
                             <!-- Number of operations still working; the glyph stands in once
                                  they have all finished so the circle never reads as "0". -->
@@ -565,17 +642,41 @@
                                         <Border Background="{StaticResource Brush.SurfaceHover}" CornerRadius="8"
                                                 Padding="12" Margin="0,0,0,8">
                                             <StackPanel>
-                                                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
-                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <DockPanel>
+                                                    <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="{StaticResource Brush.Accent}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:OperationKind.Firmware}">
+                                                                        <Setter Property="Fill" Value="{StaticResource Brush.Warning}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Body}"
+                                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                </DockPanel>
                                                 <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}"
-                                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                                           TextTrimming="CharacterEllipsis" Margin="16,2,0,0" />
 
                                                 <ProgressBar Height="4" Margin="0,8,0,0" Minimum="0" Maximum="100"
                                                              Value="{Binding Progress, Mode=OneWay}"
                                                              Background="{StaticResource Brush.Border}"
-                                                             Foreground="{StaticResource Brush.Accent}"
                                                              BorderThickness="0"
-                                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}" />
+                                                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
+                                                    <ProgressBar.Style>
+                                                        <Style TargetType="ProgressBar">
+                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:OperationKind.Firmware}">
+                                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Warning}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ProgressBar.Style>
+                                                </ProgressBar>
 
                                                 <TextBlock Text="{Binding StateText}" Style="{StaticResource Text.Caption}"
                                                            Margin="0,6,0,0" />

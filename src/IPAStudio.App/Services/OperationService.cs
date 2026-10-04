@@ -48,6 +48,24 @@ public sealed partial class OperationService : ObservableObject
     private double _overallProgress;
 
     [ObservableProperty]
+    private double _appProgress;
+
+    [ObservableProperty]
+    private double _firmwareProgress;
+
+    [ObservableProperty]
+    private bool _hasRunningApp;
+
+    [ObservableProperty]
+    private bool _hasRunningFirmware;
+
+    [ObservableProperty]
+    private bool _isSplitCircle;
+
+    [ObservableProperty]
+    private bool _isSingleFirmwareCircle;
+
+    [ObservableProperty]
     private int _runningCount;
 
     /// <summary>
@@ -286,6 +304,18 @@ public sealed partial class OperationService : ObservableObject
         OverallProgress = running.Count == 0
             ? 0
             : running.Sum(o => o.Progress) / running.Count;
+
+        var runningApps = running.Where(o => o.Kind != OperationKind.Firmware).ToList();
+        var runningFw = running.Where(o => o.Kind == OperationKind.Firmware).ToList();
+
+        HasRunningApp = runningApps.Count > 0;
+        HasRunningFirmware = runningFw.Count > 0;
+
+        AppProgress = runningApps.Count == 0 ? 0 : runningApps.Sum(o => o.Progress) / runningApps.Count;
+        FirmwareProgress = runningFw.Count == 0 ? 0 : runningFw.Sum(o => o.Progress) / runningFw.Count;
+
+        IsSplitCircle = HasRunningApp && HasRunningFirmware;
+        IsSingleFirmwareCircle = HasRunningFirmware && !HasRunningApp;
 
         OnPropertyChanged(nameof(HasRunning));
 

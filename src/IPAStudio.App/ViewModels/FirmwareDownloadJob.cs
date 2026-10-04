@@ -26,6 +26,7 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
     public FirmwareDevice Device { get; }
     public FirmwareRelease Firmware { get; }
     public string DestinationPath { get; }
+    public bool IsSingleDownload { get; set; }
 
     /// <summary>Set by the queue runner; the job itself only exposes the request to stop.</summary>
     public CancellationTokenSource? Cts { get; set; }
@@ -40,11 +41,13 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
         string destinationPath,
         Action<FirmwareDownloadJob> pause,
         Action<FirmwareDownloadJob> resume,
-        Action<FirmwareDownloadJob> stop)
+        Action<FirmwareDownloadJob> stop,
+        bool isSingleDownload = false)
     {
         Device = device;
         Firmware = firmware;
         DestinationPath = destinationPath;
+        IsSingleDownload = isSingleDownload;
         _pause = pause;
         _resume = resume;
         _stop = stop;

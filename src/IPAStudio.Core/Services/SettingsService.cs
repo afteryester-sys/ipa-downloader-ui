@@ -346,6 +346,12 @@ public sealed class AppSettings
     /// <summary>How often subscribed devices are checked for a new signed IPSW.</summary>
     public int FirmwareCheckIntervalHours { get; set; } = 6;
 
+    /// <summary>Whether automatic background checking for new IPSW releases is enabled.</summary>
+    public bool FirmwareAutoCheckEnabled { get; set; } = true;
+
+    /// <summary>Whether downloaded IPSW hash is verified after download.</summary>
+    public bool FirmwareVerifyHash { get; set; } = true;
+
     /// <summary>Devices monitored for automatic firmware downloads.</summary>
     public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
 }

@@ -31,8 +31,11 @@ public sealed class FirmwareAutoUpdateService : IDisposable
 
     private void Schedule(bool runSoon = false)
     {
-        var hours = Math.Clamp(_settings.Current.FirmwareCheckIntervalHours, 1, 168);
         _timer?.Dispose();
+        _timer = null;
+        if (!_settings.Current.FirmwareAutoCheckEnabled) return;
+
+        var hours = Math.Clamp(_settings.Current.FirmwareCheckIntervalHours, 1, 168);
         _timer = new System.Threading.Timer(async _ => await CheckAsync(), null,
             runSoon ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(hours), TimeSpan.FromHours(hours));
     }

@@ -186,6 +186,28 @@
                                     Padding="0" FontSize="12"
                                     Command="{Binding OpenITunesPageCommand}" />
                         </StackPanel>
+
+                        <!-- Legacy iTunes Conflict Banner -->
+                        <Border Margin="34,12,0,0" Padding="14,10" CornerRadius="8"
+                                Background="{StaticResource Brush.WarningSoft}"
+                                BorderBrush="{StaticResource Brush.Warning}" BorderThickness="1"
+                                Visibility="{Binding HasLegacyConflict, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource L.Setup.LegacyConflictTitle}"
+                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.Warning}"
+                                           FontSize="13" Margin="0,0,0,4" />
+                                <TextBlock Text="{DynamicResource L.Setup.LegacyConflictHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="{DynamicResource L.Setup.UninstallLegacy}"
+                                            Style="{StaticResource Button.Secondary}" Padding="12,6"
+                                            Command="{Binding UninstallLegacyITunesCommand}" />
+                                    <Button Content="{DynamicResource L.Setup.RunDownloadedInstaller}"
+                                            Style="{StaticResource Button.Primary}" Padding="12,6" Margin="8,0,0,0"
+                                            Command="{Binding OpenDownloadedInstallerCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 

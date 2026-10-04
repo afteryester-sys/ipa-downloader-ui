@@ -26,6 +26,15 @@ public sealed class DependencyStatus
     /// <summary>iCloud for Windows — only checked when ipatool v3 is active.</summary>
     public DependencyState ICloud { get; set; } = DependencyState.Unknown;
 
+    /// <summary>Installed version of iTunes if detected (e.g. 12.6.5.3).</summary>
+    public string? InstalledITunesVersion { get; set; }
+
+    /// <summary>True when an older conflicting iTunes (e.g. 12.6.5.3) is preventing modern driver setup.</summary>
+    public bool HasLegacyConflict { get; set; }
+
+    /// <summary>Path to downloaded iTunes installer in Downloads/Temp.</summary>
+    public string? DownloadedInstallerPath { get; set; }
+
     /// <summary>Everything required for device detection and installs is present.</summary>
     public bool AllReady =>
         AppleDrivers == DependencyState.Ok && CliTools == DependencyState.Ok;
@@ -99,6 +108,10 @@ public sealed class DependencyService
 
         Status.AppleDrivers = await Task.Run(CheckAppleMobileDeviceSupport, ct);
         Status.ITunes = await Task.Run(CheckITunesInstalled, ct);
+        var (itunesVer, _, isLegacy) = GetInstalledITunesInfo();
+        Status.InstalledITunesVersion = itunesVer;
+        Status.HasLegacyConflict = isLegacy && Status.AppleDrivers != DependencyState.Ok;
+
         var toolsPresent = _tools.ValidateTools().Count == 0;
         var standardIpatoolCurrent = !toolsPresent
             || _tools.UseBetaAppleAuthentication
@@ -368,11 +381,106 @@ public sealed class DependencyService
         return DependencyState.Missing;
     }
 
+    /// <summary>
+    /// Checks for installed iTunes entries in the registry, reads the version string,
+    /// and checks if it is a legacy version (e.g. 12.6.5.3) that conflicts with modern drivers.
+    /// </summary>
+    public static (string? version, string? uninstallCmd, bool isLegacy) GetInstalledITunesInfo()
+    {
+        if (!OperatingSystem.IsWindows()) return (null, null, false);
+
+        string[] uninstallRoots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
+        ];
+
+        foreach (var root in uninstallRoots)
+        {
+            using var rootKey = Registry.LocalMachine.OpenSubKey(root);
+            if (rootKey is null) continue;
+            foreach (var sub in rootKey.GetSubKeyNames())
+            {
+                using var subKey = rootKey.OpenSubKey(sub);
+                var name = subKey?.GetValue("DisplayName") as string ?? "";
+                if (string.Equals(name, "iTunes", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("iTunes ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var version = subKey?.GetValue("DisplayVersion") as string ?? "";
+                    var uninstall = subKey?.GetValue("UninstallString") as string ?? "";
+                    var isLegacy = false;
+                    if (Version.TryParse(version, out var parsedVer))
+                    {
+                        if (parsedVer <= new Version(12, 6, 5, 3))
+                            isLegacy = true;
+                    }
+                    else if (version.Contains("12.6", StringComparison.OrdinalIgnoreCase))
+                    {
+                        isLegacy = true;
+                    }
+                    return (version, uninstall, isLegacy);
+                }
+            }
+        }
+        return (null, null, false);
+    }
+
+    /// <summary>
+    /// Uninstalls an older conflicting iTunes version using its registered MsiExec command.
+    /// </summary>
+    public async Task<bool> UninstallLegacyITunesAsync(CancellationToken ct = default)
+    {
+        var (_, uninstallCmd, _) = GetInstalledITunesInfo();
+        if (string.IsNullOrEmpty(uninstallCmd)) return false;
+
+        try
+        {
+            // Close any running iTunes processes first
+            foreach (var procName in new[] { "iTunes", "iTunesHelper", "AppleMobileDeviceService", "AppleMobileDeviceProcess" })
+            {
+                try
+                {
+                    foreach (var p in Process.GetProcessesByName(procName))
+                    {
+                        p.Kill(true);
+                    }
+                }
+                catch { /* best effort */ }
+            }
+
+            string exe = "msiexec.exe";
+            string args = uninstallCmd;
+            if (uninstallCmd.StartsWith("msiexec", StringComparison.OrdinalIgnoreCase))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(uninstallCmd, @"\{[A-Fa-f0-9\-]+\}");
+                if (match.Success)
+                {
+                    args = $"/x {match.Value} /passive /norestart";
+                }
+                else
+                {
+                    var spaceIdx = uninstallCmd.IndexOf(' ');
+                    args = (spaceIdx > 0 ? uninstallCmd.Substring(spaceIdx).Trim() : "") + " /passive /norestart";
+                }
+            }
+
+            var ok = await RunElevatedAsync(exe, args, ct);
+            await Task.Delay(1500, ct);
+            await CheckAllAsync(ct);
+            return ok;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // ---------------------------------------------------------------- installs
 
     /// <summary>
-    /// Installs iTunes silently: tries winget first, falls back to downloading
-    /// the official installer from apple.com. Reports progress via <paramref name="progress"/> (0..1, or -1 for indeterminate).
+    /// Installs iTunes: tries winget first, falls back to downloading the official
+    /// installer from apple.com. If quiet install fails due to conflicts, automatically
+    /// falls back to interactive installation so the user sees the setup wizard.
     /// </summary>
     public async Task<bool> InstallITunesAsync(
         IProgress<(double fraction, string stage)>? progress = null,
@@ -384,25 +492,49 @@ public sealed class DependencyService
 
         try
         {
+            // If legacy version exists and conflicts, remove it cleanly first
+            var (legacyVer, uninstallCmd, isLegacy) = GetInstalledITunesInfo();
+            if (isLegacy && !string.IsNullOrEmpty(uninstallCmd))
+            {
+                progress?.Report((-1, "uninstall_old"));
+                await UninstallLegacyITunesAsync(ct);
+            }
+
             // --- 1) winget (present on all up-to-date Windows 10/11) ---------
             progress?.Report((-1, "winget"));
             if (await TryWingetInstallAsync(ct))
             {
+                await Task.Delay(2000, ct);
                 await CheckAllAsync(ct);
-                return Status.ITunes == DependencyState.Ok;
+                if (Status.ITunes == DependencyState.Ok && Status.AppleDrivers == DependencyState.Ok)
+                    return true;
             }
 
             // --- 2) direct download from apple.com ---------------------------
-            var setupPath = Path.Combine(Path.GetTempPath(), "iTunes64Setup.exe");
+            var downloadsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+            if (!Directory.Exists(downloadsDir)) Directory.CreateDirectory(downloadsDir);
+            var setupPath = Path.Combine(downloadsDir, "iTunes64Setup.exe");
+
             await DownloadWithProgressAsync(ITunesDownloadUrl, setupPath,
                 f => progress?.Report((f, "download")), ct);
 
-            progress?.Report((-1, "install"));
-            var ok = await RunElevatedAsync(setupPath, "/quiet /norestart", ct);
-            try { File.Delete(setupPath); } catch { /* best effort */ }
+            Status.DownloadedInstallerPath = setupPath;
 
+            progress?.Report((-1, "install"));
+            // Try silent first
+            var ok = await RunElevatedAsync(setupPath, "/quiet /norestart", ct);
+            await Task.Delay(2500, ct);
             await CheckAllAsync(ct);
-            return ok && Status.AppleDrivers == DependencyState.Ok;
+
+            // If silent install failed to register drivers, launch interactively with wizard UI!
+            if (Status.AppleDrivers != DependencyState.Ok)
+            {
+                progress?.Report((-1, "interactive"));
+                await RunElevatedAsync(setupPath, "", ct);
+                await CheckAllAsync(ct);
+            }
+
+            return Status.AppleDrivers == DependencyState.Ok;
         }
         catch
         {
