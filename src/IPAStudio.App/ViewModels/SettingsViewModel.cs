@@ -79,6 +79,18 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string _appsFolder = "";
 
+    [ObservableProperty]
+    private string _firmwareFolder = "";
+
+    [ObservableProperty]
+    private int _firmwareDownloadThreads = 4;
+
+    [ObservableProperty]
+    private bool _firmwareAutoCheckEnabled = true;
+
+    [ObservableProperty]
+    private bool _firmwareVerifyHash = true;
+
     /// <summary>
     /// The iTunes "Mobile Applications" folder, for the iTunes 12.6.5.3 download route.
     /// Left blank on almost every machine: the default locations under Music are probed
@@ -515,6 +527,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         PhotosCtrlSelects = _settings.Current.PhotosCtrlSelects;
         OnDeviceCtrlSelects = _settings.Current.OnDeviceCtrlSelects;
         CatalogCtrlSelects = _settings.Current.CatalogCtrlSelects;
+        FirmwareFolder = _settings.Current.FirmwareFolder ?? System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
+        FirmwareDownloadThreads = Math.Clamp(_settings.Current.FirmwareDownloadThreads, 1, 16);
+        FirmwareAutoCheckEnabled = _settings.Current.FirmwareAutoCheckEnabled;
+        FirmwareVerifyHash = _settings.Current.FirmwareVerifyHash;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -794,6 +811,17 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private void BrowseFirmwareFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            InitialDirectory = System.IO.Directory.Exists(FirmwareFolder) ? FirmwareFolder : null
+        };
+        if (dialog.ShowDialog() == true)
+            FirmwareFolder = dialog.FolderName;
+    }
+
+    [RelayCommand]
     private void Save()
     {
         // Detect a theme change before saving — switching the color theme needs a
@@ -821,6 +849,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Current.HideDevicePollingLogs = HideDevicePollingLogs;
+        _settings.Current.FirmwareFolder = string.IsNullOrWhiteSpace(FirmwareFolder) ? null : FirmwareFolder;
+        _settings.Current.FirmwareDownloadThreads = Math.Clamp(FirmwareDownloadThreads, 1, 16);
+        _settings.Current.FirmwareAutoCheckEnabled = FirmwareAutoCheckEnabled;
+        _settings.Current.FirmwareVerifyHash = FirmwareVerifyHash;
         _settings.Save();
 
         // Applied live, without waiting for the current work to end: the throttle can change

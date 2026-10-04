@@ -1,7 +1,7 @@
 # Tasks: Production Firmware IPSW Center & Intelligent Driver Setup Recovery
 
 **Feature**: [spec.md](spec.md) | [plan.md](plan.md)  
-**Target Version**: `1.8.38`  
+**Target Version**: `1.8.40`  
 
 ## Task Checklist
 
@@ -34,8 +34,13 @@
     - 1 active task -> solid ring (orange for IPSW, blue for app install) with `1`.
     - 2+ active tasks -> divided circle (equal blue + orange arcs) with total count in center.
 
-- [x] **[T006]** Version bump to `1.8.38` in `src/IPAStudio.App/IPAStudio.App.csproj`.
+- [x] **[T006]** Clean Interface Design & Bug Review (v1.8.40):
+  - Eliminate duplicate settings gear button in header of `FirmwareView.xaml`.
+  - Add inline gear button to left sidebar TSS tile.
+  - Add dedicated "Apple IPSW Firmware" card in global `SettingsView.xaml` and `SettingsViewModel.cs`.
+  - Replace TV icons (`&#xE7F4;`) with iPhone/device glyphs (`&#xE8EA;`).
+  - Add empty states for Mode 1 and Mode 2 tables so right pane is never a blank void when no device is selected.
+  - Version bump to `1.8.40` in `src/IPAStudio.App/IPAStudio.App.csproj`.
 
-- [ ] **[T007]** Verification & Release:
-  - Run regression tests.
-  - Push commit and tag `v1.8.38` to GitHub to trigger `auto-release.yml`.
+- [x] **[T007]** Verification & Release:
+  - Push commit to GitHub to trigger `auto-release.yml` for `v1.8.40`.

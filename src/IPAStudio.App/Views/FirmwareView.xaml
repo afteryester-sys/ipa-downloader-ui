@@ -89,7 +89,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- Apple Segmented Control -->
                 <Border Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
-                        BorderThickness="1" CornerRadius="8" Padding="2" Margin="0,0,10,0">
+                        BorderThickness="1" CornerRadius="8" Padding="2" Margin="0">
                     <StackPanel Orientation="Horizontal">
                         <!-- Tab 1: Мои устройства -->
                         <Button Command="{Binding SwitchToDevicesModeCommand}"
@@ -118,7 +118,7 @@
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource L.Firmware.Tab.MyDevices}" FontSize="12" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding MyDevices.Count, StringFormat=' ({0})'}" FontSize="11" Opacity="0.8" VerticalAlignment="Center" />
                             </StackPanel>
@@ -157,13 +157,6 @@
                         </Button>
                     </StackPanel>
                 </Border>
-
-                <!-- Detailed Settings (Gear Button) -->
-                <Button Command="{Binding ToggleSettingsCommand}" Width="32" Height="32" Padding="0"
-                        Style="{StaticResource Button.Secondary}"
-                        ToolTip="{DynamicResource L.Firmware.Settings.Title}">
-                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="13" />
-                </Button>
             </StackPanel>
         </Grid>
 
@@ -187,7 +180,7 @@
                 <DockPanel Grid.Row="0" Margin="0,0,0,8">
                     <TextBlock Text="{DynamicResource L.Firmware.MyDevices}" Style="{StaticResource Text.Caption}"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Button DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.AddDevicesTitle}"
+                    <Button DockPanel.Dock="Right" Content="+ Добавить" ToolTip="{DynamicResource L.Firmware.AddDevicesTitle}"
                             Style="{StaticResource Button.Ghost}" Padding="6,2" FontSize="11"
                             Click="AddDevices_Click" HorizontalAlignment="Right" />
                 </DockPanel>
@@ -197,8 +190,8 @@
                     <Grid>
                         <!-- Empty state when no devices yet -->
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="14"
-                                    Visibility="{Binding MyDevices.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}">
-                            <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="26"
+                                     Visibility="{Binding MyDevices.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}">
+                            <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="26"
                                        Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" Opacity="0.35" Margin="0,0,0,8" />
                             <TextBlock Text="Нет устройств" FontSize="12" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" />
@@ -242,6 +235,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
@@ -276,7 +270,7 @@
                         </StackPanel>
                         <!-- iOS Toggle Switch -->
                         <Border Grid.Column="1" Width="36" Height="20" CornerRadius="10" Padding="2"
-                                Cursor="Hand" VerticalAlignment="Center">
+                                Cursor="Hand" VerticalAlignment="Center" Margin="0,0,8,0">
                             <Border.InputBindings>
                                 <MouseBinding Gesture="LeftClick" Command="{Binding ToggleAutoCheckCommand}" />
                             </Border.InputBindings>
@@ -306,6 +300,12 @@
                                 </Ellipse.Style>
                             </Ellipse>
                         </Border>
+                        <!-- Subtle settings gear button -->
+                        <Button Grid.Column="2" Style="{StaticResource Button.Ghost}" Width="26" Height="26" Padding="0"
+                                Command="{Binding ToggleSettingsCommand}"
+                                ToolTip="{DynamicResource L.Firmware.Settings.Title}" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
+                        </Button>
                     </Grid>
                 </Border>
             </Grid>
@@ -317,112 +317,172 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- MODE 1: "МОИ УСТРОЙСТВА" TABLE -->
+                <!-- MODE 1: "МОИ УСТРОЙСТВА" TABLE & EMPTY STATE -->
                 <Border Grid.Row="0" Style="{StaticResource Card}" Padding="16"
                         Visibility="{Binding IsSingleDownloadMode, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                     <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <!-- Controls Bar -->
-                        <DockPanel Grid.Row="0" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding SelectedDevice.Name, FallbackValue='Выберите устройство'}"
-                                           FontWeight="SemiBold" FontSize="15" />
-                                <TextBlock Text="{Binding SelectedDevice.Identifier, StringFormat=' ({0})'}"
-                                           Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                        <!-- Empty State: when no device is selected in the list -->
+                        <Grid Visibility="{Binding SelectedDevice, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                            <StackPanel HorizontalAlignment="Center" MaxWidth="440">
+                                <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource Brush.SurfaceHover}"
+                                        HorizontalAlignment="Center" Margin="0,0,0,16">
+                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="28"
+                                               Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Выберите устройство" FontSize="17" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" Margin="0,0,0,8" />
+                                <TextBlock Text="Выберите устройство из списка слева для просмотра доступных официальных прошивок и проверки статуса цифровой подписи Apple TSS, либо воспользуйтесь разовым скачиванием."
+                                           Style="{StaticResource Text.Caption}" FontSize="12" TextAlignment="Center"
+                                           TextWrapping="Wrap" Margin="0,0,0,20" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="+ Добавить устройство" Style="{StaticResource Button.Primary}"
+                                            Click="AddDevices_Click" Height="32" Padding="16,0" FontSize="12" Margin="0,0,10,0" />
+                                    <Button Command="{Binding SwitchToSingleModeCommand}" Style="{StaticResource Button.Secondary}"
+                                            Height="32" Padding="14,0" FontSize="12">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⚡" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Одиночное скачивание" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
                             </StackPanel>
-                            <CheckBox DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.SignedOnly}"
-                                      Style="{StaticResource Check.Base}" IsChecked="{Binding SignedOnly}"
-                                      HorizontalAlignment="Right" VerticalAlignment="Center" />
-                        </DockPanel>
-
-                        <!-- Table Header -->
-                        <Grid Grid.Row="1" Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2.5*" />
-                                <ColumnDefinition Width="1.5*" />
-                                <ColumnDefinition Width="2.5*" />
-                                <ColumnDefinition Width="1.5*" />
-                                <ColumnDefinition Width="1.5*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" />
-                            <TextBlock Grid.Column="1" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                            <TextBlock Grid.Column="2" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                            <TextBlock Grid.Column="3" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                            <TextBlock Grid.Column="4" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
                         </Grid>
 
-                        <!-- Firmwares List -->
-                        <ListBox Grid.Row="2" ItemsSource="{Binding Firmwares}" SelectedItem="{Binding SelectedFirmware}"
-                                 ItemContainerStyle="{StaticResource FirmwareSelectable}"
-                                 BorderThickness="0" Background="Transparent"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="10,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="2.5*" />
-                                            <ColumnDefinition Width="1.5*" />
-                                            <ColumnDefinition Width="2.5*" />
-                                            <ColumnDefinition Width="1.5*" />
-                                            <ColumnDefinition Width="1.5*" />
-                                        </Grid.ColumnDefinitions>
+                        <!-- Device Selected Content -->
+                        <Grid Visibility="{Binding SelectedDevice, Converter={StaticResource NullToCollapsed}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                                        <!-- Version -->
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Version, StringFormat='iOS {0}'}" FontWeight="SemiBold" FontSize="13" />
-                                            <TextBlock Text="{Binding ReleaseDateText}" Style="{StaticResource Text.Caption}" FontSize="11" />
-                                        </StackPanel>
+                            <!-- Controls Bar -->
+                            <DockPanel Grid.Row="0" Margin="0,0,0,12">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SelectedDevice.Name, FallbackValue='Выберите устройство'}"
+                                               FontWeight="SemiBold" FontSize="15" />
+                                    <TextBlock Text="{Binding SelectedDevice.Identifier, StringFormat=' ({0})'}"
+                                               Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="6,0,0,0" />
+                                </StackPanel>
+                                <CheckBox DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.SignedOnly}"
+                                          Style="{StaticResource Check.Base}" IsChecked="{Binding SignedOnly}"
+                                          HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </DockPanel>
 
-                                        <!-- BuildId -->
-                                        <TextBlock Grid.Column="1" Text="{Binding BuildId}" Style="{StaticResource Text.Caption}"
-                                                   FontFamily="Consolas" VerticalAlignment="Center" Margin="6,0" />
+                            <!-- Table Header -->
+                            <Grid Grid.Row="1" Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2.5*" />
+                                    <ColumnDefinition Width="1.5*" />
+                                    <ColumnDefinition Width="2.5*" />
+                                    <ColumnDefinition Width="1.5*" />
+                                    <ColumnDefinition Width="1.5*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" />
+                                <TextBlock Grid.Column="1" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="2" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="3" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="4" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
+                            </Grid>
 
-                                        <!-- TSS Status Badge -->
-                                        <Border Grid.Column="2" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{DynamicResource Brush.SuccessSoft}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Signed}" Value="False">
-                                                            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock FontSize="11" FontWeight="Medium">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="{DynamicResource L.Firmware.TssSigned}" />
-                                                        <Setter Property="Foreground" Value="#30D158" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Signed}" Value="False">
-                                                                <Setter Property="Text" Value="{DynamicResource L.Firmware.TssUnsigned}" />
-                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </Border>
+                            <!-- Firmwares List & Loading/Empty indicator -->
+                            <Grid Grid.Row="2">
+                                <!-- Loading State -->
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                                            Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
+                                    <ProgressBar IsIndeterminate="True" Width="140" Height="4" Style="{StaticResource Progress.Slim}" Margin="0,0,0,10" />
+                                    <TextBlock Text="Загрузка списка прошивок..." Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" />
+                                </StackPanel>
 
-                                        <!-- File Size -->
-                                        <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" Margin="6,0" FontSize="12" />
+                                <!-- Empty list when loaded but 0 items -->
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding Firmwares.Count}" Value="0" />
+                                                        <Condition Binding="{Binding IsLoading}" Value="False" />
+                                                    </MultiDataTrigger.Conditions>
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </MultiDataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Нет прошивок, соответствующих текущему фильтру"
+                                               Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" />
+                                </StackPanel>
 
-                                        <!-- Download Button -->
-                                        <Button Grid.Column="4" Content="{DynamicResource L.Firmware.Single.DownloadOnce}"
-                                                Style="{StaticResource PillButton}"
-                                                Command="{Binding DataContext.DownloadSingleFirmwareCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                CommandParameter="{Binding}"
-                                                HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                                <ListBox ItemsSource="{Binding Firmwares}" SelectedItem="{Binding SelectedFirmware}"
+                                         ItemContainerStyle="{StaticResource FirmwareSelectable}"
+                                         BorderThickness="0" Background="Transparent"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="10,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="2.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                    <ColumnDefinition Width="2.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Version -->
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Version, StringFormat='iOS {0}'}" FontWeight="SemiBold" FontSize="13" />
+                                                    <TextBlock Text="{Binding ReleaseDateText}" Style="{StaticResource Text.Caption}" FontSize="11" />
+                                                </StackPanel>
+
+                                                <!-- BuildId -->
+                                                <TextBlock Grid.Column="1" Text="{Binding BuildId}" Style="{StaticResource Text.Caption}"
+                                                           FontFamily="Consolas" VerticalAlignment="Center" Margin="6,0" />
+
+                                                <!-- TSS Status Badge -->
+                                                <Border Grid.Column="2" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.SuccessSoft}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Signed}" Value="False">
+                                                                    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock FontSize="11" FontWeight="Medium">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{DynamicResource L.Firmware.TssSigned}" />
+                                                                <Setter Property="Foreground" Value="#30D158" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Signed}" Value="False">
+                                                                        <Setter Property="Text" Value="{DynamicResource L.Firmware.TssUnsigned}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+
+                                                <!-- File Size -->
+                                                <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" Margin="6,0" FontSize="12" />
+
+                                                <!-- Download Button -->
+                                                <Button Grid.Column="4" Content="{DynamicResource L.Firmware.Single.DownloadOnce}"
+                                                        Style="{StaticResource PillButton}"
+                                                        Command="{Binding DataContext.DownloadSingleFirmwareCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -485,94 +545,110 @@
                     <!-- Firmwares Table for Single Selected Device -->
                     <Border Grid.Row="1" Style="{StaticResource Card}" Padding="16">
                         <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-
-                            <!-- Table Header -->
-                            <Grid Grid.Row="0" Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2.5*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="2.5*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" />
-                                <TextBlock Grid.Column="1" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="2" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="3" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="4" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
+                            <!-- Empty State when no device chosen from dropdown -->
+                            <Grid Visibility="{Binding SelectedSingleDevice, Converter={StaticResource NullToCollapsed}, ConverterParameter=invert}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="32">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="32"
+                                               Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" Opacity="0.3" Margin="0,0,0,12" />
+                                    <TextBlock Text="Выберите модель устройства в выпадающем списке выше"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="Либо вставьте прямую ссылку на .ipsw файл для мгновенной загрузки"
+                                               Style="{StaticResource Text.Caption}" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                </StackPanel>
                             </Grid>
 
-                            <!-- Single Firmwares List -->
-                            <ListBox Grid.Row="1" ItemsSource="{Binding SingleFirmwares}"
-                                     ItemContainerStyle="{StaticResource FirmwareSelectable}"
-                                     BorderThickness="0" Background="Transparent"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="10,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="2.5*" />
-                                                <ColumnDefinition Width="1.5*" />
-                                                <ColumnDefinition Width="2.5*" />
-                                                <ColumnDefinition Width="1.5*" />
-                                                <ColumnDefinition Width="1.5*" />
-                                            </Grid.ColumnDefinitions>
+                            <!-- Single Device Selected Table -->
+                            <Grid Visibility="{Binding SelectedSingleDevice, Converter={StaticResource NullToCollapsed}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
 
-                                            <!-- Version -->
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Version, StringFormat='iOS {0}'}" FontWeight="SemiBold" FontSize="13" />
-                                                <TextBlock Text="{Binding ReleaseDateText}" Style="{StaticResource Text.Caption}" FontSize="11" />
-                                            </StackPanel>
+                                <!-- Table Header -->
+                                <Grid Grid.Row="0" Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2.5*" />
+                                        <ColumnDefinition Width="1.5*" />
+                                        <ColumnDefinition Width="2.5*" />
+                                        <ColumnDefinition Width="1.5*" />
+                                        <ColumnDefinition Width="1.5*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" />
+                                    <TextBlock Grid.Column="1" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="2" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="3" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="4" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
+                                </Grid>
 
-                                            <!-- BuildId -->
-                                            <TextBlock Grid.Column="1" Text="{Binding BuildId}" Style="{StaticResource Text.Caption}"
-                                                       FontFamily="Consolas" VerticalAlignment="Center" Margin="6,0" />
+                                <!-- Single Firmwares List -->
+                                <ListBox Grid.Row="1" ItemsSource="{Binding SingleFirmwares}"
+                                         ItemContainerStyle="{StaticResource FirmwareSelectable}"
+                                         BorderThickness="0" Background="Transparent"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="10,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="2.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                    <ColumnDefinition Width="2.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                </Grid.ColumnDefinitions>
 
-                                            <!-- TSS Status Badge -->
-                                            <Border Grid.Column="2" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{DynamicResource Brush.SuccessSoft}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Signed}" Value="False">
-                                                                <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <TextBlock FontSize="11" FontWeight="Medium">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Text" Value="{DynamicResource L.Firmware.TssSigned}" />
-                                                            <Setter Property="Foreground" Value="#30D158" />
+                                                <!-- Version -->
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Version, StringFormat='iOS {0}'}" FontWeight="SemiBold" FontSize="13" />
+                                                    <TextBlock Text="{Binding ReleaseDateText}" Style="{StaticResource Text.Caption}" FontSize="11" />
+                                                </StackPanel>
+
+                                                <!-- BuildId -->
+                                                <TextBlock Grid.Column="1" Text="{Binding BuildId}" Style="{StaticResource Text.Caption}"
+                                                           FontFamily="Consolas" VerticalAlignment="Center" Margin="6,0" />
+
+                                                <!-- TSS Status Badge -->
+                                                <Border Grid.Column="2" CornerRadius="6" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.SuccessSoft}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Signed}" Value="False">
-                                                                    <Setter Property="Text" Value="{DynamicResource L.Firmware.TssUnsigned}" />
-                                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Border>
+                                                    </Border.Style>
+                                                    <TextBlock FontSize="11" FontWeight="Medium">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{DynamicResource L.Firmware.TssSigned}" />
+                                                                <Setter Property="Foreground" Value="#30D158" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Signed}" Value="False">
+                                                                        <Setter Property="Text" Value="{DynamicResource L.Firmware.TssUnsigned}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
 
-                                            <!-- File Size -->
-                                            <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" Margin="6,0" FontSize="12" />
+                                                <!-- File Size -->
+                                                <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" Margin="6,0" FontSize="12" />
 
-                                            <!-- Download Button -->
-                                            <Button Grid.Column="4" Content="{DynamicResource L.Firmware.Single.DownloadOnce}"
-                                                    Style="{StaticResource PillButton}"
-                                                    Command="{Binding DataContext.DownloadSingleFirmwareCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}"
-                                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                                                <!-- Download Button -->
+                                                <Button Grid.Column="4" Content="{DynamicResource L.Firmware.Single.DownloadOnce}"
+                                                        Style="{StaticResource PillButton}"
+                                                        Command="{Binding DataContext.DownloadSingleFirmwareCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>

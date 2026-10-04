@@ -6,6 +6,8 @@
     <UserControl.Resources>
         <sys:Int32 x:Key="V2">2</sys:Int32>
         <sys:Int32 x:Key="V3">3</sys:Int32>
+        <sys:Int32 x:Key="V4">4</sys:Int32>
+        <sys:Int32 x:Key="V8">8</sys:Int32>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
@@ -126,6 +128,48 @@
                                Margin="0,0,0,10" />
                     <TextBox Style="{StaticResource Input.TextBox}"
                              Text="{Binding ItunesLibraryFolder, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Apple IPSW Firmware Settings -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Firmware.Settings.Title}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,4" />
+                    <TextBlock Text="{DynamicResource L.Firmware.Settings.Subtitle}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <!-- Destination Folder -->
+                    <TextBlock Text="{DynamicResource L.Firmware.Folder}" Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Style="{StaticResource Input.TextBox}" Text="{Binding FirmwareFolder, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="32" FontSize="11" FontFamily="Consolas" />
+                        <Button Grid.Column="1" Content="{DynamicResource L.Direct.Browse}" Style="{StaticResource Button.Secondary}"
+                                Command="{Binding BrowseFirmwareFolderCommand}" Margin="8,0,0,0" Height="32" Padding="14,0" FontSize="11" />
+                    </Grid>
+
+                    <!-- Download Threads -->
+                    <TextBlock Text="{DynamicResource L.Firmware.Threads}" Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <RadioButton Content="2" GroupName="FwThreads" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding FirmwareDownloadThreads, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V2}}"
+                                     Margin="0,0,20,0" />
+                        <RadioButton Content="4" GroupName="FwThreads" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding FirmwareDownloadThreads, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V4}}"
+                                     Margin="0,0,20,0" />
+                        <RadioButton Content="8" GroupName="FwThreads" Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding FirmwareDownloadThreads, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V8}}" />
+                    </StackPanel>
+
+                    <!-- Auto-Check TSS & Verify Hash checkboxes -->
+                    <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.AutoCheck}"
+                              IsChecked="{Binding FirmwareAutoCheckEnabled}" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.Settings.VerifySha}"
+                              IsChecked="{Binding FirmwareVerifyHash}" />
                 </StackPanel>
             </Border>
 
