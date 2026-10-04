@@ -168,10 +168,24 @@ public sealed class StringEqualsConverter : IValueConverter
 public sealed class IntEqualsConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is int i && parameter is int p && i == p;
+    {
+        if (value is int i)
+        {
+            if (parameter is int p) return i == p;
+            if (parameter is string s && int.TryParse(s, out var sp)) return i == sp;
+        }
+        return false;
+    }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        => value is true && parameter is int p ? p : Binding.DoNothing;
+    {
+        if (value is true)
+        {
+            if (parameter is int p) return p;
+            if (parameter is string s && int.TryParse(s, out var sp)) return sp;
+        }
+        return Binding.DoNothing;
+    }
 }
 
 /// <summary>
