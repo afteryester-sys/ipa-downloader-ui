@@ -16,6 +16,12 @@
     <CornerRadius x:Key="Radius.Card">10</CornerRadius>
     <CornerRadius x:Key="Radius.Control">8</CornerRadius>
 
+    <!-- Micro-interaction scale transforms for tactile feedback -->
+    <ScaleTransform x:Key="Transform.Scale.Hover" ScaleX="1.01" ScaleY="1.01" />
+    <ScaleTransform x:Key="Transform.Scale.Press" ScaleX="0.96" ScaleY="0.96" />
+    <ScaleTransform x:Key="Transform.Scale.IconHover" ScaleX="1.04" ScaleY="1.04" />
+    <ScaleTransform x:Key="Transform.Scale.IconPress" ScaleX="0.93" ScaleY="0.93" />
+
     <!-- ============ Typography ============ -->
     <FontFamily x:Key="Font.Body">Segoe UI Variable, Segoe UI</FontFamily>
 
@@ -64,21 +70,16 @@
                             CornerRadius="{StaticResource Radius.Control}"
                             Padding="{TemplateBinding Padding}"
                             RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
-                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.9" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="1.01" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="1.01" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.75" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="0.96" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="0.96" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
@@ -122,9 +123,6 @@
                             CornerRadius="{StaticResource Radius.Control}"
                             Padding="{TemplateBinding Padding}"
                             RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
-                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -133,13 +131,11 @@
                              background is transparent, so these buttons looked inert. -->
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="1.02" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="1.02" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="0.96" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="0.96" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
@@ -318,20 +314,15 @@
                             CornerRadius="{StaticResource Radius.Control}"
                             Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True"
                             RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
-                        </Border.RenderTransform>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="1.02" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="1.02" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="0.96" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="0.96" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                         </Trigger>
                         <!-- Filled, not merely outlined: an outline alone is too quiet for a
                              control that changes what every click on the page means. -->
@@ -537,9 +528,6 @@
                             CornerRadius="{StaticResource Radius.Control}"
                             Padding="{TemplateBinding Padding}"
                             RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
-                        </Border.RenderTransform>
                         <StackPanel Orientation="Horizontal">
                             <!-- Chevron from the standard icon font, so the direction of travel
                                  is readable without depending on the translated label. -->
@@ -552,13 +540,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                             <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="1.02" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="1.02" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="0.96" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="0.96" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.4" />
@@ -591,9 +577,6 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{StaticResource Radius.Control}"
                             RenderTransformOrigin="0.5,0.5">
-                        <Border.RenderTransform>
-                            <ScaleTransform x:Name="PressScale" ScaleX="1" ScaleY="1" />
-                        </Border.RenderTransform>
                         <!-- House glyph: understandable without the tooltip, and unaffected by
                              the interface language. -->
                         <!-- Foreground bound explicitly: a TextBlock placed directly in a
@@ -608,13 +591,11 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                             <Setter TargetName="Bg" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="1.04" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="1.04" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.IconHover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.Surface}" />
-                            <Setter TargetName="PressScale" Property="ScaleX" Value="0.94" />
-                            <Setter TargetName="PressScale" Property="ScaleY" Value="0.94" />
+                            <Setter TargetName="Bg" Property="RenderTransform" Value="{StaticResource Transform.Scale.IconPress}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bg" Property="Opacity" Value="0.4" />

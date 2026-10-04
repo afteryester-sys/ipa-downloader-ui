@@ -70,21 +70,16 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"
+                        <Border x:Name="BtnBg" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}"
                                 RenderTransformOrigin="0.5,0.5">
-                            <Border.RenderTransform>
-                                <ScaleTransform x:Name="BtnScale" ScaleX="1" ScaleY="1" />
-                            </Border.RenderTransform>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="BtnScale" Property="ScaleX" Value="1.04" />
-                                <Setter TargetName="BtnScale" Property="ScaleY" Value="1.04" />
+                                <Setter TargetName="BtnBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.IconHover}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="BtnScale" Property="ScaleX" Value="0.94" />
-                                <Setter TargetName="BtnScale" Property="ScaleY" Value="0.94" />
+                                <Setter TargetName="BtnBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.IconPress}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -135,21 +130,16 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                                <Border x:Name="TabBg" Background="{TemplateBinding Background}" CornerRadius="6"
                                                         Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
-                                                    <Border.RenderTransform>
-                                                        <ScaleTransform x:Name="TabScale" ScaleX="1" ScaleY="1" />
-                                                    </Border.RenderTransform>
                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="1.02" />
-                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="1.02" />
+                                                        <Setter TargetName="TabBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                                                     </Trigger>
                                                     <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="0.96" />
-                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="0.96" />
+                                                        <Setter TargetName="TabBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -189,21 +179,16 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="Button">
-                                                <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                                <Border x:Name="TabBg" Background="{TemplateBinding Background}" CornerRadius="6"
                                                         Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
-                                                    <Border.RenderTransform>
-                                                        <ScaleTransform x:Name="TabScale" ScaleX="1" ScaleY="1" />
-                                                    </Border.RenderTransform>
                                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="1.02" />
-                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="1.02" />
+                                                        <Setter TargetName="TabBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Hover}" />
                                                     </Trigger>
                                                     <Trigger Property="IsPressed" Value="True">
-                                                        <Setter TargetName="TabScale" Property="ScaleX" Value="0.96" />
-                                                        <Setter TargetName="TabScale" Property="ScaleY" Value="0.96" />
+                                                        <Setter TargetName="TabBg" Property="RenderTransform" Value="{StaticResource Transform.Scale.Press}" />
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
