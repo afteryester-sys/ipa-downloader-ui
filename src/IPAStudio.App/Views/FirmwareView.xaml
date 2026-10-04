@@ -279,7 +279,7 @@
                             </Ellipse.Style>
                         </Ellipse>
 
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" TextAlignment="Left">
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{DynamicResource L.Firmware.AutoCheck}" FontSize="12" FontWeight="SemiBold" />
                             <TextBlock FontSize="10">
                                 <TextBlock.Style>
