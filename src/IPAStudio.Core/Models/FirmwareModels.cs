@@ -80,3 +80,18 @@ public sealed record FirmwareDownloadProgress(long Downloaded, long Total, doubl
 {
     public double Percent => Total > 0 ? Downloaded * 100d / Total : 0;
 }
+
+public sealed class PersistedFirmwareJob
+{
+    public string DeviceName { get; set; } = "";
+    public string DeviceIdentifier { get; set; } = "";
+    public string FirmwareVersion { get; set; } = "";
+    public string BuildId { get; set; } = "";
+    public string Url { get; set; } = "";
+    public string Sha1 { get; set; } = "";
+    public string DestinationPath { get; set; } = "";
+    public bool IsSingleDownload { get; set; }
+    public long Downloaded { get; set; }
+    public long Total { get; set; }
+    public int State { get; set; }
+}

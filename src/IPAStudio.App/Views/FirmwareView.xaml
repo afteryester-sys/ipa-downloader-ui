@@ -153,11 +153,13 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="32,20,32,28">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <!-- ================= MAIN WORKSPACE CONTENT ================= -->
+        <Grid Margin="32,20,32,28">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
         <!-- ================= TOP HEADER CHROME & MODE SWITCHER ================= -->
         <Grid Grid.Row="0" Margin="0,0,0,16">
@@ -391,7 +393,7 @@
                                     </Setter>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsSingleDownloadMode}" Value="True">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                            <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
                                             <Setter Property="Foreground" Value="White" />
                                             <Setter Property="FontWeight" Value="SemiBold" />
                                         </DataTrigger>
@@ -399,7 +401,18 @@
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="⚡" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                <TextBlock Text="⚡" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Firmware}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSingleDownloadMode}" Value="True">
+                                                    <Setter Property="Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                                 <TextBlock Text="{DynamicResource L.Firmware.Tab.SingleDownload}" FontSize="12" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -633,12 +646,12 @@
                                            TextWrapping="Wrap" Margin="0,0,0,20" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <Button Content="+ Добавить устройство" Style="{StaticResource Button.Primary}"
-                                            Click="AddDevices_Click" Height="32" Padding="16,0" FontSize="12" Margin="0,0,10,0" />
+                                            Click="AddDevices_Click" Height="34" Padding="18,0" FontSize="12" Margin="0,0,12,0" />
                                     <Button Command="{Binding SwitchToSingleModeCommand}" Style="{StaticResource Button.Secondary}"
-                                            Height="32" Padding="14,0" FontSize="12">
+                                            Height="34" Padding="16,0" FontSize="12">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="⚡" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="Одиночное скачивание" VerticalAlignment="Center" />
+                                            <TextBlock Text="⚡" FontSize="12" Foreground="{DynamicResource Brush.Firmware}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Одиночное скачивание" FontWeight="SemiBold" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -1177,19 +1190,23 @@
                 </Border>
             </Grid>
         </Grid>
+    </Grid>
 
-        <!-- ================= MODAL: IPSW SETTINGS SHEET ================= -->
-        <Grid Grid.RowSpan="2" Background="#66000000" Panel.ZIndex="100"
-              Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVis}}">
-            <Border Width="540" MaxHeight="620" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
-                    BorderThickness="1" CornerRadius="14" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center"
-                    UseLayoutRounding="True" SnapsToDevicePixels="True" RenderTransformOrigin="0.5,0.5">
-                <Border.RenderTransform>
-                    <ScaleTransform x:Name="ModalScale" ScaleX="1.0" ScaleY="1.0" />
-                </Border.RenderTransform>
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Style.Triggers>
+    <!-- ================= MODAL: IPSW SETTINGS SHEET (FULL VIEWPORT OVERLAY) ================= -->
+    <Grid Background="#7F000000" Panel.ZIndex="100"
+          Visibility="{Binding IsSettingsOpen, Converter={StaticResource BoolToVis}}">
+        <Border Width="560" MaxHeight="620" Background="{DynamicResource Brush.Surface}" BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1" CornerRadius="14" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                UseLayoutRounding="True" SnapsToDevicePixels="True" RenderTransformOrigin="0.5,0.5">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.3" />
+            </Border.Effect>
+            <Border.RenderTransform>
+                <ScaleTransform x:Name="ModalScale" ScaleX="1.0" ScaleY="1.0" />
+            </Border.RenderTransform>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
                             <DataTrigger Binding="{Binding IsSettingsOpen}" Value="True">
                                 <DataTrigger.EnterActions>
                                     <BeginStoryboard>
@@ -1254,10 +1271,6 @@
                             <!-- Group 2: Parallel Threads -->
                             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                 <DockPanel>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{DynamicResource L.Firmware.Threads}" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="Параллельные HTTP Range потоки ускоряют загрузку с CDN Apple" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" />
-                                    </StackPanel>
                                     <Border DockPanel.Dock="Right" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="3"
                                             HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal">
@@ -1322,23 +1335,27 @@
                                             </Button>
                                         </StackPanel>
                                     </Border>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="{DynamicResource L.Firmware.Threads}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Параллельные HTTP Range потоки ускоряют загрузку с CDN Apple" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </DockPanel>
                             </Border>
 
                             <!-- Group 3: Scheduled Night Downloads (Range e.g. 00:00 - 06:00) -->
                             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                 <StackPanel>
-                                    <DockPanel Margin="0,0,0,6">
-                                        <StackPanel VerticalAlignment="Center">
+                                    <DockPanel Margin="0,0,0,8">
+                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}"
+                                                  IsChecked="{Binding IsScheduleEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                                             <TextBlock Text="{DynamicResource L.Firmware.Schedule.Title}" FontWeight="SemiBold" FontSize="13" />
                                             <TextBlock Text="{DynamicResource L.Firmware.Schedule.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}"
-                                                  IsChecked="{Binding IsScheduleEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                     </DockPanel>
 
                                     <!-- Range Selection Controls -->
-                                    <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="12,10" Margin="0,6,0,0"
+                                    <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="12,10" Margin="0,4,0,0"
                                             Visibility="{Binding IsScheduleEnabled, Converter={StaticResource BoolToVis}}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -1364,10 +1381,6 @@
                             <!-- Group 4: TSS Check Interval -->
                             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                 <DockPanel>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="Периодичность автопроверки TSS" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="Как часто опрашивать серверы Apple на наличие новых подписанных релизов" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" />
-                                    </StackPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Slider Width="90" Minimum="1" Maximum="72" TickFrequency="1"
                                                 IsSnapToTickEnabled="True" Value="{Binding AutoCheckIntervalHours}" Margin="0,0,10,0" />
@@ -1377,40 +1390,44 @@
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                     </StackPanel>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="Периодичность автопроверки TSS" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="Как часто опрашивать серверы Apple на наличие новых подписанных релизов" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </DockPanel>
                             </Border>
 
                             <!-- Group 5: SHA Hash Verification -->
                             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                 <DockPanel>
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifySha}" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifyShaHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" />
-                                    </StackPanel>
                                     <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}" IsChecked="{Binding VerifyHash}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifySha}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifyShaHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </DockPanel>
                             </Border>
 
                             <!-- Group 6: Clean Cache -->
                             <DockPanel Margin="0,4,0,0">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCache}" FontWeight="SemiBold" FontSize="13" />
-                                    <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCacheHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" />
-                                </StackPanel>
                                 <Button DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.Settings.CleanCache}"
                                         Style="{StaticResource MiniActionDanger}" Command="{Binding CleanCacheCommand}"
                                         Height="30" Padding="14,0" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCache}" FontWeight="SemiBold" FontSize="13" />
+                                    <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCacheHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
                             </DockPanel>
                         </StackPanel>
                     </ScrollViewer>
 
                     <!-- Modal Footer -->
-                    <DockPanel>
-                        <TextBlock Text="Все настройки сохраняются автоматически" Style="{StaticResource Text.Caption}"
-                                   VerticalAlignment="Center" FontSize="12" />
+                    <DockPanel Margin="0,8,0,0">
                         <Button DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.Settings.Apply}"
                                 Style="{StaticResource Button.Primary}" Command="{Binding CloseSettingsCommand}"
                                 Padding="24,8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                        <TextBlock Text="Все настройки сохраняются автоматически" Style="{StaticResource Text.Caption}"
+                                   VerticalAlignment="Center" FontSize="12" Margin="0,0,16,0" />
                     </DockPanel>
                 </StackPanel>
             </Border>

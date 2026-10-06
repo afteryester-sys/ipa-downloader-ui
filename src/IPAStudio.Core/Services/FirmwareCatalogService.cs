@@ -51,8 +51,22 @@ public sealed class FirmwareCatalogService
         return null;
     }
 
-    public async Task<IReadOnlyList<FirmwareDevice>> GetDevicesAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<FirmwareDevice>> GetDevicesAsync(CancellationToken ct = default, bool forceRefresh = false)
     {
+        if (!forceRefresh && File.Exists(_cachePath))
+        {
+            try
+            {
+                var cached = await File.ReadAllTextAsync(_cachePath, ct).ConfigureAwait(false);
+                var cachedDevices = JsonSerializer.Deserialize<List<FirmwareDevice>>(cached, JsonOptions);
+                if (cachedDevices is not null && cachedDevices.Count > 0)
+                {
+                    return cachedDevices.OrderBy(d => d.Name).ThenBy(d => d.Identifier).ToList();
+                }
+            }
+            catch { /* proceed to network fetch */ }
+        }
+
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {

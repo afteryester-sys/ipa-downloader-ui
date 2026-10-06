@@ -74,3 +74,13 @@
   - Redesign settings sub-window: Native 540px sheet with crisp subpixel rendering, smooth entrance scale/fade Storyboard animation, larger 13-14px typography, and scheduled download time range (e.g. 00:00 - 06:00).
   - Animated TSS auto-check toggle: Fluid iOS thumb slide and background color transition on checked/unchecked state.
   - Bump version to `1.8.43` in `IPAStudio.App.csproj`.
+
+- [x] **[T011]** Settings Modal Viewport Fix, Schedule Checkbox, Distinct Tab Styling & Persistence Recovery (v1.8.44):
+  - Fix settings modal cutoff: Restructure root `FirmwareView.xaml` so the dark dimming backdrop covers 100% of the viewport edge-to-edge with no awkward margin borders.
+  - Fix settings DockPanel layout and missing schedule checkbox: Ensure docked right controls are placed first, StackPanels have right margins with `TextWrapping="Wrap"`.
+  - Distinct mode accent colors: "Мои устройства" retains Apple Blue (`Brush.Accent`), while "Одиночное скачивание" gets Apple System Purple (`Brush.Firmware` `#AF52DE` / `#BF5AF2`) when active and a purple lightning bolt `⚡` when inactive and in empty state.
+  - Device & download persistence across restarts:
+    - `RestoreMyDevices()` called immediately in constructor from `_settings.Current.FirmwareSubscriptions`.
+    - Cache-first device catalogue in `FirmwareCatalogService.cs` loading 284 devices instantly (< 5ms) from `%LOCALAPPDATA%\IPAStudio\firmware-devices.json`.
+    - Added `PersistedFirmwareJob` and `firmware-jobs.json` synchronization so active, paused, and pending firmware downloads automatically persist and restore into the queue strips upon restarting the application.
+  - Bump version to `1.8.44` in `IPAStudio.App.csproj`.

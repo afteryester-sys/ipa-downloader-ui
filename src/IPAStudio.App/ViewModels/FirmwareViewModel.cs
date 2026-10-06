@@ -28,6 +28,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private List<FirmwareRelease> _deviceFirmwares = new();
     private readonly Dictionary<FirmwareDownloadJob, Operation> _jobOperations = new();
     private readonly Dictionary<FirmwareDownloadJob, Task> _runningJobs = new();
+    private readonly string _jobsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "IPAStudio", "firmware-jobs.json");
     private bool _startupResumeAsked;
 
     public static int[] AvailableHours { get; } = Enumerable.Range(0, 24).ToArray();
@@ -64,6 +67,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         ScheduleStartHour = Math.Clamp(settings.Current.FirmwareScheduleStartHour, 0, 23);
         ScheduleEndHour = Math.Clamp(settings.Current.FirmwareScheduleEndHour, 0, 23);
         Jobs.CollectionChanged += OnJobsChanged;
+        RestoreMyDevices();
+        LoadPersistedJobs();
         RefreshAutoUpdateTimestamps();
         _scheduleTimer = new System.Threading.Timer(_ => EvaluateSchedule(), null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
     }
@@ -261,8 +266,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     public async void OnNavigatedTo(INavigator navigator)
     {
         _navigator = navigator;
+        if (MyDevices.Count == 0) RestoreMyDevices();
+        if (Jobs.Count == 0) LoadPersistedJobs();
         if (_allDevices.Count == 0) await LoadDevicesAsync();
-        OfferPendingResume();
     }
 
     [RelayCommand] private void GoBack() => _navigator?.GoBack();
@@ -649,17 +655,110 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
     }
 
+    public void LoadPersistedJobs()
+    {
+        try
+        {
+            var loaded = new List<PersistedFirmwareJob>();
+            if (File.Exists(_jobsPath))
+            {
+                var json = File.ReadAllText(_jobsPath);
+                var list = System.Text.Json.JsonSerializer.Deserialize<List<PersistedFirmwareJob>>(json);
+                if (list is not null) loaded.AddRange(list);
+            }
+
+            var pendingOnDisk = _downloads.FindPendingDownloads(DestinationFolder);
+            foreach (var p in pendingOnDisk)
+            {
+                if (loaded.All(l => !string.Equals(l.DestinationPath, p.DestinationPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    loaded.Add(new PersistedFirmwareJob
+                    {
+                        DeviceName = p.FileName,
+                        DeviceIdentifier = "",
+                        FirmwareVersion = p.FileName,
+                        BuildId = "",
+                        Url = p.Url,
+                        Sha1 = p.Sha1,
+                        DestinationPath = p.DestinationPath,
+                        IsSingleDownload = true,
+                        Downloaded = p.Downloaded,
+                        Total = p.Total,
+                        State = (int)FirmwareJobState.Paused
+                    });
+                }
+            }
+
+            foreach (var item in loaded)
+            {
+                if (Jobs.Any(j => string.Equals(j.DestinationPath, item.DestinationPath, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                var device = new FirmwareDevice
+                {
+                    Name = !string.IsNullOrWhiteSpace(item.DeviceName) ? item.DeviceName : "Apple Device",
+                    Identifier = item.DeviceIdentifier
+                };
+                var release = new FirmwareRelease
+                {
+                    Identifier = item.DeviceIdentifier,
+                    Version = item.FirmwareVersion,
+                    BuildId = item.BuildId,
+                    Url = item.Url,
+                    Sha1 = item.Sha1,
+                    FileSize = item.Total,
+                    Signed = true
+                };
+
+                var isDone = File.Exists(item.DestinationPath) && item.Total > 0 && new FileInfo(item.DestinationPath).Length == item.Total;
+                var job = new FirmwareDownloadJob(device, release, item.DestinationPath, PauseJob, ResumeJob, StopJob, item.IsSingleDownload)
+                {
+                    Downloaded = item.Downloaded,
+                    Total = item.Total,
+                    Progress = item.Total > 0 ? Math.Clamp(item.Downloaded * 100d / item.Total, 0, 100) : 0,
+                    State = isDone ? FirmwareJobState.Done : FirmwareJobState.Paused,
+                    StatusText = isDone ? Loc.Get("L.Firmware.Done") : Loc.Get("L.Firmware.Paused")
+                };
+
+                Jobs.Add(job);
+            }
+            RecomputeAggregate();
+        }
+        catch { }
+    }
+
+    public void SavePersistedJobs()
+    {
+        try
+        {
+            var list = Jobs.Select(j => new PersistedFirmwareJob
+            {
+                DeviceName = j.Device.Name,
+                DeviceIdentifier = j.Device.Identifier,
+                FirmwareVersion = j.Firmware.Version,
+                BuildId = j.Firmware.BuildId,
+                Url = j.Firmware.Url,
+                Sha1 = j.Firmware.Sha1,
+                DestinationPath = j.DestinationPath,
+                IsSingleDownload = j.IsSingleDownload,
+                Downloaded = j.Downloaded,
+                Total = j.ExpectedTotal,
+                State = (int)j.State
+            }).ToList();
+
+            var json = System.Text.Json.JsonSerializer.Serialize(list, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            Directory.CreateDirectory(Path.GetDirectoryName(_jobsPath)!);
+            File.WriteAllText(_jobsPath, json);
+        }
+        catch { }
+    }
+
     /// <summary>Offers to continue interrupted downloads, once per app run.</summary>
     public void OfferPendingResume()
     {
         if (_startupResumeAsked) return;
         _startupResumeAsked = true;
-        var pending = _downloads.FindPendingDownloads(DestinationFolder)
-            .Where(p => Jobs.All(j => !string.Equals(j.DestinationPath, p.DestinationPath, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        if (pending.Count == 0) return;
-        if (ConfirmResumePending?.Invoke(pending) != true) return;
-        foreach (var item in pending) _ = RunPendingAsync(item);
+        LoadPersistedJobs();
     }
 
     private void OnJobsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -670,11 +769,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             foreach (FirmwareDownloadJob job in e.NewItems) job.PropertyChanged += OnJobPropertyChanged;
         OnPropertyChanged(nameof(HasJobs));
         RecomputeAggregate();
+        SavePersistedJobs();
     }
 
     private void OnJobPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(FirmwareDownloadJob.State)) RecomputeAggregate();
+        if (e.PropertyName is nameof(FirmwareDownloadJob.State))
+        {
+            RecomputeAggregate();
+            SavePersistedJobs();
+        }
     }
 
     /// <summary>
@@ -902,6 +1006,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         subscription.LastFilePath = path;
         subscription.LastDownloadUtc = DateTimeOffset.UtcNow;
         _settings.Save();
+        SavePersistedJobs();
         RefreshAutoUpdateTimestamps();
         if (!string.IsNullOrWhiteSpace(oldPath) && !string.Equals(oldPath, path, StringComparison.OrdinalIgnoreCase) && File.Exists(oldPath))
         {
