@@ -1198,13 +1198,11 @@
                                                              From="0" To="1" Duration="0:0:0.16">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="ModalScale"
-                                                             Storyboard.TargetProperty="ScaleX"
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
                                                              From="0.95" To="1.0" Duration="0:0:0.16">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="ModalScale"
-                                                             Storyboard.TargetProperty="ScaleY"
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
                                                              From="0.95" To="1.0" Duration="0:0:0.16">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
