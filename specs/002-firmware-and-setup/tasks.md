@@ -64,3 +64,13 @@
     - Dynamic status indicator dot in shared bottom download dock: green `#30D158` when active, amber `Brush.Warning` when paused, red `Brush.Danger` when failed.
   - True fluid WPF Storyboards with `CubicEase EasingMode="EaseOut"` for hover, press, and release across buttons, sliders, segmented toggles, tabs, and checkboxes.
   - Bump version to `1.8.42` in `IPAStudio.App.csproj`.
+
+- [x] **[T010]** Multi-Device Download Strips, Speed Smoothing, Purple Palette, Caching & Settings Redesign (v1.8.43):
+  - Fix speed & ETA jitter: Throttle progress reporting to 300ms windows and calculate smoothed speed via Exponential Moving Average (EMA) in `FirmwareDownloadService.cs`.
+  - Fix wrong firmware label bug: Decouple Mode 1 `DownloadFirmwareCommand` from Mode 2 `DownloadSingleFirmwareCommand` in `FirmwareViewModel.cs` and `FirmwareView.xaml`.
+  - Instant device switching: Add persistent disk and in-memory cache in `FirmwareCatalogService.cs` (`%LOCALAPPDATA%\IPAStudio\firmware-cache`) so switching devices never hangs, fails or leaves empty firmwares.
+  - Color palette shift from brown to Apple System Purple: Add `Brush.Firmware` (`#AF52DE` / `#BF5AF2`) and `Brush.FirmwareSoft` across `Palette.Light.xaml` and `Palette.Dark.xaml`. Update `OpsCorner` circular progress arcs and operations list in `MainWindow.xaml`.
+  - Multi-device download queue: Replace single-dock layout in `FirmwareView.xaml` with multi-task queue strips matching `QueueView`, with per-item progress bars, speed, size, subtitle, and individual pause/resume/cancel controls.
+  - Redesign settings sub-window: Native 540px sheet with crisp subpixel rendering, smooth entrance scale/fade Storyboard animation, larger 13-14px typography, and scheduled download time range (e.g. 00:00 - 06:00).
+  - Animated TSS auto-check toggle: Fluid iOS thumb slide and background color transition on checked/unchecked state.
+  - Bump version to `1.8.43` in `IPAStudio.App.csproj`.

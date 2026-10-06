@@ -981,6 +981,15 @@
     <sys:String x:Key="L.Firmware.Settings.CleanCache">Clear Cache</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Deletes incomplete .part and .download.json files</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Apply">Done</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Scheduled">Waiting for schedule ({0:D2}:00 — {1:D2}:00)</sys:String>
+    <sys:String x:Key="L.Firmware.DeviceBadge">Device</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Title">Download Schedule</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Toggle">Download on schedule (Night window)</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Hint">Automatically downloads firmware only within specified time window (e.g. 00:00 to 06:00).</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.From">From:</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.To">To:</sys:String>
+    <sys:String x:Key="L.Firmware.Queue.Title">Download Queue</sys:String>
+    <sys:String x:Key="L.Firmware.Queue.Empty">No active downloads</sys:String>
     <sys:String x:Key="L.Firmware.TssSigned">✓ Signed by Apple TSS</sys:String>
     <sys:String x:Key="L.Firmware.TssUnsigned">✕ Unsigned</sys:String>
 </ResourceDictionary>

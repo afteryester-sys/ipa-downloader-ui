@@ -538,8 +538,8 @@
                                 </Path.Style>
                             </Path>
 
-                            <!-- Single Circle Mode: Orange Arc (Firmware) -->
-                            <Path Stroke="{StaticResource Brush.Warning}" StrokeThickness="3"
+                            <!-- Single Circle Mode: Purple Arc (Firmware) -->
+                            <Path Stroke="{StaticResource Brush.Firmware}" StrokeThickness="3"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   Data="{Binding FirmwareProgress,
                                          Converter={StaticResource SectorArc},
@@ -578,8 +578,8 @@
                                 </Path.Style>
                             </Path>
 
-                            <!-- Split Mode: Half 2 - Orange Arc (Firmware, 6 to 12 o'clock) -->
-                            <Path Stroke="{StaticResource Brush.Warning}" StrokeThickness="3"
+                            <!-- Split Mode: Half 2 - Purple Arc (Firmware, 6 to 12 o'clock) -->
+                            <Path Stroke="{StaticResource Brush.Firmware}" StrokeThickness="3"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   Data="{Binding FirmwareProgress,
                                          Converter={StaticResource SectorArc},
@@ -655,7 +655,7 @@
                                                                 <Setter Property="Fill" Value="{StaticResource Brush.Accent}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:OperationKind.Firmware}">
-                                                                        <Setter Property="Fill" Value="{StaticResource Brush.Warning}" />
+                                                                        <Setter Property="Fill" Value="{StaticResource Brush.Firmware}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -677,7 +677,7 @@
                                                             <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Kind}" Value="{x:Static vm:OperationKind.Firmware}">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Warning}" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Firmware}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>

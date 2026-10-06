@@ -12,6 +12,7 @@ public enum FirmwareJobState
     Running,
     Reconnecting,
     Paused,
+    WaitingSchedule,
     Done,
     Failed,
 }
@@ -58,7 +59,9 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string _subtitle = "";
-    [ObservableProperty] private double _progress;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PercentText))]
+    private double _progress;
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string? _errorText;
     [ObservableProperty] private long _downloaded;
@@ -70,12 +73,15 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
     [NotifyPropertyChangedFor(nameof(CanPause))]
     [NotifyPropertyChangedFor(nameof(CanResume))]
     [NotifyPropertyChangedFor(nameof(IsFinished))]
+    [NotifyPropertyChangedFor(nameof(IsScheduled))]
     private FirmwareJobState _state = FirmwareJobState.Queued;
 
     public bool IsActive => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting;
-    public bool CanPause => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued;
-    public bool CanResume => State is FirmwareJobState.Paused or FirmwareJobState.Failed;
+    public bool CanPause => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued or FirmwareJobState.WaitingSchedule;
+    public bool CanResume => State is FirmwareJobState.Paused or FirmwareJobState.Failed or FirmwareJobState.WaitingSchedule;
     public bool IsFinished => State is FirmwareJobState.Done;
+    public bool IsScheduled => State is FirmwareJobState.WaitingSchedule;
+    public string PercentText => $"{Progress:F0}%";
 
     /// <summary>Total is only known after the first HEAD, so fall back to the catalog size.</summary>
     public long ExpectedTotal => Total > 0 ? Total : Firmware.FileSize;

@@ -352,6 +352,15 @@ public sealed class AppSettings
     /// <summary>Whether downloaded IPSW hash is verified after download.</summary>
     public bool FirmwareVerifyHash { get; set; } = true;
 
+    /// <summary>Whether firmware downloads are restricted to a scheduled time range (e.g. 00:00 - 06:00).</summary>
+    public bool FirmwareScheduleEnabled { get; set; }
+
+    /// <summary>Scheduled download window start hour (0..23).</summary>
+    public int FirmwareScheduleStartHour { get; set; } = 0;
+
+    /// <summary>Scheduled download window end hour (0..23).</summary>
+    public int FirmwareScheduleEndHour { get; set; } = 6;
+
     /// <summary>Devices monitored for automatic firmware downloads.</summary>
     public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
 }

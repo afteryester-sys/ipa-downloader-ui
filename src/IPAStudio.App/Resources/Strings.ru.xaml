@@ -979,6 +979,15 @@
     <sys:String x:Key="L.Firmware.Settings.CleanCache">Очистить кэш</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Удаляет незавершённые .part и .download.json файлы</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Apply">Готово</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Scheduled">Ожидание расписания ({0:D2}:00 — {1:D2}:00)</sys:String>
+    <sys:String x:Key="L.Firmware.DeviceBadge">Устройство</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Title">Расписание загрузок</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Toggle">Скачивать по расписанию (ночной режим)</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Hint">Автоматически скачивает прошивки только в указанный интервал времени (например, ночью с 00:00 до 06:00), экономя трафик.</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.From">С:</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.To">До:</sys:String>
+    <sys:String x:Key="L.Firmware.Queue.Title">Очередь загрузок</sys:String>
+    <sys:String x:Key="L.Firmware.Queue.Empty">Нет активных загрузок</sys:String>
     <sys:String x:Key="L.Firmware.TssSigned">✓ Подписана Apple TSS</sys:String>
     <sys:String x:Key="L.Firmware.TssUnsigned">✕ Не подписывается</sys:String>
 </ResourceDictionary>

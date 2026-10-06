@@ -22,11 +22,15 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private readonly OperationService _operations;
     private INavigator? _navigator;
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _firmwaresCts;
+    private System.Threading.Timer? _scheduleTimer;
     private List<FirmwareDevice> _allDevices = new();
     private List<FirmwareRelease> _deviceFirmwares = new();
     private readonly Dictionary<FirmwareDownloadJob, Operation> _jobOperations = new();
     private readonly Dictionary<FirmwareDownloadJob, Task> _runningJobs = new();
     private bool _startupResumeAsked;
+
+    public static int[] AvailableHours { get; } = Enumerable.Range(0, 24).ToArray();
 
     public IReadOnlyList<FirmwareDevice> AllDevices => _allDevices;
 
@@ -56,12 +60,19 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         AutoCheckIntervalHours = Math.Clamp(settings.Current.FirmwareCheckIntervalHours, 1, 168);
         IsAutoCheckEnabled = settings.Current.FirmwareAutoCheckEnabled;
         VerifyHash = settings.Current.FirmwareVerifyHash;
+        IsScheduleEnabled = settings.Current.FirmwareScheduleEnabled;
+        ScheduleStartHour = Math.Clamp(settings.Current.FirmwareScheduleStartHour, 0, 23);
+        ScheduleEndHour = Math.Clamp(settings.Current.FirmwareScheduleEndHour, 0, 23);
         Jobs.CollectionChanged += OnJobsChanged;
         RefreshAutoUpdateTimestamps();
+        _scheduleTimer = new System.Threading.Timer(_ => EvaluateSchedule(), null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
     }
 
     [ObservableProperty] private bool _isSingleDownloadMode;
     [ObservableProperty] private bool _isAutoCheckEnabled = true;
+    [ObservableProperty] private bool _isScheduleEnabled;
+    [ObservableProperty] private int _scheduleStartHour;
+    [ObservableProperty] private int _scheduleEndHour = 6;
     [ObservableProperty] private FirmwareDevice? _selectedSingleDevice;
     [ObservableProperty] private string _directUrlInput = "";
     [ObservableProperty] private bool _isSettingsOpen;
@@ -122,6 +133,65 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     {
         _settings.Current.FirmwareVerifyHash = value;
         _settings.Save();
+    }
+
+    partial void OnIsScheduleEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareScheduleEnabled = value;
+        _settings.Save();
+        EvaluateSchedule();
+    }
+
+    partial void OnScheduleStartHourChanged(int value)
+    {
+        _settings.Current.FirmwareScheduleStartHour = Math.Clamp(value, 0, 23);
+        _settings.Save();
+        EvaluateSchedule();
+    }
+
+    partial void OnScheduleEndHourChanged(int value)
+    {
+        _settings.Current.FirmwareScheduleEndHour = Math.Clamp(value, 0, 23);
+        _settings.Save();
+        EvaluateSchedule();
+    }
+
+    public bool IsCurrentTimeInSchedule()
+    {
+        if (!IsScheduleEnabled) return true;
+        var now = DateTime.Now.Hour;
+        if (ScheduleStartHour == ScheduleEndHour) return true;
+        if (ScheduleStartHour < ScheduleEndHour)
+            return now >= ScheduleStartHour && now < ScheduleEndHour;
+        else
+            return now >= ScheduleStartHour || now < ScheduleEndHour;
+    }
+
+    private void EvaluateSchedule()
+    {
+        if (!IsScheduleEnabled) return;
+        var inSchedule = IsCurrentTimeInSchedule();
+        System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
+        {
+            if (!inSchedule)
+            {
+                foreach (var job in Jobs.Where(j => j.IsActive).ToList())
+                {
+                    job.Cts?.Cancel();
+                    job.State = FirmwareJobState.WaitingSchedule;
+                    job.StatusText = string.Format(Loc.Get("L.Firmware.Job.Scheduled"), ScheduleStartHour, ScheduleEndHour);
+                    job.BytesPerSecond = 0;
+                }
+            }
+            else
+            {
+                foreach (var job in Jobs.Where(j => j.IsScheduled).ToList())
+                {
+                    ResumeJob(job);
+                }
+            }
+            RecomputeAggregate();
+        });
     }
 
     partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => EnqueueDownloadCommand.NotifyCanExecuteChanged();
@@ -246,10 +316,37 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private void DownloadFirmware(FirmwareRelease? release)
+    {
+        if (release is null) return;
+        var device = SelectedDevice ?? new FirmwareDevice
+        {
+            Name = !string.IsNullOrWhiteSpace(release.Identifier) ? release.Identifier : "Apple Device",
+            Identifier = release.Identifier
+        };
+
+        PersistDownloadSettings();
+        var destination = Path.Combine(DestinationFolder,
+            FirmwareDownloadService.BuildFileName(device.Name, release.Version));
+
+        var existing = Jobs.FirstOrDefault(j =>
+            string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            if (existing.CanResume) ResumeJob(existing);
+            return;
+        }
+
+        var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: false);
+        Jobs.Add(job);
+        _ = RunJobAsync(job);
+    }
+
+    [RelayCommand]
     private void DownloadSingleFirmware(FirmwareRelease? release)
     {
         if (release is null) return;
-        var device = SelectedSingleDevice ?? SelectedDevice ?? new FirmwareDevice
+        var device = SelectedSingleDevice ?? new FirmwareDevice
         {
             Name = !string.IsNullOrWhiteSpace(release.Identifier) ? release.Identifier : "Apple Device",
             Identifier = release.Identifier
@@ -387,6 +484,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         job.Cts?.Dispose();
         job.Cts = new CancellationTokenSource();
+
+        if (IsScheduleEnabled && !IsCurrentTimeInSchedule())
+        {
+            job.State = FirmwareJobState.WaitingSchedule;
+            job.StatusText = string.Format(Loc.Get("L.Firmware.Job.Scheduled"), ScheduleStartHour, ScheduleEndHour);
+            job.BytesPerSecond = 0;
+            RecomputeAggregate();
+            return;
+        }
+
         job.State = FirmwareJobState.Running;
         job.StatusText = Loc.Get("L.Firmware.Job.Running");
         job.ErrorText = null;
@@ -669,11 +776,26 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private async Task LoadSingleFirmwaresAsync(FirmwareDevice? device)
     {
-        SingleFirmwares.Clear();
-        if (device is null) return;
+        if (device is null)
+        {
+            SingleFirmwares.Clear();
+            return;
+        }
+
+        // Fast path: if cached in memory or disk, display immediately
+        var cached = _catalog.GetCachedDevice(device.Identifier);
+        if (cached is not null && cached.Firmwares.Count > 0)
+        {
+            SingleFirmwares.Clear();
+            var q = SignedOnly ? cached.Firmwares.Where(f => f.Signed) : cached.Firmwares;
+            foreach (var fw in q.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate))
+                SingleFirmwares.Add(fw);
+        }
+
         try
         {
             var details = await _catalog.GetDeviceAsync(device.Identifier);
+            SingleFirmwares.Clear();
             var query = details.Firmwares.AsEnumerable();
             if (SignedOnly) query = query.Where(f => f.Signed);
             foreach (var fw in query.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate))
@@ -683,27 +805,45 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
         catch (Exception ex)
         {
-            ErrorText = ex.Message;
+            if (SingleFirmwares.Count == 0) ErrorText = ex.Message;
         }
     }
 
     private async Task LoadFirmwaresAsync(FirmwareDevice? device)
     {
-        Firmwares.Clear();
-        SelectedFirmware = null;
-        if (device is null) return;
-        _loadCts?.Cancel();
-        _loadCts = new CancellationTokenSource();
-        IsLoading = true;
+        if (device is null)
+        {
+            Firmwares.Clear();
+            _deviceFirmwares.Clear();
+            SelectedFirmware = null;
+            return;
+        }
+
+        // Fast path: instantly populate from memory/disk cache without waiting
+        var cached = _catalog.GetCachedDevice(device.Identifier);
+        if (cached is not null && cached.Firmwares.Count > 0)
+        {
+            _deviceFirmwares = cached.Firmwares.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate).ToList();
+            ApplyFirmwareFilter();
+        }
+
+        _firmwaresCts?.Cancel();
+        _firmwaresCts = new CancellationTokenSource();
+        var ct = _firmwaresCts.Token;
+
+        if (_deviceFirmwares.Count == 0) IsLoading = true;
         try
         {
-            var details = await _catalog.GetDeviceAsync(device.Identifier, _loadCts.Token);
+            var details = await _catalog.GetDeviceAsync(device.Identifier, ct);
             _deviceFirmwares = details.Firmwares.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate).ToList();
             ApplyFirmwareFilter();
             TouchLastCheck(device.Identifier);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { ErrorText = ex.Message; }
+        catch (Exception ex)
+        {
+            if (_deviceFirmwares.Count == 0) ErrorText = ex.Message;
+        }
         finally { IsLoading = false; }
     }
 

@@ -17,7 +17,8 @@
     <Color x:Key="Color.AccentDim">#007AFF</Color>
     <Color x:Key="Color.Success">#248A3D</Color>
     <Color x:Key="Color.Danger">#D70015</Color>
-    <Color x:Key="Color.Warning">#B25000</Color>
+    <Color x:Key="Color.Warning">#FF9500</Color>
+    <Color x:Key="Color.Firmware">#AF52DE</Color>
 
     <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
     <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
@@ -29,9 +30,11 @@
     <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}" />
     <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
     <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}" />
+    <SolidColorBrush x:Key="Brush.Firmware" Color="{StaticResource Color.Firmware}" />
     <SolidColorBrush x:Key="Brush.AccentSoft" Color="#22007AFF" />
     <SolidColorBrush x:Key="Brush.SuccessSoft" Color="#2234C759" />
     <SolidColorBrush x:Key="Brush.DangerSoft" Color="#22FF3B30" />
     <SolidColorBrush x:Key="Brush.WarningSoft" Color="#22FF9500" />
+    <SolidColorBrush x:Key="Brush.FirmwareSoft" Color="#22AF52DE" />
 
 </ResourceDictionary>

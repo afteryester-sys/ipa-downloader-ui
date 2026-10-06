@@ -169,6 +169,13 @@ public sealed class FirmwareDownloadService
         long initialBytes = manifest.Segments.Sum(s => Math.Min(s.Downloaded, s.End - s.Start + 1));
         long sessionBytes = 0;
 
+        var lastReportSw = Stopwatch.StartNew();
+        long lastReportedBytes = 0;
+        long lastReportTimestampMs = 0;
+        double smoothedSpeed = 0;
+        var progressSync = new object();
+        long lastSaveMs = 0;
+
         try
         {
             await Parallel.ForEachAsync(manifest.Segments, new ParallelOptions
@@ -198,7 +205,7 @@ public sealed class FirmwareDownloadService
                 await using var output = new FileStream(segment.PartPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite,
                     1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
                 var buffer = new byte[1024 * 1024];
-                var lastSave = Stopwatch.StartNew();
+
                 while (segment.Downloaded < expected)
                 {
                     var read = await input.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, expected - segment.Downloaded)), token)
@@ -207,13 +214,35 @@ public sealed class FirmwareDownloadService
                     await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
                     segment.Downloaded += read;
                     Interlocked.Add(ref sessionBytes, read);
-                    var downloaded = initialBytes + Interlocked.Read(ref sessionBytes);
-                    var speed = started.Elapsed.TotalSeconds > 0 ? sessionBytes / started.Elapsed.TotalSeconds : 0;
-                    progress?.Report(new FirmwareDownloadProgress(downloaded, length, speed));
-                    if (lastSave.ElapsedMilliseconds >= 1000)
+
+                    var currentTotalSession = Interlocked.Read(ref sessionBytes);
+                    var nowMs = lastReportSw.ElapsedMilliseconds;
+
+                    // Throttle UI progress updates to ~300ms intervals with Exponential Moving Average for speed
+                    if (nowMs - Interlocked.Read(ref lastReportTimestampMs) >= 280)
                     {
+                        lock (progressSync)
+                        {
+                            var elapsedMs = lastReportSw.ElapsedMilliseconds;
+                            var deltaMs = elapsedMs - lastReportTimestampMs;
+                            if (deltaMs >= 250)
+                            {
+                                var deltaBytes = currentTotalSession - lastReportedBytes;
+                                var instantSpeed = deltaMs > 0 ? (deltaBytes * 1000.0) / deltaMs : 0;
+                                smoothedSpeed = smoothedSpeed <= 0 ? instantSpeed : (0.25 * instantSpeed + 0.75 * smoothedSpeed);
+                                lastReportedBytes = currentTotalSession;
+                                lastReportTimestampMs = elapsedMs;
+
+                                var downloaded = initialBytes + currentTotalSession;
+                                progress?.Report(new FirmwareDownloadProgress(downloaded, length, smoothedSpeed));
+                            }
+                        }
+                    }
+
+                    if (nowMs - Interlocked.Read(ref lastSaveMs) >= 1200)
+                    {
+                        Interlocked.Exchange(ref lastSaveMs, nowMs);
                         await SaveManifestAsync(manifestPath, manifest, token).ConfigureAwait(false);
-                        lastSave.Restart();
                     }
                 }
                 if (segment.Downloaded != expected) throw new EndOfStreamException("Firmware download ended before the segment was complete.");
