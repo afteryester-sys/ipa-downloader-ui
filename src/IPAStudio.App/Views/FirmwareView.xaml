@@ -1392,7 +1392,7 @@
                             </Border>
 
                             <!-- Group 6: Clean Cache -->
-                            <DockPanel Padding="0,4,0,0">
+                            <DockPanel Margin="0,4,0,0">
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCache}" FontWeight="SemiBold" FontSize="13" />
                                     <TextBlock Text="{DynamicResource L.Firmware.Settings.CleanCacheHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" />
