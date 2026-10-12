@@ -498,6 +498,7 @@
     <sys:String x:Key="L.Error.Network">No connection to Apple. Check your internet connection and try again.</sys:String>
     <sys:String x:Key="L.Error.SessionExpired">The Apple ID session is no longer valid. Please sign in again.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">The download could not be completed.</sys:String>
+    <sys:String x:Key="L.Error.Timeout">The download request timed out.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Could not obtain a license for this app on the current Apple ID.</sys:String>
     <sys:String x:Key="L.Error.NotInStore">The App Store did not hand this app over for the current request. That usually means it is delisted, region-limited, or was distributed outside the App Store (enterprise, MDM, TestFlight). Retrying, or using the other kind of identifier, is worth a go: delisted apps often do download.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">The signed-in Apple ID does not own this app, and the license could not be obtained automatically.</sys:String>

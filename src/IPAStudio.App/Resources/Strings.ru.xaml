@@ -449,6 +449,7 @@
     <sys:String x:Key="L.Error.Network">Нет связи с Apple. Проверьте подключение к интернету и попробуйте снова.</sys:String>
     <sys:String x:Key="L.Error.SessionExpired">Сессия Apple ID больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Error.DownloadFailed">Не удалось завершить загрузку.</sys:String>
+    <sys:String x:Key="L.Error.Timeout">Превышено время ожидания ответа при загрузке.</sys:String>
     <sys:String x:Key="L.Error.LicenseFailed">Не удалось получить лицензию на это приложение для текущего Apple ID.</sys:String>
     <sys:String x:Key="L.Error.NotInStore">App Store не отдал это приложение по текущему запросу. Так бывает, когда оно снято с продажи, ограничено регионом или раздавалось вне App Store (корпоративная установка, MDM, TestFlight). Стоит повторить попытку или ввести другой идентификатор: у снятых с продажи приложений загрузка нередко всё же проходит.</sys:String>
     <sys:String x:Key="L.Error.NotPurchased">Это приложение не привязано к текущему Apple ID, а лицензию получить автоматически не удалось.</sys:String>
