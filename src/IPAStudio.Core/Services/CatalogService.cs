@@ -801,15 +801,27 @@ public sealed class CatalogService
                 .OrderByDescending(SafeLastWriteUtc)
                 .ToList();
 
-            // Several copies of one app can belong to different Apple IDs, and the file
-            // name records only the store id, so it cannot tell them apart. Newest-first
-            // alone would therefore hand this account whichever copy was downloaded last
-            // — quite possibly the previous account's, which this device cannot decrypt.
-            // Prefer a copy this account can actually install, and fall back to newest
-            // when none of them names an owner.
-            var match = candidates.FirstOrDefault(f =>
-                            !IpaLicense.BelongsToAnotherAccount(f, signedInAs, out _))
+            // A local copy is only marked as downloaded for the current account if it is
+            // genuinely usable by that account. Blindly taking any file with the store id
+            // (or falling back to another account's archive) made the queue skip downloading
+            // and push another user's encrypted file to the phone, causing infinite auth loops.
+            string? match = null;
+            if (!string.IsNullOrWhiteSpace(signedInAs))
+            {
+                match = candidates.FirstOrDefault(f =>
+                {
+                    var rep = IpaLicense.Inspect(f);
+                    return !rep.IsDefinitelyUnlicensed &&
+                           string.Equals(rep.AppleId, signedInAs, StringComparison.OrdinalIgnoreCase);
+                });
+            }
+            else
+            {
+                // When not signed in (offline or unauthenticated browsing), prefer archives
+                // with valid metadata or the newest candidate.
+                match = candidates.FirstOrDefault(f => !IpaLicense.Inspect(f).IsDefinitelyUnlicensed)
                         ?? candidates.FirstOrDefault();
+            }
 
             entry.IsDownloaded = match is not null;
             entry.LocalIpaPath = match;

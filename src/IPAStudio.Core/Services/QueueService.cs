@@ -371,7 +371,7 @@ public sealed class QueueService
             // an archive licensed to somebody else, which cannot be decrypted on this phone.
             var reusable = item.App.IsDownloaded
                 && item.App.LocalIpaPath is not null
-                && !IsLicensedToAnotherAccount(item.App.LocalIpaPath!);
+                && IsReusableForCurrentAccount(item.App.LocalIpaPath);
 
             // Install-existing-only is the user's explicit instruction to use the file on
             // disk, so it is honoured even when the licence belongs elsewhere; the install
@@ -414,22 +414,38 @@ public sealed class QueueService
     }
 
     /// <summary>
-    /// True when the archive on disk carries another Apple ID's licence, so it must not
-    /// stand in for a fresh download.
+    /// True when the archive on disk is complete, intact and genuinely licensed to the
+    /// currently signed-in Apple ID.
     ///
-    /// Deliberately conservative: it answers false whenever either side is unknown — an
-    /// unreadable archive, an archive with no account recorded, or no signed-in account
-    /// yet. Only a genuine, readable disagreement counts. Guessing the other way would
-    /// re-download working files for anyone whose archives predate this check.
+    /// If the file is from another account, has an unknown/corrupt licence, or was
+    /// downloaded prior to account switch, this returns false so a clean download is
+    /// performed matching the direct download screen.
     /// </summary>
-    private bool IsLicensedToAnotherAccount(string ipaPath)
+    private bool IsReusableForCurrentAccount(string? ipaPath)
     {
-        var signedInAs = _auth.CurrentAccount?.Email;
-        if (!IpaLicense.BelongsToAnotherAccount(ipaPath, signedInAs, out var licensedTo))
+        if (string.IsNullOrWhiteSpace(ipaPath) || !File.Exists(ipaPath))
             return false;
 
-        AppLog.Info($"Ignoring the local copy of '{Path.GetFileName(ipaPath)}': it is licensed " +
-                    $"to {licensedTo}, signed in as {signedInAs}. Downloading it again.");
+        var report = IpaLicense.Inspect(ipaPath);
+        if (report.ReadError is not null || report.IsDefinitelyUnlicensed || report.IsPartiallyLicensed)
+            return false;
+
+        var signedInAs = _auth.CurrentAccount?.Email;
+        if (!string.IsNullOrWhiteSpace(signedInAs))
+        {
+            if (string.IsNullOrWhiteSpace(report.AppleId))
+            {
+                AppLog.Info($"Local copy of '{Path.GetFileName(ipaPath)}' has no verified Apple ID metadata; re-downloading for '{signedInAs}'.");
+                return false;
+            }
+
+            if (!string.Equals(report.AppleId, signedInAs, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Info($"Ignoring the local copy of '{Path.GetFileName(ipaPath)}': it is licensed to '{report.AppleId}', signed in as '{signedInAs}'. Downloading it again.");
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -466,6 +482,22 @@ public sealed class QueueService
         await StaggerStartAsync(ct).ConfigureAwait(false);
 
         var progress = BuildDownloadProgress(item);
+
+        // If the catalog entry lacks a BundleId, look it up so retry fallbacks and device confirmation succeed
+        if (string.IsNullOrWhiteSpace(item.App.BundleId) && item.App.AppStoreId > 0)
+        {
+            try
+            {
+                var looked = await _catalog.LookupByAppStoreIdAsync(item.App.AppStoreId, ct).ConfigureAwait(false);
+                if (looked.FirstOrDefault() is { } match)
+                {
+                    item.App.BundleId = match.BundleId;
+                    if (string.IsNullOrWhiteSpace(item.App.LatestVersion))
+                        item.App.LatestVersion = match.LatestVersion;
+                }
+            }
+            catch { /* best effort */ }
+        }
 
         var result = await _download
             .DownloadAsync(item.App, autoPurchase: true, progress, ct: ct)

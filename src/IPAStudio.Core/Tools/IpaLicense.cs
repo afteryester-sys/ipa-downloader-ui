@@ -276,24 +276,35 @@ public static partial class IpaLicense
         try
         {
             using var stream = entry.Open();
-            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var bytes = ms.ToArray();
+            if (bytes.Length == 0) return (null, null);
 
-            // Bounded read: the file is small, and a hostile archive should not be able to
-            // pull an arbitrary amount into memory here.
-            var buffer = new char[256 * 1024];
-            var read = reader.ReadBlock(buffer, 0, buffer.Length);
-            var text = new string(buffer, 0, read);
+            // 1. Binary plist format ("bplist00") written by official App Store packaging
+            if (BinaryPlist.LooksBinary(bytes))
+            {
+                var plist = BinaryPlist.Parse(bytes);
+                if (plist is not null)
+                {
+                    var appleId = BinaryPlist.FindString(plist, "apple-id", "appleId", "userName", "AppleID");
+                    var dsId = BinaryPlist.FindString(plist, "DSPersonID", "dsPersonId", "ds-person-id");
+                    return (appleId, dsId);
+                }
+            }
 
-            string? appleId = null, dsId = null;
+            // 2. XML plist format (text-based)
+            var text = Encoding.UTF8.GetString(bytes);
+            string? xmlAppleId = null, xmlDsId = null;
             foreach (var m in MetadataFieldRegex().Matches(text).Cast<Match>())
             {
                 var value = m.Groups["v"].Value;
                 if (m.Groups["k"].Value.Equals("appleId", StringComparison.OrdinalIgnoreCase))
-                    appleId ??= value;
+                    xmlAppleId ??= value;
                 else
-                    dsId ??= value;
+                    xmlDsId ??= value;
             }
-            return (appleId, dsId);
+            return (xmlAppleId, xmlDsId);
         }
         catch
         {
