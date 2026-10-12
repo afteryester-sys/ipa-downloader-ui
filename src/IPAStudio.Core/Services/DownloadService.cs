@@ -1222,7 +1222,7 @@ public sealed partial class DownloadService
                 var versions = await ListVersionsAsync(app.AppStoreId, ct).ConfigureAwait(false);
                 pinnedVersionId = versions.FirstOrDefault();
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 AppLog.Warn($"download: could not resolve an external version id for {app.Name}: {ex.Message}");
@@ -1231,7 +1231,7 @@ public sealed partial class DownloadService
             if (string.IsNullOrWhiteSpace(pinnedVersionId))
             {
                 try { pinnedVersionId = await ResolveExternalVersionIdAsync(app.AppStoreId, ct).ConfigureAwait(false); }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) { AppLog.Warn($"catalog lookup failed for {app.Name}: {ex.Message}"); }
             }
 
@@ -2017,7 +2017,8 @@ public sealed partial class DownloadService
                 var text = externalId.GetString();
                 if (!string.IsNullOrWhiteSpace(text)) return text;
             }
-            catch (OperationCanceledException) { throw; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (OperationCanceledException) { /* timeout on this storefront — try the next */ }
             catch (Exception ex) { AppLog.Warn($"catalog lookup failed for {appId}: {ex.Message}"); }
         }
         return null;

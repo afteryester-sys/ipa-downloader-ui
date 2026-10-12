@@ -296,6 +296,13 @@
     <sys:String x:Key="L.Direct.NeedFolder">Выберите папку для сохранения.</sys:String>
     <sys:String x:Key="L.Direct.NeedLogin">Нужен вход в Apple ID</sys:String>
     <sys:String x:Key="L.Direct.NeedLoginHint">IPA скачивается и подписывается вашим Apple ID, поэтому без входа загрузка невозможна.</sys:String>
+    <sys:String x:Key="L.Direct.TargetDevice">Устройство для установки</sys:String>
+    <sys:String x:Key="L.Direct.TargetDeviceHint">Выберите подключённый iPhone или iPad, на который можно сразу установить скачанное приложение.</sys:String>
+    <sys:String x:Key="L.Direct.NoDevices">Устройства не подключены. Подключите iPhone или iPad по USB для быстрой установки.</sys:String>
+    <sys:String x:Key="L.Direct.InstallToDevice">Установить на устройство</sys:String>
+    <sys:String x:Key="L.Direct.Installing">Установка на устройство…</sys:String>
+    <sys:String x:Key="L.Direct.InstallSuccess">Приложение успешно установлено на «{0}»!</sys:String>
+    <sys:String x:Key="L.Direct.InstallFailed">Не удалось установить приложение на устройство.</sys:String>
 
     <!-- Меню (шестерёнка) -->
     <sys:String x:Key="L.Menu.Title">Меню</sys:String>

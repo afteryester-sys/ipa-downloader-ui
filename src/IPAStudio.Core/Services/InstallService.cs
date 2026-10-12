@@ -204,7 +204,8 @@ public sealed partial class InstallService
         IProgress<InstallProgress>? progress = null,
         CancellationToken ct = default,
         string? deviceAppleId = null,
-        string? bundleId = null)
+        string? bundleId = null,
+        bool allowAccountMismatch = false)
     {
         if (!File.Exists(ipaPath))
             return InstallResult.Fail($"IPA file not found: {ipaPath}");
@@ -236,14 +237,22 @@ public sealed partial class InstallService
         // just as cleanly, and then the kernel refuses to decrypt it, the launch dies as an
         // authentication error, and the phone spends minutes asking the store for a licence
         // it will never be given — because it can only ask on behalf of its own account.
-        // Refused here rather than diagnosed afterwards from a log.
+        // Refused here rather than diagnosed afterwards from a log, unless allowAccountMismatch is true.
         if (!string.IsNullOrWhiteSpace(deviceAppleId)
             && !string.IsNullOrWhiteSpace(license.AppleId)
             && !string.Equals(license.AppleId, deviceAppleId, StringComparison.OrdinalIgnoreCase))
         {
-            AppLog.Warn($"Install refused: IPA is licensed to {license.AppleId}, " +
-                        $"device is signed in as {deviceAppleId}");
-            return InstallResult.WrongAccount(license.AppleId!, deviceAppleId!);
+            if (allowAccountMismatch)
+            {
+                AppLog.Info($"Installing despite account mismatch (allowed): IPA is licensed to {license.AppleId}, " +
+                            $"device is signed in as {deviceAppleId}");
+            }
+            else
+            {
+                AppLog.Warn($"Install refused: IPA is licensed to {license.AppleId}, " +
+                            $"device is signed in as {deviceAppleId}");
+                return InstallResult.WrongAccount(license.AppleId!, deviceAppleId!);
+            }
         }
 
         if (license.IsPartiallyLicensed)

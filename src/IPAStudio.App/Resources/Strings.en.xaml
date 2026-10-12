@@ -345,6 +345,13 @@
     <sys:String x:Key="L.Direct.NeedFolder">Choose a destination folder.</sys:String>
     <sys:String x:Key="L.Direct.NeedLogin">Apple ID sign-in required</sys:String>
     <sys:String x:Key="L.Direct.NeedLoginHint">The IPA is downloaded and signed with your Apple ID, so signing in is required.</sys:String>
+    <sys:String x:Key="L.Direct.TargetDevice">Target device</sys:String>
+    <sys:String x:Key="L.Direct.TargetDeviceHint">Choose a connected iPhone or iPad to immediately install the downloaded app onto.</sys:String>
+    <sys:String x:Key="L.Direct.NoDevices">No devices connected. Plug in an iPhone or iPad via USB for fast installation.</sys:String>
+    <sys:String x:Key="L.Direct.InstallToDevice">Install to device</sys:String>
+    <sys:String x:Key="L.Direct.Installing">Installing to device…</sys:String>
+    <sys:String x:Key="L.Direct.InstallSuccess">App successfully installed onto "{0}"!</sys:String>
+    <sys:String x:Key="L.Direct.InstallFailed">Failed to install app onto device.</sys:String>
 
     <!-- Menu (gear) -->
     <sys:String x:Key="L.Menu.Title">Menu</sys:String>

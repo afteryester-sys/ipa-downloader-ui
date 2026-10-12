@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Media;
@@ -79,6 +80,11 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
         // Reuse the last folder so a user grabbing several apps in a row picks once.
         DestinationFolder = settings.Current.LastDirectDownloadFolder ?? "";
+
+        _devices.DeviceConnected += (_, _) => RunOnUi(LoadDevices);
+        _devices.DeviceDisconnected += (_, _) => RunOnUi(LoadDevices);
+        _devices.DeviceUpdated += (_, _) => RunOnUi(LoadDevices);
+        LoadDevices();
     }
 
     // ---- Input ----
@@ -219,10 +225,31 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private bool _isLookingUp;
 
+    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
+    [NotifyPropertyChangedFor(nameof(IsActionInProgress))]
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     [ObservableProperty]
     private bool _isDownloading;
 
+    partial void OnIsDownloadingChanged(bool value) => InstallToDeviceCommand.NotifyCanExecuteChanged();
+
+    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
+    [NotifyPropertyChangedFor(nameof(IsActionInProgress))]
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
+    [ObservableProperty]
+    private bool _isInstalling;
+
+    partial void OnIsInstallingChanged(bool value) => InstallToDeviceCommand.NotifyCanExecuteChanged();
+
+    [NotifyPropertyChangedFor(nameof(ActiveProgress))]
+    [ObservableProperty]
+    private double _installProgress;
+
+    public bool IsActionInProgress => IsDownloading || IsInstalling;
+
+    public double ActiveProgress => IsInstalling ? InstallProgress : Progress;
+
+    [NotifyPropertyChangedFor(nameof(ActiveProgress))]
     [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
     [ObservableProperty]
     private double _progress;
@@ -238,19 +265,11 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private bool _isFinalizing;
 
     /// <summary>
-    /// True while a transfer is running with nothing measurable to show, matching the
-    /// queue screen's rule. Three distinct cases, all genuinely unmeasurable:
-    ///
-    ///  - Connecting: the Apple handshake, no bytes yet.
-    ///  - Finalizing: repackaging, where the byte count no longer moves. This one used
-    ///    to be missed here, so the bar sat frozen at a full 100% through the whole
-    ///    repackaging tail and looked like a download that had hung at the finish line.
-    ///  - Progress &lt;= 0: bytes are moving but no percentage exists, because an app
-    ///    missing from the App Store catalog has no known size, so ipatool reports
-    ///    bytes only and a plain bar would just sit empty and look broken.
+    /// True while a transfer or install is running with nothing measurable to show.
     /// </summary>
     public bool IsProgressIndeterminate =>
-        IsDownloading && (IsConnecting || IsFinalizing || Progress <= 0);
+        (IsDownloading && (IsConnecting || IsFinalizing || Progress <= 0))
+        || (IsInstalling && InstallProgress <= 0);
 
     [ObservableProperty]
     private string? _statusText;
@@ -258,13 +277,50 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string? _errorText;
 
-    /// <summary>Path of the finished file; drives the "Open folder" button.</summary>
+    /// <summary>Path of the finished file; drives the "Open folder" and "Install to device" buttons.</summary>
+    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
     [ObservableProperty]
     private string? _savedPath;
+
+    partial void OnSavedPathChanged(string? value) => InstallToDeviceCommand.NotifyCanExecuteChanged();
+
+    // ---- Device selection ----
+
+    public ObservableCollection<Device> ConnectedDevices { get; } = new();
+
+    [NotifyCanExecuteChangedFor(nameof(InstallToDeviceCommand))]
+    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
+    [ObservableProperty]
+    private Device? _selectedDevice;
+
+    public bool HasConnectedDevices => ConnectedDevices.Count > 0;
+
+    public bool CanInstallToDevice =>
+        !string.IsNullOrEmpty(SavedPath) && File.Exists(SavedPath) && SelectedDevice is not null && !IsDownloading && !IsInstalling;
 
     public bool IsSignedIn => _auth.IsAuthenticated;
 
     public string? AccountEmail => _auth.CurrentAccount?.Email;
+
+    private static void RunOnUi(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.CheckAccess()) action();
+        else dispatcher.InvokeAsync(action);
+    }
+
+    private void LoadDevices()
+    {
+        var prevUdid = SelectedDevice?.Udid;
+        ConnectedDevices.Clear();
+        foreach (var d in _devices.ConnectedDevices)
+            ConnectedDevices.Add(d);
+
+        SelectedDevice = ConnectedDevices.FirstOrDefault(d => d.Udid == prevUdid)
+                         ?? ConnectedDevices.FirstOrDefault();
+        OnPropertyChanged(nameof(HasConnectedDevices));
+        OnPropertyChanged(nameof(CanInstallToDevice));
+    }
 
     /// <summary>
     /// Refreshes the sign-in dependent parts of the UI. This viewmodel is a singleton,
@@ -276,6 +332,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         _navigator = navigator;
         OnPropertyChanged(nameof(IsSignedIn));
         OnPropertyChanged(nameof(AccountEmail));
+        LoadDevices();
     }
 
     // ---- Commands ----
@@ -636,6 +693,96 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     [RelayCommand]
     private void CancelDownload() => _cts?.Cancel();
+
+    [RelayCommand]
+    private void SelectDevice(Device? device)
+    {
+        SelectedDevice = device;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanInstallToDevice))]
+    private async Task InstallToDeviceAsync()
+    {
+        if (SelectedDevice is null || string.IsNullOrEmpty(SavedPath) || !File.Exists(SavedPath))
+            return;
+
+        var targetDevice = SelectedDevice;
+        var appName = FoundApp?.Name ?? Path.GetFileNameWithoutExtension(SavedPath);
+
+        _cts = new CancellationTokenSource();
+        IsInstalling = true;
+        InstallProgress = 0;
+        ErrorText = null;
+        StatusText = Loc.Get("L.Direct.Installing");
+
+        var operation = _operations.Start(new Operation(
+            OperationKind.Install,
+            Page.DirectDownload,
+            Loc.Get("L.Ops.Kind.Install"),
+            $"{appName} → {targetDevice.Name}",
+            cancel: _cts.Cancel));
+
+        var progress = new System.Progress<InstallProgress>(p =>
+        {
+            InstallProgress = p.Percent;
+            if (p.Percent > 0)
+            {
+                StatusText = $"{p.Status}: {p.Percent:0}%";
+            }
+            else
+            {
+                StatusText = p.Status;
+            }
+
+            operation.Progress = InstallProgress;
+            operation.Detail = StatusText ?? "";
+        });
+
+        try
+        {
+            var result = await _install.InstallAsync(
+                udid: targetDevice.Udid,
+                ipaPath: SavedPath,
+                progress: progress,
+                ct: _cts.Token,
+                deviceAppleId: targetDevice.AppleId,
+                bundleId: FoundApp?.BundleId,
+                allowAccountMismatch: true).ConfigureAwait(true);
+
+            if (result.Success)
+            {
+                InstallProgress = 100;
+                StatusText = Loc.Format("L.Direct.InstallSuccess", targetDevice.Name);
+                operation.Finish(OperationState.Done);
+            }
+            else
+            {
+                ErrorText = result.Error ?? Loc.Get("L.Direct.InstallFailed");
+                StatusText = null;
+                operation.Finish(OperationState.Failed, ErrorText);
+                AppLog.Warn($"Direct install to device failed: {result.Error}");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = null;
+            InstallProgress = 0;
+            operation.Finish(OperationState.Cancelled);
+        }
+        catch (Exception ex)
+        {
+            StatusText = null;
+            ErrorText = Loc.Get("L.Direct.InstallFailed");
+            AppLog.Error("Direct install to device threw.", ex);
+            operation.Finish(OperationState.Failed, ex.Message);
+        }
+        finally
+        {
+            IsInstalling = false;
+            _cts?.Dispose();
+            _cts = null;
+        }
+    }
 
     // ---- Alternative route: iTunes 12.6.5.3 ----
 

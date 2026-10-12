@@ -217,11 +217,17 @@ public sealed class QueueService
                     {
                         await ProcessItemAsync(item, token).ConfigureAwait(false);
                     }
-                    catch (OperationCanceledException)
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested)
                     {
                         // The user cancelled: let this one out so the loop unwinds and the
                         // outer handler marks the remaining items Cancelled.
                         throw;
+                    }
+                    catch (OperationCanceledException oce)
+                    {
+                        // Internal timeout or socket drop for this item alone - do not abort the queue!
+                        AppLog.Warn($"Queue item '{item.App.Name}' timed out or was cancelled internally: {oce.Message}");
+                        Fail(item, Loc.Get("L.Error.Timeout") ?? Loc.Get("L.Error.DownloadFailed"));
                     }
                     catch (Exception ex)
                     {
@@ -287,14 +293,14 @@ public sealed class QueueService
         item.StageProgress = 0;
         Notify(item);
 
-        // Prefer the live queue token when a run is in flight; otherwise stand up a
-        // dedicated source so this retry stays cancellable.
-        var standalone = _cts is null ? new CancellationTokenSource() : null;
+        // Prefer the live queue token when a run is in flight and not cancelled;
+        // otherwise stand up a dedicated source so this retry stays fresh and cancellable.
+        var standalone = (_cts is null || _cts.IsCancellationRequested) ? new CancellationTokenSource() : null;
         if (standalone is not null) _retryCts = standalone;
 
         try
         {
-            var token = _cts?.Token ?? standalone!.Token;
+            var token = (_cts is not null && !_cts.IsCancellationRequested) ? _cts.Token : standalone!.Token;
             await ProcessItemAsync(item, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -397,7 +403,7 @@ public sealed class QueueService
 
             await RunInstallStageAsync(item, item.App.LocalIpaPath!, ct).ConfigureAwait(false);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             item.Stage = QueueStage.Cancelled;
             item.IsConnecting = false;
@@ -405,6 +411,11 @@ public sealed class QueueService
             item.StatusDetail = Loc.Get("L.Queue.Cancelled");
             Notify(item);
             throw;
+        }
+        catch (OperationCanceledException oce)
+        {
+            AppLog.Warn($"Queue item '{item.App.Name}' cancelled internally or timed out: {oce.Message}");
+            Fail(item, Loc.Get("L.Error.Timeout") ?? Loc.Get("L.Error.DownloadFailed"));
         }
         catch (Exception ex)
         {
@@ -682,7 +693,8 @@ public sealed class QueueService
 
         var installResult = await _install.InstallAsync(
             item.TargetDevice.Udid, ipaPath, installProgress, ct,
-            item.TargetDevice.AppleId, item.App.BundleId).ConfigureAwait(false);
+            item.TargetDevice.AppleId, item.App.BundleId,
+            allowAccountMismatch: true).ConfigureAwait(false);
 
         if (!installResult.Success)
         {
