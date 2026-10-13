@@ -332,6 +332,8 @@
                         <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
                                 HorizontalAlignment="Stretch" Command="{Binding InstallCommand}"
                                 Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                        <Button Content="{DynamicResource L.WhatsNew.MenuTitle}" Style="{StaticResource Button.Ghost}"
+                                HorizontalAlignment="Stretch" Click="OpenWhatsNew_Click" Margin="0,6,0,0" />
 
                         <!-- Divider -->
                         <Border Height="1" Background="{StaticResource Brush.Border}"
@@ -722,6 +724,229 @@
                     </StackPanel>
                 </Border>
             </Popup>
+        </Grid>
+
+        <!-- ===== What's New / Release Notes Modal Overlay ===== -->
+        <Grid x:Name="WhatsNewOverlay" Panel.ZIndex="100"
+              Visibility="Collapsed">
+
+            <!-- Semi-transparent backdrop with click-to-dismiss -->
+            <Border x:Name="WhatsNewBackdrop" Background="#90000000" Opacity="0"
+                    MouseLeftButtonDown="WhatsNewBackdrop_MouseLeftButtonDown" />
+
+            <!-- Centered Modal Card -->
+            <Border x:Name="WhatsNewCard"
+                    Width="560" MaxHeight="640"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource Brush.Surface}"
+                    BorderBrush="{DynamicResource Brush.Border}"
+                    BorderThickness="1"
+                    CornerRadius="18"
+                    Opacity="0"
+                    RenderTransformOrigin="0.5,0.5">
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="WhatsNewCardScale" ScaleX="1" ScaleY="1" />
+                        <TranslateTransform x:Name="WhatsNewCardTranslate" Y="0" />
+                    </TransformGroup>
+                </Border.RenderTransform>
+
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="40" Direction="270"
+                                      RenderingBias="Quality" ShadowDepth="10"
+                                      Color="#000000" Opacity="0.55" />
+                </Border.Effect>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Header -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Content / Highlights -->
+                        <RowDefinition Height="*" />
+                        <!-- Footer -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Border Grid.Row="0" Padding="24,20,20,16"
+                            BorderBrush="{DynamicResource Brush.Border}"
+                            BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- App Icon / Sparkle Badge -->
+                            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="12"
+                                    Background="{DynamicResource Brush.AccentSoft}"
+                                    Margin="0,0,14,0" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE706;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+
+                            <!-- Title & Version Info -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource L.WhatsNew.Title}"
+                                               FontSize="17" FontWeight="Bold"
+                                               Foreground="{DynamicResource Brush.Text}"
+                                               VerticalAlignment="Center" />
+                                    <Border Background="{DynamicResource Brush.AccentSoft}"
+                                            CornerRadius="6" Padding="7,2" Margin="10,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding WhatsNew.CurrentNote.Version, StringFormat='v{0}'}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Brush.Accent}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding WhatsNew.CurrentNote.Title}"
+                                           Style="{StaticResource Text.Caption}"
+                                           Margin="0,3,0,0" FontSize="12" />
+                            </StackPanel>
+
+                            <!-- Close Button ✕ -->
+                            <Button Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                                    Width="32" Height="32" Padding="0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Command="{Binding WhatsNew.CloseCommand}"
+                                    ToolTip="{DynamicResource L.Common.Close}">
+                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Scrollable List of Changelog Highlights -->
+                    <ScrollViewer Grid.Row="1" MaxHeight="420"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="24,16,24,16">
+                        <ItemsControl ItemsSource="{Binding WhatsNew.CurrentNote.Items}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,12" Padding="14,12"
+                                            Background="{DynamicResource Brush.Background}"
+                                            CornerRadius="10"
+                                            BorderBrush="{DynamicResource Brush.Border}"
+                                            BorderThickness="1">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Badge + Title -->
+                                            <DockPanel Grid.Row="0">
+                                                <Border DockPanel.Dock="Left" CornerRadius="4" Padding="6,2"
+                                                        Margin="0,0,10,0" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="#2510B981" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="НОВОЕ">
+                                                                    <Setter Property="Background" Value="#2510B981" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="NEW">
+                                                                    <Setter Property="Background" Value="#2510B981" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="УЛУЧШЕНИЕ">
+                                                                    <Setter Property="Background" Value="#256366F1" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="IMPROVEMENT">
+                                                                    <Setter Property="Background" Value="#256366F1" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="ИСПРАВЛЕНИЕ">
+                                                                    <Setter Property="Background" Value="#25F59E0B" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding CategoryLabel}" Value="FIX">
+                                                                    <Setter Property="Background" Value="#25F59E0B" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding CategoryLabel}"
+                                                               FontSize="10" FontWeight="Bold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="#10B981" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="НОВОЕ">
+                                                                        <Setter Property="Foreground" Value="#10B981" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="NEW">
+                                                                        <Setter Property="Foreground" Value="#10B981" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="УЛУЧШЕНИЕ">
+                                                                        <Setter Property="Foreground" Value="#818CF8" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="IMPROVEMENT">
+                                                                        <Setter Property="Foreground" Value="#818CF8" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="ИСПРАВЛЕНИЕ">
+                                                                        <Setter Property="Foreground" Value="#F59E0B" />
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding CategoryLabel}" Value="FIX">
+                                                                        <Setter Property="Foreground" Value="#F59E0B" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+
+                                                <TextBlock Text="{Binding Title}"
+                                                           FontWeight="SemiBold" FontSize="13"
+                                                           Foreground="{DynamicResource Brush.Text}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+
+                                            <!-- Description -->
+                                            <TextBlock Grid.Row="1" Text="{Binding Description}"
+                                                       Style="{StaticResource Text.Caption}"
+                                                       FontSize="12" TextWrapping="Wrap"
+                                                       Margin="0,6,0,0" LineHeight="18" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Footer -->
+                    <Border Grid.Row="2" Padding="24,14,24,18"
+                            BorderBrush="{DynamicResource Brush.Border}"
+                            BorderThickness="0,1,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- GitHub Releases Link -->
+                            <Button Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Style="{StaticResource Button.Ghost}" Padding="6,4"
+                                    Command="{Binding WhatsNew.OpenReleasesUrlCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                               Foreground="{DynamicResource Brush.TextMuted}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource L.WhatsNew.AllReleases}"
+                                               Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Primary Dismiss Button -->
+                            <Button Grid.Column="1"
+                                    Content="{DynamicResource L.WhatsNew.Great}"
+                                    Style="{StaticResource Button.Primary}"
+                                    MinWidth="140" Height="36"
+                                    Command="{Binding WhatsNew.CloseCommand}" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </Window>

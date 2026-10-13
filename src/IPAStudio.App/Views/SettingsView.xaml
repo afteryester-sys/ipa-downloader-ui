@@ -468,7 +468,10 @@
                                 Margin="0,0,10,0" />
                         <Button Content="{DynamicResource L.Update.Install}" Style="{StaticResource Button.Primary}"
                                 Command="{Binding InstallUpdateCommand}"
-                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}" />
+                                Visibility="{Binding UpdateReady, Converter={StaticResource BoolToVis}}"
+                                Margin="0,0,10,0" />
+                        <Button Content="{DynamicResource L.WhatsNew.Button}" Style="{StaticResource Button.Ghost}"
+                                Command="{Binding ShowWhatsNewCommand}" />
                     </StackPanel>
                 </StackPanel>
             </Border>

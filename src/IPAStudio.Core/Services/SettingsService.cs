@@ -363,6 +363,13 @@ public sealed class AppSettings
 
     /// <summary>Devices monitored for automatic firmware downloads.</summary>
     public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
+
+    /// <summary>
+    /// Last application version for which the "What's New" release notes modal was displayed.
+    /// When the running version is newer than this value (or if this is empty on an update),
+    /// the release notes popup is presented once at startup with a smooth entrance animation.
+    /// </summary>
+    public string? LastSeenReleaseNotesVersion { get; set; }
 }
 
 /// <summary>Loads and saves settings as JSON in the local app data folder.</summary>

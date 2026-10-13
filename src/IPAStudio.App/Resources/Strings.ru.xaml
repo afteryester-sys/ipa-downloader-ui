@@ -259,6 +259,14 @@
     <sys:String x:Key="L.Update.ServerError">Сервер обновлений вернул ошибку: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Не удалось разобрать ответ сервера обновлений.</sys:String>
 
+    <!-- Что нового / Release Notes -->
+    <sys:String x:Key="L.WhatsNew.Title">Что нового в IPA Studio</sys:String>
+    <sys:String x:Key="L.WhatsNew.MenuTitle">Что нового в этой версии</sys:String>
+    <sys:String x:Key="L.WhatsNew.Button">Что нового</sys:String>
+    <sys:String x:Key="L.WhatsNew.Great">Отлично, продолжить</sys:String>
+    <sys:String x:Key="L.WhatsNew.AllReleases">Все выпуски на GitHub</sys:String>
+    <sys:String x:Key="L.WhatsNew.History">История версий</sys:String>
+
     <!-- Альтернативный способ: iTunes 12.6.5.3 -->
     <sys:String x:Key="L.Itunes.Button">Через iTunes 12.6.5.3</sys:String>
     <sys:String x:Key="L.Itunes.ButtonHint">Запасной способ. Apple изменила точку входа, которой пользуется ipatool, поэтому обычная загрузка может не работать. iTunes 12.6.5.3 сохранил вкладку App Store и собственную рабочую сессию, поэтому может выдать файл там, где обычный способ уже отказывает.</sys:String>

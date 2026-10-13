@@ -396,11 +396,13 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
 
     public bool HasThroughputFindings => ThroughputFindings.Count > 0;
 
+    private readonly WhatsNewViewModel _whatsNew;
+
     public SettingsViewModel(
         SettingsService settings, AuthService auth, DownloadThrottle throttle,
         InstallService install, ToolLocator tools, LocalizationManager localization,
         UpdateService updates, DeviceService devices, OperationService operations,
-        RemoteSupportService remoteSupport)
+        RemoteSupportService remoteSupport, WhatsNewViewModel whatsNew)
     {
         _operations = operations;
         _settings = settings;
@@ -412,7 +414,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _updates = updates;
         _devices = devices;
         _remoteSupport = remoteSupport;
+        _whatsNew = whatsNew;
     }
+
+    [RelayCommand]
+    private void ShowWhatsNew() => _whatsNew.Open();
 
     // ===== Current load =====
     //

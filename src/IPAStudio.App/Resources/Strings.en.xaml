@@ -259,6 +259,14 @@
     <sys:String x:Key="L.Update.ServerError">The update server returned an error: {0}</sys:String>
     <sys:String x:Key="L.Update.BadResponse">Could not parse the update server response.</sys:String>
 
+    <!-- What's New / Release Notes -->
+    <sys:String x:Key="L.WhatsNew.Title">What's New in IPA Studio</sys:String>
+    <sys:String x:Key="L.WhatsNew.MenuTitle">What's new in this version</sys:String>
+    <sys:String x:Key="L.WhatsNew.Button">What's new</sys:String>
+    <sys:String x:Key="L.WhatsNew.Great">Great, let's go</sys:String>
+    <sys:String x:Key="L.WhatsNew.AllReleases">All releases on GitHub</sys:String>
+    <sys:String x:Key="L.WhatsNew.History">Version history</sys:String>
+
     <!-- Rollback -->
     <sys:String x:Key="L.Rollback.Title">Roll back to a previous version</sys:String>
     <sys:String x:Key="L.Rollback.PasswordHint">Enter the password to access rollback</sys:String>

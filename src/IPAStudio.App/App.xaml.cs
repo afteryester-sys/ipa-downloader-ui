@@ -97,6 +97,7 @@ public partial class App : Application
         services.AddSingleton<IpaCatalogService>();
         services.AddSingleton<MediaExportService>();
         services.AddSingleton<FileSharingService>();
+        services.AddSingleton<ReleaseNotesService>();
 
         // The iTunes 12.6.5.3 fallback route. Shared, so the catalog and direct-download
         // screens agree on which iTunes was detected and on what is already in its library.
@@ -106,6 +107,7 @@ public partial class App : Application
         services.AddSingleton<LocalizationManager>();
         services.AddSingleton<OperationService>();
         services.AddSingleton<FirmwareAutoUpdateService>();
+        services.AddSingleton<WhatsNewViewModel>();
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<UpdaterViewModel>();
         services.AddSingleton<SetupViewModel>();

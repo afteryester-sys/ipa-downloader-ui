@@ -148,6 +148,9 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// <summary>Global updater backing the corner update flyout (available everywhere).</summary>
     public UpdaterViewModel Updater { get; }
 
+    /// <summary>Controls the What's New modal dialog and release notes.</summary>
+    public WhatsNewViewModel WhatsNew { get; }
+
     /// <summary>Backs the corner circle and the operations list, bound to from the window.</summary>
     public OperationService Operations { get; }
 
@@ -158,10 +161,11 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// </summary>
     public event EventHandler? OperationMinimized;
 
-    public ShellViewModel(UpdaterViewModel updater, OperationService operations)
+    public ShellViewModel(UpdaterViewModel updater, OperationService operations, WhatsNewViewModel whatsNew)
     {
         Updater = updater;
         Operations = operations;
+        WhatsNew = whatsNew;
 
         Operations.ReturnRequested += (_, op) => GoToOperation(op);
         Operations.MinimizeRequested += (_, op) => MinimizeOperation(op);

@@ -16,6 +16,7 @@ namespace IPAStudio.App.Services;
 public sealed class LocalizationManager
 {
     public string CurrentLanguage { get; private set; } = "ru";
+    public event Action<string>? LanguageChanged;
 
     public void Apply(string language)
     {
@@ -40,6 +41,7 @@ public sealed class LocalizationManager
         if (!replaced) dictionaries.Add(loaded);
 
         PublishToCore(loaded);
+        LanguageChanged?.Invoke(CurrentLanguage);
     }
 
     /// <summary>

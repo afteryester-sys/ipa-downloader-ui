@@ -47,6 +47,33 @@ public partial class MainWindow : Window
         // view model's constructor so the timer belongs to the UI thread that will run its
         // ticks; the call is idempotent, which this hook needs since it can run again.
         shell.Updater.StartAutoCheck();
+
+        // What's New modal notifications
+        shell.WhatsNew.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModels.WhatsNewViewModel.IsOpen))
+            {
+                if (shell.WhatsNew.IsOpen)
+                    ShowWhatsNewAnimated();
+                else
+                    HideWhatsNewAnimated();
+            }
+        };
+
+        // When the window loads, check if we need to show the What's New modal for this version
+        Loaded += (_, _) =>
+        {
+            Dispatcher.InvokeAsync(() => shell.WhatsNew.CheckOnStartup(), DispatcherPriority.Background);
+        };
+
+        PreviewKeyDown += (_, args) =>
+        {
+            if (args.Key == System.Windows.Input.Key.Escape && shell.WhatsNew.IsOpen)
+            {
+                shell.WhatsNew.CloseCommand.Execute(null);
+                args.Handled = true;
+            }
+        };
     }
 
     /// <summary>
@@ -259,5 +286,85 @@ public partial class MainWindow : Window
         {
             // Silently ignore — can't open browser.
         }
+    }
+
+    // ===== What's New modal handlers & fluid animations =====
+
+    private void OpenWhatsNew_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ShellViewModel shell) return;
+        shell.Updater.IsOpen = false;
+        shell.WhatsNew.Open();
+    }
+
+    private void WhatsNewBackdrop_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell && shell.WhatsNew.IsOpen)
+        {
+            shell.WhatsNew.CloseCommand.Execute(null);
+        }
+    }
+
+    private bool _isWhatsNewAnimatingOut;
+
+    private void ShowWhatsNewAnimated()
+    {
+        _isWhatsNewAnimatingOut = false;
+        WhatsNewOverlay.Visibility = Visibility.Visible;
+
+        var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        // Backdrop fade in
+        var backdropFade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
+        {
+            EasingFunction = easeOut
+        };
+        WhatsNewBackdrop.BeginAnimation(OpacityProperty, backdropFade);
+
+        // Card fade in
+        var cardFade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260))
+        {
+            EasingFunction = easeOut
+        };
+        WhatsNewCard.BeginAnimation(OpacityProperty, cardFade);
+
+        // Card scale pop: 0.94 -> 1.0
+        var cardScale = new DoubleAnimation(0.94, 1.0, TimeSpan.FromMilliseconds(280))
+        {
+            EasingFunction = easeOut
+        };
+        WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, cardScale);
+        WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, cardScale);
+
+        // Card slide up: 16 -> 0
+        var cardSlide = new DoubleAnimation(16, 0, TimeSpan.FromMilliseconds(280))
+        {
+            EasingFunction = easeOut
+        };
+        WhatsNewCardTranslate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, cardSlide);
+    }
+
+    private void HideWhatsNewAnimated()
+    {
+        if (_isWhatsNewAnimatingOut) return;
+        _isWhatsNewAnimatingOut = true;
+
+        var duration = TimeSpan.FromMilliseconds(180);
+        var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+        var backdropFade = new DoubleAnimation(1, 0, duration) { EasingFunction = easeIn };
+        var cardFade = new DoubleAnimation(1, 0, duration) { EasingFunction = easeIn };
+        var cardScale = new DoubleAnimation(1.0, 0.96, duration) { EasingFunction = easeIn };
+
+        backdropFade.Completed += (_, _) =>
+        {
+            WhatsNewOverlay.Visibility = Visibility.Collapsed;
+            _isWhatsNewAnimatingOut = false;
+        };
+
+        WhatsNewBackdrop.BeginAnimation(OpacityProperty, backdropFade);
+        WhatsNewCard.BeginAnimation(OpacityProperty, cardFade);
+        WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, cardScale);
+        WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, cardScale);
     }
 }
