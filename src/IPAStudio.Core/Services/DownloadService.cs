@@ -1357,26 +1357,47 @@ public sealed partial class DownloadService
     }
 
     /// <summary>
+    /// Sanitizes an input string so that it can be safely used as a filename on the filesystem,
+    /// preserving Unicode (such as Cyrillic, Greek, accented characters) while replacing characters
+    /// invalid for NTFS / FAT32 / APFS (\ / : * ? " < > | and control chars) with underscores.
+    /// </summary>
+    public static string MakeValidFileName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return "";
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var sb = new System.Text.StringBuilder(input.Length);
+        foreach (var ch in input)
+        {
+            if (Array.IndexOf(invalid, ch) >= 0 || ch is '<' or '>' or ':' or '"' or '/' or '\\' or '|' or '?' or '*' || ch < 32)
+            {
+                sb.Append('_');
+            }
+            else
+            {
+                sb.Append(ch);
+            }
+        }
+
+        var collapsed = Regex.Replace(sb.ToString(), "_+", "_");
+        return collapsed.Trim('_', ' ', '.');
+    }
+
+    /// <summary>
     /// The auto-generated output name (without extension) for <paramref name="app"/>:
     /// "Name_AppID_Version". Exposed so the direct-download screen can show and let the
     /// user edit the same name <see cref="BuildOutputPath"/> would otherwise pick silently.
     /// </summary>
     public static string BuildDefaultFileName(AppEntry app)
     {
-        var safeName = MakeAsciiSafeName(app.Name);
+        var safeName = MakeValidFileName(app.Name);
         if (string.IsNullOrEmpty(safeName))
-            safeName = MakeAsciiSafeName(app.BundleId ?? "");
+            safeName = MakeValidFileName(app.BundleId ?? "");
         if (string.IsNullOrEmpty(safeName))
             safeName = "app";
 
         // No known version -> stamp the download date instead of a constant.
-        //
-        // The old fallback was the literal "latest", which is the same string forever.
-        // Apps with no App Store catalog entry (delisted ones, where the version can
-        // never be looked up) therefore always produced one identical filename, so
-        // every re-download collided with the previous one even when it was genuinely
-        // a different build. A date keeps those builds apart.
-        var version = MakeAsciiSafeName(app.LatestVersion ?? "");
+        var version = MakeValidFileName(app.LatestVersion ?? "");
         if (string.IsNullOrEmpty(version))
             version = DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -1385,7 +1406,7 @@ public sealed partial class DownloadService
         // only identifier they do have, so it stands in.
         var identifier = app.AppStoreId > 0
             ? app.AppStoreId.ToString(CultureInfo.InvariantCulture)
-            : MakeAsciiSafeName(app.BundleId ?? "app");
+            : MakeValidFileName(app.BundleId ?? "app");
 
         return $"{safeName}_{identifier}_{version}";
     }
@@ -1393,9 +1414,8 @@ public sealed partial class DownloadService
     /// <summary>
     /// Validates and cleans a user-typed output file name for the direct-download rename
     /// panel. Strips a trailing ".ipa" the user may have typed (it is re-added by the
-    /// caller), then runs the same ASCII-safe collapsing <see cref="BuildDefaultFileName"/>
-    /// uses so the result is guaranteed writable by ipatool. Fails only when nothing usable
-    /// remains, which is the one case that cannot be silently repaired.
+    /// caller), preserving Unicode letters (e.g. Cyrillic) while stripping filesystem-illegal
+    /// characters. Fails only when nothing usable remains.
     /// </summary>
     public static bool TryNormalizeIpaFileName(string input, out string normalized)
     {
@@ -1403,7 +1423,7 @@ public sealed partial class DownloadService
         if (trimmed.EndsWith(".ipa", StringComparison.OrdinalIgnoreCase))
             trimmed = trimmed[..^4];
 
-        normalized = MakeAsciiSafeName(trimmed);
+        normalized = MakeValidFileName(trimmed);
         return !string.IsNullOrEmpty(normalized);
     }
 

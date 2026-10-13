@@ -10,6 +10,7 @@ using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
+using IPAStudio.Core.Tools;
 using Microsoft.Win32;
 
 namespace IPAStudio.App.ViewModels;
@@ -23,6 +24,30 @@ namespace IPAStudio.App.ViewModels;
 /// onto a phone. It therefore does NOT go through <see cref="QueueService"/> (that
 /// pipeline requires a target device) and calls <see cref="DownloadService"/> directly.
 /// </summary>
+/// <summary>
+/// A selectable wrapper around a connected device for multi-target installation.
+/// </summary>
+public sealed partial class SelectableDevice : ObservableObject
+{
+    public Device Device { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public string Name => Device.Name;
+    public string Model => Device.Model;
+    public string OsVersion => Device.OsVersion;
+    public string Udid => Device.Udid;
+    public DeviceLink Link => Device.Link;
+    public string DeviceClass => Device.DeviceClass;
+
+    public SelectableDevice(Device device, bool isSelected = false)
+    {
+        Device = device;
+        _isSelected = isSelected;
+    }
+}
+
 public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAware
 {
     private readonly CatalogService _catalog;
@@ -284,19 +309,25 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     partial void OnSavedPathChanged(string? value) => InstallToDeviceCommand.NotifyCanExecuteChanged();
 
-    // ---- Device selection ----
+    // ---- Device selection & picker ----
+
+    [ObservableProperty]
+    private bool _isDevicePickerOpen;
+
+    public ObservableCollection<SelectableDevice> TargetDevices { get; } = new();
 
     public ObservableCollection<Device> ConnectedDevices { get; } = new();
 
-    [NotifyCanExecuteChangedFor(nameof(InstallToDeviceCommand))]
-    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
-    [ObservableProperty]
-    private Device? _selectedDevice;
+    public Device? SelectedDevice => TargetDevices.FirstOrDefault(d => d.IsSelected)?.Device ?? ConnectedDevices.FirstOrDefault();
 
-    public bool HasConnectedDevices => ConnectedDevices.Count > 0;
+    public bool HasConnectedDevices => TargetDevices.Count > 0;
+
+    public int SelectedDeviceCount => TargetDevices.Count(d => d.IsSelected);
+
+    public bool HasSelectedDevices => SelectedDeviceCount > 0;
 
     public bool CanInstallToDevice =>
-        !string.IsNullOrEmpty(SavedPath) && File.Exists(SavedPath) && SelectedDevice is not null && !IsDownloading && !IsInstalling;
+        !string.IsNullOrEmpty(SavedPath) && File.Exists(SavedPath) && HasSelectedDevices && !IsDownloading && !IsInstalling;
 
     public bool IsSignedIn => _auth.IsAuthenticated;
 
@@ -311,15 +342,41 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     private void LoadDevices()
     {
-        var prevUdid = SelectedDevice?.Udid;
+        var previouslySelectedUdids = TargetDevices.Where(d => d.IsSelected).Select(d => d.Device.Udid).ToHashSet();
+        TargetDevices.Clear();
         ConnectedDevices.Clear();
-        foreach (var d in _devices.ConnectedDevices)
-            ConnectedDevices.Add(d);
 
-        SelectedDevice = ConnectedDevices.FirstOrDefault(d => d.Udid == prevUdid)
-                         ?? ConnectedDevices.FirstOrDefault();
+        foreach (var d in _devices.ConnectedDevices)
+        {
+            ConnectedDevices.Add(d);
+            var isSel = previouslySelectedUdids.Contains(d.Udid);
+            var item = new SelectableDevice(d, isSel);
+            item.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(SelectableDevice.IsSelected))
+                {
+                    OnPropertyChanged(nameof(SelectedDeviceCount));
+                    OnPropertyChanged(nameof(HasSelectedDevices));
+                    OnPropertyChanged(nameof(CanInstallToDevice));
+                    OnPropertyChanged(nameof(SelectedDevice));
+                    InstallToDeviceCommand.NotifyCanExecuteChanged();
+                }
+            };
+            TargetDevices.Add(item);
+        }
+
+        // Default to selecting the first device if none was selected
+        if (TargetDevices.Count > 0 && !TargetDevices.Any(d => d.IsSelected))
+        {
+            TargetDevices[0].IsSelected = true;
+        }
+
         OnPropertyChanged(nameof(HasConnectedDevices));
+        OnPropertyChanged(nameof(SelectedDeviceCount));
+        OnPropertyChanged(nameof(HasSelectedDevices));
         OnPropertyChanged(nameof(CanInstallToDevice));
+        OnPropertyChanged(nameof(SelectedDevice));
+        InstallToDeviceCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -695,18 +752,31 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     private void CancelDownload() => _cts?.Cancel();
 
     [RelayCommand]
-    private void SelectDevice(Device? device)
+    private void ToggleDevicePicker()
     {
-        SelectedDevice = device;
+        IsDevicePickerOpen = !IsDevicePickerOpen;
+    }
+
+    [RelayCommand]
+    private void CloseDevicePicker()
+    {
+        IsDevicePickerOpen = false;
+    }
+
+    [RelayCommand]
+    private void ToggleDevice(SelectableDevice? item)
+    {
+        if (item is null) return;
+        item.IsSelected = !item.IsSelected;
     }
 
     [RelayCommand(CanExecute = nameof(CanInstallToDevice))]
     private async Task InstallToDeviceAsync()
     {
-        if (SelectedDevice is null || string.IsNullOrEmpty(SavedPath) || !File.Exists(SavedPath))
+        var targets = TargetDevices.Where(d => d.IsSelected).Select(d => d.Device).ToList();
+        if (targets.Count == 0 || string.IsNullOrEmpty(SavedPath) || !File.Exists(SavedPath))
             return;
 
-        var targetDevice = SelectedDevice;
         var appName = FoundApp?.Name ?? Path.GetFileNameWithoutExtension(SavedPath);
 
         _cts = new CancellationTokenSource();
@@ -715,52 +785,80 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         ErrorText = null;
         StatusText = Loc.Get("L.Direct.Installing");
 
+        var targetNames = string.Join(", ", targets.Select(t => t.Name));
         var operation = _operations.Start(new Operation(
             OperationKind.Install,
             Page.DirectDownload,
             Loc.Get("L.Ops.Kind.Install"),
-            $"{appName} → {targetDevice.Name}",
+            $"{appName} → {targetNames}",
             cancel: _cts.Cancel));
-
-        var progress = new System.Progress<InstallProgress>(p =>
-        {
-            InstallProgress = p.Percent;
-            if (p.Percent > 0)
-            {
-                StatusText = $"{p.Status}: {p.Percent:0}%";
-            }
-            else
-            {
-                StatusText = p.Status;
-            }
-
-            operation.Progress = InstallProgress;
-            operation.Detail = StatusText ?? "";
-        });
 
         try
         {
-            var result = await _install.InstallAsync(
-                udid: targetDevice.Udid,
-                ipaPath: SavedPath,
-                progress: progress,
-                ct: _cts.Token,
-                deviceAppleId: targetDevice.AppleId,
-                bundleId: FoundApp?.BundleId,
-                allowAccountMismatch: true).ConfigureAwait(true);
+            int total = targets.Count;
+            int current = 0;
+            int successful = 0;
+            string? lastError = null;
 
-            if (result.Success)
+            foreach (var targetDevice in targets)
+            {
+                current++;
+                _cts.Token.ThrowIfCancellationRequested();
+
+                var prefix = total > 1 ? $"[{current}/{total}] {targetDevice.Name}: " : "";
+
+                var progress = new System.Progress<InstallProgress>(p =>
+                {
+                    var overallPercent = ((current - 1) * 100.0 + p.Percent) / total;
+                    InstallProgress = overallPercent;
+
+                    StatusText = p.Percent > 0
+                        ? $"{prefix}{p.Status}: {p.Percent:0}%"
+                        : $"{prefix}{p.Status}";
+
+                    operation.Progress = InstallProgress;
+                    operation.Detail = StatusText ?? "";
+                });
+
+                var result = await _install.InstallAsync(
+                    udid: targetDevice.Udid,
+                    ipaPath: SavedPath,
+                    progress: progress,
+                    ct: _cts.Token,
+                    deviceAppleId: targetDevice.AppleId,
+                    bundleId: FoundApp?.BundleId,
+                    allowAccountMismatch: true).ConfigureAwait(true);
+
+                if (result.Success)
+                {
+                    successful++;
+                }
+                else
+                {
+                    lastError = result.Error;
+                    AppLog.Warn($"Direct install to device '{targetDevice.Name}' failed: {result.Error}");
+                }
+            }
+
+            if (successful == total)
             {
                 InstallProgress = 100;
-                StatusText = Loc.Format("L.Direct.InstallSuccess", targetDevice.Name);
+                StatusText = total == 1
+                    ? Loc.Format("L.Direct.InstallSuccess", targets[0].Name)
+                    : Loc.Format("L.Direct.InstallSuccessMulti", total);
+                operation.Finish(OperationState.Done);
+                IsDevicePickerOpen = false;
+            }
+            else if (successful > 0)
+            {
+                StatusText = Loc.Format("L.Direct.InstallPartial", successful, total);
                 operation.Finish(OperationState.Done);
             }
             else
             {
-                ErrorText = result.Error ?? Loc.Get("L.Direct.InstallFailed");
+                ErrorText = lastError ?? Loc.Get("L.Direct.InstallFailed");
                 StatusText = null;
                 operation.Finish(OperationState.Failed, ErrorText);
-                AppLog.Warn($"Direct install to device failed: {result.Error}");
             }
         }
         catch (OperationCanceledException)

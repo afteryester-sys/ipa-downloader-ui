@@ -7,37 +7,6 @@
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
         <conv:InverseBoolConverter x:Key="InverseBool" />
         <conv:InitialConverter x:Key="Initial" />
-
-        <Style x:Key="DeviceCardItem" TargetType="ListBoxItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,10,10" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd" CornerRadius="12"
-                                Background="{DynamicResource Brush.Surface}"
-                                BorderBrush="{DynamicResource Brush.Border}"
-                                BorderThickness="1.5"
-                                Padding="14,12" MinWidth="190">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.AccentSoft}" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
@@ -66,7 +35,7 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel MaxWidth="960" HorizontalAlignment="Left">
 
                 <!-- ===== Sign-in warning: the download is signed with the Apple ID ===== -->
                 <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,16"
@@ -244,18 +213,68 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ===== Step 3: Target Device ===== -->
-                <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
+                <!-- ===== Action row ===== -->
+                <WrapPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Button Content="{DynamicResource L.Direct.Download}"
+                            Style="{StaticResource Button.Primary}" MinWidth="180" Margin="0,0,10,10"
+                            Command="{Binding DownloadCommand}"
+                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
+                    <Button Content="{DynamicResource L.Direct.Cancel}"
+                            Style="{StaticResource Button.Danger}" MinWidth="180" Margin="0,0,10,10"
+                            Command="{Binding CancelDownloadCommand}"
+                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- The alternative route. Sits beside the main button rather than
+                         replacing it: the normal path is still the faster one when it works,
+                         and this one needs iTunes 12.6.5.3 plus a click inside iTunes. -->
+                    <Button Content="{DynamicResource L.Itunes.Button}"
+                            Style="{StaticResource Button.Secondary}" Margin="0,0,10,10"
+                            ToolTip="{DynamicResource L.Itunes.ButtonHint}"
+                            Command="{Binding DownloadViaItunesCommand}"
+                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
+                    <!-- Install to device button - toggles the target devices picker -->
+                    <Button Style="{StaticResource Button.Primary}" Margin="0,0,10,10"
+                            Command="{Binding ToggleDevicePickerCommand}"
+                            Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="{DynamicResource L.Direct.InstallToDevice}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Content="{DynamicResource L.Direct.OpenFolder}"
+                            Style="{StaticResource Button.Secondary}" Margin="0,0,10,10"
+                            Command="{Binding OpenFolderCommand}"
+                            Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}" />
+                </WrapPanel>
+
+                <!-- ===== Target Devices Picker (appears only after clicking Install to Device) ===== -->
+                <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16"
+                        Visibility="{Binding IsDevicePickerOpen, Converter={StaticResource BoolToVis}}">
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource L.Direct.TargetDevice}"
-                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                        <TextBlock Text="{DynamicResource L.Direct.TargetDeviceHint}"
-                                   Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                                   Margin="0,2,0,12" />
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{DynamicResource L.Direct.TargetDevice}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="15" />
+                                <TextBlock Text="{DynamicResource L.Direct.TargetDeviceHint}"
+                                           Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Style="{StaticResource Button.Ghost}" Padding="6,4"
+                                    VerticalAlignment="Top" Command="{Binding CloseDevicePickerCommand}">
+                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" />
+                            </Button>
+                        </Grid>
 
                         <!-- When no devices connected -->
                         <Border Background="{DynamicResource Brush.SurfaceHover}"
-                                CornerRadius="10" Padding="14,12"
+                                CornerRadius="10" Padding="14,12" Margin="0,0,0,14"
                                 Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVis}, ConverterParameter=invert}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE770;" FontFamily="Segoe MDL2 Assets" FontSize="16"
@@ -268,93 +287,171 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Connected device list (cards / thumbnails) -->
-                        <ListBox ItemsSource="{Binding ConnectedDevices}"
-                                 SelectedItem="{Binding SelectedDevice}"
-                                 ItemContainerStyle="{StaticResource DeviceCardItem}"
-                                 Background="Transparent" BorderThickness="0"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVis}}">
-                            <ListBox.ItemsPanel>
+                        <!-- Connected devices cards with signature tactile click & selection animation -->
+                        <ItemsControl ItemsSource="{Binding TargetDevices}"
+                                      Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <WrapPanel Orientation="Horizontal" />
                                 </ItemsPanelTemplate>
-                            </ListBox.ItemsPanel>
-                            <ListBox.ItemTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Width="200">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                    <Button Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Margin="0,0,12,12" MinWidth="220" MaxWidth="280"
+                                            Cursor="Hand">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Grid RenderTransformOrigin="0.5,0.5">
+                                                    <Grid.RenderTransform>
+                                                        <ScaleTransform x:Name="Pop" ScaleX="1" ScaleY="1" />
+                                                    </Grid.RenderTransform>
 
-                                        <!-- Device icon badge -->
-                                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18"
-                                                Background="{DynamicResource Brush.SurfaceHover}"
-                                                VerticalAlignment="Center" Margin="0,0,10,0">
-                                            <Border Width="14" Height="22" CornerRadius="3"
-                                                    BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.5"
-                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Border Width="6" Height="1.5" CornerRadius="0.5"
-                                                        Background="{DynamicResource Brush.Accent}"
-                                                        VerticalAlignment="Top" Margin="0,2,0,0" />
-                                            </Border>
-                                        </Border>
+                                                    <Border x:Name="Fill" CornerRadius="12"
+                                                            Background="{DynamicResource Brush.Surface}" />
 
-                                        <!-- Device info -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                       FontSize="13" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0">
-                                                <Run Text="{Binding Model}" />
-                                                <Run Text=" · iOS " />
-                                                <Run Text="{Binding OsVersion}" />
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </Grid>
+                                                    <Border x:Name="Ring" CornerRadius="12" Opacity="0"
+                                                            BorderBrush="{DynamicResource Brush.Accent}"
+                                                            BorderThickness="0" />
+
+                                                    <Grid Margin="14,12">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Device badge -->
+                                                        <Border Grid.Column="0" Width="38" Height="38" CornerRadius="19"
+                                                                Background="{DynamicResource Brush.SurfaceHover}"
+                                                                VerticalAlignment="Center" Margin="0,0,10,0">
+                                                            <Border Width="14" Height="22" CornerRadius="3"
+                                                                    BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.5"
+                                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Border Width="6" Height="1.5" CornerRadius="0.5"
+                                                                        Background="{DynamicResource Brush.Accent}"
+                                                                        VerticalAlignment="Top" Margin="0,2,0,0" />
+                                                            </Border>
+                                                        </Border>
+
+                                                        <!-- Device Info -->
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                                       FontSize="13" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0">
+                                                                <Run Text="{Binding Model}" />
+                                                                <Run Text=" · iOS " />
+                                                                <Run Text="{Binding OsVersion}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
+
+                                                        <!-- Selection check indicator -->
+                                                        <Border Grid.Column="2" Width="20" Height="20" CornerRadius="10"
+                                                                VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                Background="{DynamicResource Brush.SurfaceHover}"
+                                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                                                       Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </Grid>
+                                                </Grid>
+
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Fill" Property="Background"
+                                                                Value="{DynamicResource Brush.SurfaceHover}" />
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter TargetName="Fill" Property="Background"
+                                                                Value="{DynamicResource Brush.AccentSoft}" />
+                                                        <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                                                        <Setter TargetName="Ring" Property="BorderThickness" Value="2" />
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
+                                                                <Storyboard FillBehavior="Stop">
+                                                                    <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                                        Storyboard.TargetProperty="BorderThickness"
+                                                                        To="2" Duration="0:0:0.18">
+                                                                        <ThicknessAnimation.EasingFunction>
+                                                                            <CubicEase EasingMode="EaseOut" />
+                                                                        </ThicknessAnimation.EasingFunction>
+                                                                    </ThicknessAnimation>
+                                                                    <DoubleAnimation Storyboard.TargetName="Ring"
+                                                                        Storyboard.TargetProperty="Opacity"
+                                                                        To="1" Duration="0:0:0.14" />
+                                                                    <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Pop"
+                                                                        Storyboard.TargetProperty="ScaleX">
+                                                                        <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.97" />
+                                                                        <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                                                    </DoubleAnimationUsingKeyFrames>
+                                                                    <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Pop"
+                                                                        Storyboard.TargetProperty="ScaleY">
+                                                                        <EasingDoubleKeyFrame KeyTime="0:0:0.09" Value="0.97" />
+                                                                        <EasingDoubleKeyFrame KeyTime="0:0:0.2" Value="1" />
+                                                                    </DoubleAnimationUsingKeyFrames>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
+                                                                <Storyboard FillBehavior="Stop">
+                                                                    <ThicknessAnimation Storyboard.TargetName="Ring"
+                                                                        Storyboard.TargetProperty="BorderThickness"
+                                                                        To="0" Duration="0:0:0.12" />
+                                                                    <DoubleAnimation Storyboard.TargetName="Ring"
+                                                                        Storyboard.TargetProperty="Opacity"
+                                                                        To="0" Duration="0:0:0.12" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
                                 </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Actions inside device picker -->
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <Button Style="{StaticResource Button.Primary}" MinWidth="180" Margin="0,0,10,0"
+                                    Command="{Binding InstallToDeviceCommand}"
+                                    IsEnabled="{Binding CanInstallToDevice}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="{DynamicResource L.Direct.InstallSelected}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Content="{DynamicResource L.Cancel}"
+                                    Style="{StaticResource Button.Ghost}"
+                                    Command="{Binding CloseDevicePickerCommand}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
-
-                <!-- ===== Action row ===== -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                    <Button Content="{DynamicResource L.Direct.Download}"
-                            Style="{StaticResource Button.Primary}" MinWidth="180"
-                            Command="{Binding DownloadCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
-
-                    <Button Content="{DynamicResource L.Direct.Cancel}"
-                            Style="{StaticResource Button.Danger}" MinWidth="180"
-                            Command="{Binding CancelDownloadCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}}" />
-
-                    <!-- The alternative route. Sits beside the main button rather than
-                         replacing it: the normal path is still the faster one when it works,
-                         and this one needs iTunes 12.6.5.3 plus a click inside iTunes. -->
-                    <Button Content="{DynamicResource L.Itunes.Button}"
-                            Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
-                            ToolTip="{DynamicResource L.Itunes.ButtonHint}"
-                            Command="{Binding DownloadViaItunesCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
-
-                    <!-- Install to selected device button -->
-                    <Button Style="{StaticResource Button.Primary}" Margin="10,0,0,0"
-                            Command="{Binding InstallToDeviceCommand}"
-                            Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <TextBlock Text="{DynamicResource L.Direct.InstallToDevice}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Content="{DynamicResource L.Direct.OpenFolder}"
-                            Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
-                            Command="{Binding OpenFolderCommand}"
-                            Visibility="{Binding SavedPath, Converter={StaticResource NullToCollapsed}}" />
-                </StackPanel>
 
                 <!-- Why the iTunes route is refusing, or what it is waiting for. Kept out of
                      ErrorText so a missing iTunes does not look like a failed download. -->

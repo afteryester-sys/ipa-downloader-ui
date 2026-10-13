@@ -351,6 +351,9 @@
     <sys:String x:Key="L.Direct.InstallToDevice">Install to device</sys:String>
     <sys:String x:Key="L.Direct.Installing">Installing to device…</sys:String>
     <sys:String x:Key="L.Direct.InstallSuccess">App successfully installed onto "{0}"!</sys:String>
+    <sys:String x:Key="L.Direct.InstallSuccessMulti">App successfully installed on {0} devices!</sys:String>
+    <sys:String x:Key="L.Direct.InstallPartial">Installed on {0} of {1} devices.</sys:String>
+    <sys:String x:Key="L.Direct.InstallSelected">Install to selected</sys:String>
     <sys:String x:Key="L.Direct.InstallFailed">Failed to install app onto device.</sys:String>
 
     <!-- Menu (gear) -->

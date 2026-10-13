@@ -302,6 +302,9 @@
     <sys:String x:Key="L.Direct.InstallToDevice">Установить на устройство</sys:String>
     <sys:String x:Key="L.Direct.Installing">Установка на устройство…</sys:String>
     <sys:String x:Key="L.Direct.InstallSuccess">Приложение успешно установлено на «{0}»!</sys:String>
+    <sys:String x:Key="L.Direct.InstallSuccessMulti">Приложение успешно установлено на {0} устройств(а)!</sys:String>
+    <sys:String x:Key="L.Direct.InstallPartial">Установлено на {0} из {1} устройств.</sys:String>
+    <sys:String x:Key="L.Direct.InstallSelected">Установить на выбранные</sys:String>
     <sys:String x:Key="L.Direct.InstallFailed">Не удалось установить приложение на устройство.</sys:String>
 
     <!-- Меню (шестерёнка) -->
