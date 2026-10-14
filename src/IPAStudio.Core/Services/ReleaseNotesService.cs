@@ -56,6 +56,29 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.49",
+                    date: "14.10.2026",
+                    title: "Пакетное скачивание прошивок и анимации",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Пакетное скачивание прошивок",
+                            "Кнопка запуска множественного скачивания позволяет загружать выбранные версии или все актуальные подписанные прошивки в один клик."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Ручная проверка статуса Apple TSS",
+                            "Кнопки быстрой проверки для отдельного устройства и для всех добавленных моделей сразу опрашивают серверы Apple и обновляют статусы подписи."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Плавные анимации добавления и удаления",
+                            "Карточки моделей в меню прошивок теперь плавно появляются с эффектом наплыва и мягко схлопываются при удалении без резких визуальных скачков."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.48",
                     date: "14.10.2026",
                     title: "Окно «Что нового» при обновлении",
@@ -151,6 +174,29 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.49",
+                date: "10/14/2026",
+                title: "Firmware Batch Downloads & Fluid Animations",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Batch firmware downloads",
+                        "Launch multiple downloads at once for selected releases or all active signed firmwares with a single click."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Instant Apple TSS verification",
+                        "Manual check buttons for single devices and all tracked models query Apple servers and refresh TSS signing statuses on demand."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Fluid device addition and removal animations",
+                        "Model cards in the firmware sidebar smoothly animate in and seamlessly collapse upon removal without abrupt UI jumps."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.48",
                 date: "10/14/2026",

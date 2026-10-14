@@ -39,7 +39,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     public ObservableCollection<FirmwareDevice> CatalogDevices { get; } = new();
     public ObservableCollection<FirmwareDevice> MyDevices { get; } = new();
-    public ObservableCollection<FirmwareRelease> Firmwares { get; } = new();
+    public ObservableCollection<FirmwareReleaseItem> Firmwares { get; } = new();
 
     /// <summary>Live download queue: one row per firmware, each independently controllable.</summary>
     public ObservableCollection<FirmwareDownloadJob> Jobs { get; } = new();
@@ -84,17 +84,29 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private int _settingsTab;
     [ObservableProperty] private bool _verifyHash = true;
 
-    public ObservableCollection<FirmwareRelease> SingleFirmwares { get; } = new();
+    public ObservableCollection<FirmwareReleaseItem> SingleFirmwares { get; } = new();
     public FirmwareDownloadJob? ActiveJob => Jobs.FirstOrDefault(j => j.IsActive) ?? Jobs.LastOrDefault();
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private FirmwareDevice? _selectedCatalogDevice;
     [ObservableProperty] private FirmwareDevice? _selectedDevice;
-    [ObservableProperty] private FirmwareRelease? _selectedFirmware;
+    [ObservableProperty] private FirmwareReleaseItem? _selectedFirmware;
     [ObservableProperty] private string _destinationFolder = "";
     [ObservableProperty] private int _segmentCount = 4;
     [ObservableProperty] private bool _signedOnly = true;
     [ObservableProperty] private bool _isLoading;
+    [ObservableProperty] private bool _isChecking;
+    [ObservableProperty] private int _selectedFirmwareCount;
+    [ObservableProperty] private string _batchButtonText = "";
+    [ObservableProperty] private bool _areAllSignedSelected;
+    public bool HasBatchSelection => SelectedFirmwareCount > 0;
+
+    partial void OnSelectedFirmwareCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasBatchSelection));
+        UpdateBatchButtonText();
+    }
+
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string? _errorText;
     [ObservableProperty] private bool _autoUpdateSelected;
@@ -199,7 +211,127 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         });
     }
 
-    partial void OnSelectedFirmwareChanged(FirmwareRelease? value) => EnqueueDownloadCommand.NotifyCanExecuteChanged();
+    partial void OnSelectedFirmwareChanged(FirmwareReleaseItem? value) => EnqueueDownloadCommand.NotifyCanExecuteChanged();
+
+    public void UpdateBatchSelectionSummary()
+    {
+        var selected = Firmwares.Count(f => f.IsSelected);
+        SelectedFirmwareCount = selected;
+        var signed = Firmwares.Where(f => f.Signed).ToList();
+        AreAllSignedSelected = signed.Count > 0 && signed.All(f => f.IsSelected);
+        UpdateBatchButtonText();
+    }
+
+    private void UpdateBatchButtonText()
+    {
+        if (SelectedFirmwareCount > 0)
+            BatchButtonText = string.Format(Loc.Get("L.Firmware.DownloadSelected"), SelectedFirmwareCount);
+        else
+            BatchButtonText = Loc.Get("L.Firmware.DownloadAllSigned");
+    }
+
+    [RelayCommand]
+    private void ToggleSelectAllSigned()
+    {
+        var signedItems = Firmwares.Where(f => f.Signed).ToList();
+        if (signedItems.Count == 0) return;
+
+        bool targetState = !AreAllSignedSelected;
+        foreach (var item in signedItems)
+        {
+            item.IsSelected = targetState;
+        }
+        UpdateBatchSelectionSummary();
+    }
+
+    [RelayCommand]
+    private async Task CheckFirmwaresAsync()
+    {
+        if (IsChecking) return;
+        IsChecking = true;
+        StatusText = Loc.Get("L.Firmware.Checking");
+
+        try
+        {
+            if (IsSingleDownloadMode)
+            {
+                if (SelectedSingleDevice is not null)
+                {
+                    await LoadSingleFirmwaresAsync(SelectedSingleDevice);
+                    StatusText = Loc.Get("L.Firmware.CheckCompleted");
+                }
+            }
+            else
+            {
+                if (SelectedDevice is not null)
+                {
+                    await LoadFirmwaresAsync(SelectedDevice);
+                    StatusText = Loc.Get("L.Firmware.CheckCompleted");
+                }
+                else if (MyDevices.Count > 0)
+                {
+                    await CheckAllDevicesCoreAsync();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorText = ex.Message;
+        }
+        finally
+        {
+            IsChecking = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckAllDevicesAsync()
+    {
+        if (IsChecking) return;
+        IsChecking = true;
+        StatusText = Loc.Get("L.Firmware.CheckingAll");
+
+        try
+        {
+            await CheckAllDevicesCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorText = ex.Message;
+        }
+        finally
+        {
+            IsChecking = false;
+        }
+    }
+
+    private async Task CheckAllDevicesCoreAsync()
+    {
+        var count = 0;
+        foreach (var dev in MyDevices.ToList())
+        {
+            try
+            {
+                await _catalog.GetDeviceAsync(dev.Identifier);
+                TouchLastCheck(dev.Identifier);
+                count++;
+            }
+            catch { }
+        }
+
+        if (SelectedDevice is not null)
+        {
+            var cached = _catalog.GetCachedDevice(SelectedDevice.Identifier);
+            if (cached is not null)
+            {
+                _deviceFirmwares = cached.Firmwares.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate).ToList();
+                ApplyFirmwareFilter();
+            }
+        }
+
+        RefreshAutoUpdateTimestamps();
+        StatusText = string.Format(Loc.Get("L.Firmware.CheckAllCompleted"), count);
+    }
 
     [RelayCommand] private void SwitchToDevicesMode() => IsSingleDownloadMode = false;
     [RelayCommand] private void SwitchToSingleMode() => IsSingleDownloadMode = true;
@@ -302,9 +434,10 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private void EnqueueDownload()
     {
         if (SelectedDevice is null || SelectedFirmware is null) return;
+        var release = SelectedFirmware.Release;
         PersistDownloadSettings();
         var destination = Path.Combine(DestinationFolder,
-            FirmwareDownloadService.BuildFileName(SelectedDevice.Name, SelectedFirmware.Version));
+            FirmwareDownloadService.BuildFileName(SelectedDevice.Name, release.Version));
 
         // Re-queuing the same file should revive the existing row rather than duplicate it,
         // otherwise two runners would fight over the same manifest and part files.
@@ -316,14 +449,20 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             return;
         }
 
-        var job = new FirmwareDownloadJob(SelectedDevice, SelectedFirmware, destination, PauseJob, ResumeJob, StopJob);
+        var job = new FirmwareDownloadJob(SelectedDevice, release, destination, PauseJob, ResumeJob, StopJob);
         Jobs.Add(job);
         _ = RunJobAsync(job);
     }
 
     [RelayCommand]
-    private void DownloadFirmware(FirmwareRelease? release)
+    private void DownloadFirmware(object? arg)
     {
+        var release = arg switch
+        {
+            FirmwareRelease r => r,
+            FirmwareReleaseItem item => item.Release,
+            _ => null
+        };
         if (release is null) return;
         var device = SelectedDevice ?? new FirmwareDevice
         {
@@ -349,8 +488,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
-    private void DownloadSingleFirmware(FirmwareRelease? release)
+    private void DownloadSingleFirmware(object? arg)
     {
+        var release = arg switch
+        {
+            FirmwareRelease r => r,
+            FirmwareReleaseItem item => item.Release,
+            _ => null
+        };
         if (release is null) return;
         var device = SelectedSingleDevice ?? new FirmwareDevice
         {
@@ -374,6 +519,137 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         Jobs.Add(job);
         _ = RunJobAsync(job);
     }
+
+    [RelayCommand]
+    private void DownloadSelected()
+    {
+        var device = SelectedDevice;
+        if (device is null) return;
+
+        var itemsToDownload = SelectedFirmwareCount > 0
+            ? Firmwares.Where(f => f.IsSelected).Select(f => f.Release).ToList()
+            : Firmwares.Where(f => f.Signed).Select(f => f.Release).ToList();
+
+        if (itemsToDownload.Count == 0)
+        {
+            StatusText = Loc.Get("L.Firmware.NoFirmwaresToDownload");
+            return;
+        }
+
+        EnqueueBatchReleases(device, itemsToDownload, isSingle: false);
+    }
+
+    [RelayCommand]
+    private void DownloadAllSigned()
+    {
+        var device = SelectedDevice;
+        if (device is null) return;
+
+        var signedReleases = _deviceFirmwares.Where(f => f.Signed).ToList();
+        if (signedReleases.Count == 0)
+        {
+            StatusText = Loc.Get("L.Firmware.NoFirmwaresToDownload");
+            return;
+        }
+
+        EnqueueBatchReleases(device, signedReleases, isSingle: false);
+    }
+
+    [RelayCommand]
+    private async Task DownloadAllMonitoredSignedAsync()
+    {
+        if (MyDevices.Count == 0) return;
+        PersistDownloadSettings();
+        var totalAdded = 0;
+
+        foreach (var device in MyDevices.ToList())
+        {
+            var cached = _catalog.GetCachedDevice(device.Identifier)
+                ?? await _catalog.GetDeviceAsync(device.Identifier);
+            if (cached is null) continue;
+
+            var signed = cached.Firmwares.Where(f => f.Signed).ToList();
+            if (signed.Count == 0) continue;
+
+            foreach (var release in signed)
+            {
+                var destination = Path.Combine(DestinationFolder,
+                    FirmwareDownloadService.BuildFileName(device.Name, release.Version));
+
+                if (File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize)
+                    continue;
+
+                var existing = Jobs.FirstOrDefault(j =>
+                    string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+                if (existing is not null)
+                {
+                    if (existing.CanResume) { ResumeJob(existing); totalAdded++; }
+                    continue;
+                }
+
+                var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: false);
+                Jobs.Add(job);
+                _ = RunJobAsync(job);
+                totalAdded++;
+            }
+        }
+
+        StatusText = totalAdded > 0
+            ? string.Format(Loc.Get("L.Firmware.BatchAdded"), totalAdded)
+            : Loc.Get("L.Firmware.AllAlreadyDownloaded");
+    }
+
+    private void EnqueueBatchReleases(FirmwareDevice device, IEnumerable<FirmwareRelease> releases, bool isSingle)
+    {
+        PersistDownloadSettings();
+        var addedCount = 0;
+        var alreadyDoneCount = 0;
+
+        foreach (var release in releases)
+        {
+            var destination = Path.Combine(DestinationFolder,
+                FirmwareDownloadService.BuildFileName(device.Name, release.Version));
+
+            // Check if fully downloaded on disk
+            if (File.Exists(destination) && release.FileSize > 0)
+            {
+                var info = new FileInfo(destination);
+                if (info.Length == release.FileSize)
+                {
+                    alreadyDoneCount++;
+                    continue;
+                }
+            }
+
+            // Check if already in queue
+            var existing = Jobs.FirstOrDefault(j =>
+                string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                if (existing.CanResume)
+                {
+                    ResumeJob(existing);
+                    addedCount++;
+                }
+                continue;
+            }
+
+            var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: isSingle);
+            Jobs.Add(job);
+            _ = RunJobAsync(job);
+            addedCount++;
+        }
+
+        if (addedCount > 0)
+        {
+            StatusText = string.Format(Loc.Get("L.Firmware.BatchAdded"), addedCount);
+        }
+        else if (alreadyDoneCount > 0)
+        {
+            StatusText = Loc.Get("L.Firmware.AllAlreadyDownloaded");
+        }
+    }
+
 
     [RelayCommand]
     private void StartDirectUrlDownload()
@@ -842,18 +1118,19 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         AddDeviceCommand.NotifyCanExecuteChanged();
     }
 
-    private bool CanRemoveDevice() => SelectedDevice is not null;
+    private bool CanRemoveDevice() => SelectedDevice is not null || MyDevices.Count > 0;
 
-    [RelayCommand(CanExecute = nameof(CanRemoveDevice))]
-    private void RemoveDevice()
+    [RelayCommand]
+    public void RemoveDevice(FirmwareDevice? device = null)
     {
-        if (SelectedDevice is null) return;
-        var device = SelectedDevice;
+        device ??= SelectedDevice;
+        if (device is null) return;
         var existing = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == device.Identifier);
         if (existing is not null) _settings.Current.FirmwareSubscriptions.Remove(existing);
         _settings.Save();
         MyDevices.Remove(device);
-        SelectedDevice = MyDevices.FirstOrDefault();
+        if (SelectedDevice?.Identifier == device.Identifier)
+            SelectedDevice = MyDevices.FirstOrDefault();
         AddDeviceCommand.NotifyCanExecuteChanged();
     }
 
@@ -893,7 +1170,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             SingleFirmwares.Clear();
             var q = SignedOnly ? cached.Firmwares.Where(f => f.Signed) : cached.Firmwares;
             foreach (var fw in q.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate))
-                SingleFirmwares.Add(fw);
+                SingleFirmwares.Add(new FirmwareReleaseItem(fw));
         }
 
         try
@@ -904,7 +1181,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             if (SignedOnly) query = query.Where(f => f.Signed);
             foreach (var fw in query.OrderByDescending(f => f.ReleaseDate ?? f.UploadDate))
             {
-                SingleFirmwares.Add(fw);
+                SingleFirmwares.Add(new FirmwareReleaseItem(fw));
             }
         }
         catch (Exception ex)
@@ -984,8 +1261,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private void ApplyFirmwareFilter()
     {
         Firmwares.Clear();
-        foreach (var firmware in _deviceFirmwares.Where(f => !SignedOnly || f.Signed)) Firmwares.Add(firmware);
+        foreach (var firmware in _deviceFirmwares.Where(f => !SignedOnly || f.Signed))
+        {
+            Firmwares.Add(new FirmwareReleaseItem(firmware, UpdateBatchSelectionSummary));
+        }
         SelectedFirmware = Firmwares.FirstOrDefault();
+        UpdateBatchSelectionSummary();
         EnqueueDownloadCommand.NotifyCanExecuteChanged();
     }
 

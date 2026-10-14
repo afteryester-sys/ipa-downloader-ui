@@ -1011,4 +1011,17 @@
     <sys:String x:Key="L.Firmware.Queue.Empty">No active downloads</sys:String>
     <sys:String x:Key="L.Firmware.TssSigned">✓ Signed by Apple TSS</sys:String>
     <sys:String x:Key="L.Firmware.TssUnsigned">✕ Unsigned</sys:String>
+    <sys:String x:Key="L.Firmware.CheckFirmwares">Check Firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.CheckAll">Check All</sys:String>
+    <sys:String x:Key="L.Firmware.Checking">Checking…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckingAll">Checking all devices…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckCompleted">TSS check completed</sys:String>
+    <sys:String x:Key="L.Firmware.CheckAllCompleted">Checked devices: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadSelected">Download Selected ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadAllSigned">Download All Signed</sys:String>
+    <sys:String x:Key="L.Firmware.SelectAllSigned">Select All Signed</sys:String>
+    <sys:String x:Key="L.Firmware.BatchDownloadHint">Download selected or all active signed firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.BatchAdded">Added to queue: {0} firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.AllAlreadyDownloaded">All selected firmwares are already downloaded</sys:String>
+    <sys:String x:Key="L.Firmware.NoFirmwaresToDownload">No available firmwares to download</sys:String>
 </ResourceDictionary>

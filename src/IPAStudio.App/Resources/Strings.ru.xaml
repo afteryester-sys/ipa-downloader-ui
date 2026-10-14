@@ -1009,4 +1009,17 @@
     <sys:String x:Key="L.Firmware.Queue.Empty">Нет активных загрузок</sys:String>
     <sys:String x:Key="L.Firmware.TssSigned">✓ Подписана Apple TSS</sys:String>
     <sys:String x:Key="L.Firmware.TssUnsigned">✕ Не подписывается</sys:String>
+    <sys:String x:Key="L.Firmware.CheckFirmwares">Проверить прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.CheckAll">Проверить все</sys:String>
+    <sys:String x:Key="L.Firmware.Checking">Проверка…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckingAll">Проверка всех устройств…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckCompleted">Проверка TSS завершена</sys:String>
+    <sys:String x:Key="L.Firmware.CheckAllCompleted">Проверено устройств: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadSelected">Скачать выбранные ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadAllSigned">Скачать все подписанные</sys:String>
+    <sys:String x:Key="L.Firmware.SelectAllSigned">Выбрать все подписанные</sys:String>
+    <sys:String x:Key="L.Firmware.BatchDownloadHint">Скачать выбранные или все актуальные подписанные прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.BatchAdded">Добавлено в очередь: {0} прошивок</sys:String>
+    <sys:String x:Key="L.Firmware.AllAlreadyDownloaded">Все выбранные прошивки уже скачаны</sys:String>
+    <sys:String x:Key="L.Firmware.NoFirmwaresToDownload">Нет доступных прошивок для скачивания</sys:String>
 </ResourceDictionary>
