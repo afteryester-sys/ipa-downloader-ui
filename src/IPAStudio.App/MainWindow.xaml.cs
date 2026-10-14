@@ -321,17 +321,37 @@ public partial class MainWindow : Window
         };
         WhatsNewBackdrop.BeginAnimation(OpacityProperty, backdropFade);
 
-        // Card fade in
+        // Card host fade in
         var cardFade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260))
         {
             EasingFunction = easeOut
         };
-        WhatsNewCard.BeginAnimation(OpacityProperty, cardFade);
+        cardFade.Completed += (_, _) =>
+        {
+            if (!_isWhatsNewAnimatingOut)
+            {
+                WhatsNewCardHost.BeginAnimation(OpacityProperty, null);
+                WhatsNewCardHost.Opacity = 1.0;
+            }
+        };
+        WhatsNewCardHost.BeginAnimation(OpacityProperty, cardFade);
 
         // Card scale pop: 0.94 -> 1.0
         var cardScale = new DoubleAnimation(0.94, 1.0, TimeSpan.FromMilliseconds(280))
         {
             EasingFunction = easeOut
+        };
+        cardScale.Completed += (_, _) =>
+        {
+            if (!_isWhatsNewAnimatingOut)
+            {
+                WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, null);
+                WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, null);
+                WhatsNewCardTranslate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, null);
+                WhatsNewCardScale.ScaleX = 1.0;
+                WhatsNewCardScale.ScaleY = 1.0;
+                WhatsNewCardTranslate.Y = 0;
+            }
         };
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, cardScale);
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, cardScale);
@@ -363,7 +383,7 @@ public partial class MainWindow : Window
         };
 
         WhatsNewBackdrop.BeginAnimation(OpacityProperty, backdropFade);
-        WhatsNewCard.BeginAnimation(OpacityProperty, cardFade);
+        WhatsNewCardHost.BeginAnimation(OpacityProperty, cardFade);
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, cardScale);
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, cardScale);
     }

@@ -7,7 +7,11 @@
         x:Name="Root"
         Width="1120" Height="760" MinWidth="900" MinHeight="620"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Brush.Background}">
+        Background="{StaticResource Brush.Background}"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True">
 
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
@@ -734,30 +738,45 @@
             <Border x:Name="WhatsNewBackdrop" Background="#90000000" Opacity="0"
                     MouseLeftButtonDown="WhatsNewBackdrop_MouseLeftButtonDown" />
 
-            <!-- Centered Modal Card -->
-            <Border x:Name="WhatsNewCard"
-                    Width="560" MaxHeight="640"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Background="{DynamicResource Brush.Surface}"
-                    BorderBrush="{DynamicResource Brush.Border}"
-                    BorderThickness="1"
-                    CornerRadius="18"
-                    Opacity="0"
-                    RenderTransformOrigin="0.5,0.5">
-                <Border.RenderTransform>
+            <!-- Centered Modal Host (Shadow + Content with crisp text and layout snapping) -->
+            <Grid x:Name="WhatsNewCardHost"
+                  Width="560" MaxHeight="640"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Opacity="0"
+                  RenderTransformOrigin="0.5,0.5"
+                  SnapsToDevicePixels="True"
+                  UseLayoutRounding="True"
+                  TextOptions.TextFormattingMode="Display"
+                  TextOptions.TextRenderingMode="ClearType"
+                  TextOptions.TextHintingMode="Fixed">
+                <Grid.RenderTransform>
                     <TransformGroup>
                         <ScaleTransform x:Name="WhatsNewCardScale" ScaleX="1" ScaleY="1" />
                         <TranslateTransform x:Name="WhatsNewCardTranslate" Y="0" />
                     </TransformGroup>
-                </Border.RenderTransform>
+                </Grid.RenderTransform>
 
-                <Border.Effect>
-                    <DropShadowEffect BlurRadius="40" Direction="270"
-                                      RenderingBias="Quality" ShadowDepth="10"
-                                      Color="#000000" Opacity="0.55" />
-                </Border.Effect>
+                <!-- Dedicated Background Shadow Layer (Zero text content -> zero text rasterization blur) -->
+                <Border CornerRadius="18"
+                        Background="{DynamicResource Brush.Surface}"
+                        BorderBrush="{DynamicResource Brush.Border}"
+                        BorderThickness="1">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="36" Direction="270"
+                                          RenderingBias="Quality" ShadowDepth="8"
+                                          Color="#000000" Opacity="0.45" />
+                    </Border.Effect>
+                </Border>
 
-                <Grid>
+                <!-- Centered Modal Card (Direct ClearType text rendering, NO DropShadowEffect) -->
+                <Border x:Name="WhatsNewCard"
+                        Background="{DynamicResource Brush.Surface}"
+                        BorderBrush="{DynamicResource Brush.Border}"
+                        BorderThickness="1"
+                        CornerRadius="18"
+                        SnapsToDevicePixels="True"
+                        UseLayoutRounding="True">
+                    <Grid>
                     <Grid.RowDefinitions>
                         <!-- Header -->
                         <RowDefinition Height="Auto" />
@@ -947,6 +966,7 @@
                     </Border>
                 </Grid>
             </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

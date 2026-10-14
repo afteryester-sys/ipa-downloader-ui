@@ -56,6 +56,24 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.52",
+                    date: "15.10.2026",
+                    title: "Кристальная четкость текста и оптимизация рендеринга",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Кристальная четкость текста в окне обновлений",
+                            "Устранен эффект размытия («стереоэффект») текста. Тень модального окна вынесена в независимый фоновый слой, разблокировав прямое субпиксельное сглаживание ClearType и выравнивание глифов по физическим пикселям экрана."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Оптимизация анимации и снятие трансформаций",
+                            "После завершения всплытия карточки активные таймеры трансформаций корректно сбрасываются в фиксированные пиксельные координаты, исключая субпиксельные смещения."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.51",
                     date: "14.10.2026",
                     title: "Стабильность подключения устройств и защита от сбоев интерфейса",
@@ -220,6 +238,24 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.52",
+                date: "10/15/2026",
+                title: "Crisp Text Rendering & UI Subpixel Snapping",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Crisp text rendering in What's New dialog",
+                        "Resolved text blurriness and chromatic stereoscopic fringing in the release dialog. Window shadow was isolated to a dedicated background layer, unlocking native ClearType subpixel rendering and display-mode pixel snapping."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Animation cleanup and transform release",
+                        "Scale and translation animation clocks are cleanly released upon modal presentation, locking visual elements into exact integer physical device pixels."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.51",
                 date: "10/14/2026",
