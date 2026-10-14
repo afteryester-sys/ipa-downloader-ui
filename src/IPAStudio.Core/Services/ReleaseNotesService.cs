@@ -56,6 +56,29 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.51",
+                    date: "14.10.2026",
+                    title: "Стабильность подключения устройств и защита от сбоев интерфейса",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Устранение ошибки при подключении iPhone в «Скачать IPA»",
+                            "Исправлена критическая ошибка XamlParseException привязки данных модели устройства. Теперь при подключении любого iPhone/iPad список устройств открывается мгновенно и без сбоев."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Защита от каскадных окон ошибок",
+                            "Добавлен глобальный барьер повторного входа для диалогов сообщений об ошибках, предотвращающий лавинообразное открытие множества всплывающих окон при UI-сбоях."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Отказоустойчивость привязок разметки",
+                            "Все свойства моделей выбора устройств оснащены защитными обработчиками, предотвращающими сбои WPF разметки во всех режимах привязки."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.50",
                     date: "14.10.2026",
                     title: "Пакетные действия со всеми устройствами и плавная анимация переключения",
@@ -197,6 +220,29 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.51",
+                date: "10/14/2026",
+                title: "Device Connection Stability & UI Crash Protection",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Resolved crash when connecting iPhone in Direct Download",
+                        "Fixed a critical XamlParseException caused by WPF two-way data binding on read-only device model properties. Connecting any iPhone or iPad now works smoothly."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Modal error storm protection",
+                        "Introduced a global re-entrancy guard for error dialogs, preventing cascades of stacked message boxes during UI rendering events."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Resilient XAML property bindings",
+                        "Device selection models now include resilient setter guards across all view bindings to guarantee zero crashes under any WPF binding mode."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.50",
                 date: "10/14/2026",

@@ -47,7 +47,7 @@
                                         <TextBlock Text="{Binding DisplayName}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
                                     </StackPanel>
                                     <TextBlock Style="{StaticResource Text.Caption}" Margin="18,5,0,0">
-                                        <Run Text="Windows: " /><Run Text="{Binding WindowsVersion}" /><Run Text="  •  IPA Studio: " /><Run Text="{Binding AppVersion}" />
+                                        <Run Text="Windows: " /><Run Text="{Binding WindowsVersion, Mode=OneWay}" /><Run Text="  •  IPA Studio: " /><Run Text="{Binding AppVersion, Mode=OneWay}" />
                                     </TextBlock>
                                     <TextBlock Text="{Binding LastSeenAt, StringFormat='Последняя связь: {0:g}'}" Style="{StaticResource Text.Caption}" Margin="18,3,0,0" />
                                 </StackPanel>

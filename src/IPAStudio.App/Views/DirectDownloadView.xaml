@@ -340,9 +340,9 @@
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                                                        FontSize="13" TextTrimming="CharacterEllipsis" />
                                                             <TextBlock Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0">
-                                                                <Run Text="{Binding Model}" />
+                                                                <Run Text="{Binding Model, Mode=OneWay}" />
                                                                 <Run Text=" · iOS " />
-                                                                <Run Text="{Binding OsVersion}" />
+                                                                <Run Text="{Binding OsVersion, Mode=OneWay}" />
                                                             </TextBlock>
                                                         </StackPanel>
 

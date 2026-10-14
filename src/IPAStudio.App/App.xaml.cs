@@ -280,10 +280,14 @@ public partial class App : Application
         e.SetObserved();
     }
 
+    private static bool _isShowingError;
+
     private static void ShowError(Exception ex)
     {
+        if (_isShowingError) return;
         try
         {
+            _isShowingError = true;
             MessageBox.Show(
                 Loc.Get("L.Crash.Recovered") + "\n\n" +
                 $"{ex.GetType().Name}: {ex.Message}\n\n" +
@@ -293,6 +297,10 @@ public partial class App : Application
                 MessageBoxImage.Warning);
         }
         catch { /* never let the error handler itself crash */ }
+        finally
+        {
+            _isShowingError = false;
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

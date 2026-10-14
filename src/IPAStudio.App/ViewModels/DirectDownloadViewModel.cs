@@ -34,12 +34,12 @@ public sealed partial class SelectableDevice : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
-    public string Name => Device.Name;
-    public string Model => Device.Model;
-    public string OsVersion => Device.OsVersion;
-    public string Udid => Device.Udid;
+    public string Name { get => Device.Name; set { } }
+    public string Model { get => Device.Model; set { } }
+    public string OsVersion { get => Device.OsVersion; set { } }
+    public string Udid { get => Device.Udid; set { } }
     public DeviceLink Link => Device.Link;
-    public string DeviceClass => Device.DeviceClass;
+    public string DeviceClass { get => Device.DeviceClass; set { } }
 
     public SelectableDevice(Device device, bool isSelected = false)
     {
