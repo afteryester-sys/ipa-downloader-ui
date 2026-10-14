@@ -35,4 +35,4 @@
 
 - [x] [T012] Выполнить сборку `dotnet build` и запустить `dotnet test`.
 - [x] [T013] Поднять версию до `1.8.49` в `src/IPAStudio.App/IPAStudio.App.csproj`.
-- [ ] [T014] Опубликовать релиз `v1.8.49` через GitHub API и убедиться в успешном завершении workflow в GitHub Actions.
+- [x] [T014] Опубликовать релиз `v1.8.49` через GitHub API и убедиться в успешном завершении workflow в GitHub Actions.
