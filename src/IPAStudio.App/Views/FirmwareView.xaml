@@ -44,6 +44,141 @@
             </Setter>
         </Style>
 
+        <!-- Apple-grade animated device card ListBoxItem style with fluid bloom ring and tactile response -->
+        <Style x:Key="DeviceCardSelectable" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Grid x:Name="CardRoot" RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                            </Grid.RenderTransform>
+
+                            <!-- Hover background -->
+                            <Border x:Name="HoverBg" CornerRadius="8" Background="{DynamicResource Brush.SurfaceHover}" Opacity="0" />
+
+                            <!-- Selection accent fill -->
+                            <Border x:Name="SelectBg" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}" Opacity="0" />
+
+                            <!-- Animated selection ring with bloom scale -->
+                            <Border x:Name="Ring" CornerRadius="8" Opacity="0"
+                                    BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.5"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="0.96" ScaleY="0.96" />
+                                </Border.RenderTransform>
+                            </Border>
+
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- Hover state -->
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True" />
+                                    <Condition Property="IsSelected" Value="False" />
+                                </MultiTrigger.Conditions>
+                                <MultiTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverBg"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1.0" Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiTrigger.EnterActions>
+                                <MultiTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="HoverBg"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0.0" Duration="0:0:0.16" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </MultiTrigger.ExitActions>
+                            </MultiTrigger>
+
+                            <!-- Selection state: fluid bloom of ring and smooth background fade -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <!-- Card slight tactile bounce -->
+                                            <DoubleAnimation Storyboard.TargetName="CardRoot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             From="0.97" To="1.0" Duration="0:0:0.20">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="CardRoot"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             From="0.97" To="1.0" Duration="0:0:0.20">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <!-- Ring fade in -->
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1.0" Duration="0:0:0.20">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <!-- Ring bloom scale -->
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             From="0.95" To="1.0" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             From="0.95" To="1.0" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <!-- Background fill fade in -->
+                                            <DoubleAnimation Storyboard.TargetName="SelectBg"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="1.0" Duration="0:0:0.20">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <!-- Ring fade out -->
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0.0" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <!-- Ring scale reset -->
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="0.96" Duration="0:0:0.16" />
+                                            <DoubleAnimation Storyboard.TargetName="Ring"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="0.96" Duration="0:0:0.16" />
+                                            <!-- Background fill fade out -->
+                                            <DoubleAnimation Storyboard.TargetName="SelectBg"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             To="0.0" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Compact pill button for table rows -->
         <Style x:Key="PillButton" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
             <Setter Property="Height" Value="26" />
@@ -466,8 +601,13 @@
                 <!-- Monitored Devices List -->
                 <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
                     <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
                         <!-- Empty state when no devices yet -->
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="14"
+                        <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="14"
                                      Visibility="{Binding MyDevices.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}">
                             <!-- Circular badge container with rounded Apple device silhouette -->
                             <Border Width="52" Height="52" CornerRadius="26" Background="{DynamicResource Brush.SurfaceHover}"
@@ -486,8 +626,9 @@
                                        TextWrapping="Wrap" Opacity="0.75" Margin="0,4,0,0" />
                         </StackPanel>
 
-                        <ListBox ItemsSource="{Binding MyDevices}" SelectedItem="{Binding SelectedDevice}"
-                                 ItemContainerStyle="{StaticResource FirmwareSelectable}"
+                        <ListBox Grid.Row="0" ItemsSource="{Binding MyDevices}" SelectedItem="{Binding SelectedDevice}"
+                                 SelectionChanged="DevicesList_SelectionChanged"
+                                 ItemContainerStyle="{StaticResource DeviceCardSelectable}"
                                  BorderThickness="0" Background="Transparent"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
@@ -531,15 +672,47 @@
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <!-- Circular device badge -->
+                                        <!-- Circular device badge with selection color pop -->
                                         <Border Grid.Column="0" Width="26" Height="26" CornerRadius="13"
-                                                Background="{DynamicResource Brush.SurfaceHover}"
-                                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
                                                 Margin="0,0,8,0" VerticalAlignment="Center">
-                                            <Border Width="10" Height="16" CornerRadius="2.5" BorderBrush="{DynamicResource Brush.Accent}" BorderThickness="1.2"
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+                                                    <Setter Property="BorderThickness" Value="1" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Border Width="10" Height="16" CornerRadius="2.5" BorderThickness="1.2"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Border Width="4" Height="1" CornerRadius="0.5" Background="{DynamicResource Brush.Accent}"
-                                                        VerticalAlignment="Top" Margin="0,1.5,0,0" />
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="White" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Border Width="4" Height="1" CornerRadius="0.5"
+                                                        VerticalAlignment="Top" Margin="0,1.5,0,0">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                                    <Setter Property="Background" Value="White" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
                                             </Border>
                                         </Border>
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -556,6 +729,59 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+
+                        <!-- Batch Actions Footer for MyDevices -->
+                        <Border Grid.Row="1" Margin="2,6,2,2" Padding="8,8"
+                                Background="{DynamicResource Brush.SurfaceHover}"
+                                BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                CornerRadius="8"
+                                Visibility="{Binding HasDevices, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource L.Firmware.BatchActions}" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Brush.TextMuted}" Margin="2,0,0,6" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="6" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Check All button -->
+                                    <Button Grid.Column="0" Command="{Binding CheckAllDevicesCommand}"
+                                            Style="{StaticResource Button.Secondary}"
+                                            Height="28" Padding="4,0" FontSize="11"
+                                            ToolTip="{DynamicResource L.Firmware.CheckAll}">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsChecking}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Text="{DynamicResource L.Firmware.CheckAll}" FontSize="10" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Download All button -->
+                                    <Button Grid.Column="2" Command="{Binding DownloadAllMonitoredSignedCommand}"
+                                            Style="{StaticResource Button.Primary}"
+                                            Height="28" Padding="4,0" FontSize="11"
+                                            Background="{DynamicResource Brush.Firmware}"
+                                            BorderBrush="{DynamicResource Brush.Firmware}"
+                                            ToolTip="{DynamicResource L.Firmware.DownloadAllSigned}">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{DynamicResource L.Firmware.DownloadAll}" FontSize="10" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Border>
 
@@ -708,7 +934,11 @@
                         </Grid>
 
                         <!-- Device Selected Content -->
-                        <Grid Visibility="{Binding SelectedDevice, Converter={StaticResource NullToCollapsed}}">
+                        <Grid x:Name="DeviceDetailsContainer" Visibility="{Binding SelectedDevice, Converter={StaticResource NullToCollapsed}}"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Grid.RenderTransform>
+                                <TranslateTransform Y="0" />
+                            </Grid.RenderTransform>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -717,18 +947,18 @@
 
                             <!-- Controls Bar -->
                             <DockPanel Grid.Row="0" Margin="0,0,0,12">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
                                     <TextBlock Text="{Binding SelectedDevice.Name, FallbackValue='Выберите устройство'}"
                                                FontWeight="SemiBold" FontSize="15" />
                                     <TextBlock Text="{Binding SelectedDevice.Identifier, StringFormat=' ({0})'}"
                                                Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="6,0,0,0" />
                                 </StackPanel>
 
-                                <!-- Right-aligned controls: Check Firmwares, Download batch, and SignedOnly toggle -->
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <!-- Check Firmwares button -->
+                                <!-- Right-aligned controls: Check, Check All, Download, Download All, SignedOnly -->
+                                <WrapPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <!-- 1. Check current device button -->
                                     <Button Command="{Binding CheckFirmwaresCommand}" Style="{StaticResource Button.Secondary}"
-                                            Height="28" Padding="10,0" FontSize="11" Margin="0,0,8,0"
+                                            Height="28" Padding="10,0" FontSize="11" Margin="0,0,6,0"
                                             ToolTip="{DynamicResource L.Firmware.CheckFirmwares}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center">
@@ -757,9 +987,19 @@
                                         </StackPanel>
                                     </Button>
 
-                                    <!-- Batch Download button: Скачать выбранные ({N}) or Скачать все подписанные -->
+                                    <!-- 2. Check ALL devices button -->
+                                    <Button Command="{Binding CheckAllDevicesCommand}" Style="{StaticResource Button.Secondary}"
+                                            Height="28" Padding="10,0" FontSize="11" Margin="0,0,10,0"
+                                            ToolTip="{DynamicResource L.Firmware.CheckAll}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
+                                            <TextBlock Text="{Binding CheckAllButtonText}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- 3. Batch Download button: Скачать выбранные ({N}) or Скачать все подписанные -->
                                     <Button Command="{Binding DownloadSelectedCommand}" Style="{StaticResource Button.Primary}"
-                                            Height="28" Padding="12,0" FontSize="11" Margin="0,0,12,0"
+                                            Height="28" Padding="12,0" FontSize="11" Margin="0,0,6,0"
                                             ToolTip="{DynamicResource L.Firmware.BatchDownloadHint}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
@@ -767,10 +1007,22 @@
                                         </StackPanel>
                                     </Button>
 
+                                    <!-- 4. Download ALL devices signed firmwares -->
+                                    <Button Command="{Binding DownloadAllMonitoredSignedCommand}" Style="{StaticResource Button.Primary}"
+                                            Height="28" Padding="12,0" FontSize="11" Margin="0,0,12,0"
+                                            Background="{DynamicResource Brush.Firmware}"
+                                            BorderBrush="{DynamicResource Brush.Firmware}"
+                                            ToolTip="{DynamicResource L.Firmware.DownloadAllSigned}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding DownloadAllButtonText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
                                     <CheckBox Content="{DynamicResource L.Firmware.SignedOnly}"
                                               Style="{StaticResource Check.Base}" IsChecked="{Binding SignedOnly}"
                                               VerticalAlignment="Center" />
-                                </StackPanel>
+                                </WrapPanel>
                             </DockPanel>
 
                             <!-- Table Header -->

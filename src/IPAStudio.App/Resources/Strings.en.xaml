@@ -1024,4 +1024,8 @@
     <sys:String x:Key="L.Firmware.BatchAdded">Added to queue: {0} firmwares</sys:String>
     <sys:String x:Key="L.Firmware.AllAlreadyDownloaded">All selected firmwares are already downloaded</sys:String>
     <sys:String x:Key="L.Firmware.NoFirmwaresToDownload">No available firmwares to download</sys:String>
+    <sys:String x:Key="L.Firmware.CheckAllDevicesBatch">Check All ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadAllDevicesBatch">Download for All ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.DownloadAll">Download for All</sys:String>
+    <sys:String x:Key="L.Firmware.BatchActions">Batch Actions:</sys:String>
 </ResourceDictionary>

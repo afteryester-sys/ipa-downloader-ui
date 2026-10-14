@@ -56,6 +56,29 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.50",
+                    date: "14.10.2026",
+                    title: "Пакетные действия со всеми устройствами и плавная анимация переключения",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Проверка и скачивание всей пачки устройств",
+                            "Добавлены кнопки «Проверить все» и «Скачать для всех» как в панели управления над прошивками, так и в блоке «Мои устройства» слева."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Плавная анимация выделения и переключения устройств",
+                            "Синяя рамка выделения и фон карточки теперь плавно расцветают с мягким тактильным пружинящим откликом вместо резкого переключения."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Плавный переход содержимого таблицы",
+                            "При выборе другого устройства таблица доступных прошивок аккуратно переключается с эффектом мягкого кросс-фейда."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.49",
                     date: "14.10.2026",
                     title: "Пакетное скачивание прошивок и анимации",
@@ -174,6 +197,29 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.50",
+                date: "10/14/2026",
+                title: "Batch Actions for All Devices and Fluid Card Transitions",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Batch Check and Download for All Devices",
+                        "Dedicated 'Check All' and 'Download for All' buttons are now prominently available in both the top firmware toolbar and the sidebar footer."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Fluid selection bloom and tactile press animation",
+                        "Device cards smoothly bloom their accent selection ring with tactile spring physics instead of abrupt snapping."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Smooth table cross-fade transition",
+                        "Switching between devices gently cross-fades the firmware table for a cohesive Apple-grade experience."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.49",
                 date: "10/14/2026",

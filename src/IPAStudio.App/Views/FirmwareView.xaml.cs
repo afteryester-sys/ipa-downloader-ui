@@ -33,6 +33,31 @@ public partial class FirmwareView : UserControl
             MessageBoxImage.Question) == MessageBoxResult.Yes;
     }
 
+    private void DevicesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DeviceDetailsContainer is null) return;
+
+        var sb = new Storyboard();
+
+        var fadeIn = new DoubleAnimation(0.35, 1.0, new Duration(TimeSpan.FromMilliseconds(200)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(fadeIn, DeviceDetailsContainer);
+        Storyboard.SetTargetProperty(fadeIn, new PropertyPath("Opacity"));
+        sb.Children.Add(fadeIn);
+
+        var slideIn = new DoubleAnimation(8.0, 0.0, new Duration(TimeSpan.FromMilliseconds(200)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(slideIn, DeviceDetailsContainer);
+        Storyboard.SetTargetProperty(slideIn, new PropertyPath("(UIElement.RenderTransform).(TranslateTransform.Y)"));
+        sb.Children.Add(slideIn);
+
+        sb.Begin();
+    }
+
     private void AddDevices_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not FirmwareViewModel vm) return;
