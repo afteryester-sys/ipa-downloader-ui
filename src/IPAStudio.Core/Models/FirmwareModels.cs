@@ -19,6 +19,7 @@ public class FirmwareDevice : INotifyPropertyChanged
     private double _downloadProgress;
     private string _downloadSpeedText = "";
     private string _downloadStatusText = "";
+    private string _lastCheckText = "";
 
     [JsonIgnore]
     public bool HasActiveDownload
@@ -46,6 +47,13 @@ public class FirmwareDevice : INotifyPropertyChanged
     {
         get => _downloadStatusText;
         set { if (_downloadStatusText != value) { _downloadStatusText = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public string LastCheckText
+    {
+        get => _lastCheckText;
+        set { if (_lastCheckText != value) { _lastCheckText = value; OnPropertyChanged(); } }
     }
 }
 

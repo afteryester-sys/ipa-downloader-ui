@@ -213,6 +213,24 @@ public partial class MainWindow : Window
         shell.GoTo(Page.Settings);
     }
 
+    private void UpdateButton_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell && shell.Updater.IsOpen)
+        {
+            shell.Updater.IsOpen = false;
+            e.Handled = true;
+        }
+    }
+
+    private void OpsButton_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell && shell.Operations.IsListOpen)
+        {
+            shell.Operations.IsListOpen = false;
+            e.Handled = true;
+        }
+    }
+
     // ---- Developer credit popup ----
 
     private void CreditButton_Click(object sender, RoutedEventArgs e)
