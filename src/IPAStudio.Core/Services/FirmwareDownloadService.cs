@@ -260,25 +260,38 @@ public sealed class FirmwareDownloadService
 
         await SaveManifestAsync(manifestPath, manifest, ct).ConfigureAwait(false);
         var temp = destination + ".assembling";
-        await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, true))
+
+        if (manifest.Segments.Count == 1 && File.Exists(manifest.Segments[0].PartPath))
         {
-            foreach (var segment in manifest.Segments.OrderBy(s => s.Start))
+            // Fast-path: single segment direct move (instantaneous, zero disk copy overhead)
+            if (File.Exists(temp)) File.Delete(temp);
+            File.Move(manifest.Segments[0].PartPath, temp, true);
+        }
+        else
+        {
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling"));
+            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, true))
             {
-                await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, true);
-                await input.CopyToAsync(output, ct).ConfigureAwait(false);
+                foreach (var segment in manifest.Segments.OrderBy(s => s.Start))
+                {
+                    await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, true);
+                    await input.CopyToAsync(output, ct).ConfigureAwait(false);
+                }
             }
         }
+
         if (new FileInfo(temp).Length != length) throw new InvalidDataException("Downloaded firmware size does not match the API response.");
         if (!string.IsNullOrWhiteSpace(firmware.Sha1))
         {
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying"));
             await using var input = File.OpenRead(temp);
             var actual = Convert.ToHexString(await SHA1.HashDataAsync(input, ct).ConfigureAwait(false));
             if (!actual.Equals(firmware.Sha1, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Firmware SHA-1 verification failed. Partial files were kept for diagnosis.");
         }
         File.Move(temp, destination, true);
-        foreach (var segment in manifest.Segments) File.Delete(segment.PartPath);
-        File.Delete(manifestPath);
+        foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath)) File.Delete(segment.PartPath); }
+        if (File.Exists(manifestPath)) File.Delete(manifestPath);
         progress?.Report(new FirmwareDownloadProgress(length, length, 0));
         return destination;
     }

@@ -1028,4 +1028,18 @@
     <sys:String x:Key="L.Firmware.DownloadAllDevicesBatch">Download for All ({0})</sys:String>
     <sys:String x:Key="L.Firmware.DownloadAll">Download for All</sys:String>
     <sys:String x:Key="L.Firmware.BatchActions">Batch Actions:</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Assembling">Assembling file…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Verifying">Verifying SHA-1…</sys:String>
+    <sys:String x:Key="L.Firmware.History.Title">Activity Log</sys:String>
+    <sys:String x:Key="L.Firmware.History.Tooltip">History of checks, additions, and firmware downloads</sys:String>
+    <sys:String x:Key="L.Firmware.History.Clear">Clear</sys:String>
+    <sys:String x:Key="L.Firmware.History.Empty">No activity records yet</sys:String>
+    <sys:String x:Key="L.Firmware.LastChecked">Firmwares up to date as of {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.CheckedTss">Checked TSS signing status for {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.CheckedAllTss">Checked TSS signing status for all devices ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DeviceAdded">Device added to subscriptions: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DeviceRemoved">Device removed from subscriptions: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadStarted">Download started: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadFinished">Download completed: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadPaused">Download paused: {0}</sys:String>
 </ResourceDictionary>

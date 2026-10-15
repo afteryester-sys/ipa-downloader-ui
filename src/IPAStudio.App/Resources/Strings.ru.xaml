@@ -1026,4 +1026,18 @@
     <sys:String x:Key="L.Firmware.DownloadAllDevicesBatch">Скачать для всех ({0})</sys:String>
     <sys:String x:Key="L.Firmware.DownloadAll">Скачать для всех</sys:String>
     <sys:String x:Key="L.Firmware.BatchActions">Пакетные действия:</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Assembling">Сборка файла…</sys:String>
+    <sys:String x:Key="L.Firmware.Job.Verifying">Проверка SHA-1…</sys:String>
+    <sys:String x:Key="L.Firmware.History.Title">Журнал</sys:String>
+    <sys:String x:Key="L.Firmware.History.Tooltip">История проверок, добавлений и загрузок прошивок</sys:String>
+    <sys:String x:Key="L.Firmware.History.Clear">Очистить</sys:String>
+    <sys:String x:Key="L.Firmware.History.Empty">Записей в журнале пока нет</sys:String>
+    <sys:String x:Key="L.Firmware.LastChecked">Прошивки актуальны на {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.CheckedTss">Проверены подписи TSS для {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.CheckedAllTss">Проверены подписи TSS для всех устройств ({0})</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DeviceAdded">Устройство добавлено в подписки: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DeviceRemoved">Устройство удалено из подписок: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadStarted">Начата загрузка: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadFinished">Загрузка успешно завершена: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.DownloadPaused">Загрузка приостановлена: {0}</sys:String>
 </ResourceDictionary>

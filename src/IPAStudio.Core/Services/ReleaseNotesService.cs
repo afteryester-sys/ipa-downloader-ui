@@ -56,6 +56,39 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.53",
+                    date: "16.10.2026",
+                    title: "Улучшения прошивок: общий прогресс, индикаторы устройств, журнал и анимации",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Общий прогресс очереди и статус на карточках устройств",
+                            "В панели очереди загрузок добавлен общий прогресс-бар всей очереди. На карточках в «Мои устройства» теперь аккуратно отображается прогресс и скорость скачивания для каждой модели."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Журнал действий и статус проверки TSS",
+                            "Добавлена стильная кнопка «Журнал» с историей проверок, добавлений и загрузок, а также индикатор актуальности подписей Apple TSS с отметкой времени."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Устранение зависания на 100% при сборке прошивки",
+                            "Устранена пауза при завершении загрузки: добавлен мгновенный перенос файлов при одиночном потоке, а при многосегментной сборке отображаются наглядные фазы «Сборка файла...» и «Проверка SHA-1...»."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Адаптивное масштабирование кнопок и сохранение папки",
+                            "Кнопки пакетных действий переведены на полноразмерную верстку без обрезания текста и иконок. Путь к выбранной папке загрузки сохраняется мгновенно и надежно отображается в поле."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Плавная анимация меню текущих операций",
+                            "Плашка текущих фоновых операций теперь плавно разворачивается прямо из кружка-счетчика с пружинящим эффектом Apple."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.52",
                     date: "15.10.2026",
                     title: "Кристальная четкость текста и оптимизация рендеринга",
@@ -238,6 +271,39 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.53",
+                date: "10/16/2026",
+                title: "Firmware UX: Overall Progress, Device Cards, Activity Log & Smooth Animations",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Overall Queue Progress & Device Card Indicators",
+                        "Added an overall progress bar across the entire download queue, as well as compact progress and speed indicators directly on device cards in My Devices."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Activity Log & Apple TSS Freshness Status",
+                        "Integrated an activity log popup recording firmware checks, additions, and downloads, alongside a real-time timestamped Apple TSS signing status indicator."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Seamless Assembly & Verification without 100% Freeze",
+                        "Eliminated the 100% completion stall with instant single-segment file moves and informative 'Assembling file...' and 'Verifying SHA-1...' progress phases."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Responsive Batch Action Buttons & Folder Persistence",
+                        "Batch action buttons are now full-width to prevent label and icon clipping. Custom firmware download directory choice is immediately persisted and displayed."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Spring Unfolding Animation for Operations Popup",
+                        "The active operations panel now unfolds smoothly with an Apple-style spring animation directly from the top status circle."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.52",
                 date: "10/15/2026",

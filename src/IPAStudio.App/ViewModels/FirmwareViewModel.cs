@@ -57,8 +57,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         _downloads = downloads;
         _settings = settings;
         _operations = operations;
-        DestinationFolder = settings.Current.FirmwareFolder ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
+        DestinationFolder = string.IsNullOrWhiteSpace(settings.Current.FirmwareFolder)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares")
+            : settings.Current.FirmwareFolder;
         SegmentCount = Math.Clamp(settings.Current.FirmwareDownloadThreads, 1, 16);
         AutoCheckIntervalHours = Math.Clamp(settings.Current.FirmwareCheckIntervalHours, 1, 168);
         IsAutoCheckEnabled = settings.Current.FirmwareAutoCheckEnabled;
@@ -94,6 +95,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private FirmwareDevice? _selectedDevice;
     [ObservableProperty] private FirmwareReleaseItem? _selectedFirmware;
     [ObservableProperty] private string _destinationFolder = "";
+    partial void OnDestinationFolderChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _settings.Current.FirmwareFolder = value;
+            _settings.Save();
+        }
+    }
     [ObservableProperty] private int _segmentCount = 4;
     [ObservableProperty] private bool _signedOnly = true;
     [ObservableProperty] private bool _isLoading;
@@ -126,9 +135,27 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private int _finishedCount;
     [ObservableProperty] private string _lastCheckText = "—";
     [ObservableProperty] private string _lastDownloadText = "—";
+    [ObservableProperty] private string _lastTssCheckText = "";
+    [ObservableProperty] private bool _isHistoryOpen;
+    [ObservableProperty] private ObservableCollection<FirmwareLogEntry> _activityLogs = new();
+
+    public bool HasTssCheckInfo => !string.IsNullOrEmpty(LastTssCheckText);
+    partial void OnLastTssCheckTextChanged(string value) => OnPropertyChanged(nameof(HasTssCheckInfo));
 
     public bool HasJobs => Jobs.Count > 0;
     public bool HasActiveJobs => ActiveCount > 0;
+
+    public void AddActivityLog(string icon, string message)
+    {
+        System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
+        {
+            ActivityLogs.Insert(0, new FirmwareLogEntry { Icon = icon, Message = message, Timestamp = DateTime.Now });
+            while (ActivityLogs.Count > 100) ActivityLogs.RemoveAt(ActivityLogs.Count - 1);
+        });
+    }
+
+    [RelayCommand] private void ToggleHistory() => IsHistoryOpen = !IsHistoryOpen;
+    [RelayCommand] private void ClearHistory() => ActivityLogs.Clear();
 
     partial void OnActiveCountChanged(int value) => OnPropertyChanged(nameof(HasActiveJobs));
 
@@ -278,6 +305,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 {
                     await LoadSingleFirmwaresAsync(SelectedSingleDevice);
                     StatusText = Loc.Get("L.Firmware.CheckCompleted");
+                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+                    AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedTss"), SelectedSingleDevice.Name));
                 }
             }
             else
@@ -286,6 +315,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 {
                     await LoadFirmwaresAsync(SelectedDevice);
                     StatusText = Loc.Get("L.Firmware.CheckCompleted");
+                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+                    AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedTss"), SelectedDevice.Name));
                 }
                 else if (MyDevices.Count > 0)
                 {
@@ -349,7 +380,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
 
         RefreshAutoUpdateTimestamps();
+        LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
         StatusText = string.Format(Loc.Get("L.Firmware.CheckAllCompleted"), count);
+        AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedAllTss"), count));
     }
 
     [RelayCommand] private void SwitchToDevicesMode() => IsSingleDownloadMode = false;
@@ -428,8 +461,18 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void BrowseFolder()
     {
-        var dialog = new OpenFolderDialog { InitialDirectory = Directory.Exists(DestinationFolder) ? DestinationFolder : null };
-        if (dialog.ShowDialog() == true) DestinationFolder = dialog.FolderName;
+        var initial = Directory.Exists(DestinationFolder) ? DestinationFolder : null;
+        var dialog = new OpenFolderDialog
+        {
+            InitialDirectory = initial,
+            Title = Loc.Get("L.Firmware.Folder")
+        };
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.FolderName))
+        {
+            DestinationFolder = dialog.FolderName;
+            _settings.Current.FirmwareFolder = DestinationFolder;
+            _settings.Save();
+        }
     }
 
     [RelayCommand]
@@ -823,6 +866,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             _jobOperations[job] = operation;
         }
 
+        AddActivityLog("⬇️", string.Format(Loc.Get("L.Firmware.Log.DownloadStarted"), job.Title));
+
         var reporter = new Progress<FirmwareDownloadProgress>(p =>
         {
             if (job.State != FirmwareJobState.Running) return;
@@ -830,9 +875,22 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Total = p.Total;
             job.BytesPerSecond = p.BytesPerSecond;
             job.Progress = p.Percent;
-            job.StatusText = job.SizeText;
+            if (p.Phase == "assembling")
+            {
+                job.StatusText = Loc.Get("L.Firmware.Job.Assembling");
+                operation.Detail = job.StatusText;
+            }
+            else if (p.Phase == "verifying")
+            {
+                job.StatusText = Loc.Get("L.Firmware.Job.Verifying");
+                operation.Detail = job.StatusText;
+            }
+            else
+            {
+                job.StatusText = job.SizeText;
+                operation.Detail = $"{job.SizeText} · {job.SpeedText}";
+            }
             operation.Progress = p.Percent;
-            operation.Detail = $"{job.SizeText} · {job.SpeedText}";
             RecomputeAggregate();
         });
 
@@ -866,6 +924,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             operation.Finish(OperationState.Done, job.StatusText);
             _jobOperations.Remove(job);
             RecordCompletedDownload(job.Device, job.Firmware, savedPath);
+            AddActivityLog("✅", string.Format(Loc.Get("L.Firmware.Log.DownloadFinished"), job.Title));
         }
         catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||
                                    ex is OperationCanceledException ||
@@ -874,6 +933,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.State = FirmwareJobState.Paused;
             job.BytesPerSecond = 0;
             job.StatusText = Loc.Get("L.Firmware.Paused");
+            AddActivityLog("⏸️", string.Format(Loc.Get("L.Firmware.Log.DownloadPaused"), job.Title));
             if (_jobOperations.Remove(job, out var op))
             {
                 op.Finish(OperationState.Cancelled, job.StatusText);
@@ -926,7 +986,21 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Total = p.Total;
             job.BytesPerSecond = p.BytesPerSecond;
             job.Progress = p.Percent;
-            job.StatusText = job.SizeText;
+            if (p.Phase == "assembling")
+            {
+                job.StatusText = Loc.Get("L.Firmware.Job.Assembling");
+                operation.Detail = job.StatusText;
+            }
+            else if (p.Phase == "verifying")
+            {
+                job.StatusText = Loc.Get("L.Firmware.Job.Verifying");
+                operation.Detail = job.StatusText;
+            }
+            else
+            {
+                job.StatusText = job.SizeText;
+                operation.Detail = $"{job.SizeText} · {job.SpeedText}";
+            }
             operation.Progress = p.Percent;
             RecomputeAggregate();
         });
@@ -1116,6 +1190,32 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         FinishedCount = finished;
         OnPropertyChanged(nameof(ActiveJob));
         ResumeAllCommand.NotifyCanExecuteChanged();
+        UpdateDeviceDownloads();
+    }
+
+    private void UpdateDeviceDownloads()
+    {
+        foreach (var dev in MyDevices)
+        {
+            var activeJobs = Jobs.Where(j => j.Device?.Identifier == dev.Identifier && j.IsActive).ToList();
+            if (activeJobs.Count > 0)
+            {
+                dev.HasActiveDownload = true;
+                long devDownloaded = activeJobs.Sum(j => j.Downloaded);
+                long devTotal = activeJobs.Sum(j => j.ExpectedTotal);
+                dev.DownloadProgress = devTotal > 0 ? Math.Clamp(devDownloaded * 100d / devTotal, 0, 100) : 0;
+                double speed = activeJobs.Sum(j => j.BytesPerSecond);
+                dev.DownloadSpeedText = speed > 0 ? $"{speed / 1024d / 1024d:F1} MB/s" : "";
+                dev.DownloadStatusText = $"{dev.DownloadProgress:F0}%";
+            }
+            else
+            {
+                dev.HasActiveDownload = false;
+                dev.DownloadProgress = 0;
+                dev.DownloadSpeedText = "";
+                dev.DownloadStatusText = "";
+            }
+        }
     }
 
     // ---------------------------------------------------------------- devices
@@ -1126,6 +1226,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         {
             _settings.Current.FirmwareSubscriptions.Add(new FirmwareSubscription { Identifier = device.Identifier, DeviceName = device.Name });
             MyDevices.Add(device);
+            AddActivityLog("➕", string.Format(Loc.Get("L.Firmware.Log.DeviceAdded"), device.Name));
         }
         _settings.Save();
         SelectedDevice ??= MyDevices.FirstOrDefault();
@@ -1147,6 +1248,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         _settings.Save();
         MyDevices.Add(device);
         SelectedDevice = device;
+        AddActivityLog("➕", string.Format(Loc.Get("L.Firmware.Log.DeviceAdded"), device.Name));
         AddDeviceCommand.NotifyCanExecuteChanged();
     }
 
@@ -1161,6 +1263,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         if (existing is not null) _settings.Current.FirmwareSubscriptions.Remove(existing);
         _settings.Save();
         MyDevices.Remove(device);
+        AddActivityLog("🗑️", string.Format(Loc.Get("L.Firmware.Log.DeviceRemoved"), device.Name));
         if (SelectedDevice?.Identifier == device.Identifier)
             SelectedDevice = MyDevices.FirstOrDefault();
         AddDeviceCommand.NotifyCanExecuteChanged();

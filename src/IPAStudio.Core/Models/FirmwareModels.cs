@@ -1,13 +1,52 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
 namespace IPAStudio.Core.Models;
 
-public class FirmwareDevice
+public class FirmwareDevice : INotifyPropertyChanged
 {
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? name = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("identifier")] public string Identifier { get; set; } = "";
     [JsonPropertyName("boardconfig")] public string? BoardConfig { get; set; }
     [JsonIgnore] public string DisplayName => $"{Name} ({Identifier})";
+
+    private bool _hasActiveDownload;
+    private double _downloadProgress;
+    private string _downloadSpeedText = "";
+    private string _downloadStatusText = "";
+
+    [JsonIgnore]
+    public bool HasActiveDownload
+    {
+        get => _hasActiveDownload;
+        set { if (_hasActiveDownload != value) { _hasActiveDownload = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public double DownloadProgress
+    {
+        get => _downloadProgress;
+        set { if (Math.Abs(_downloadProgress - value) > 0.01) { _downloadProgress = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public string DownloadSpeedText
+    {
+        get => _downloadSpeedText;
+        set { if (_downloadSpeedText != value) { _downloadSpeedText = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public string DownloadStatusText
+    {
+        get => _downloadStatusText;
+        set { if (_downloadStatusText != value) { _downloadStatusText = value; OnPropertyChanged(); } }
+    }
 }
 
 public sealed class FirmwareDeviceDetails : FirmwareDevice
@@ -76,7 +115,7 @@ public sealed class FirmwareSegment
     public string PartPath { get; set; } = "";
 }
 
-public sealed record FirmwareDownloadProgress(long Downloaded, long Total, double BytesPerSecond)
+public sealed record FirmwareDownloadProgress(long Downloaded, long Total, double BytesPerSecond, string? Phase = null)
 {
     public double Percent => Total > 0 ? Downloaded * 100d / Total : 0;
 }
@@ -94,4 +133,12 @@ public sealed class PersistedFirmwareJob
     public long Downloaded { get; set; }
     public long Total { get; set; }
     public int State { get; set; }
+}
+
+public sealed class FirmwareLogEntry
+{
+    public DateTime Timestamp { get; set; } = DateTime.Now;
+    public string Message { get; set; } = "";
+    public string TimeText => Timestamp.ToString("HH:mm:ss");
+    public string Icon { get; set; } = "ℹ️";
 }
