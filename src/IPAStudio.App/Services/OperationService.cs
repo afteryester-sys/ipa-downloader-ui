@@ -254,8 +254,28 @@ public sealed partial class OperationService : ObservableObject
     [ObservableProperty]
     private bool _isListOpen;
 
+    private DateTime _lastListClosedTime;
+
+    partial void OnIsListOpenChanged(bool value)
+    {
+        if (!value)
+            _lastListClosedTime = DateTime.UtcNow;
+    }
+
     [RelayCommand]
-    private void ToggleList() => IsListOpen = !IsListOpen;
+    private void ToggleList()
+    {
+        if (IsListOpen)
+        {
+            IsListOpen = false;
+            return;
+        }
+
+        if ((DateTime.UtcNow - _lastListClosedTime).TotalMilliseconds < 280)
+            return;
+
+        IsListOpen = true;
+    }
 
     /// <summary>
     /// Returns to an operation. Closes the list first, so coming back does not leave the

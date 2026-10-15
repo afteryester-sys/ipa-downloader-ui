@@ -214,38 +214,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="BtnBg"
-                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="1.05" Duration="0:0:0.1">
-                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="BtnBg"
-                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="1.05" Duration="0:0:0.1">
-                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetName="BtnBg"
-                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="1.0" Duration="0:0:0.14">
-                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="BtnBg"
-                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="1.0" Duration="0:0:0.14">
-                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                            </DoubleAnimation>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
+                                <Setter TargetName="BtnBg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Trigger.EnterActions>
@@ -341,38 +310,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Trigger.EnterActions>
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                                     To="1.03" Duration="0:0:0.1">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                                                     To="1.03" Duration="0:0:0.1">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </Trigger.EnterActions>
-                                                        <Trigger.ExitActions>
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                                     To="1.0" Duration="0:0:0.14">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                                                     To="1.0" Duration="0:0:0.14">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </Trigger.ExitActions>
+                                                        <Setter TargetName="TabBg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                                                     </Trigger>
                                                     <Trigger Property="IsPressed" Value="True">
                                                         <Trigger.EnterActions>
@@ -455,38 +393,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Trigger.EnterActions>
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                                     To="1.03" Duration="0:0:0.1">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                                                     To="1.03" Duration="0:0:0.1">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </Trigger.EnterActions>
-                                                        <Trigger.ExitActions>
-                                                            <BeginStoryboard>
-                                                                <Storyboard>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                                                     To="1.0" Duration="0:0:0.14">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                    <DoubleAnimation Storyboard.TargetName="TabBg"
-                                                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                                                     To="1.0" Duration="0:0:0.14">
-                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                    </DoubleAnimation>
-                                                                </Storyboard>
-                                                            </BeginStoryboard>
-                                                        </Trigger.ExitActions>
+                                                        <Setter TargetName="TabBg" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
                                                     </Trigger>
                                                     <Trigger Property="IsPressed" Value="True">
                                                         <Trigger.EnterActions>
@@ -579,19 +486,56 @@
                                    FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Button Command="{Binding CheckAllDevicesCommand}" Style="{StaticResource Button.Ghost}"
                                 Padding="5,2" Margin="6,0,0,0" ToolTip="{DynamicResource L.Firmware.CheckAll}">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10">
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                       RenderTransformOrigin="0.5,0.5">
+                                <TextBlock.RenderTransform>
+                                    <RotateTransform Angle="0" />
+                                </TextBlock.RenderTransform>
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsChecking}" Value="True">
                                                 <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                <DataTrigger.EnterActions>
+                                                    <BeginStoryboard x:Name="SpinStory">
+                                                        <Storyboard RepeatBehavior="Forever">
+                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                             From="0" To="360" Duration="0:0:1" />
+                                                        </Storyboard>
+                                                    </BeginStoryboard>
+                                                </DataTrigger.EnterActions>
+                                                <DataTrigger.ExitActions>
+                                                    <StopStoryboard BeginStoryboardName="SpinStory" />
+                                                </DataTrigger.ExitActions>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
                         </Button>
+                        <TextBlock Text="{DynamicResource L.Firmware.Checking}" FontSize="10"
+                                   Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" Margin="6,0,0,0"
+                                   Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
+                        <TextBlock Text="{Binding LastTssCheckText}"
+                                   FontSize="9.5" Foreground="{DynamicResource Brush.TextMuted}"
+                                   VerticalAlignment="Center" Margin="6,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding HasTssCheckInfo}" Value="True" />
+                                                <Condition Binding="{Binding IsChecking}" Value="False" />
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                     <Button DockPanel.Dock="Right" Content="+ Добавить" ToolTip="{DynamicResource L.Firmware.AddDevicesTitle}"
                             Style="{StaticResource Button.Ghost}" Padding="6,2" FontSize="11"
@@ -729,6 +673,64 @@
                                                              BorderThickness="0" Background="{DynamicResource Brush.SurfaceActive}"
                                                              Foreground="{DynamicResource Brush.Firmware}" />
                                             </StackPanel>
+
+                                            <!-- Auto-check active indicator on device card -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding HasActiveDownload}" Value="False" />
+                                                                    <Condition Binding="{Binding DataContext.IsChecking, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="9.5"
+                                                           Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center"
+                                                           RenderTransformOrigin="0.5, 0.5" Margin="0,0,4,0">
+                                                    <TextBlock.RenderTransform>
+                                                        <RotateTransform Angle="0" />
+                                                    </TextBlock.RenderTransform>
+                                                    <TextBlock.Triggers>
+                                                        <EventTrigger RoutedEvent="Loaded">
+                                                            <BeginStoryboard>
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                     From="0" To="360" Duration="0:0:1" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </TextBlock.Triggers>
+                                                </TextBlock>
+                                                <TextBlock Text="{DynamicResource L.Firmware.CheckingTssShort}" FontSize="9.5"
+                                                           Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            </StackPanel>
+
+                                            <!-- Last verified timestamp on device card -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding HasActiveDownload}" Value="False" />
+                                                                    <Condition Binding="{Binding DataContext.IsChecking, RelativeSource={RelativeSource AncestorType=ListBox}}" Value="False" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+                                                <Ellipse Width="4.5" Height="4.5" Fill="#30D158" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding LastCheckText}" FontSize="9"
+                                                           Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </StackPanel>
                                         <Button Grid.Column="2" Style="{StaticResource Button.Ghost}" Padding="4,2"
                                                 ToolTip="{DynamicResource L.Firmware.RemoveDevice}"
@@ -772,12 +774,27 @@
                                             HorizontalAlignment="Stretch"
                                             ToolTip="{DynamicResource L.Firmware.CheckAll}">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                       RenderTransformOrigin="0.5,0.5">
+                                                <TextBlock.RenderTransform>
+                                                    <RotateTransform Angle="0" />
+                                                </TextBlock.RenderTransform>
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsChecking}" Value="True">
                                                                 <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                                <DataTrigger.EnterActions>
+                                                                    <BeginStoryboard x:Name="FooterSpinStory">
+                                                                        <Storyboard RepeatBehavior="Forever">
+                                                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                             From="0" To="360" Duration="0:0:1" />
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </DataTrigger.EnterActions>
+                                                                <DataTrigger.ExitActions>
+                                                                    <StopStoryboard BeginStoryboardName="FooterSpinStory" />
+                                                                </DataTrigger.ExitActions>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -826,6 +843,47 @@
                                                 <Setter Property="Text" Value="{DynamicResource L.Firmware.AutoCheck.Off}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
                                             </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <!-- Active checking indicator -->
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0"
+                                        Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="9.5"
+                                           Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center"
+                                           RenderTransformOrigin="0.5, 0.5" Margin="0,0,4,0">
+                                    <TextBlock.RenderTransform>
+                                        <RotateTransform Angle="0" />
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                     From="0" To="360" Duration="0:0:1" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </TextBlock.Triggers>
+                                </TextBlock>
+                                <TextBlock Text="{DynamicResource L.Firmware.Checking}" FontSize="9.5"
+                                           Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <!-- Last verified timestamp -->
+                            <TextBlock Text="{Binding LastTssCheckText}" FontSize="9.5"
+                                       Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasTssCheckInfo}" Value="True" />
+                                                    <Condition Binding="{Binding IsChecking}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>

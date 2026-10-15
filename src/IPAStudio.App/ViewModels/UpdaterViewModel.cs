@@ -130,8 +130,28 @@ public sealed partial class UpdaterViewModel : ObservableObject
         RollbackReleases.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasRollbackReleases));
     }
 
+    private DateTime _lastClosedTime;
+
+    partial void OnIsOpenChanged(bool value)
+    {
+        if (!value)
+            _lastClosedTime = DateTime.UtcNow;
+    }
+
     [RelayCommand]
-    private void Toggle() => IsOpen = !IsOpen;
+    private void Toggle()
+    {
+        if (IsOpen)
+        {
+            IsOpen = false;
+            return;
+        }
+
+        if ((DateTime.UtcNow - _lastClosedTime).TotalMilliseconds < 280)
+            return;
+
+        IsOpen = true;
+    }
 
     // ---- Automatic checking -------------------------------------------------
     // Nothing checked on its own before: the dot beside the gear only appeared after the

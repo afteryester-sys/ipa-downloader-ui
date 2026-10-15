@@ -220,6 +220,17 @@
                             Command="{Binding DownloadCommand}"
                             Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
 
+                    <!-- Purchase (App Store license acquisition) button -->
+                    <Button Style="{StaticResource Button.Secondary}" MinWidth="130" Margin="0,0,10,10"
+                            Command="{Binding PurchaseCommand}"
+                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                            ToolTip="{DynamicResource L.Direct.PurchaseHint}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BF;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
+                            <TextBlock Text="{DynamicResource L.Direct.Purchase}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
                     <Button Content="{DynamicResource L.Direct.Cancel}"
                             Style="{StaticResource Button.Danger}" MinWidth="180" Margin="0,0,10,10"
                             Command="{Binding CancelDownloadCommand}"

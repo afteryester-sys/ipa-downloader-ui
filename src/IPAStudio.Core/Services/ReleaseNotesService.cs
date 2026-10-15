@@ -56,6 +56,39 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.54",
+                    date: "16.10.2026",
+                    title: "Покупка в App Store, плавная анимация меню и автопроверка прошивок",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Кнопка «Купить» в меню «Скачать IPA»",
+                            "Добавлена возможность приобрести бесплатную лицензию в App Store по ID приложения прямо в окне поиска перед скачиванием."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Плавное раскрытие и закрытие по повторному нажатию",
+                            "Меню настроек (шестерёнка) и окно текущих операций теперь красиво разворачиваются прямо из кнопок и корректно закрываются при повторном клике."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Центрирование окна текущих операций",
+                            "Окно текущих операций теперь центрируется ровно под статусным кружком без смещения к середине экрана."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Автопроверка подписей TSS и статус проверки",
+                            "После окончания загрузки прошивок автоматически запускается проверка подписей TSS с индикатором вращения и отметкой последнего времени проверки."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Устранение обрезания кнопок при наведении",
+                            "Исправлена проблема, из-за которой кнопки во всех меню и карточках выходили за невидимые границы при наведении мыши."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.53",
                     date: "16.10.2026",
                     title: "Улучшения прошивок: общий прогресс, индикаторы устройств, журнал и анимации",
@@ -271,6 +304,39 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.54",
+                date: "10/16/2026",
+                title: "App Store Purchase, Fluid Popup Animations & Firmware Auto-Check",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "App Store Purchase Button in Direct Download",
+                        "Acquire a free App Store license for any app by ID directly before starting the IPA download."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Smooth Blooming Popups & Toggle Dismissal",
+                        "Settings menu and operations panel now bloom smoothly from their trigger buttons and reliably toggle closed when clicked again."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Centered Operations Panel",
+                        "Operations panel is now positioned directly beneath the status circle without drifting toward the screen center."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Automatic Firmware TSS Check & Indicators",
+                        "Completing firmware downloads now automatically triggers Apple TSS signing verification with an active spinner and timestamp indicators."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Fixed Button Hover Boundary Clipping",
+                        "Removed scaling on hover across all menus and cards, preventing button borders and shadows from clipping."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.53",
                 date: "10/16/2026",

@@ -133,6 +133,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private string _overallSpeedText = "";
     [ObservableProperty] private int _activeCount;
     [ObservableProperty] private int _finishedCount;
+    private int _previousActiveCount;
     [ObservableProperty] private string _lastCheckText = "—";
     [ObservableProperty] private string _lastDownloadText = "—";
     [ObservableProperty] private string _lastTssCheckText = "";
@@ -1061,7 +1062,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         FirmwareVersion = p.FileName,
                         BuildId = "",
                         Url = p.Url,
-                        Sha1 = p.Sha1,
+                        Sha1 = p.Sha1 ?? "",
                         DestinationPath = p.DestinationPath,
                         IsSingleDownload = true,
                         Downloaded = p.Downloaded,
@@ -1120,7 +1121,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 FirmwareVersion = j.Firmware.Version,
                 BuildId = j.Firmware.BuildId,
                 Url = j.Firmware.Url,
-                Sha1 = j.Firmware.Sha1,
+                Sha1 = j.Firmware.Sha1 ?? "",
                 DestinationPath = j.DestinationPath,
                 IsSingleDownload = j.IsSingleDownload,
                 Downloaded = j.Downloaded,
@@ -1191,6 +1192,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(ActiveJob));
         ResumeAllCommand.NotifyCanExecuteChanged();
         UpdateDeviceDownloads();
+
+        if (_previousActiveCount > 0 && active == 0 && finished > 0 && IsAutoCheckEnabled && !IsChecking)
+        {
+            _ = CheckAllDevicesAsync();
+        }
+        _previousActiveCount = active;
     }
 
     private void UpdateDeviceDownloads()
@@ -1463,6 +1470,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         var source = scoped.Count > 0 ? scoped : subscriptions;
         LastCheckText = Format(source.Select(s => s.LastCheckUtc).Where(d => d.HasValue).Max());
         LastDownloadText = Format(source.Select(s => s.LastDownloadUtc).Where(d => d.HasValue).Max());
+
+        foreach (var dev in MyDevices)
+        {
+            var sub = subscriptions.FirstOrDefault(s => s.Identifier == dev.Identifier);
+            dev.LastCheckText = Format(sub?.LastCheckUtc);
+        }
 
         static string Format(DateTimeOffset? value) =>
             value is null ? "—" : value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");

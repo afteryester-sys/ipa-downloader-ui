@@ -314,6 +314,11 @@
     <sys:String x:Key="L.Direct.InstallPartial">Установлено на {0} из {1} устройств.</sys:String>
     <sys:String x:Key="L.Direct.InstallSelected">Установить на выбранные</sys:String>
     <sys:String x:Key="L.Direct.InstallFailed">Не удалось установить приложение на устройство.</sys:String>
+    <sys:String x:Key="L.Direct.Purchase">Купить</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseHint">Приобрести бесплатную лицензию в App Store перед скачиванием</sys:String>
+    <sys:String x:Key="L.Direct.Purchasing">Приобретение приложения в App Store…</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseSuccess">Приложение «{0}» успешно приобретено в App Store!</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseFailed">Не удалось приобрести приложение в App Store</sys:String>
 
     <!-- Меню (шестерёнка) -->
     <sys:String x:Key="L.Menu.Title">Меню</sys:String>
@@ -1013,6 +1018,7 @@
     <sys:String x:Key="L.Firmware.CheckAll">Проверить все</sys:String>
     <sys:String x:Key="L.Firmware.Checking">Проверка…</sys:String>
     <sys:String x:Key="L.Firmware.CheckingAll">Проверка всех устройств…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckingTssShort">Проверка…</sys:String>
     <sys:String x:Key="L.Firmware.CheckCompleted">Проверка TSS завершена</sys:String>
     <sys:String x:Key="L.Firmware.CheckAllCompleted">Проверено устройств: {0}</sys:String>
     <sys:String x:Key="L.Firmware.DownloadSelected">Скачать выбранные ({0})</sys:String>

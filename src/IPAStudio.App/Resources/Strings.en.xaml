@@ -363,6 +363,11 @@
     <sys:String x:Key="L.Direct.InstallPartial">Installed on {0} of {1} devices.</sys:String>
     <sys:String x:Key="L.Direct.InstallSelected">Install to selected</sys:String>
     <sys:String x:Key="L.Direct.InstallFailed">Failed to install app onto device.</sys:String>
+    <sys:String x:Key="L.Direct.Purchase">Purchase</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseHint">Acquire a free App Store license before downloading</sys:String>
+    <sys:String x:Key="L.Direct.Purchasing">Purchasing app in App Store…</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseSuccess">App "{0}" successfully purchased in App Store!</sys:String>
+    <sys:String x:Key="L.Direct.PurchaseFailed">Failed to purchase app in App Store</sys:String>
 
     <!-- Menu (gear) -->
     <sys:String x:Key="L.Menu.Title">Menu</sys:String>
@@ -1015,6 +1020,7 @@
     <sys:String x:Key="L.Firmware.CheckAll">Check All</sys:String>
     <sys:String x:Key="L.Firmware.Checking">Checking…</sys:String>
     <sys:String x:Key="L.Firmware.CheckingAll">Checking all devices…</sys:String>
+    <sys:String x:Key="L.Firmware.CheckingTssShort">Checking…</sys:String>
     <sys:String x:Key="L.Firmware.CheckCompleted">TSS check completed</sys:String>
     <sys:String x:Key="L.Firmware.CheckAllCompleted">Checked devices: {0}</sys:String>
     <sys:String x:Key="L.Firmware.DownloadSelected">Download Selected ({0})</sys:String>

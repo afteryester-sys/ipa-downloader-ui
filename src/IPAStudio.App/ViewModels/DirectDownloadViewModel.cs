@@ -266,11 +266,17 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     partial void OnIsInstallingChanged(bool value) => InstallToDeviceCommand.NotifyCanExecuteChanged();
 
+    [NotifyPropertyChangedFor(nameof(CanInstallToDevice))]
+    [NotifyPropertyChangedFor(nameof(IsActionInProgress))]
+    [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
+    [ObservableProperty]
+    private bool _isPurchasing;
+
     [NotifyPropertyChangedFor(nameof(ActiveProgress))]
     [ObservableProperty]
     private double _installProgress;
 
-    public bool IsActionInProgress => IsDownloading || IsInstalling;
+    public bool IsActionInProgress => IsDownloading || IsInstalling || IsPurchasing;
 
     public double ActiveProgress => IsInstalling ? InstallProgress : Progress;
 
@@ -588,6 +594,60 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             StatusText = null;
             ErrorText = Loc.Get("L.Direct.AddFailed");
             AppLog.Warn($"Add to catalog failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task PurchaseAsync()
+    {
+        if (FoundApp is null)
+        {
+            await LookupAsync().ConfigureAwait(true);
+            if (FoundApp is null) return;
+        }
+
+        if (!_auth.IsAuthenticated)
+        {
+            ErrorText = Str("L.Direct.NeedLogin");
+            return;
+        }
+
+        IsPurchasing = true;
+        ErrorText = null;
+        StatusText = Loc.Get("L.Direct.Purchasing");
+
+        try
+        {
+            var (success, error, sessionExpired) = await _download.PurchaseAsync(
+                FoundApp.AppStoreId,
+                FoundApp.BundleId,
+                CancellationToken.None).ConfigureAwait(true);
+
+            if (sessionExpired)
+            {
+                ErrorText = Loc.Get("L.Error.SessionExpired");
+                return;
+            }
+
+            if (success)
+            {
+                StatusText = string.Format(Loc.Get("L.Direct.PurchaseSuccess"), FoundApp.Name);
+                AppLog.Info($"Purchase successful for {FoundApp.Name} ({FoundApp.BundleId})");
+                _settings.MarkOwned(FoundApp.AppStoreId);
+            }
+            else
+            {
+                ErrorText = error ?? Loc.Get("L.Direct.PurchaseFailed");
+                AppLog.Warn($"Purchase failed for {FoundApp.Name}: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorText = ex.Message;
+        }
+        finally
+        {
+            IsPurchasing = false;
         }
     }
 
