@@ -202,13 +202,13 @@
 
                             <TextBox Grid.Column="0" Style="{StaticResource Input.TextBox}"
                                      Text="{Binding DestinationFolder}"
-                                     IsEnabled="{Binding IsActionInProgress, Converter={StaticResource InverseBool}}"
+                                     IsEnabled="{Binding IsLookingUp, Converter={StaticResource InverseBool}}"
                                      VerticalAlignment="Center" />
 
                             <Button Grid.Column="1" Content="{DynamicResource L.Direct.Browse}"
                                     Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
                                     Command="{Binding BrowseFolderCommand}"
-                                    IsEnabled="{Binding IsActionInProgress, Converter={StaticResource InverseBool}}" />
+                                    IsEnabled="{Binding IsLookingUp, Converter={StaticResource InverseBool}}" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -218,23 +218,18 @@
                     <Button Content="{DynamicResource L.Direct.Download}"
                             Style="{StaticResource Button.Primary}" MinWidth="180" Margin="0,0,10,10"
                             Command="{Binding DownloadCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                            IsEnabled="{Binding IsLookingUp, Converter={StaticResource InverseBool}}" />
 
                     <!-- Purchase (App Store license acquisition) button -->
                     <Button Style="{StaticResource Button.Secondary}" MinWidth="130" Margin="0,0,10,10"
                             Command="{Binding PurchaseCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                            IsEnabled="{Binding IsPurchasing, Converter={StaticResource InverseBool}}"
                             ToolTip="{DynamicResource L.Direct.PurchaseHint}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="&#xE7BF;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
                             <TextBlock Text="{DynamicResource L.Direct.Purchase}" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-
-                    <Button Content="{DynamicResource L.Direct.Cancel}"
-                            Style="{StaticResource Button.Danger}" MinWidth="180" Margin="0,0,10,10"
-                            Command="{Binding CancelDownloadCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}}" />
 
                     <!-- The alternative route. Sits beside the main button rather than
                          replacing it: the normal path is still the faster one when it works,
@@ -243,7 +238,13 @@
                             Style="{StaticResource Button.Secondary}" Margin="0,0,10,10"
                             ToolTip="{DynamicResource L.Itunes.ButtonHint}"
                             Command="{Binding DownloadViaItunesCommand}"
-                            Visibility="{Binding IsActionInProgress, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+                            IsEnabled="{Binding IsLookingUp, Converter={StaticResource InverseBool}}" />
+
+                    <!-- Cancel button for foreground install or iTunes route -->
+                    <Button Content="{DynamicResource L.Direct.Cancel}"
+                            Style="{StaticResource Button.Danger}" MinWidth="180" Margin="0,0,10,10"
+                            Command="{Binding CancelDownloadCommand}"
+                            Visibility="{Binding IsInstalling, Converter={StaticResource BoolToVis}}" />
 
                     <!-- Install to device button - toggles the target devices picker -->
                     <Button Style="{StaticResource Button.Primary}" Margin="0,0,10,10"
@@ -494,6 +495,342 @@
                            Foreground="{StaticResource Brush.Danger}"
                            TextWrapping="Wrap"
                            Visibility="{Binding ErrorText, Converter={StaticResource NullToCollapsed}}" />
+
+                <!-- ===== Download Queue Section ===== -->
+                <Border Style="{StaticResource Card}" Padding="20" Margin="0,12,0,24"
+                        Visibility="{Binding HasQueue, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <!-- Queue Header -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="16"
+                                           Foreground="{DynamicResource Brush.Accent}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <TextBlock Text="{DynamicResource L.Direct.Queue.Title}"
+                                           Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="16"
+                                           VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                                <!-- Summary count badge -->
+                                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="10" Padding="10,3"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding QueueSummaryText}"
+                                               Style="{StaticResource Text.Caption}" FontSize="11" FontWeight="Medium"
+                                               Foreground="{DynamicResource Brush.TextMuted}" />
+                                </Border>
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Style="{StaticResource Button.Ghost}" Padding="10,6"
+                                    Command="{Binding ClearFinishedQueueCommand}"
+                                    ToolTip="{DynamicResource L.Direct.Queue.ClearFinishedHint}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource L.Direct.Queue.ClearFinished}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Queue Items List -->
+                        <ItemsControl ItemsSource="{Binding DownloadQueue}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="12" Background="{DynamicResource Brush.SurfaceHover}"
+                                            BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                            Padding="14" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- App Icon -->
+                                                <Border Grid.Column="0" Width="52" Height="52" CornerRadius="12" Margin="0,0,14,0"
+                                                        Background="{DynamicResource Brush.Surface}" VerticalAlignment="Center">
+                                                    <Border.Clip>
+                                                        <RectangleGeometry Rect="0,0,52,52" RadiusX="12" RadiusY="12" />
+                                                    </Border.Clip>
+                                                    <Grid>
+                                                        <TextBlock Text="{Binding Name, Converter={StaticResource Initial}}"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   FontSize="20" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource Brush.TextMuted}" />
+                                                        <Image Source="{Binding IconUrl}" Stretch="UniformToFill" />
+                                                        <Image Source="{Binding IconImage}" Stretch="UniformToFill" />
+                                                    </Grid>
+                                                </Border>
+
+                                                <!-- App Info & Progress -->
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"
+                                                                   TextTrimming="CharacterEllipsis" MaxWidth="380"
+                                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+
+                                                        <!-- Status Badge -->
+                                                        <Border CornerRadius="6" Padding="6,2" VerticalAlignment="Center">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                                                            <Setter Property="Background" Value="#1E2E20" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                            <Setter Property="Background" Value="#331A1A" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource Brush.AccentSoft}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock FontSize="10" FontWeight="SemiBold">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                        <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.Waiting}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsTransferring}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                                                <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.ActiveBadge}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsInstalling}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+                                                                                <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.InstallingBadge}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Success}" />
+                                                                                <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.DoneBadge}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                                                                                <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.FailedBadge}" />
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding IsCancelled}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                                <Setter Property="Text" Value="{DynamicResource L.Direct.Queue.Cancelled}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <!-- Subtitle: BundleId & Version -->
+                                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <TextBlock Text="{Binding BundleId}" Style="{StaticResource Text.Caption}" FontSize="11" />
+                                                        <TextBlock Text="  ·  v" Style="{StaticResource Text.Caption}" FontSize="11"
+                                                                   Visibility="{Binding Version, Converter={StaticResource NullToCollapsed}}" />
+                                                        <TextBlock Text="{Binding Version}" Style="{StaticResource Text.Caption}" FontSize="11"
+                                                                   Visibility="{Binding Version, Converter={StaticResource NullToCollapsed}}" />
+                                                    </StackPanel>
+
+                                                    <!-- Metrics & Status line -->
+                                                    <Grid Margin="0,2,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <TextBlock Grid.Column="0" Text="{Binding StatusText}"
+                                                                   FontSize="11" TextTrimming="CharacterEllipsis">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+
+                                                        <TextBlock Grid.Column="1" Text="{Binding RemainingText}" Style="{StaticResource Text.Caption}"
+                                                                   FontSize="11" Foreground="{DynamicResource Brush.TextMuted}"
+                                                                   Visibility="{Binding RemainingText, Converter={StaticResource NullToCollapsed}}" />
+                                                    </Grid>
+
+                                                    <!-- Progress Bar -->
+                                                    <ProgressBar Style="{StaticResource Progress.Slim}" Height="4"
+                                                                 Value="{Binding Progress, Mode=OneWay}"
+                                                                 IsIndeterminate="{Binding IsIndeterminate}"
+                                                                 Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}" />
+                                                </StackPanel>
+
+                                                <!-- Card Action Buttons -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- Cancel when transferring or queued -->
+                                                    <Button Content="{DynamicResource L.Direct.Queue.Cancel}"
+                                                            Style="{StaticResource Button.Ghost}" Padding="10,6" Margin="0,0,6,0"
+                                                            Command="{Binding CancelCommand}"
+                                                            Visibility="{Binding CanCancel, Converter={StaticResource BoolToVis}}" />
+
+                                                    <!-- Retry when failed or cancelled -->
+                                                    <Button Style="{StaticResource Button.Secondary}" Padding="10,6" Margin="0,0,6,0"
+                                                            Command="{Binding RetryCommand}"
+                                                            Visibility="{Binding CanRetry, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{DynamicResource L.Direct.Queue.Retry}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <!-- Open folder when Done -->
+                                                    <Button Style="{StaticResource Button.Secondary}" Padding="10,6" Margin="0,0,6,0"
+                                                            Command="{Binding OpenFolderCommand}"
+                                                            Visibility="{Binding CanOpenFolder, Converter={StaticResource BoolToVis}}"
+                                                            ToolTip="{DynamicResource L.Direct.OpenFolder}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{DynamicResource L.Direct.Queue.OpenFolder}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <!-- Install to Device when Done -->
+                                                    <Button Style="{StaticResource Button.Primary}" Padding="12,6" Margin="0,0,6,0"
+                                                            Command="{Binding ToggleDevicePickerCommand}"
+                                                            Visibility="{Binding IsDone, Converter={StaticResource BoolToVis}}"
+                                                            ToolTip="{DynamicResource L.Direct.Queue.InstallHint}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{DynamicResource L.Direct.Queue.Install}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <!-- Remove from list (X) -->
+                                                    <Button Style="{StaticResource Button.Ghost}" Padding="6,6"
+                                                            Command="{Binding RemoveCommand}"
+                                                            ToolTip="{DynamicResource L.Common.Close}">
+                                                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="10" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Target Devices Drawer (per queue item) -->
+                                            <Border Margin="0,12,0,0" Padding="14" CornerRadius="10"
+                                                    Background="{DynamicResource Brush.Surface}"
+                                                    BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                                    Visibility="{Binding IsDevicePickerOpen, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel>
+                                                    <Grid Margin="0,0,0,10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{DynamicResource L.Direct.TargetDevice}"
+                                                                   FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                                        <Button Grid.Column="1" Style="{StaticResource Button.Ghost}" Padding="4"
+                                                                Command="{Binding CloseDevicePickerCommand}">
+                                                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="10" />
+                                                        </Button>
+                                                    </Grid>
+
+                                                    <!-- When no devices connected -->
+                                                    <TextBlock Text="{DynamicResource L.Direct.NoDevices}"
+                                                               Style="{StaticResource Text.Caption}" Foreground="{DynamicResource Brush.TextMuted}"
+                                                               Margin="0,0,0,10" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVis}, ConverterParameter=invert}" />
+
+                                                    <!-- Device selection list -->
+                                                    <ItemsControl ItemsSource="{Binding TargetDevices}"
+                                                                  Visibility="{Binding HasConnectedDevices, Converter={StaticResource BoolToVis}}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                        CommandParameter="{Binding}"
+                                                                        Margin="0,0,8,8" Padding="10,6"
+                                                                        Style="{StaticResource Button.Ghost}" Cursor="Hand">
+                                                                    <Border CornerRadius="8" Padding="10,6"
+                                                                            BorderThickness="1.5">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                        <Setter Property="Background" Value="{DynamicResource Brush.AccentSoft}" />
+                                                                                        <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="&#xE770;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                                                       Foreground="{DynamicResource Brush.Accent}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"
+                                                                                       Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                                            <TextBlock FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center">
+                                                                                <Run Text="{Binding Model, Mode=OneWay}" />
+                                                                                <Run Text=" · iOS " />
+                                                                                <Run Text="{Binding OsVersion, Mode=OneWay}" />
+                                                                            </TextBlock>
+                                                                            <Border Width="16" Height="16" CornerRadius="8" Margin="8,0,0,0"
+                                                                                    VerticalAlignment="Center">
+                                                                                <Border.Style>
+                                                                                    <Style TargetType="Border">
+                                                                                        <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Border.Style>
+                                                                                <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                                                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                    <TextBlock.Style>
+                                                                                        <Style TargetType="TextBlock">
+                                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </TextBlock.Style>
+                                                                                </TextBlock>
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <!-- Install Action Button & status inside drawer -->
+                                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                        <Button Style="{StaticResource Button.Primary}" Padding="14,6" Margin="0,0,10,0"
+                                                                Command="{Binding InstallToDeviceCommand}"
+                                                                IsEnabled="{Binding HasSelectedDevices}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                                <TextBlock Text="{DynamicResource L.Direct.InstallSelected}" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <Button Content="{DynamicResource L.Cancel}" Style="{StaticResource Button.Ghost}"
+                                                                Command="{Binding CloseDevicePickerCommand}" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>

@@ -82,6 +82,22 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
     private CancellationTokenSource? _cts;
 
+    private readonly SemaphoreSlim _queueGate = new(1, 1);
+
+    public ObservableCollection<DirectDownloadQueueItem> DownloadQueue { get; } = new();
+
+    [ObservableProperty]
+    private bool _hasQueue;
+
+    [ObservableProperty]
+    private int _activeQueueCount;
+
+    [ObservableProperty]
+    private int _completedQueueCount;
+
+    [ObservableProperty]
+    private string _queueSummaryText = "";
+
     public DirectDownloadViewModel(
         CatalogService catalog,
         DownloadService download,
@@ -383,6 +399,11 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         OnPropertyChanged(nameof(CanInstallToDevice));
         OnPropertyChanged(nameof(SelectedDevice));
         InstallToDeviceCommand.NotifyCanExecuteChanged();
+
+        foreach (var item in DownloadQueue)
+        {
+            item.UpdateDevices(_devices.ConnectedDevices);
+        }
     }
 
     /// <summary>
@@ -674,108 +695,204 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        _cts = new CancellationTokenSource();
-        IsDownloading = true;
-        ErrorText = null;
-        SavedPath = null;
-        Progress = 0;
-        StatusText = Str("L.Direct.Downloading");
+        var app = FoundApp;
 
-        // Registered so leaving this page does not hide the download. No device is involved,
-        // so the subtitle names the app instead — that is what distinguishes two downloads.
+        if (DownloadQueue.Any(q => q.BundleId == app.BundleId && (q.IsQueued || q.IsActive)))
+        {
+            StatusText = Loc.Format("L.Direct.Queue.AlreadyInQueue", app.Name);
+            return;
+        }
+
+        var folder = DestinationFolder;
+        var fileNameOverride = string.IsNullOrWhiteSpace(FileName) ? null : $"{FileName}.ipa";
+        var iconUrl = FoundIconUrl;
+        var iconImage = FoundIconImage;
+
+        var queueItem = new DirectDownloadQueueItem(
+            app,
+            folder,
+            fileNameOverride,
+            iconUrl,
+            iconImage,
+            _install,
+            _operations,
+            onRemove: RemoveFromQueue,
+            onRetry: RetryQueueItem);
+
+        queueItem.UpdateDevices(_devices.ConnectedDevices);
+        DownloadQueue.Add(queueItem);
+        UpdateQueueMetrics();
+
+        StatusText = Loc.Format("L.Direct.Queue.Added", app.Name);
+        ErrorText = null;
+
+        _ = ProcessQueueLoopAsync();
+    }
+
+    private async Task ProcessQueueLoopAsync()
+    {
+        if (!await _queueGate.WaitAsync(0).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        try
+        {
+            while (true)
+            {
+                DirectDownloadQueueItem? nextItem = null;
+                RunOnUi(() =>
+                {
+                    nextItem = DownloadQueue.FirstOrDefault(x => x.State == DirectQueueState.Queued);
+                });
+
+                if (nextItem is null)
+                {
+                    break;
+                }
+
+                await RunDownloadQueueItemAsync(nextItem).ConfigureAwait(false);
+                RunOnUi(UpdateQueueMetrics);
+            }
+        }
+        finally
+        {
+            _queueGate.Release();
+            RunOnUi(UpdateQueueMetrics);
+        }
+    }
+
+    private async Task RunDownloadQueueItemAsync(DirectDownloadQueueItem item)
+    {
+        if (item.State == DirectQueueState.Cancelled)
+        {
+            return;
+        }
+
+        item.Cts = new CancellationTokenSource();
+        item.State = DirectQueueState.Connecting;
+        item.IsIndeterminate = true;
+        item.Progress = 0;
+        item.StatusText = Loc.Get("L.Direct.Connecting");
+        item.ErrorText = null;
+
         var operation = _operations.Start(new Operation(
             OperationKind.Download,
             Page.DirectDownload,
             Loc.Get("L.Ops.Kind.Download"),
-            FoundApp!.Name,
-            cancel: _cts.Cancel));
+            item.Name,
+            cancel: () => item.CancelCommand.Execute(null)));
+        item.BackgroundOperation = operation;
 
-        // Fully qualified: this class also exposes a `Progress` property for the bar,
-        // and the bare type name next to it reads as a mistake even where it compiles.
         var progress = new System.Progress<DownloadProgress>(p =>
         {
-            Progress = p.Percent;
-            IsConnecting = p.Connecting;
-            IsFinalizing = p.Finalizing;
+            item.Progress = p.Percent;
+            item.IsIndeterminate = p.Connecting || p.Finalizing || (p.Percent <= 0 && p.TotalBytes <= 0);
 
             if (p.Connecting)
             {
+                item.State = DirectQueueState.Connecting;
                 var seconds = (int)p.Elapsed.TotalSeconds;
-                StatusText = seconds >= 2
+                item.StatusText = seconds >= 2
                     ? Loc.Format("L.Queue.Status.ConnectingElapsed", seconds)
                     : Loc.Get("L.Queue.Status.Connecting");
+                item.SpeedText = "";
+                item.SizeInfoText = "";
+                item.RemainingText = "";
             }
             else if (p.Finalizing)
             {
-                StatusText = Loc.Format("L.Queue.Status.Finalizing", FormatBytes(p.DownloadedBytes));
-            }
-            else if (p.TotalBytes > 0)
-            {
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
-                StatusText = $"{p.Percent:0.0}% · {FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}{speed}";
+                item.State = DirectQueueState.Finalizing;
+                item.StatusText = Loc.Format("L.Queue.Status.Finalizing", FormatBytes(p.DownloadedBytes));
+                item.SizeInfoText = FormatBytes(p.DownloadedBytes);
+                item.SpeedText = "";
+                item.RemainingText = "";
             }
             else
             {
-                // Same wording as the queue screen: label the number as bytes-so-far, so
-                // it cannot be misread as the (unknown) total sitting next to it.
-                var speed = p.SpeedBps > 0 ? $" · {FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
-                if (p.Percent > 0)
+                item.State = DirectQueueState.Transferring;
+                var speed = p.SpeedBps > 0 ? $"{FormatBytes((long)p.SpeedBps)}{Loc.Get("L.Unit.PerSecond")}" : "";
+                item.SpeedText = speed;
+
+                if (p.TotalBytes > 0)
                 {
-                    var bytesInfo = p.DownloadedBytes > 0 ? $" · {FormatBytes(p.DownloadedBytes)}" : "";
-                    StatusText = $"{p.Percent:0.0}%{bytesInfo}{speed}";
+                    item.SizeInfoText = $"{FormatBytes(p.DownloadedBytes)} / {FormatBytes(p.TotalBytes)}";
+                    item.StatusText = $"{p.Percent:0.0}% · {item.SizeInfoText}";
+                    if (p.SpeedBps > 1024)
+                    {
+                        var remainingBytes = Math.Max(0, p.TotalBytes - p.DownloadedBytes);
+                        var remSeconds = remainingBytes / p.SpeedBps;
+                        if (remSeconds > 0 && remSeconds < 86400)
+                        {
+                            var ts = TimeSpan.FromSeconds(remSeconds);
+                            var remStr = ts.TotalHours >= 1
+                                ? $"{(int)ts.TotalHours}h {ts.Minutes}m"
+                                : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
+                            item.RemainingText = Loc.Format("L.Direct.Queue.Remaining", remStr);
+                        }
+                        else
+                        {
+                            item.RemainingText = "";
+                        }
+                    }
                 }
                 else
                 {
-                    StatusText = Loc.Format("L.Queue.Status.Downloaded", FormatBytes(p.DownloadedBytes))
-                        + $"{speed} · {Loc.Get("L.Queue.Status.TotalUnknown")}";
+                    item.SizeInfoText = FormatBytes(p.DownloadedBytes);
+                    item.StatusText = Loc.Format("L.Queue.Status.Downloaded", item.SizeInfoText);
+                    item.RemainingText = "";
                 }
             }
 
-            operation.Progress = Progress;
-            operation.Detail = StatusText ?? "";
+            operation.Progress = item.Progress;
+            operation.Detail = item.StatusText;
         });
 
         try
         {
             var result = await _download.DownloadAsync(
-                FoundApp!,
+                item.App,
                 autoPurchase: true,
                 progress,
-                destinationFolder: DestinationFolder,
-                ct: _cts.Token,
-                fileNameOverride: string.IsNullOrWhiteSpace(FileName) ? null : $"{FileName}.ipa"
-                ).ConfigureAwait(true);
+                destinationFolder: item.DestinationFolder,
+                ct: item.Cts.Token,
+                fileNameOverride: item.FileNameOverride).ConfigureAwait(true);
 
             if (result.Success && result.IpaPath is not null)
             {
-                SavedPath = result.IpaPath;
-                Progress = 100;
-                StatusText = $"{Str("L.Direct.Done")} {Path.GetFileName(result.IpaPath)}";
+                item.IpaPath = result.IpaPath;
+                item.Progress = 100;
+                item.IsIndeterminate = false;
+                item.State = DirectQueueState.Done;
+                item.StatusText = $"{Str("L.Direct.Done")} {Path.GetFileName(result.IpaPath)}";
+                item.SpeedText = "";
+                item.RemainingText = "";
 
-                // A successful download proves ownership; persist it so the app picker
-                // shows the right badge without another Apple round-trip.
-                FoundApp!.License = LicenseState.Owned;
-                _settings.MarkOwned(FoundApp!.AppStoreId);
-                AppLog.Info($"Direct download OK: {result.IpaPath}");
+                if (FoundApp?.BundleId == item.BundleId)
+                {
+                    SavedPath = result.IpaPath;
+                }
+
+                item.App.License = LicenseState.Owned;
+                _settings.MarkOwned(item.App.AppStoreId);
+                AppLog.Info($"Direct download queue item OK: '{item.Name}' -> {result.IpaPath}");
                 operation.Finish(OperationState.Done, Path.GetFileName(result.IpaPath));
             }
             else
             {
-                StatusText = null;
-                ErrorText = result.SessionExpired
+                item.State = DirectQueueState.Failed;
+                item.IsIndeterminate = false;
+                item.ErrorText = result.SessionExpired
                     ? Str("L.Direct.NeedLogin")
                     : result.Error ?? Loc.Get("L.Error.DownloadFailed");
-                operation.Finish(OperationState.Failed, ErrorText);
+                item.StatusText = item.ErrorText;
+                operation.Finish(OperationState.Failed, item.ErrorText);
 
                 if (!string.IsNullOrWhiteSpace(result.Detail))
-                    AppLog.Warn($"Direct download failed: {result.Detail}");
+                    AppLog.Warn($"Direct download queue item '{item.Name}' failed: {result.Detail}");
 
-                // The session died mid-download: send the user to the login screen
-                // instead of leaving a dead-end error on screen.
                 if (result.SessionExpired)
                 {
-                    // Cleared first, or the login screen would find a cached account still
-                    // present, decide there is nothing to do and skip straight past itself.
                     _auth.InvalidateSession();
                     OnPropertyChanged(nameof(IsSignedIn));
                     _navigator?.GoTo(Page.Login);
@@ -784,27 +901,85 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         }
         catch (OperationCanceledException)
         {
-            StatusText = null;
-            Progress = 0;
+            item.State = DirectQueueState.Cancelled;
+            item.IsIndeterminate = false;
+            item.StatusText = Loc.Get("L.Direct.Queue.Cancelled");
+            item.SpeedText = "";
+            item.RemainingText = "";
             operation.Finish(OperationState.Cancelled);
         }
         catch (Exception ex)
         {
-            StatusText = null;
-            ErrorText = Loc.Get("L.Error.Unknown");
-            AppLog.Error("Direct download threw.", ex);
+            item.State = DirectQueueState.Failed;
+            item.IsIndeterminate = false;
+            item.ErrorText = Loc.Get("L.Error.Unknown");
+            item.StatusText = item.ErrorText;
+            AppLog.Error($"Direct download queue item '{item.Name}' threw.", ex);
             operation.Finish(OperationState.Failed, ex.Message);
         }
         finally
         {
-            IsDownloading = false;
+            item.BackgroundOperation = null;
+            item.Cts?.Dispose();
+            item.Cts = null;
+        }
+    }
 
-            // Cleared so a cancelled or failed run cannot leave a stale phase behind:
-            // the bar keys off these, and a leftover flag would keep it animating.
-            IsConnecting = false;
-            IsFinalizing = false;
-            _cts?.Dispose();
-            _cts = null;
+    private void RemoveFromQueue(DirectDownloadQueueItem item)
+    {
+        RunOnUi(() =>
+        {
+            DownloadQueue.Remove(item);
+            UpdateQueueMetrics();
+        });
+    }
+
+    private void RetryQueueItem(DirectDownloadQueueItem item)
+    {
+        RunOnUi(() =>
+        {
+            item.State = DirectQueueState.Queued;
+            item.Progress = 0;
+            item.ErrorText = null;
+            item.StatusText = Loc.Get("L.Direct.Queue.Waiting");
+            item.SpeedText = "";
+            item.RemainingText = "";
+            UpdateQueueMetrics();
+            _ = ProcessQueueLoopAsync();
+        });
+    }
+
+    [RelayCommand]
+    private void ClearFinishedQueue()
+    {
+        RunOnUi(() =>
+        {
+            var finished = DownloadQueue.Where(x => x.IsDone || x.IsCancelled || x.IsFailed).ToList();
+            foreach (var f in finished)
+            {
+                DownloadQueue.Remove(f);
+            }
+            UpdateQueueMetrics();
+        });
+    }
+
+    private void UpdateQueueMetrics()
+    {
+        HasQueue = DownloadQueue.Count > 0;
+        ActiveQueueCount = DownloadQueue.Count(q => q.IsActive || q.IsQueued);
+        CompletedQueueCount = DownloadQueue.Count(q => q.IsDone);
+
+        if (DownloadQueue.Count == 0)
+        {
+            QueueSummaryText = "";
+        }
+        else if (ActiveQueueCount > 0)
+        {
+            QueueSummaryText = Loc.Format("L.Direct.Queue.ActiveSummary", ActiveQueueCount, DownloadQueue.Count);
+        }
+        else
+        {
+            QueueSummaryText = Loc.Format("L.Direct.Queue.CompletedSummary", CompletedQueueCount, DownloadQueue.Count);
         }
     }
 

@@ -56,6 +56,34 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.56",
+                    date: "22.10.2026",
+                    title: "Очередь загрузок в «Скачать IPA» и ограничение высоты меню настроек",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Асинхронная очередь загрузок в «Скачать IPA»",
+                            "При нажатии «Скачать» приложение мгновенно добавляется в очередь внизу страницы. Поле поиска и кнопка «Купить» остаются полностью активными: можно сразу искать и добавлять следующие приложения."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Установка на устройства прямо из карточки очереди",
+                            "По завершении скачивания любого приложения на его карточке появляется кнопка «Установить» с удобным выбором целевых устройств, а также кнопка «Папка» для открытия файла."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Информативные индикаторы и анимации очереди",
+                            "Для каждой загрузки в реальном времени отображаются скорость, прогресс, оставшееся время, кнопки отмены и повтора при ошибке, а также кнопка очистки списка."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Ограничение высоты выпадающего меню настроек",
+                            "Всплывающее меню настроек теперь строго ограничено границами окна программы и больше не выступает за нижний край окна."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.55",
                     date: "22.10.2026",
                     title: "Идеальное позиционирование меню настроек и анимаций",
@@ -322,6 +350,34 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.56",
+                date: "10/22/2026",
+                title: "Direct Download Queue & Settings Menu Containment",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Asynchronous Download Queue in Direct Download",
+                        "Clicking Download now places apps into an asynchronous queue at the bottom. The search bar and Purchase button remain fully active so you can immediately search, purchase, and queue up the next apps."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Direct Device Installation from Queue Cards",
+                        "Once an app finishes downloading, an Install button with target device selector appears directly on the card, alongside Open Folder and dismiss options."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Real-Time Metrics & Fluid Queue Animations",
+                        "Each queue item displays live progress, transfer speed, remaining time estimates, cancellation/retry actions, and batch list cleanup."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Settings Menu Height Containment",
+                        "Clamped the settings flyout height to ensure the popup card never extends beyond the bottom border of the main application window."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.55",
                 date: "10/22/2026",

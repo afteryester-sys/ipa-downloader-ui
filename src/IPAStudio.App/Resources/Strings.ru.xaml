@@ -719,6 +719,31 @@
     <sys:String x:Key="L.Direct.FileNameLabel">Имя файла</sys:String>
     <sys:String x:Key="L.Direct.FileNameInvalid">Введите название — оно не может быть пустым.</sys:String>
 
+    <!-- Очередь загрузок прямого скачивания -->
+    <sys:String x:Key="L.Direct.Connecting">Подключение…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Title">Очередь загрузок</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Subtitle">Загрузки выполняются в фоне. Вы можете сразу искать, покупать и скачивать следующие приложения.</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Waiting">В очереди…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Connecting">Подключение к Apple…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Cancelled">Загрузка отменена</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ClearFinished">Очистить завершённые</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ClearFinishedHint">Убрать завершённые и отменённые загрузки из списка</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Added">«{0}» добавлено в очередь загрузки</sys:String>
+    <sys:String x:Key="L.Direct.Queue.AlreadyInQueue">Приложение «{0}» уже находится в очереди загрузки</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ActiveSummary">В процессе: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Direct.Queue.CompletedSummary">Завершено: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Direct.Queue.OpenFolder">Папка</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Retry">Повторить</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Cancel">Отмена</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Install">Установить</sys:String>
+    <sys:String x:Key="L.Direct.Queue.InstallHint">Установить скачанное приложение на подключённое устройство</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Empty">Очередь загрузок пуста</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Remaining">осталось {0}</sys:String>
+    <sys:String x:Key="L.Direct.Queue.DoneBadge">Готово</sys:String>
+    <sys:String x:Key="L.Direct.Queue.FailedBadge">Ошибка</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ActiveBadge">Загрузка</sys:String>
+    <sys:String x:Key="L.Direct.Queue.InstallingBadge">Установка</sys:String>
+
     <!-- ===== iCloud page ===== -->
     <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
     <sys:String x:Key="L.ICloud.Subtitle">Войдите в Apple ID, чтобы посмотреть контакты, фото и заметки из iCloud.</sys:String>

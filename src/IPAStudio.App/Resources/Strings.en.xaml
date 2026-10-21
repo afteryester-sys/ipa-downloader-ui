@@ -768,6 +768,31 @@
     <sys:String x:Key="L.Direct.FileNameLabel">File name</sys:String>
     <sys:String x:Key="L.Direct.FileNameInvalid">Enter a name — it can't be empty.</sys:String>
 
+    <!-- Direct download queue -->
+    <sys:String x:Key="L.Direct.Connecting">Connecting…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Title">Download Queue</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Subtitle">Downloads run in the background. You can immediately search, purchase, and download more apps.</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Waiting">Queued…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Connecting">Connecting to Apple…</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Cancelled">Download cancelled</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ClearFinished">Clear completed</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ClearFinishedHint">Remove completed and cancelled downloads from the list</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Added">"{0}" added to download queue</sys:String>
+    <sys:String x:Key="L.Direct.Queue.AlreadyInQueue">App "{0}" is already in the download queue</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ActiveSummary">Active: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Direct.Queue.CompletedSummary">Completed: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Direct.Queue.OpenFolder">Folder</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Retry">Retry</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Cancel">Cancel</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Install">Install</sys:String>
+    <sys:String x:Key="L.Direct.Queue.InstallHint">Install downloaded app onto connected device</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Empty">Download queue is empty</sys:String>
+    <sys:String x:Key="L.Direct.Queue.Remaining">{0} remaining</sys:String>
+    <sys:String x:Key="L.Direct.Queue.DoneBadge">Done</sys:String>
+    <sys:String x:Key="L.Direct.Queue.FailedBadge">Failed</sys:String>
+    <sys:String x:Key="L.Direct.Queue.ActiveBadge">Downloading</sys:String>
+    <sys:String x:Key="L.Direct.Queue.InstallingBadge">Installing</sys:String>
+
     <!-- ===== iCloud page ===== -->
     <sys:String x:Key="L.ICloud.Title">iCloud</sys:String>
     <sys:String x:Key="L.ICloud.Subtitle">Sign in to your Apple ID to browse contacts, photos and notes stored in iCloud.</sys:String>

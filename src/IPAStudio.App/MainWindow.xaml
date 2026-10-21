@@ -329,7 +329,7 @@
                          the top plus this border's margin and padding. -->
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                   MaxHeight="{Binding ActualHeight, ElementName=Root,
-                                              Converter={StaticResource Subtract}, ConverterParameter=110}">
+                                              Converter={StaticResource Subtract}, ConverterParameter=165}">
                     <StackPanel>
                         <!-- Menu header -->
                         <Grid Margin="0,0,0,12">
