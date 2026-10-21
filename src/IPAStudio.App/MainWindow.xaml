@@ -272,12 +272,15 @@
             </Button>
 
             <Popup x:Name="UpdaterPopup" IsOpen="{Binding IsOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=UpdateButton}"
-                   Placement="Bottom" HorizontalOffset="-234" VerticalOffset="6"
+                   Placement="Bottom" HorizontalOffset="-244" VerticalOffset="6"
                    StaysOpen="False" AllowsTransparency="True" PopupAnimation="None">
-                <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
-                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
-                        Width="270" Padding="16" Margin="8"
-                        RenderTransformOrigin="0.90, 0.0">
+                <!-- Wrapper grid with fixed width isolates WPF PopupRoot window layout
+                     from inner RenderTransform/Storyboard scale shifts on Loaded. -->
+                <Grid Width="286">
+                    <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
+                            BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                            Width="270" Padding="16" Margin="8"
+                            RenderTransformOrigin="0.94, 0.0">
                     <Border.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
@@ -529,6 +532,7 @@
                     </StackPanel>
                     </ScrollViewer>
                 </Border>
+                </Grid>
             </Popup>
         </Grid>
 
@@ -672,10 +676,13 @@
             <Popup x:Name="OperationsPopup" IsOpen="{Binding IsListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=OpsButton}"
                    Placement="Bottom" HorizontalOffset="-146" VerticalOffset="6"
                    StaysOpen="False" AllowsTransparency="True" PopupAnimation="None">
-                <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
-                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
-                        Width="310" Padding="16" Margin="8"
-                        RenderTransformOrigin="0.5, 0.0">
+                <!-- Wrapper grid with fixed width isolates WPF PopupRoot window layout
+                     from inner RenderTransform/Storyboard scale shifts on Loaded. -->
+                <Grid Width="326">
+                    <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
+                            BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                            Width="310" Padding="16" Margin="8"
+                            RenderTransformOrigin="0.5, 0.0">
                     <Border.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
@@ -806,6 +813,7 @@
                                 Command="{Binding ClearFinishedOperationsCommand}" Margin="0,4,0,0" />
                     </StackPanel>
                 </Border>
+                </Grid>
             </Popup>
         </Grid>
 

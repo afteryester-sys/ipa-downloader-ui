@@ -56,6 +56,24 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.55",
+                    date: "22.10.2026",
+                    title: "Идеальное позиционирование меню настроек и анимаций",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Позиционирование меню настроек (шестерёнка)",
+                            "Устранено смещение всплывающего меню настроек влево. Теперь выпадающее окно открывается ровно под шестерёнкой с идеальным выравниванием по правому краю."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Изоляция масштабирования всплывающих окон",
+                            "Корневые контейнеры всплывающих меню изолированы от внутренней анимации масштабирования, что исключает смещение окон в WPF при разворачивании."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.54",
                     date: "16.10.2026",
                     title: "Покупка в App Store, плавная анимация меню и автопроверка прошивок",
@@ -304,6 +322,24 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.55",
+                date: "10/22/2026",
+                title: "Pixel-Perfect Settings Menu & Popup Positioning",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Settings Gear Menu Alignment",
+                        "Fixed settings menu popup drifting to the left. The flyout now opens perfectly aligned beneath the gear icon on the right edge."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Popup Window Layout Isolation",
+                        "Isolated WPF PopupRoot window coordinates from inner blooming scale transformations, preventing layout shifts during open animations."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.54",
                 date: "10/16/2026",
