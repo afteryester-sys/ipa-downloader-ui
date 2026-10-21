@@ -424,20 +424,16 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [RelayCommand]
     private void GoBack()
     {
-        // Abort any transfer in flight: leaving the page hides the only progress and
-        // cancel UI, so a download left running would be invisible and unstoppable.
-        CancelDownload();
+        // Leaving the screen keeps downloads running safely in the background.
         _navigator?.GoBack();
     }
 
     /// <summary>
-    /// Straight to the device list. Cancels like <see cref="GoBack"/> does, and for the same
-    /// reason: this page owns the only progress and cancel UI a download has.
+    /// Straight to the device list. Leaves running downloads in the background.
     /// </summary>
     [RelayCommand]
     private void GoHome()
     {
-        CancelDownload();
         _navigator?.GoHome();
     }
 

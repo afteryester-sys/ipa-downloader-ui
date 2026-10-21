@@ -71,11 +71,10 @@ public sealed partial class OperationService : ObservableObject
     /// <summary>
     /// True when the corner circle should be shown at all.
     ///
-    /// Gated on the setting as well as on there being operations: with multitasking off the
-    /// single slot still produces an Operation, and showing a circle for work that cannot be
-    /// backgrounded would add a control that does nothing.
+    /// Shows whenever work is actively running in the background, or when operations exist and
+    /// multitasking mode is explicitly enabled.
     /// </summary>
-    public bool HasOperations => MultitaskingEnabled && Operations.Count > 0;
+    public bool HasOperations => (Operations.Any(o => o.IsRunning) || MultitaskingEnabled) && Operations.Count > 0;
 
     /// <summary>
     /// True while any operation is still working. Replaces the old QueueService.IsRunning
@@ -178,7 +177,8 @@ public sealed partial class OperationService : ObservableObject
             // global: starting an install replaced the previous install's queue, but never
             // touched a photo export or a download running alongside it. Cancelling those
             // here would break flows that have always worked in parallel.
-            foreach (var previous in Operations.Where(o => o.Kind == operation.Kind).ToList())
+            // Direct download queue items manage their own sequential flow; do not auto-cancel them.
+            foreach (var previous in Operations.Where(o => o.Kind == operation.Kind && o.Kind != OperationKind.Download).ToList())
             {
                 previous.Cancel();
                 previous.PropertyChanged -= OnOperationPropertyChanged;
@@ -338,6 +338,7 @@ public sealed partial class OperationService : ObservableObject
         IsSingleFirmwareCircle = HasRunningFirmware && !HasRunningApp;
 
         OnPropertyChanged(nameof(HasRunning));
+        OnPropertyChanged(nameof(HasOperations));
 
         // Every path that starts, finishes or cancels work ends up here, so this is the one
         // place that reliably learns whether the timer still has anything to publish.

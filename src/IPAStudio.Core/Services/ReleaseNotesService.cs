@@ -56,6 +56,24 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.57",
+                    date: "22.10.2026",
+                    title: "Фоновая работа очереди загрузок и системный стиль статусов",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Фоновое выполнение очереди при выходе из меню",
+                            "При переходе на другие экраны загрузки больше не отменяются, а продолжают выполняться в фоне. В шапке окна отображается кольцевой индикатор операций с возможностью быстрого возврата."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Системный дизайн статусов и карточек очереди",
+                            "Бейджи статусов («Готово», «Ошибка», «Загрузка») обновлены и приведены к единому стилю приложения с использованием мягких акцентных фонов Brush.SuccessSoft и Brush.DangerSoft."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.56",
                     date: "22.10.2026",
                     title: "Очередь загрузок в «Скачать IPA» и ограничение высоты меню настроек",
@@ -350,6 +368,24 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.57",
+                date: "10/22/2026",
+                title: "Background Download Persistence & Native Queue Theming",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Background Download Persistence on Navigation",
+                        "Leaving the Direct Download screen no longer cancels in-flight downloads. Operations continue smoothly in the background with the header operations ring visible for fast tracking and return."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Native Status Badge and Card Styling",
+                        "Queue status badges and cards have been aligned with the app's native design system using Brush.SuccessSoft and Brush.DangerSoft with clear contrast across light and dark themes."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.56",
                 date: "10/22/2026",
