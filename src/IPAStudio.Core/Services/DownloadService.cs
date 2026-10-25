@@ -504,7 +504,12 @@ public sealed partial class DownloadService
         // This derives from the *destination*, not from AppsFolder: with a user-chosen
         // folder on another drive, staging under AppsFolder would put the temp file on
         // the wrong volume and bring that silent cross-volume copy straight back.
-        var stagingDir = Path.Combine(targetFolder, ".staging");
+        // Isolated per-app so concurrent downloads never delete or probe each other's staging files.
+        var stagingKey = app.AppStoreId > 0
+            ? app.AppStoreId.ToString()
+            : (!string.IsNullOrWhiteSpace(app.BundleId) ? app.BundleId : Guid.NewGuid().ToString("N"));
+        var safeStagingKey = string.Join("_", stagingKey.Split(Path.GetInvalidFileNameChars()));
+        var stagingDir = Path.Combine(targetFolder, ".staging", safeStagingKey);
         try { Directory.CreateDirectory(stagingDir); } catch { /* fall back to system temp */ }
 
         // Kick off the catalog size lookup once, shared across attempts. The progress
@@ -881,10 +886,10 @@ public sealed partial class DownloadService
 
                     // On-disk size is the fallback when the tool prints no numbers.
                     var onDisk = Math.Max(
-                        ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime),
-                        ProbeSize(ipatoolTarget, stagingDir, startedUtc.UtcDateTime));
+                        ProbeSize(outputPath, stagingDir, startedUtc.UtcDateTime, app.BundleId),
+                        ProbeSize(ipatoolTarget, stagingDir, startedUtc.UtcDateTime, app.BundleId));
                     if (stagedToMove is not null)
-                        onDisk = Math.Max(onDisk, ProbeSize(stagedToMove, stagingDir, startedUtc.UtcDateTime));
+                        onDisk = Math.Max(onDisk, ProbeSize(stagedToMove, stagingDir, startedUtc.UtcDateTime, app.BundleId));
 
                     var parsed = state.Downloaded;
                     var downloaded = Math.Max(onDisk, parsed);
@@ -1561,36 +1566,33 @@ public sealed partial class DownloadService
     /// The temp filename and its location are an ipatool implementation detail that
     /// differs between v2 and v3, so this deliberately assumes neither: it checks the
     /// requested target, any freshly created candidate beside it, and everything in
-    /// our staging folder. Staging is wiped before each attempt, so whatever is there
+    /// our staging folder. Staging is isolated per app/attempt so whatever is there
     /// necessarily belongs to the current download.
     /// </summary>
-    private static long ProbeSize(string outputPath, string stagingDir, DateTime startedUtc)
+    private static long ProbeSize(string outputPath, string stagingDir, DateTime startedUtc, string? bundleId = null)
     {
         var best = Math.Max(LiveLength(outputPath), LiveLength(outputPath + ".tmp"));
         var dotPart = LiveLength(outputPath + ".part");
         if (dotPart > best) best = dotPart;
 
-        // Fresh candidates in the destination folder. ipatool does not always honour
-        // the requested -o name (ResolveOutputPath exists for exactly that reason), so
-        // match on "created since this attempt began" instead of an exact filename.
+        // Destination folder candidates: strictly match on this app's target base name or bundle id
+        // so concurrent downloads in the same directory never cross-pollinate sizes.
         var dir = Path.GetDirectoryName(outputPath);
         if (dir is not null && Directory.Exists(dir))
         {
             try
             {
                 var baseName = Path.GetFileNameWithoutExtension(outputPath);
-                var cutoff = startedUtc.AddSeconds(-10);
                 foreach (var f in new DirectoryInfo(dir).EnumerateFiles("*", SearchOption.TopDirectoryOnly))
                 {
                     if (!LooksLikePayload(f.Name)) continue;
 
-                    var isDirectCandidate = !string.IsNullOrEmpty(baseName) &&
-                        f.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase);
+                    var isDirectCandidate = (!string.IsNullOrEmpty(baseName) &&
+                        f.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase))
+                        || (!string.IsNullOrEmpty(bundleId) &&
+                        f.Name.StartsWith(bundleId, StringComparison.OrdinalIgnoreCase));
 
-                    // If it matches the exact target file base name, trust it regardless of creation time
-                    // (guards against NTFS file system tunneling restoring an old creation time).
-                    // Otherwise, only consider candidates created since this attempt began.
-                    if (!isDirectCandidate && f.CreationTimeUtc < cutoff) continue;
+                    if (!isDirectCandidate) continue;
 
                     var len = LiveLength(f.FullName);
                     if (len > best) best = len;
@@ -1599,8 +1601,7 @@ public sealed partial class DownloadService
             catch { /* enumeration raced with a rename; next tick */ }
         }
 
-        // Staging folder: cleared before every attempt, so no date filter is applied —
-        // timestamps here would be unreliable for the reason above anyway.
+        // Staging folder: isolated per download, so no foreign files exist here.
         if (Directory.Exists(stagingDir))
         {
             try
@@ -1924,6 +1925,17 @@ public sealed partial class DownloadService
         {
             foreach (var f in Directory.GetFiles(stagingDir, "*", SearchOption.AllDirectories))
                 DeleteWithRetry(f);
+
+            try { Directory.Delete(stagingDir, recursive: true); } catch { }
+
+            var parent = Path.GetDirectoryName(stagingDir);
+            if (parent is not null && string.Equals(Path.GetFileName(parent), ".staging", StringComparison.OrdinalIgnoreCase) && Directory.Exists(parent))
+            {
+                if (!Directory.EnumerateFileSystemEntries(parent).Any())
+                {
+                    try { Directory.Delete(parent); } catch { }
+                }
+            }
         }
         catch { /* best effort */ }
     }

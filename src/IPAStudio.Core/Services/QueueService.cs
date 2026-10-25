@@ -408,6 +408,7 @@ public sealed class QueueService
             item.Stage = QueueStage.Cancelled;
             item.IsConnecting = false;
             item.IsFinalizing = false;
+            item.DownloadSpeedBps = 0;
             item.StatusDetail = Loc.Get("L.Queue.Cancelled");
             Notify(item);
             throw;
@@ -546,6 +547,8 @@ public sealed class QueueService
         }
 
         item.IsConnecting = false;
+        item.IsFinalizing = false;
+        item.DownloadSpeedBps = 0;
 
         if (!result.Success || result.IpaPath is null)
         {
@@ -814,6 +817,10 @@ public sealed class QueueService
         item.StageProgress = 0;
         item.IsFinalizing = false;
         item.IsConnecting = false;
+        if (stage != QueueStage.Downloading)
+        {
+            item.DownloadSpeedBps = 0;
+        }
         item.StatusDetail = detail;
         Notify(item);
     }
@@ -825,6 +832,7 @@ public sealed class QueueService
         item.StatusDetail = Loc.Get("L.Queue.Failed");
         item.IsConnecting = false;
         item.IsFinalizing = false;
+        item.DownloadSpeedBps = 0;
         item.CompletedAt = DateTimeOffset.Now;
         Notify(item);
     }

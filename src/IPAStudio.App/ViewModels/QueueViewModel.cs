@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
@@ -313,9 +314,19 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     private void OnItemChanged(object? sender, QueueItem item)
     {
-        // Deliberately does no dispatcher work: this runs on install threads and is the
-        // hot path that used to flood the UI queue.
+        // Hot-path progress ticks are throttled through the dirty set and timer.
         lock (_dirtyLock) _dirty.Add(item);
+
+        // Stage transitions (Installing, Done, Failed, Cancelled) are low-frequency, high-importance events.
+        // Flush immediately on the UI thread so the screen updates instantly when state changes.
+        if (item.Stage is QueueStage.Installing or QueueStage.Done or QueueStage.Failed or QueueStage.Cancelled)
+        {
+            try
+            {
+                Application.Current?.Dispatcher.BeginInvoke(Flush, DispatcherPriority.Normal);
+            }
+            catch { /* dispatcher shutting down */ }
+        }
     }
 
     /// <summary>Starts the repaint tick. Must be called on the UI thread.</summary>
@@ -323,9 +334,8 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     {
         if (_flushTimer is not null) return;
 
-        // Background priority so painting always wins over these updates, which is the
-        // whole point of routing them through a timer.
-        _flushTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = FlushInterval };
+        // Normal priority so updates reliably tick without being starved by background rendering or animations.
+        _flushTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = FlushInterval };
         _flushTimer.Tick += (_, _) => Flush();
         _flushTimer.Start();
     }
@@ -339,21 +349,28 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
     /// <summary>Applies pending changes to the visible rows.</summary>
     private void Flush()
     {
-        QueueItem[] pending;
-        lock (_dirtyLock)
+        try
         {
-            if (_dirty.Count == 0) return;
+            QueueItem[] pending;
+            lock (_dirtyLock)
+            {
+                if (_dirty.Count == 0) return;
 
-            pending = _dirty.ToArray();
-            _dirty.Clear();
+                pending = _dirty.ToArray();
+                _dirty.Clear();
+            }
+
+            foreach (var item in pending)
+            {
+                if (_rows.TryGetValue(item, out var row)) row.Sync();
+            }
+
+            RecountAndProgress();
         }
-
-        foreach (var item in pending)
+        catch (Exception ex)
         {
-            if (_rows.TryGetValue(item, out var row)) row.Sync();
+            AppLog.Error("QueueViewModel.Flush error", ex);
         }
-
-        RecountAndProgress();
     }
 
     private void OnQueueCompleted(object? sender, EventArgs e)
@@ -362,9 +379,12 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         {
             IsRunning = false;
 
-            // Flush by hand: the last progress events may still be sitting in the set, and
-            // the timer stops below, so without this the final rows would stay mid-progress.
+            // Flush by hand and sync every row so the final completed state is immediately guaranteed.
             Flush();
+            foreach (var row in Items)
+            {
+                row.Sync();
+            }
             RecountAndProgress();
             StopFlushing();
         });
@@ -408,6 +428,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         if (_queue is null) return;
 
         IsRunning = true;
+        StartFlushing();
         await _queue.RetryAsync(item.Item);
     }
 

@@ -115,9 +115,8 @@ public sealed partial class OperationService : ObservableObject
             Recalculate();
         };
 
-        // Background priority: the ring must never compete with painting the window.
         _progressTimer = new System.Windows.Threading.DispatcherTimer(
-            System.Windows.Threading.DispatcherPriority.Background)
+            System.Windows.Threading.DispatcherPriority.Normal)
         {
             Interval = ProgressInterval,
         };

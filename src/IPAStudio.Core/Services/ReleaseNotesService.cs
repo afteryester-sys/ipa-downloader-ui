@@ -56,6 +56,24 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.58",
+                    date: "26.10.2026",
+                    title: "Устранение зависания очереди и изоляция параллельных загрузок",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Устранение зависания отображения при установке нескольких приложений",
+                            "Исправлена ошибка, из-за которой окно очереди установки («Выбрать» → «Установить выбранные») визуально зависало на промежуточном проценте, пока приложения успешно устанавливались на телефон в фоне. Обновление строк синхронизировано с диспетчером интерфейса, а смена этапов теперь отображается мгновенно."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Изоляция временных файлов параллельных загрузок",
+                            "Временные каталоги staging и подбор файлов прогресса теперь строго изолированы по идентификатору каждого приложения. Устранено взаимное чтение и перезапись размеров между одновременными потоками ipatool."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.57",
                     date: "22.10.2026",
                     title: "Фоновая работа очереди загрузок и системный стиль статусов",
@@ -368,6 +386,24 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.58",
+                date: "10/26/2026",
+                title: "Queue Display Stall Fix & Parallel Download Isolation",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Queue Display Stall During Multi-App Installation",
+                        "Fixed an issue where the installation queue screen ('Select' → 'Install selected') could visually freeze on intermediate progress while apps continued installing in the background. Row updates are now reliably scheduled and stage transitions flush immediately to the UI."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Isolated Staging for Concurrent Downloads",
+                        "Staging directories and progress file probing are now strictly partitioned per application identifier. Parallel ipatool streams no longer cross-read or wipe each other's temporary files."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.57",
                 date: "10/22/2026",
