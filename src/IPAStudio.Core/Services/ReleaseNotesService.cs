@@ -69,8 +69,8 @@ public sealed class ReleaseNotesService
                         new ReleaseItem(
                             ReleaseCategory.Feature,
                             "НОВОЕ",
-                            "Поддержка iPhone 18, 18 Pro, 18 Pro Max, iPhone Duo и современных моделей",
-                            "Добавлена полная поддержка линейки iPhone 18, iPhone Duo / Fold и будущих поколений. Устройства теперь корректно отображают своё маркетинговое наименование, фирменные силуэты и правильные иконки вместо общего шаблона."),
+                            "Поддержка iPhone 18 Pro, iPhone 18 Pro Max и iPhone Duo",
+                            "Добавлена поддержка iPhone 18 Pro, iPhone 18 Pro Max и iPhone Duo. Устройства теперь корректно отображают своё точное маркетинговое наименование, фирменные силуэты и правильные иконки вместо общего шаблона."),
                         new ReleaseItem(
                             ReleaseCategory.Improvement,
                             "УЛУЧШЕНИЕ",
@@ -428,8 +428,8 @@ public sealed class ReleaseNotesService
                     new ReleaseItem(
                         ReleaseCategory.Feature,
                         "NEW",
-                        "iPhone 18, 18 Pro, 18 Pro Max, iPhone Duo and Modern Models Support",
-                        "Full recognition and silhouette line-art support for the iPhone 18 series, iPhone Duo / Fold, and newer hardware, correctly showing marketing names and specific silhouettes."),
+                        "iPhone 18 Pro, iPhone 18 Pro Max and iPhone Duo Support",
+                        "Full recognition and silhouette line-art support for iPhone 18 Pro, iPhone 18 Pro Max, and iPhone Duo, correctly showing marketing names and specific silhouettes."),
                     new ReleaseItem(
                         ReleaseCategory.Improvement,
                         "IMPROVEMENT",

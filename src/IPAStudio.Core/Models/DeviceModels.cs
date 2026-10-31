@@ -125,24 +125,14 @@ public static class DeviceModels
         ["iPhone18,2"] = "iPhone 17 Pro Max",
         ["iPhone18,3"] = "iPhone 17",
         ["iPhone18,4"] = "iPhone Air",
-        ["iPhone18,5"] = "iPhone 17e",
 
-        // ───────────────── iPhone 18 & Duo ─────────
-        ["iPhone19,1"] = "iPhone 18",
+        // ───────────────── iPhone 18 Series & Duo ──
+        ["iPhone19,1"] = "iPhone 18 Pro",
         ["iPhone19,2"] = "iPhone 18 Pro",
         ["iPhone19,3"] = "iPhone 18 Pro Max",
-        ["iPhone19,4"] = "iPhone 18 Plus",
+        ["iPhone19,4"] = "iPhone 18 Pro Max",
         ["iPhone19,5"] = "iPhone Duo",
-        ["iPhone19,6"] = "iPhone 18 Pro",
-        ["iPhone19,7"] = "iPhone 18 Pro Max",
-        ["iPhone19,8"] = "iPhone Duo",
-
-        // ───────────────── iPhone 19 & Duo 2 ───────
-        ["iPhone20,1"] = "iPhone 19 Pro",
-        ["iPhone20,2"] = "iPhone 19 Pro Max",
-        ["iPhone20,3"] = "iPhone 19",
-        ["iPhone20,4"] = "iPhone 19 Plus",
-        ["iPhone20,5"] = "iPhone Duo 2",
+        ["iPhone19,6"] = "iPhone Duo",
 
         // ───────────────── iPad ─────────────────
         ["iPad1,1"] = "iPad",
@@ -262,7 +252,7 @@ public static class DeviceModels
         if (string.IsNullOrWhiteSpace(productType)) return "";
         if (Names.TryGetValue(productType, out var name)) return name;
 
-        // Intelligent parsing for upcoming or uncatalogued models
+        // Intelligent parsing for iPhone 18 series & Duo
         var (family, major, minor) = Parse(productType);
         if (family == "iPhone")
         {
@@ -270,30 +260,9 @@ public static class DeviceModels
             {
                 return minor switch
                 {
-                    2 or 6 => "iPhone 18 Pro",
-                    3 or 7 => "iPhone 18 Pro Max",
-                    4 => "iPhone 18 Plus",
-                    5 or 8 => "iPhone Duo",
-                    _ => "iPhone 18"
-                };
-            }
-            if (major == 20)
-            {
-                return minor switch
-                {
-                    1 => "iPhone 19 Pro",
-                    2 => "iPhone 19 Pro Max",
-                    5 => "iPhone Duo 2",
-                    _ => "iPhone 19"
-                };
-            }
-            if (major > 20)
-            {
-                return minor switch
-                {
-                    1 or 2 => $"iPhone {major - 1} Pro",
-                    5 => "iPhone Duo",
-                    _ => $"iPhone {major - 1}"
+                    3 or 4 => "iPhone 18 Pro Max",
+                    5 or 6 => "iPhone Duo",
+                    _ => "iPhone 18 Pro"
                 };
             }
             return "iPhone";
@@ -383,19 +352,11 @@ public static class DeviceModels
         (17, 2) or (17, 4) => PhoneIslandMax,
         (18, 2) => PhoneIslandMax,
 
-        // iPhone 18 series:
-        (19, 2) or (19, 3) or (19, 7) => PhoneIslandMax,
-        (19, 5) or (19, 8) => PhoneDuo,
+        // iPhone 18 series & Duo:
+        (19, 3) or (19, 4) => PhoneIslandMax,
+        (19, 5) or (19, 6) => PhoneDuo,
         (19, _) => PhoneIsland,
 
-        // iPhone 19 series:
-        (20, 2) => PhoneIslandMax,
-        (20, 5) => PhoneDuo,
-        (20, _) => PhoneIsland,
-
-        // Anything newer than this table:
-        _ when major >= 18 && minor is 2 or 3 or 7 => PhoneIslandMax,
-        _ when major >= 18 && minor is 5 or 8 => PhoneDuo,
         _ => PhoneIsland,
     };
 
