@@ -89,6 +89,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private bool _firmwareAutoCheckEnabled = true;
 
     [ObservableProperty]
+    private int _firmwareCheckIntervalHours = 6;
+
+    [ObservableProperty]
     private bool _firmwareVerifyHash = true;
 
     /// <summary>
@@ -537,6 +540,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
         FirmwareDownloadThreads = Math.Clamp(_settings.Current.FirmwareDownloadThreads, 1, 16);
         FirmwareAutoCheckEnabled = _settings.Current.FirmwareAutoCheckEnabled;
+        FirmwareCheckIntervalHours = Math.Clamp(_settings.Current.FirmwareCheckIntervalHours, 1, 168);
         FirmwareVerifyHash = _settings.Current.FirmwareVerifyHash;
 
         var v = _updates.CurrentVersion;
@@ -858,6 +862,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.FirmwareFolder = string.IsNullOrWhiteSpace(FirmwareFolder) ? null : FirmwareFolder;
         _settings.Current.FirmwareDownloadThreads = Math.Clamp(FirmwareDownloadThreads, 1, 16);
         _settings.Current.FirmwareAutoCheckEnabled = FirmwareAutoCheckEnabled;
+        _settings.Current.FirmwareCheckIntervalHours = Math.Clamp(FirmwareCheckIntervalHours, 1, 168);
         _settings.Current.FirmwareVerifyHash = FirmwareVerifyHash;
         _settings.Save();
 

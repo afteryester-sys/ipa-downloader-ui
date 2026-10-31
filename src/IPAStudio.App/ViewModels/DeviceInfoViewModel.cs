@@ -31,6 +31,7 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 {
     private readonly DeviceService _devices;
     private readonly AuthService _auth;
+    private readonly SettingsService _settings;
     private INavigator? _navigator;
 
     private Device? _device;
@@ -73,10 +74,11 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
 
     public ObservableCollection<DeviceInfoRow> Rows { get; } = new();
 
-    public DeviceInfoViewModel(DeviceService devices, AuthService auth)
+    public DeviceInfoViewModel(DeviceService devices, AuthService auth, SettingsService settings)
     {
         _devices = devices;
         _auth = auth;
+        _settings = settings;
     }
 
     public void SetDevice(Device device) => _device = device;
@@ -97,6 +99,14 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
         try
         {
             await _devices.EnrichInfoAsync(_device);
+            if (string.IsNullOrEmpty(_device.AppleId))
+            {
+                var id = await _devices.TryReadAppleIdAsync(_device.Udid);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    _device.AppleId = id;
+                }
+            }
         }
         catch { /* show whatever we already have */ }
         finally
@@ -115,17 +125,18 @@ public sealed partial class DeviceInfoViewModel : ObservableObject, IPageAware
             ? $"iOS {_device.OsVersion}"
             : $"{_device.Model} · iOS {_device.OsVersion}";
 
-        // Apple ID: prefer what the device exposes, then the signed-in account.
-        // Modern iOS (14+) hides the account Apple ID from lockdown queries for
-        // privacy, so when neither source has a value we say so plainly instead of
-        // leaving the field blank (which looked like a bug).
-        AppleId = !string.IsNullOrWhiteSpace(_device.AppleId)
-            ? _device.AppleId!
-            : !string.IsNullOrWhiteSpace(_auth.CurrentAccount?.Email)
-                ? _auth.CurrentAccount!.Email
-                : IsLoading
-                    ? Loc.Get("L.DeviceInfo.Detecting")
-                    : Loc.Get("L.DeviceInfo.AppleIdHidden");
+        // Apple ID: prefer what the device exposes or what was cached for this UDID
+        var knownAccount = !string.IsNullOrWhiteSpace(_device.AppleId)
+            ? _device.AppleId
+            : (_settings.Current.DeviceAppleIds.TryGetValue(_device.Udid, out var cachedId) && !string.IsNullOrWhiteSpace(cachedId))
+                ? cachedId
+                : !string.IsNullOrWhiteSpace(_auth.CurrentAccount?.Email)
+                    ? _auth.CurrentAccount!.Email
+                    : null;
+
+        AppleId = knownAccount ?? (IsLoading
+            ? Loc.Get("L.DeviceInfo.Detecting")
+            : Loc.Get("L.DeviceInfo.AppleIdHidden"));
 
         StorageSummary = FormatStorage(_device);
         StorageUsedPercent = _device is { TotalDiskCapacity: > 0, FreeDiskSpace: >= 0 }

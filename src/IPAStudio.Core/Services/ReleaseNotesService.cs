@@ -56,6 +56,34 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.59",
+                    date: "01.11.2026",
+                    title: "Запуск прошивок, поддержка iPhone 18 / Duo и чтение почты iCloud",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Кнопка «Запуск» и умная проверка прошивок",
+                            "В панели пакетных действий прошивок добавлена кнопка «Запуск» с плавной анимацией вращения индикатора. При нажатии автоматически проверяются выбранные модели: проверяется наличие и целостность уже скачанных файлов, возобновляются незавершённые загрузки и добавляются в очередь недостающие актуальные версии."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Поддержка iPhone 18, 18 Pro, 18 Pro Max, iPhone Duo и современных моделей",
+                            "Добавлена полная поддержка линейки iPhone 18, iPhone Duo / Fold и будущих поколений. Устройства теперь корректно отображают своё маркетинговое наименование, фирменные силуэты и правильные иконки вместо общего шаблона."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Определение привязанной почты iCloud как в iMazing",
+                            "В экране «Информация об устройстве» расширен опрос lockdown-доменов Apple (резервные копии, data_sync, iTunes Store, AppleAccount). Почта iCloud теперь распознаётся и кэшируется надёжно и быстро при подключении устройства."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Настройка периода автопроверки TSS в основных настройках",
+                            "В главном окне настроек добавлен интерактивный ползунок периода фоновой проверки TSS (от 1 до 72 часов) с автоматическим запуском регламентного опроса серверов Apple."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.58",
                     date: "26.10.2026",
                     title: "Устранение зависания очереди и изоляция параллельных загрузок",
@@ -386,6 +414,34 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.59",
+                date: "11/01/2026",
+                title: "Firmware Workflow Launch, iPhone 18 / Duo Support and iCloud Email Detection",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "“Start” Button and Smart Firmware Verification Workflow",
+                        "Added a dedicated “Start” workflow button in the firmware batch actions panel with smooth status spin animation. It verifies selected models, validates complete downloads against Apple signatures, resumes incomplete downloads, and enqueues missing signed releases."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "iPhone 18, 18 Pro, 18 Pro Max, iPhone Duo and Modern Models Support",
+                        "Full recognition and silhouette line-art support for the iPhone 18 series, iPhone Duo / Fold, and newer hardware, correctly showing marketing names and specific silhouettes."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "iCloud Email Account Detection like iMazing",
+                        "Expanded Apple lockdown domain polling across backup, data sync, and iTunes accounts to reliably discover and cache the connected iCloud email in the Device Information panel."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "TSS Auto-Check Interval Control in Settings",
+                        "Added an interactive TSS check interval slider to main application settings with automated scheduled background verification against Apple signing servers."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.58",
                 date: "10/26/2026",

@@ -165,9 +165,30 @@
                                      IsChecked="{Binding FirmwareDownloadThreads, Converter={StaticResource IntEquals}, ConverterParameter={StaticResource V8}}" />
                     </StackPanel>
 
-                    <!-- Auto-Check TSS & Verify Hash checkboxes -->
+                    <!-- Auto-Check TSS & Interval -->
                     <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.AutoCheck}"
-                              IsChecked="{Binding FirmwareAutoCheckEnabled}" Margin="0,0,0,10" />
+                              IsChecked="{Binding FirmwareAutoCheckEnabled}" Margin="0,0,0,8" />
+
+                    <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="12,8" Margin="0,0,0,10"
+                            Visibility="{Binding FirmwareAutoCheckEnabled, Converter={StaticResource BoolToVis}}">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Slider Width="110" Minimum="1" Maximum="72" TickFrequency="1"
+                                        IsSnapToTickEnabled="True" Value="{Binding FirmwareCheckIntervalHours}" Margin="0,0,10,0" />
+                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="6" Padding="8,3" MinWidth="42">
+                                    <TextBlock Text="{Binding FirmwareCheckIntervalHours, StringFormat='{}{0} ч'}" FontWeight="SemiBold" FontSize="11"
+                                               Foreground="{DynamicResource Brush.Firmware}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Text="{DynamicResource L.Firmware.Settings.CheckInterval}" FontWeight="SemiBold" FontSize="12" />
+                                <TextBlock Text="Период регулярной проверки серверов Apple на новые подписанные прошивки"
+                                           Style="{StaticResource Text.Caption}" FontSize="10.5" Margin="0,1,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
                     <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.Settings.VerifySha}"
                               IsChecked="{Binding FirmwareVerifyHash}" />
                 </StackPanel>

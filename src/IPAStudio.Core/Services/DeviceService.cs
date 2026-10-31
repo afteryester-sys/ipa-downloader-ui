@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -43,13 +44,15 @@ public sealed class DeviceService : IAsyncDisposable
     /// phone that blinks out every so often never accumulates towards the limit.
     /// </summary>
     private readonly Dictionary<string, int> _missedPolls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SettingsService? _settings;
     private CancellationTokenSource? _pollCts;
     private Task? _pollTask;
 
-    public DeviceService(ToolLocator tools, ProcessRunner runner)
+    public DeviceService(ToolLocator tools, ProcessRunner runner, SettingsService? settings = null)
     {
         _tools = tools;
         _runner = runner;
+        _settings = settings;
     }
 
     public IReadOnlyCollection<Device> ConnectedDevices
@@ -420,6 +423,11 @@ public sealed class DeviceService : IAsyncDisposable
 
         await FillMissingCoreFieldsAsync(device, ct).ConfigureAwait(false);
 
+        if (string.IsNullOrEmpty(device.AppleId) && _settings?.Current.DeviceAppleIds.TryGetValue(udid, out var remembered) == true)
+        {
+            device.AppleId = remembered;
+        }
+
         device.BatteryLevel = await battery.ConfigureAwait(false);
         return device;
     }
@@ -645,12 +653,26 @@ public sealed class DeviceService : IAsyncDisposable
         Device? device;
         lock (_devices)
         {
-            if (!_devices.TryGetValue(udid, out device)) return;
-            if (!string.IsNullOrEmpty(device.AppleId)) return;
-            device.AppleId = appleId;
+            if (_devices.TryGetValue(udid, out device))
+            {
+                device.AppleId = appleId;
+            }
         }
 
-        AppLog.Info($"Learnt from the device log that {udid} is signed in as {appleId}");
+        if (_settings is not null)
+        {
+            try
+            {
+                lock (_settings)
+                {
+                    _settings.Current.DeviceAppleIds[udid] = appleId;
+                    _settings.Save();
+                }
+            }
+            catch { /* best-effort settings save */ }
+        }
+
+        AppLog.Info($"Learnt and cached that device {udid} is signed in as {appleId}");
     }
 
     /// <summary>
@@ -766,19 +788,37 @@ public sealed class DeviceService : IAsyncDisposable
     /// </summary>
     public async Task<string?> TryReadAppleIdAsync(string udid, CancellationToken ct = default)
     {
-        // Probe list — ordered from most reliable (iOS 14+) to fallback.
+        // 0. Check settings cache first
+        if (_settings?.Current.DeviceAppleIds.TryGetValue(udid, out var cached) == true && IsValidEmail(cached))
+            return cached;
+
+        // Probe list — ordered from most reliable to fallback.
         // The Apple ID key moved between iOS releases; we try every known location.
         string[][] probes =
         {
-            // iOS 14+ root-level key (no domain needed)
+            // Root-level key (no domain needed)
             DeviceTransport.TargetArgs(udid, "-k", "AppleID"),
-            // Older iOS / iPadOS (≤13)
+            // Backup-service domain (LastiTunesAccount is the plain text email on iOS)
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "LastiTunesAccount"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "AccountName"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "CloudAccount"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "AppleID"),
+            // iTunes & iTunes store domains
             DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes",       "-k", "AppleID"),
             DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AppleID"),
             DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes",       "-k", "AccountUsername"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes",       "-k", "AccountName"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AccountUsername"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes.store", "-k", "AccountName"),
+            // Data sync domain
             DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.data_sync",    "-k", "AccountName"),
-            // Backup-service domain (present on iOS 12-15)
-            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.backup",       "-k", "LastiTunesAccountHash"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.data_sync",    "-k", "AppleID"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.data_sync",    "-k", "AccountUsername"),
+            // AppleAccount domain
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.account",             "-k", "AccountName"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.account",             "-k", "AppleID"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.AppleAccount",        "-k", "AccountName"),
+            DeviceTransport.TargetArgs(udid, "-q", "com.apple.AppleAccount",        "-k", "AppleID"),
             // MobileDeviceCompatibility (works with newer libimobiledevice)
             DeviceTransport.TargetArgs(udid, "-q", "com.apple.MobileDeviceCompatibility", "-k", "AppleID"),
         };
@@ -788,36 +828,65 @@ public sealed class DeviceService : IAsyncDisposable
             var result = await RunToolAsync(_tools.IdeviceInfoPath, args, ct).ConfigureAwait(false);
             var value = result?.StdOut.Trim() ?? "";
             if (IsValidEmail(value))
-                return value;
-        }
-
-        // Last resort: try to read the Apple Account plist via AFC (requires
-        // a trusted pair and libimobiledevice's ideviceenterrecovery/afc tool).
-        // We shell out to ideviceinfo asking for the whole iTunes domain and parse
-        // the text output for any line containing '@'.
-        try
-        {
-            var dump = await RunToolAsync(
-                _tools.IdeviceInfoPath,
-                DeviceTransport.TargetArgs(udid, "-q", "com.apple.mobile.iTunes"),
-                ct).ConfigureAwait(false);
-
-            foreach (var line in (dump?.StdOut ?? "").Split('\n'))
             {
-                var trimmed = line.Trim().Trim('"');
-                if (IsValidEmail(trimmed))
-                    return trimmed;
-                // "AppleID: user@example.com" format
-                if (trimmed.Contains(':'))
-                {
-                    var val = trimmed.Split(':', 2).Last().Trim().Trim('"');
-                    if (IsValidEmail(val))
-                        return val;
-                }
+                RememberAppleId(udid, value);
+                return value;
             }
         }
-        catch (OperationCanceledException) { throw; }
-        catch { /* no result */ }
+
+        // Domain dumps fallback: examine complete output of accounts/backup domains
+        string[] domainsToDump =
+        {
+            "com.apple.mobile.backup",
+            "com.apple.mobile.iTunes",
+            "com.apple.mobile.iTunes.store",
+            "com.apple.mobile.data_sync",
+            "com.apple.account"
+        };
+
+        var emailRegex = new Regex(@"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", RegexOptions.Compiled);
+
+        foreach (var domain in domainsToDump)
+        {
+            try
+            {
+                var dump = await RunToolAsync(
+                    _tools.IdeviceInfoPath,
+                    DeviceTransport.TargetArgs(udid, "-q", domain),
+                    ct).ConfigureAwait(false);
+
+                if (dump?.StdOut is { } output && !string.IsNullOrWhiteSpace(output))
+                {
+                    foreach (var line in output.Split('\n'))
+                    {
+                        var trimmed = line.Trim().Trim('"', '\'', ',');
+                        if (IsValidEmail(trimmed))
+                        {
+                            RememberAppleId(udid, trimmed);
+                            return trimmed;
+                        }
+                        if (trimmed.Contains(':'))
+                        {
+                            var val = trimmed.Split(':', 2).Last().Trim().Trim('"', '\'', ',');
+                            if (IsValidEmail(val))
+                            {
+                                RememberAppleId(udid, val);
+                                return val;
+                            }
+                        }
+                    }
+
+                    var match = emailRegex.Match(output);
+                    if (match.Success && IsValidEmail(match.Value))
+                    {
+                        RememberAppleId(udid, match.Value);
+                        return match.Value;
+                    }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* best-effort */ }
+        }
 
         return null;
     }

@@ -378,10 +378,10 @@ public sealed class DeviceSyslogService : IDisposable
         "provision", "account", "Account", "purchase", "download",
     };
 
-    // appstored says "Performing authorization for account: name@example.com (UUID)" when it
-    // asks the store to authorise an app. The trailing UUID and any brackets are excluded.
+    // Matches account statements in syslog such as "Performing authorization for account: name@example.com",
+    // "primary account: user@domain", "Apple ID: user@domain", etc.
     private static readonly Regex AccountName =
-        new(@"for account:\s*([^\s()]+@[^\s()]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        new(@"\b(?:for account|account|primary account|Apple ?ID|iCloud account|username|accountName)[:=]\s*([^\s()<>,;""']+@[^\s()<>,;""']+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex ProcessPrefix =
         new(@"^\w{3}\s+\d+\s[\d:]+\s+\S+\s+([A-Za-z0-9_.\-]+)", RegexOptions.Compiled);

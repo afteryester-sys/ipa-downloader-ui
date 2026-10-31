@@ -1073,4 +1073,9 @@
     <sys:String x:Key="L.Firmware.Log.DownloadStarted">Download started: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadFinished">Download completed: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadPaused">Download paused: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflow">Start</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Check presence, validity, and resume/download firmwares for selected models</sys:String>
+    <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">All firmwares are current and downloaded</sys:String>
+    <sys:String x:Key="L.Firmware.Log.WorkflowStarted">Started firmware workflow for {0} device(s)</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval">TSS check interval</sys:String>
 </ResourceDictionary>

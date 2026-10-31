@@ -364,6 +364,9 @@ public sealed class AppSettings
     /// <summary>Devices monitored for automatic firmware downloads.</summary>
     public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
 
+    /// <summary>Cache of known Apple IDs / iCloud accounts mapped by device UDID.</summary>
+    public Dictionary<string, string> DeviceAppleIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Last application version for which the "What's New" release notes modal was displayed.
     /// When the running version is newer than this value (or if this is empty on an update),

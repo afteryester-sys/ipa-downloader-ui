@@ -1071,4 +1071,9 @@
     <sys:String x:Key="L.Firmware.Log.DownloadStarted">Начата загрузка: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadFinished">Загрузка успешно завершена: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadPaused">Загрузка приостановлена: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflow">Запуск</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Проверить наличие, актуальность и докачать прошивки для выбранных моделей</sys:String>
+    <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">Все прошивки актуальны и полностью скачаны</sys:String>
+    <sys:String x:Key="L.Firmware.Log.WorkflowStarted">Запуск проверки прошивок для {0} устр.</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval">Периодичность автопроверки TSS</sys:String>
 </ResourceDictionary>

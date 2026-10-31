@@ -125,6 +125,24 @@ public static class DeviceModels
         ["iPhone18,2"] = "iPhone 17 Pro Max",
         ["iPhone18,3"] = "iPhone 17",
         ["iPhone18,4"] = "iPhone Air",
+        ["iPhone18,5"] = "iPhone 17e",
+
+        // ───────────────── iPhone 18 & Duo ─────────
+        ["iPhone19,1"] = "iPhone 18",
+        ["iPhone19,2"] = "iPhone 18 Pro",
+        ["iPhone19,3"] = "iPhone 18 Pro Max",
+        ["iPhone19,4"] = "iPhone 18 Plus",
+        ["iPhone19,5"] = "iPhone Duo",
+        ["iPhone19,6"] = "iPhone 18 Pro",
+        ["iPhone19,7"] = "iPhone 18 Pro Max",
+        ["iPhone19,8"] = "iPhone Duo",
+
+        // ───────────────── iPhone 19 & Duo 2 ───────
+        ["iPhone20,1"] = "iPhone 19 Pro",
+        ["iPhone20,2"] = "iPhone 19 Pro Max",
+        ["iPhone20,3"] = "iPhone 19",
+        ["iPhone20,4"] = "iPhone 19 Plus",
+        ["iPhone20,5"] = "iPhone Duo 2",
 
         // ───────────────── iPad ─────────────────
         ["iPad1,1"] = "iPad",
@@ -244,11 +262,44 @@ public static class DeviceModels
         if (string.IsNullOrWhiteSpace(productType)) return "";
         if (Names.TryGetValue(productType, out var name)) return name;
 
-        // Unreleased or misread identifier: the family prefix is still meaningful, and
-        // "iPhone" beats showing the raw "iPhone19,3" on a card.
-        if (productType.StartsWith("iPad", StringComparison.Ordinal)) return "iPad";
-        if (productType.StartsWith("iPhone", StringComparison.Ordinal)) return "iPhone";
-        if (productType.StartsWith("iPod", StringComparison.Ordinal)) return "iPod touch";
+        // Intelligent parsing for upcoming or uncatalogued models
+        var (family, major, minor) = Parse(productType);
+        if (family == "iPhone")
+        {
+            if (major == 19)
+            {
+                return minor switch
+                {
+                    2 or 6 => "iPhone 18 Pro",
+                    3 or 7 => "iPhone 18 Pro Max",
+                    4 => "iPhone 18 Plus",
+                    5 or 8 => "iPhone Duo",
+                    _ => "iPhone 18"
+                };
+            }
+            if (major == 20)
+            {
+                return minor switch
+                {
+                    1 => "iPhone 19 Pro",
+                    2 => "iPhone 19 Pro Max",
+                    5 => "iPhone Duo 2",
+                    _ => "iPhone 19"
+                };
+            }
+            if (major > 20)
+            {
+                return minor switch
+                {
+                    1 or 2 => $"iPhone {major - 1} Pro",
+                    5 => "iPhone Duo",
+                    _ => $"iPhone {major - 1}"
+                };
+            }
+            return "iPhone";
+        }
+        if (family == "iPad") return "iPad";
+        if (family == "iPod") return "iPod touch";
         return productType;
     }
 
@@ -265,6 +316,7 @@ public static class DeviceModels
     private static readonly DeviceSilhouette PhoneNotchMax = new(160.8, 78.1, 17.0, DeviceFront.Notch);
     private static readonly DeviceSilhouette PhoneIsland = new(147.6, 71.6, 16.0, DeviceFront.DynamicIsland);
     private static readonly DeviceSilhouette PhoneIslandMax = new(163.0, 78.1, 17.0, DeviceFront.DynamicIsland);
+    private static readonly DeviceSilhouette PhoneDuo = new(155.0, 78.0, 16.0, DeviceFront.DynamicIsland);
     private static readonly DeviceSilhouette PadClassic = new(240.0, 169.5, 12.0, DeviceFront.TabletHomeButton);
     private static readonly DeviceSilhouette PadClassicMini = new(203.2, 134.8, 10.0, DeviceFront.TabletHomeButton);
     private static readonly DeviceSilhouette PadClassicBig = new(305.7, 220.6, 14.0, DeviceFront.TabletHomeButton);
@@ -331,7 +383,19 @@ public static class DeviceModels
         (17, 2) or (17, 4) => PhoneIslandMax,
         (18, 2) => PhoneIslandMax,
 
-        // Anything newer than this table: the current shape is the best guess by far.
+        // iPhone 18 series:
+        (19, 2) or (19, 3) or (19, 7) => PhoneIslandMax,
+        (19, 5) or (19, 8) => PhoneDuo,
+        (19, _) => PhoneIsland,
+
+        // iPhone 19 series:
+        (20, 2) => PhoneIslandMax,
+        (20, 5) => PhoneDuo,
+        (20, _) => PhoneIsland,
+
+        // Anything newer than this table:
+        _ when major >= 18 && minor is 2 or 3 or 7 => PhoneIslandMax,
+        _ when major >= 18 && minor is 5 or 8 => PhoneDuo,
         _ => PhoneIsland,
     };
 

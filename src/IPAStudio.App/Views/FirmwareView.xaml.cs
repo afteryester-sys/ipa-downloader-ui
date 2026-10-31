@@ -35,6 +35,11 @@ public partial class FirmwareView : UserControl
 
     private void DevicesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (DataContext is FirmwareViewModel vm && sender is ListBox lb)
+        {
+            vm.UpdateSelectedWorkflowDevices(lb.SelectedItems.OfType<FirmwareDevice>().ToList());
+        }
+
         if (DeviceDetailsContainer is null) return;
 
         var sb = new Storyboard();
