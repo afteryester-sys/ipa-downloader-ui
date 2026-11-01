@@ -13,6 +13,12 @@
         SnapsToDevicePixels="True"
         UseLayoutRounding="True">
 
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="AppTaskbarInfo"
+                         ProgressState="{Binding TaskbarProgressState}"
+                         ProgressValue="{Binding TaskbarProgressValue}" />
+    </Window.TaskbarItemInfo>
+
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
@@ -1055,5 +1061,63 @@
             </Border>
             </Grid>
         </Grid>
+
+        <!-- Task Completion Toast Notification (Liquid Glass / Apple styling) -->
+        <Border x:Name="ToastNotificationCard"
+                Panel.ZIndex="300"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,20,24,0"
+                Width="360"
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="16"
+                Padding="16,12"
+                Opacity="0"
+                Visibility="Collapsed"
+                SnapsToDevicePixels="True"
+                UseLayoutRounding="True"
+                MouseEnter="ToastNotificationCard_MouseEnter"
+                MouseLeave="ToastNotificationCard_MouseLeave">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="4" Opacity="0.35" Color="#000000" />
+            </Border.Effect>
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="ToastTransform" Y="-40" />
+            </Border.RenderTransform>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Icon Circle -->
+                <Border Grid.Column="0" Width="34" Height="34" CornerRadius="17"
+                        Background="#2210B981" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                               Foreground="#10B981" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+
+                <!-- Message Stack -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding ToastTitle}" FontWeight="SemiBold" FontSize="13"
+                               Foreground="{DynamicResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ToastMessage}" FontSize="12"
+                               Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,2,0,0"
+                               TextWrapping="Wrap" MaxHeight="42" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <!-- Dismiss Button -->
+                <Button Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                        Width="28" Height="28" Margin="8,0,0,0" Padding="0"
+                        VerticalAlignment="Top" Cursor="Hand"
+                        Command="{Binding DismissToastCommand}">
+                    <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

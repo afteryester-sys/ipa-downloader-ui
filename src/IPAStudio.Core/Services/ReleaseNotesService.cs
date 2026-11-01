@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.61",
+                    date: "02.11.2026",
+                    title: "Запуск для всех устройств, прогресс в панели задач Windows, пуш-уведомления и конвейерная загрузка",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Кнопка «Запуск» для всех устройств",
+                            "В пакетных действиях прошивок кнопка «Запуск» теперь проверяет и докачивает актуальные прошивки для абсолютно всех добавленных устройств, а не только для выбранного в списке."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Индикатор прогресса в панели задач Windows",
+                            "Значок приложения на панели задач Windows плавно заполняется зелёным цветом во время выполнения любых операций (установка приложений, передача фото, скачивание прошивок). При параллельной работе отображается совокупный прогресс всех задач."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Анимированные пуш-уведомления о завершении задач",
+                            "В настройках добавлен переключатель всплывающих уведомлений (по умолчанию выключен). При завершении установки или загрузки появляется плавное анимированное уведомление в стиле Liquid Glass."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Конвейерная загрузка и оптимизация дисковой сборки",
+                            "При последовательном скачивании следующий файл начинает загружаться по сети сразу, как только предыдущий переходит в фазу сборки. Буфер сборки увеличен до 8 МБ с предварительным выделением пространства NTFS для максимальной скорости."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.60",
                     date: "02.11.2026",
                     title: "Ускорение сборки IPSW, последовательная очередь и управление службой",
@@ -447,6 +474,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.61",
+                date: "11/02/2026",
+                title: "Run All Devices, Windows Taskbar Progress, Animated Push Notifications & Pipelined Queue",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Run Batch Action for All Devices",
+                        "The 'Run' button under firmware batch actions now checks and processes all monitored devices in the list instead of restricting execution to the selected device."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Windows Taskbar Progress Indicator",
+                        "The Windows taskbar button now shows a green progress fill during any active operation (app install, photo sync, firmware download), reporting aggregate progress across all simultaneous tasks."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Animated Task Completion Push Notifications",
+                        "Added an optional setting (disabled by default) that displays a fluid Liquid Glass toast banner whenever an install, download, or transfer finishes."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Pipelined Downloading & Accelerated Assembly",
+                        "Sequential firmware downloads now pipeline network and disk I/O: the next queued file begins downloading over network while the previous file is assembling on disk, backed by 8 MB buffers and NTFS pre-allocation."),
+                }),
             new ReleaseNote(
                 version: "1.8.60",
                 date: "11/02/2026",

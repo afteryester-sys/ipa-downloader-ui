@@ -235,6 +235,16 @@
     <sys:String x:Key="L.Settings.Multitasking">Multitasking mode</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Enable multitasking</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Each action becomes a separate operation: send it to the background and start the next one without waiting for the first to finish. Background operations collect in a circle in the corner of the window, and you can return to any of them from there. With the mode off everything works as before — one operation at a time.</sys:String>
+    <sys:String x:Key="L.Settings.Notifications">Notifications</sys:String>
+    <sys:String x:Key="L.Settings.Notifications.TaskCompletion">Task completion notifications</sys:String>
+    <sys:String x:Key="L.Settings.Notifications.TaskCompletion.Hint">Display an animated floating push notification when an app installation, firmware download, or file export finishes.</sys:String>
+    <sys:String x:Key="L.Notification.InstallCompleted">Installation completed</sys:String>
+    <sys:String x:Key="L.Notification.DownloadCompleted">Download completed</sys:String>
+    <sys:String x:Key="L.Notification.FirmwareCompleted">Firmware downloaded</sys:String>
+    <sys:String x:Key="L.Notification.TransferCompleted">Transfer completed</sys:String>
+    <sys:String x:Key="L.Notification.PhotosCompleted">Photo export completed</sys:String>
+    <sys:String x:Key="L.Notification.MediaExportCompleted">Export completed</sys:String>
+    <sys:String x:Key="L.Notification.TaskCompleted">Task completed</sys:String>
     <sys:String x:Key="L.Settings.ParallelInstalls">Simultaneous installs per device</sys:String>
     <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Different devices always install in parallel; this only caps a single device. Above 2 rarely helps: the limit is the USB link, not the phone.</sys:String>
     <sys:String x:Key="L.Settings.Save">Save</sys:String>

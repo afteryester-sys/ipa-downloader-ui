@@ -374,6 +374,12 @@ public sealed class AppSettings
     public Dictionary<string, string> DeviceAppleIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// When true, displays an animated push/toast notification whenever a task completes (install, download, export).
+    /// Disabled by default.
+    /// </summary>
+    public bool TaskCompletionNotificationsEnabled { get; set; } = false;
+
+    /// <summary>
     /// Last application version for which the "What's New" release notes modal was displayed.
     /// When the running version is newer than this value (or if this is empty on an update),
     /// the release notes popup is presented once at startup with a smooth entrance animation.

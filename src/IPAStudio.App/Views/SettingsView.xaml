@@ -261,6 +261,19 @@
                 </StackPanel>
             </Border>
 
+            <!-- Task Completion Notifications -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.Notifications}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,10" />
+                    <CheckBox Style="{StaticResource Check.Base}"
+                              Content="{DynamicResource L.Settings.Notifications.TaskCompletion}"
+                              IsChecked="{Binding TaskCompletionNotificationsEnabled}" />
+                    <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               Text="{DynamicResource L.Settings.Notifications.TaskCompletion.Hint}" />
+                </StackPanel>
+            </Border>
+
             <!-- Install mode -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

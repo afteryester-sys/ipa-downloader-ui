@@ -70,13 +70,19 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsActive))]
+    [NotifyPropertyChangedFor(nameof(IsNetworkDownloading))]
     [NotifyPropertyChangedFor(nameof(CanPause))]
     [NotifyPropertyChangedFor(nameof(CanResume))]
     [NotifyPropertyChangedFor(nameof(IsFinished))]
     [NotifyPropertyChangedFor(nameof(IsScheduled))]
     private FirmwareJobState _state = FirmwareJobState.Queued;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNetworkDownloading))]
+    private bool _isAssembling;
+
     public bool IsActive => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting;
+    public bool IsNetworkDownloading => IsActive && !IsAssembling;
     public bool CanPause => State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued or FirmwareJobState.WaitingSchedule;
     public bool CanResume => State is FirmwareJobState.Paused or FirmwareJobState.Failed or FirmwareJobState.WaitingSchedule;
     public bool IsFinished => State is FirmwareJobState.Done;

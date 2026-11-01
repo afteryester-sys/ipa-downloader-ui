@@ -60,6 +60,26 @@ public partial class MainWindow : Window
             }
         };
 
+        // Shell property changes (Toast & Taskbar progress)
+        shell.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModels.ShellViewModel.IsToastVisible))
+            {
+                if (shell.IsToastVisible)
+                    ShowToastAnimated();
+                else
+                    HideToastAnimated();
+            }
+            else if (args.PropertyName is nameof(ViewModels.ShellViewModel.TaskbarProgressState) or nameof(ViewModels.ShellViewModel.TaskbarProgressValue))
+            {
+                if (AppTaskbarInfo != null)
+                {
+                    AppTaskbarInfo.ProgressState = shell.TaskbarProgressState;
+                    AppTaskbarInfo.ProgressValue = shell.TaskbarProgressValue;
+                }
+            }
+        };
+
         // When the window loads, check if we need to show the What's New modal for this version
         Loaded += (_, _) =>
         {
@@ -404,5 +424,65 @@ public partial class MainWindow : Window
         WhatsNewCardHost.BeginAnimation(OpacityProperty, cardFade);
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleXProperty, cardScale);
         WhatsNewCardScale.BeginAnimation(System.Windows.Media.ScaleTransform.ScaleYProperty, cardScale);
+    }
+
+    private void ShowToastAnimated()
+    {
+        ToastNotificationCard.Visibility = Visibility.Visible;
+
+        var fadeIn = new DoubleAnimation
+        {
+            From = 0.0,
+            To = 1.0,
+            Duration = TimeSpan.FromMilliseconds(280),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+
+        var slideDown = new DoubleAnimation
+        {
+            From = -35.0,
+            To = 0.0,
+            Duration = TimeSpan.FromMilliseconds(340),
+            EasingFunction = new BackEase { Amplitude = 0.15, EasingMode = EasingMode.EaseOut }
+        };
+
+        ToastNotificationCard.BeginAnimation(OpacityProperty, fadeIn);
+        ToastTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slideDown);
+    }
+
+    private void HideToastAnimated()
+    {
+        var fadeOut = new DoubleAnimation
+        {
+            To = 0.0,
+            Duration = TimeSpan.FromMilliseconds(220),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+
+        var slideUp = new DoubleAnimation
+        {
+            To = -25.0,
+            Duration = TimeSpan.FromMilliseconds(220),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+
+        fadeOut.Completed += (_, _) =>
+        {
+            if (DataContext is ShellViewModel shell && !shell.IsToastVisible)
+            {
+                ToastNotificationCard.Visibility = Visibility.Collapsed;
+            }
+        };
+
+        ToastNotificationCard.BeginAnimation(OpacityProperty, fadeOut);
+        ToastTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slideUp);
+    }
+
+    private void ToastNotificationCard_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+    }
+
+    private void ToastNotificationCard_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
     }
 }

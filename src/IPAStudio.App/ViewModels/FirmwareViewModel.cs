@@ -28,6 +28,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private List<FirmwareRelease> _deviceFirmwares = new();
     private readonly Dictionary<FirmwareDownloadJob, Operation> _jobOperations = new();
     private readonly Dictionary<FirmwareDownloadJob, Task> _runningJobs = new();
+    private readonly SemaphoreSlim _diskAssemblyGate = new(1, 1);
     private readonly string _jobsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "IPAStudio", "firmware-jobs.json");
@@ -742,10 +743,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         StatusText = Loc.Get("L.Firmware.CheckingAll");
         PersistDownloadSettings();
 
-        // Targets: explicitly selected devices from the list, or SelectedDevice, or all MyDevices
-        var targets = _selectedWorkflowDevices.Count > 0
-            ? _selectedWorkflowDevices.ToList()
-            : (SelectedDevice is not null ? new List<FirmwareDevice> { SelectedDevice } : MyDevices.ToList());
+        // Targets: All devices configured in MyDevices
+        var targets = MyDevices.ToList();
 
         var totalEnqueued = 0;
         var totalResumed = 0;
@@ -925,9 +924,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     public void ProcessNextQueuedJob()
     {
-        if (!IsSequentialDownload) return;
-        var hasActive = Jobs.Any(j => j.IsActive);
-        if (hasActive) return;
+        if (!IsSequentialDownload || IsServicePaused) return;
+        var hasActiveNetwork = Jobs.Any(j => j.IsNetworkDownloading);
+        if (hasActiveNetwork) return;
 
         var next = Jobs.FirstOrDefault(j => j.State == FirmwareJobState.Queued);
         if (next is not null)
@@ -1102,6 +1101,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private void PauseJob(FirmwareDownloadJob job)
     {
+        job.IsAssembling = false;
         job.State = FirmwareJobState.Paused;
         job.StatusText = Loc.Get("L.Firmware.Paused");
         job.BytesPerSecond = 0;
@@ -1114,7 +1114,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     {
         if (job.IsActive) return;
         job.ErrorText = null;
-        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsNetworkDownloading))
         {
             job.State = FirmwareJobState.Queued;
             job.StatusText = Loc.Get("L.Firmware.Job.Queued");
@@ -1129,6 +1129,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private async Task StopJobCoreAsync(FirmwareDownloadJob job)
     {
+        job.IsAssembling = false;
         job.Cts?.Cancel();
         // Wait for the runner to release the part files before deleting them, otherwise
         // the delete races the still-open FileStreams and silently leaves garbage behind.
@@ -1143,7 +1144,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private async Task RunJobAsync(FirmwareDownloadJob job)
     {
-        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsNetworkDownloading))
         {
             job.State = FirmwareJobState.Queued;
             job.StatusText = Loc.Get("L.Firmware.Job.Queued");
@@ -1195,6 +1196,13 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Progress = p.Percent;
             if (p.Phase == "assembling")
             {
+                if (!job.IsAssembling)
+                {
+                    job.IsAssembling = true;
+                    // Pipelined sequential download: while this job is assembling on disk,
+                    // immediately unblock the next queued job to download over network!
+                    ProcessNextQueuedJob();
+                }
                 job.StatusText = p.PhasePercent.HasValue
                     ? string.Format(Loc.Get("L.Firmware.Job.AssemblingPct"), (int)p.PhasePercent.Value)
                     : Loc.Get("L.Firmware.Job.Assembling");
@@ -1202,6 +1210,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             }
             else if (p.Phase == "verifying")
             {
+                job.IsAssembling = true;
                 job.StatusText = p.PhasePercent.HasValue
                     ? string.Format(Loc.Get("L.Firmware.Job.VerifyingPct"), (int)p.PhasePercent.Value)
                     : Loc.Get("L.Firmware.Job.Verifying");
@@ -1209,6 +1218,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             }
             else
             {
+                job.IsAssembling = false;
                 job.StatusText = job.SizeText;
                 operation.Detail = $"{job.SizeText} · {job.SpeedText}";
             }
@@ -1224,7 +1234,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 try
                 {
                     savedPath = await _downloads.DownloadToFileAsync(job.Firmware, job.DestinationPath,
-                        SegmentCount, reporter, job.Cts.Token, VerifyHash);
+                        SegmentCount, reporter, job.Cts.Token, VerifyHash, _diskAssemblyGate);
                     break;
                 }
                 catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException)
@@ -1274,6 +1284,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
         finally
         {
+            job.IsAssembling = false;
             tcs.TrySetResult(true);
             RecomputeAggregate();
             ProcessNextQueuedJob();

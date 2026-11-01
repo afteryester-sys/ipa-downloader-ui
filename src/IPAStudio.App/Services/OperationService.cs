@@ -104,6 +104,9 @@ public sealed partial class OperationService : ObservableObject
     /// </summary>
     public event EventHandler<Operation>? MinimizeRequested;
 
+    /// <summary>Raised when an operation finishes successfully, used for task completion notifications.</summary>
+    public event EventHandler<Operation>? OperationCompleted;
+
     public OperationService(SettingsService settings, IServiceProvider services)
     {
         _settings = settings;
@@ -307,6 +310,11 @@ public sealed partial class OperationService : ObservableObject
 
     private void OnOperationPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(Operation.State) && sender is Operation { State: OperationState.Done } op)
+        {
+            OperationCompleted?.Invoke(this, op);
+        }
+
         if (e.PropertyName is nameof(Operation.Progress) or nameof(Operation.State))
             Recalculate();
     }

@@ -235,6 +235,16 @@
     <sys:String x:Key="L.Settings.Multitasking">Режим многозадачности</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Toggle">Включить многозадачность</sys:String>
     <sys:String x:Key="L.Settings.Multitasking.Hint">Каждое действие становится отдельной операцией: её можно свернуть в фон и запустить следующую, не дожидаясь окончания первой. Свёрнутые операции собираются в кружок в углу окна, откуда к любой из них можно вернуться. При выключенном режиме всё работает как раньше — одна операция за раз.</sys:String>
+    <sys:String x:Key="L.Settings.Notifications">Уведомления</sys:String>
+    <sys:String x:Key="L.Settings.Notifications.TaskCompletion">Уведомления о завершении задач</sys:String>
+    <sys:String x:Key="L.Settings.Notifications.TaskCompletion.Hint">Показывать анимированное всплывающее пуш-уведомление при завершении установки приложения, скачивания прошивки или экспорта файлов.</sys:String>
+    <sys:String x:Key="L.Notification.InstallCompleted">Установка завершена</sys:String>
+    <sys:String x:Key="L.Notification.DownloadCompleted">Загрузка завершена</sys:String>
+    <sys:String x:Key="L.Notification.FirmwareCompleted">Прошивка скачана</sys:String>
+    <sys:String x:Key="L.Notification.TransferCompleted">Перенос завершён</sys:String>
+    <sys:String x:Key="L.Notification.PhotosCompleted">Экспорт фото завершён</sys:String>
+    <sys:String x:Key="L.Notification.MediaExportCompleted">Экспорт завершён</sys:String>
+    <sys:String x:Key="L.Notification.TaskCompleted">Задача завершена</sys:String>
     <sys:String x:Key="L.Settings.ParallelInstalls">Одновременных установок на устройство</sys:String>
     <sys:String x:Key="L.Settings.ParallelInstalls.Hint">Разные устройства всегда устанавливают приложения параллельно; эта настройка ограничивает только одно устройство. Больше 2 обычно не ускоряет: предел задаёт не телефон, а USB-соединение.</sys:String>
     <sys:String x:Key="L.Settings.Save">Сохранить</sys:String>

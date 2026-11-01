@@ -133,8 +133,9 @@ public sealed class FirmwareDownloadService
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
         CancellationToken ct,
-        bool verifyHash = true) =>
-        DownloadToAsync(firmware, Path.GetDirectoryName(destinationPath) ?? "", destinationPath, segmentCount, progress, ct, verifyHash);
+        bool verifyHash = true,
+        SemaphoreSlim? assemblyGate = null) =>
+        DownloadToAsync(firmware, Path.GetDirectoryName(destinationPath) ?? "", destinationPath, segmentCount, progress, ct, verifyHash, assemblyGate);
 
     private async Task<string> DownloadToAsync(
         FirmwareRelease firmware,
@@ -143,7 +144,8 @@ public sealed class FirmwareDownloadService
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
         CancellationToken ct,
-        bool verifyHash = true)
+        bool verifyHash = true,
+        SemaphoreSlim? assemblyGate = null)
     {
         Directory.CreateDirectory(folder);
         segmentCount = Math.Clamp(segmentCount, 1, 8);
@@ -263,78 +265,97 @@ public sealed class FirmwareDownloadService
         }
 
         await SaveManifestAsync(manifestPath, manifest, ct).ConfigureAwait(false);
-        var temp = destination + ".assembling";
 
-        if (manifest.Segments.Count == 1 && File.Exists(manifest.Segments[0].PartPath))
+        bool gateAcquired = false;
+        try
         {
-            // Fast-path: single segment direct move (instantaneous, zero disk copy overhead)
-            if (File.Exists(temp)) File.Delete(temp);
-            File.Move(manifest.Segments[0].PartPath, temp, true);
-        }
-        else
-        {
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 0));
-            var copyBuffer = new byte[4 * 1024 * 1024]; // 4 MB buffer for high throughput
-            long assembledBytes = 0;
-            var assembleSw = Stopwatch.StartNew();
-            long lastAssembleReport = 0;
-
-            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            if (assemblyGate is not null)
             {
-                foreach (var segment in manifest.Segments.OrderBy(s => s.Start))
+                await assemblyGate.WaitAsync(ct).ConfigureAwait(false);
+                gateAcquired = true;
+            }
+
+            var temp = destination + ".assembling";
+
+            if (manifest.Segments.Count == 1 && File.Exists(manifest.Segments[0].PartPath))
+            {
+                // Fast-path: single segment direct move (instantaneous, zero disk copy overhead)
+                if (File.Exists(temp)) File.Delete(temp);
+                File.Move(manifest.Segments[0].PartPath, temp, true);
+            }
+            else
+            {
+                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 0));
+                var copyBuffer = new byte[8 * 1024 * 1024]; // 8 MB buffer for high throughput
+                long assembledBytes = 0;
+                var assembleSw = Stopwatch.StartNew();
+                long lastAssembleReport = 0;
+
+                await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 8 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
                 {
-                    await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                    int read;
-                    while ((read = await input.ReadAsync(copyBuffer.AsMemory(0, copyBuffer.Length), ct).ConfigureAwait(false)) > 0)
+                    try { output.SetLength(length); } catch { }
+                    foreach (var segment in manifest.Segments.OrderBy(s => s.Start))
                     {
-                        await output.WriteAsync(copyBuffer.AsMemory(0, read), ct).ConfigureAwait(false);
-                        assembledBytes += read;
-                        var nowMs = assembleSw.ElapsedMilliseconds;
-                        if (nowMs - lastAssembleReport >= 250)
+                        await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 8 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                        int read;
+                        while ((read = await input.ReadAsync(copyBuffer.AsMemory(0, copyBuffer.Length), ct).ConfigureAwait(false)) > 0)
                         {
-                            lastAssembleReport = nowMs;
-                            var pct = length > 0 ? (assembledBytes * 100.0 / length) : 100;
-                            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", pct));
+                            await output.WriteAsync(copyBuffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                            assembledBytes += read;
+                            var nowMs = assembleSw.ElapsedMilliseconds;
+                            if (nowMs - lastAssembleReport >= 250)
+                            {
+                                lastAssembleReport = nowMs;
+                                var pct = length > 0 ? (assembledBytes * 100.0 / length) : 100;
+                                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", pct));
+                            }
                         }
                     }
                 }
+                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 100));
             }
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 100));
-        }
 
-        if (new FileInfo(temp).Length != length) throw new InvalidDataException("Downloaded firmware size does not match the API response.");
-        if (verifyHash && !string.IsNullOrWhiteSpace(firmware.Sha1))
-        {
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 0));
-            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
-            await using var input = new FileStream(temp, FileMode.Open, FileAccess.Read, FileShare.Read, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var verifyBuffer = new byte[4 * 1024 * 1024];
-            long hashedBytes = 0;
-            var verifySw = Stopwatch.StartNew();
-            long lastVerifyReport = 0;
-            int read;
-            while ((read = await input.ReadAsync(verifyBuffer.AsMemory(0, verifyBuffer.Length), ct).ConfigureAwait(false)) > 0)
+            if (new FileInfo(temp).Length != length) throw new InvalidDataException("Downloaded firmware size does not match the API response.");
+            if (verifyHash && !string.IsNullOrWhiteSpace(firmware.Sha1))
             {
-                sha.AppendData(verifyBuffer, 0, read);
-                hashedBytes += read;
-                var nowMs = verifySw.ElapsedMilliseconds;
-                if (nowMs - lastVerifyReport >= 250)
+                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 0));
+                using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+                await using var input = new FileStream(temp, FileMode.Open, FileAccess.Read, FileShare.Read, 8 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                var verifyBuffer = new byte[8 * 1024 * 1024];
+                long hashedBytes = 0;
+                var verifySw = Stopwatch.StartNew();
+                long lastVerifyReport = 0;
+                int read;
+                while ((read = await input.ReadAsync(verifyBuffer.AsMemory(0, verifyBuffer.Length), ct).ConfigureAwait(false)) > 0)
                 {
-                    lastVerifyReport = nowMs;
-                    var pct = length > 0 ? (hashedBytes * 100.0 / length) : 100;
-                    progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", pct));
+                    sha.AppendData(verifyBuffer, 0, read);
+                    hashedBytes += read;
+                    var nowMs = verifySw.ElapsedMilliseconds;
+                    if (nowMs - lastVerifyReport >= 250)
+                    {
+                        lastVerifyReport = nowMs;
+                        var pct = length > 0 ? (hashedBytes * 100.0 / length) : 100;
+                        progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", pct));
+                    }
                 }
+                var actual = Convert.ToHexString(sha.GetHashAndReset());
+                if (!actual.Equals(firmware.Sha1, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Firmware SHA-1 verification failed. Partial files were kept for diagnosis.");
+                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 100));
             }
-            var actual = Convert.ToHexString(sha.GetHashAndReset());
-            if (!actual.Equals(firmware.Sha1, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Firmware SHA-1 verification failed. Partial files were kept for diagnosis.");
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 100));
+            File.Move(temp, destination, true);
+            foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath)) File.Delete(segment.PartPath); }
+            if (File.Exists(manifestPath)) File.Delete(manifestPath);
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0));
+            return destination;
         }
-        File.Move(temp, destination, true);
-        foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath)) File.Delete(segment.PartPath); }
-        if (File.Exists(manifestPath)) File.Delete(manifestPath);
-        progress?.Report(new FirmwareDownloadProgress(length, length, 0));
-        return destination;
+        finally
+        {
+            if (gateAcquired)
+            {
+                assemblyGate!.Release();
+            }
+        }
     }
 
     private async Task<HttpResponseMessage> SendWithReconnectAsync(Func<HttpRequestMessage> requestFactory, CancellationToken ct)

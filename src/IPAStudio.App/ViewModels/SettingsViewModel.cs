@@ -126,6 +126,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private int _maxParallelInstallsPerDevice = 2;
 
     /// <summary>
+    /// When true, displays an animated push/toast notification whenever a task completes (install, download, export).
+    /// </summary>
+    [ObservableProperty]
+    private bool _taskCompletionNotificationsEnabled;
+
+    /// <summary>
     /// Writes routine background detail (device-poll tool calls, media pipeline timings)
     /// to the log. Applied the moment it is toggled rather than on Save, because the
     /// point of the switch is to change what the user is watching in the log right now.
@@ -528,6 +534,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         ItunesLibraryFolder = _settings.Current.ItunesLibraryFolder ?? "";
         MaxParallelDownloads = _settings.Current.MaxParallelDownloads;
         MultitaskingEnabled = _settings.Current.MultitaskingEnabled;
+        TaskCompletionNotificationsEnabled = _settings.Current.TaskCompletionNotificationsEnabled;
         MaxParallelInstallsPerDevice = _settings.Current.MaxParallelInstallsPerDevice;
         AccountEmail = _auth.CurrentAccount?.Email ?? "";
         ToolsFolder = _tools.ToolsRoot;
@@ -855,6 +862,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             string.IsNullOrWhiteSpace(ItunesLibraryFolder) ? null : ItunesLibraryFolder;
         _settings.Current.MaxParallelDownloads = Math.Clamp(MaxParallelDownloads, 1, 6);
         _settings.Current.MultitaskingEnabled = MultitaskingEnabled;
+        _settings.Current.TaskCompletionNotificationsEnabled = TaskCompletionNotificationsEnabled;
         _settings.Current.MaxParallelInstallsPerDevice = Math.Clamp(MaxParallelInstallsPerDevice, 1, 4);
         _settings.Current.InstallMode = InstallMode;
         _settings.Current.ResumeMode = ResumeMode;

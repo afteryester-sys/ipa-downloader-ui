@@ -1,6 +1,11 @@
+using System.Windows.Shell;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
+using IPAStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace IPAStudio.App.ViewModels;
@@ -151,6 +156,8 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// <summary>Controls the What's New modal dialog and release notes.</summary>
     public WhatsNewViewModel WhatsNew { get; }
 
+    private readonly SettingsService _settings;
+
     /// <summary>Backs the corner circle and the operations list, bound to from the window.</summary>
     public OperationService Operations { get; }
 
@@ -161,16 +168,93 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// </summary>
     public event EventHandler? OperationMinimized;
 
-    public ShellViewModel(UpdaterViewModel updater, OperationService operations, WhatsNewViewModel whatsNew)
+    public TaskbarItemProgressState TaskbarProgressState =>
+        Operations.HasRunning ? TaskbarItemProgressState.Normal : TaskbarItemProgressState.None;
+
+    public double TaskbarProgressValue =>
+        Operations.HasRunning ? Math.Clamp(Operations.OverallProgress / 100.0, 0.0, 1.0) : 0.0;
+
+    [ObservableProperty] private bool _isToastVisible;
+    [ObservableProperty] private string _toastTitle = "";
+    [ObservableProperty] private string _toastMessage = "";
+    [ObservableProperty] private string _toastIcon = "✓";
+
+    private DispatcherTimer? _toastDismissTimer;
+
+    public ShellViewModel(UpdaterViewModel updater, OperationService operations, WhatsNewViewModel whatsNew, SettingsService settings)
     {
         Updater = updater;
         Operations = operations;
         WhatsNew = whatsNew;
+        _settings = settings;
 
         Operations.ReturnRequested += (_, op) => GoToOperation(op);
         Operations.MinimizeRequested += (_, op) => MinimizeOperation(op);
 
+        Operations.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(OperationService.HasRunning) or nameof(OperationService.OverallProgress))
+            {
+                OnPropertyChanged(nameof(TaskbarProgressState));
+                OnPropertyChanged(nameof(TaskbarProgressValue));
+            }
+        };
+
+        Operations.OperationCompleted += (_, op) =>
+        {
+            if (!_settings.Current.TaskCompletionNotificationsEnabled) return;
+
+            string title = op.Kind switch
+            {
+                OperationKind.Install => Loc.Get("L.Notification.InstallCompleted"),
+                OperationKind.Download => Loc.Get("L.Notification.DownloadCompleted"),
+                OperationKind.Firmware => Loc.Get("L.Notification.FirmwareCompleted"),
+                OperationKind.Transfer => Loc.Get("L.Notification.TransferCompleted"),
+                OperationKind.Photos => Loc.Get("L.Notification.PhotosCompleted"),
+                OperationKind.MediaExport => Loc.Get("L.Notification.MediaExportCompleted"),
+                _ => Loc.Get("L.Notification.TaskCompleted")
+            };
+
+            var msg = !string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle;
+            if (!string.IsNullOrWhiteSpace(op.Subtitle) && op.Subtitle != msg)
+            {
+                msg = $"{msg} ({op.Subtitle})";
+            }
+
+            ShowToast(title, msg);
+        };
+
         GoTo(Page.Setup);
+    }
+
+    public void ShowToast(string title, string message, string icon = "✓")
+    {
+        System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+        {
+            ToastTitle = title;
+            ToastMessage = message;
+            ToastIcon = icon;
+            IsToastVisible = true;
+
+            _toastDismissTimer?.Stop();
+            _toastDismissTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(4.5)
+            };
+            _toastDismissTimer.Tick += (_, _) =>
+            {
+                _toastDismissTimer.Stop();
+                DismissToast();
+            };
+            _toastDismissTimer.Start();
+        });
+    }
+
+    [RelayCommand]
+    public void DismissToast()
+    {
+        _toastDismissTimer?.Stop();
+        IsToastVisible = false;
     }
 
     /// <summary>
