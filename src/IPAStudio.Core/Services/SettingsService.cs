@@ -364,6 +364,12 @@ public sealed class AppSettings
     /// <summary>Devices monitored for automatic firmware downloads.</summary>
     public List<IPAStudio.Core.Models.FirmwareSubscription> FirmwareSubscriptions { get; set; } = new();
 
+    /// <summary>Whether firmware downloads should execute sequentially (one by one) rather than in parallel.</summary>
+    public bool FirmwareDownloadSequential { get; set; } = false;
+
+    /// <summary>Whether the firmware service automatically runs checks and downloads on app launch.</summary>
+    public bool FirmwareAutoStartOnLaunch { get; set; } = false;
+
     /// <summary>Cache of known Apple IDs / iCloud accounts mapped by device UDID.</summary>
     public Dictionary<string, string> DeviceAppleIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

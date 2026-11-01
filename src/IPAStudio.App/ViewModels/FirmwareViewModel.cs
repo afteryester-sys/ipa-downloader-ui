@@ -67,6 +67,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         IsScheduleEnabled = settings.Current.FirmwareScheduleEnabled;
         ScheduleStartHour = Math.Clamp(settings.Current.FirmwareScheduleStartHour, 0, 23);
         ScheduleEndHour = Math.Clamp(settings.Current.FirmwareScheduleEndHour, 0, 23);
+        IsSequentialDownload = settings.Current.FirmwareDownloadSequential;
+        IsAutoStartOnLaunchEnabled = settings.Current.FirmwareAutoStartOnLaunch;
         Jobs.CollectionChanged += OnJobsChanged;
         MyDevices.CollectionChanged += (_, _) => UpdateDeviceActionLabels();
         RestoreMyDevices();
@@ -78,10 +80,27 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             EvaluateSchedule();
             CheckAutoTssInterval();
         }, null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(15));
+
+        if (IsAutoStartOnLaunchEnabled)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                {
+                    if (MyDevices.Count > 0 && !IsChecking)
+                    {
+                        await StartFirmwareWorkflowAsync();
+                    }
+                });
+            });
+        }
     }
 
     [ObservableProperty] private bool _isSingleDownloadMode;
-    [ObservableProperty] private bool _isAutoCheckEnabled = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    private bool _isAutoCheckEnabled = true;
     [ObservableProperty] private bool _isScheduleEnabled;
     [ObservableProperty] private int _scheduleStartHour;
     [ObservableProperty] private int _scheduleEndHour = 6;
@@ -90,6 +109,66 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private int _settingsTab;
     [ObservableProperty] private bool _verifyHash = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    private bool _isSequentialDownload;
+
+    [ObservableProperty] private bool _isAutoStartOnLaunchEnabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    private bool _isWorkflowActive;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    private bool _isServicePaused;
+
+    public bool IsServiceActive => IsChecking || IsWorkflowActive || HasActiveJobs || Jobs.Any(j => j.State == FirmwareJobState.Queued);
+
+    public string ServiceStatusBadgeText
+    {
+        get
+        {
+            if (IsChecking) return Loc.Get("L.Firmware.Service.Checking");
+            if (IsServicePaused) return Loc.Get("L.Firmware.ServicePaused");
+            if (HasActiveJobs)
+            {
+                var active = Jobs.FirstOrDefault(j => j.IsActive);
+                return active is not null
+                    ? $"{active.Device.Name} · {active.Progress:F0}%"
+                    : string.Format(Loc.Get("L.Firmware.Service.Downloading"), ActiveCount);
+            }
+            if (Jobs.Any(j => j.State == FirmwareJobState.Queued)) return Loc.Get("L.Firmware.ServiceQueuePending");
+            if (IsAutoCheckEnabled)
+            {
+                return HasTssCheckInfo ? LastTssCheckText : Loc.Get("L.Firmware.Service.Active");
+            }
+            return Loc.Get("L.Firmware.Service.Disabled");
+        }
+    }
+
+    partial void OnIsSequentialDownloadChanged(bool value)
+    {
+        _settings.Current.FirmwareDownloadSequential = value;
+        _settings.Save();
+        if (!value)
+        {
+            StartAllQueuedJobs();
+        }
+        else
+        {
+            ProcessNextQueuedJob();
+        }
+    }
+
+    partial void OnIsAutoStartOnLaunchEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareAutoStartOnLaunch = value;
+        _settings.Save();
+    }
 
     public ObservableCollection<FirmwareReleaseItem> SingleFirmwares { get; } = new();
     public FirmwareDownloadJob? ActiveJob => Jobs.FirstOrDefault(j => j.IsActive) ?? Jobs.LastOrDefault();
@@ -110,7 +189,10 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private int _segmentCount = 4;
     [ObservableProperty] private bool _signedOnly = true;
     [ObservableProperty] private bool _isLoading;
-    [ObservableProperty] private bool _isChecking;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    private bool _isChecking;
     [ObservableProperty] private int _selectedFirmwareCount;
     [ObservableProperty] private string _batchButtonText = "";
     [ObservableProperty] private bool _areAllSignedSelected;
@@ -135,12 +217,17 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private double _overallProgress;
     [ObservableProperty] private string _overallSizeText = "";
     [ObservableProperty] private string _overallSpeedText = "";
-    [ObservableProperty] private int _activeCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    private int _activeCount;
     [ObservableProperty] private int _finishedCount;
     private int _previousActiveCount;
     [ObservableProperty] private string _lastCheckText = "—";
     [ObservableProperty] private string _lastDownloadText = "—";
-    [ObservableProperty] private string _lastTssCheckText = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
+    private string _lastTssCheckText = "";
     [ObservableProperty] private bool _isHistoryOpen;
     [ObservableProperty] private ObservableCollection<FirmwareLogEntry> _activityLogs = new();
 
@@ -650,6 +737,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     {
         if (MyDevices.Count == 0 || IsChecking) return;
         IsChecking = true;
+        IsWorkflowActive = true;
+        IsServicePaused = false;
         StatusText = Loc.Get("L.Firmware.CheckingAll");
         PersistDownloadSettings();
 
@@ -677,7 +766,24 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 var signed = cached.Firmwares.Where(f => f.Signed).ToList();
                 if (signed.Count == 0) continue;
 
-                foreach (var release in signed)
+                // Pick target firmwares:
+                // If user selected checkboxes for this device, use those.
+                // Otherwise, pick ONLY the single latest signed release!
+                var targetReleases = new List<FirmwareRelease>();
+                if (SelectedDevice?.Identifier == device.Identifier && Firmwares.Any(f => f.IsSelected))
+                {
+                    targetReleases = Firmwares.Where(f => f.IsSelected).Select(f => f.Release).ToList();
+                }
+                else
+                {
+                    var latest = signed
+                        .OrderByDescending(f => f.ReleaseDate ?? f.UploadDate ?? DateTime.MinValue)
+                        .ThenByDescending(f => f.Version, StringComparer.OrdinalIgnoreCase)
+                        .FirstOrDefault();
+                    if (latest is not null) targetReleases.Add(latest);
+                }
+
+                foreach (var release in targetReleases)
                 {
                     var destination = Path.Combine(DestinationFolder,
                         FirmwareDownloadService.BuildFileName(device.Name, release.Version));
@@ -708,8 +814,17 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                     // 3. Needs to be downloaded / resumed
                     var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: false);
                     Jobs.Add(job);
-                    _ = RunJobAsync(job);
                     totalEnqueued++;
+
+                    if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+                    {
+                        job.State = FirmwareJobState.Queued;
+                        job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+                    }
+                    else
+                    {
+                        _ = RunJobAsync(job);
+                    }
 
                     if (File.Exists(partPath))
                     {
@@ -742,11 +857,93 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         finally
         {
             IsChecking = false;
+            OnPropertyChanged(nameof(ServiceStatusBadgeText));
+            OnPropertyChanged(nameof(IsServiceActive));
         }
     }
 
     [RelayCommand]
     private async Task DownloadAllMonitoredSignedAsync() => await StartFirmwareWorkflowAsync();
+
+    [RelayCommand]
+    private void PauseWorkflowService()
+    {
+        IsServicePaused = true;
+        PauseAll();
+        StatusText = Loc.Get("L.Firmware.ServicePaused");
+        AddActivityLog("⏸️", Loc.Get("L.Firmware.Log.ServicePaused"));
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+        OnPropertyChanged(nameof(IsServiceActive));
+    }
+
+    [RelayCommand]
+    private void ResumeWorkflowService()
+    {
+        IsServicePaused = false;
+        if (IsSequentialDownload)
+        {
+            ProcessNextQueuedJob();
+        }
+        else
+        {
+            ResumeAll();
+        }
+        StatusText = Loc.Get("L.Firmware.ServiceResumed");
+        AddActivityLog("▶️", Loc.Get("L.Firmware.Log.ServiceResumed"));
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+        OnPropertyChanged(nameof(IsServiceActive));
+    }
+
+    [RelayCommand]
+    private async Task CancelWorkflowServiceAsync()
+    {
+        var result = System.Windows.MessageBox.Show(
+            Loc.Get("L.Firmware.CancelWorkflowConfirmText"),
+            Loc.Get("L.Firmware.CancelWorkflowConfirmTitle"),
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
+
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
+        IsServicePaused = false;
+        IsWorkflowActive = false;
+        IsChecking = false;
+
+        PauseAll();
+
+        var activeJobs = Jobs.Where(j => j.State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued).ToList();
+        foreach (var job in activeJobs)
+        {
+            await StopJobCoreAsync(job);
+        }
+
+        StatusText = Loc.Get("L.Firmware.ServiceStopped");
+        AddActivityLog("⏹️", Loc.Get("L.Firmware.Log.ServiceStopped"));
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+        OnPropertyChanged(nameof(IsServiceActive));
+    }
+
+    public void ProcessNextQueuedJob()
+    {
+        if (!IsSequentialDownload) return;
+        var hasActive = Jobs.Any(j => j.IsActive);
+        if (hasActive) return;
+
+        var next = Jobs.FirstOrDefault(j => j.State == FirmwareJobState.Queued);
+        if (next is not null)
+        {
+            _ = RunJobAsync(next);
+        }
+    }
+
+    public void StartAllQueuedJobs()
+    {
+        var queued = Jobs.Where(j => j.State == FirmwareJobState.Queued).ToList();
+        foreach (var job in queued)
+        {
+            _ = RunJobAsync(job);
+        }
+    }
 
     private void EnqueueBatchReleases(FirmwareDevice device, IEnumerable<FirmwareRelease> releases, bool isSingle)
     {
@@ -785,8 +982,17 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
             var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: isSingle);
             Jobs.Add(job);
-            _ = RunJobAsync(job);
             addedCount++;
+
+            if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+            {
+                job.State = FirmwareJobState.Queued;
+                job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+            }
+            else
+            {
+                _ = RunJobAsync(job);
+            }
         }
 
         if (addedCount > 0)
@@ -798,7 +1004,6 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             StatusText = Loc.Get("L.Firmware.AllAlreadyDownloaded");
         }
     }
-
 
     [RelayCommand]
     private void StartDirectUrlDownload()
@@ -847,7 +1052,15 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: true);
         Jobs.Add(job);
         DirectUrlInput = "";
-        _ = RunJobAsync(job);
+        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+        {
+            job.State = FirmwareJobState.Queued;
+            job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+        }
+        else
+        {
+            _ = RunJobAsync(job);
+        }
     }
 
     [RelayCommand]
@@ -865,7 +1078,19 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void ResumeAll()
     {
-        foreach (var job in Jobs.Where(j => j.CanResume).ToList()) ResumeJob(job);
+        if (IsSequentialDownload)
+        {
+            foreach (var job in Jobs.Where(j => j.CanResume).ToList())
+            {
+                job.State = FirmwareJobState.Queued;
+                job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+            }
+            ProcessNextQueuedJob();
+        }
+        else
+        {
+            foreach (var job in Jobs.Where(j => j.CanResume).ToList()) ResumeJob(job);
+        }
     }
 
     [RelayCommand]
@@ -882,12 +1107,21 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         job.BytesPerSecond = 0;
         job.Cts?.Cancel();
         RecomputeAggregate();
+        ProcessNextQueuedJob();
     }
 
     private void ResumeJob(FirmwareDownloadJob job)
     {
         if (job.IsActive) return;
         job.ErrorText = null;
+        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+        {
+            job.State = FirmwareJobState.Queued;
+            job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+            job.BytesPerSecond = 0;
+            RecomputeAggregate();
+            return;
+        }
         _ = RunJobAsync(job);
     }
 
@@ -904,10 +1138,20 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         if (_jobOperations.Remove(job, out var operation)) operation.Finish(OperationState.Cancelled, Loc.Get("L.Firmware.Stopped"));
         StatusText = Loc.Get("L.Firmware.Stopped");
         RecomputeAggregate();
+        ProcessNextQueuedJob();
     }
 
     private async Task RunJobAsync(FirmwareDownloadJob job)
     {
+        if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+        {
+            job.State = FirmwareJobState.Queued;
+            job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+            job.BytesPerSecond = 0;
+            RecomputeAggregate();
+            return;
+        }
+
         if (_runningJobs.TryGetValue(job, out var priorTask) && !priorTask.IsCompleted)
         {
             try { await Task.WhenAny(priorTask, Task.Delay(350)); } catch { }
@@ -951,12 +1195,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Progress = p.Percent;
             if (p.Phase == "assembling")
             {
-                job.StatusText = Loc.Get("L.Firmware.Job.Assembling");
+                job.StatusText = p.PhasePercent.HasValue
+                    ? string.Format(Loc.Get("L.Firmware.Job.AssemblingPct"), (int)p.PhasePercent.Value)
+                    : Loc.Get("L.Firmware.Job.Assembling");
                 operation.Detail = job.StatusText;
             }
             else if (p.Phase == "verifying")
             {
-                job.StatusText = Loc.Get("L.Firmware.Job.Verifying");
+                job.StatusText = p.PhasePercent.HasValue
+                    ? string.Format(Loc.Get("L.Firmware.Job.VerifyingPct"), (int)p.PhasePercent.Value)
+                    : Loc.Get("L.Firmware.Job.Verifying");
                 operation.Detail = job.StatusText;
             }
             else
@@ -976,7 +1224,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 try
                 {
                     savedPath = await _downloads.DownloadToFileAsync(job.Firmware, job.DestinationPath,
-                        SegmentCount, reporter, job.Cts.Token);
+                        SegmentCount, reporter, job.Cts.Token, VerifyHash);
                     break;
                 }
                 catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException)
@@ -1028,6 +1276,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         {
             tcs.TrySetResult(true);
             RecomputeAggregate();
+            ProcessNextQueuedJob();
         }
     }
 
@@ -1062,12 +1311,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Progress = p.Percent;
             if (p.Phase == "assembling")
             {
-                job.StatusText = Loc.Get("L.Firmware.Job.Assembling");
+                job.StatusText = p.PhasePercent.HasValue
+                    ? string.Format(Loc.Get("L.Firmware.Job.AssemblingPct"), (int)p.PhasePercent.Value)
+                    : Loc.Get("L.Firmware.Job.Assembling");
                 operation.Detail = job.StatusText;
             }
             else if (p.Phase == "verifying")
             {
-                job.StatusText = Loc.Get("L.Firmware.Job.Verifying");
+                job.StatusText = p.PhasePercent.HasValue
+                    ? string.Format(Loc.Get("L.Firmware.Job.VerifyingPct"), (int)p.PhasePercent.Value)
+                    : Loc.Get("L.Firmware.Job.Verifying");
                 operation.Detail = job.StatusText;
             }
             else
@@ -1081,7 +1334,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         try
         {
-            await _downloads.ResumeAsync(pending, SegmentCount, reporter, job.Cts.Token);
+            await _downloads.ResumeAsync(pending, SegmentCount, reporter, job.Cts.Token, VerifyHash);
             job.State = FirmwareJobState.Done;
             job.Progress = 100;
             job.StatusText = Loc.Get("L.Firmware.Done");
@@ -1108,6 +1361,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.BytesPerSecond = 0;
             _jobOperations.Remove(job);
             RecomputeAggregate();
+            ProcessNextQueuedJob();
         }
     }
 
@@ -1262,7 +1516,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OverallSpeedText = speed > 0 ? $"{speed / 1024d / 1024d:F1} MB/s" : "";
         ActiveCount = active;
         FinishedCount = finished;
+        if (active == 0 && !Jobs.Any(j => j.State == FirmwareJobState.Queued))
+        {
+            IsWorkflowActive = false;
+            IsServicePaused = false;
+        }
         OnPropertyChanged(nameof(ActiveJob));
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+        OnPropertyChanged(nameof(IsServiceActive));
         ResumeAllCommand.NotifyCanExecuteChanged();
         UpdateDeviceDownloads();
 

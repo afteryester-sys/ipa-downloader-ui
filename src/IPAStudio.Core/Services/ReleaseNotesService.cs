@@ -56,6 +56,39 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.60",
+                    date: "02.11.2026",
+                    title: "Ускорение сборки IPSW, последовательная очередь и управление службой",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Устранение задержки при «Сборке файла» и потоковый хэш",
+                            "Сборка сегментов IPSW переведена на высокоскоростной буфер 4 МБ с непрерывным отображением динамического процента «Сборка файла (XX%)…». Проверка целостности SHA-1 теперь выполняется потоково без блокировок и отображает точный прогресс «Проверка SHA-1 (XX%)…»."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Последовательное и параллельное скачивание прошивок",
+                            "В настройки прошивок добавлен переключатель режима очереди: последовательное (файлы качаются строго по одному, экономя ресурс диска и сеть) или параллельное (одновременная потоковая загрузка)."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Умный запуск только самой актуальной прошивки",
+                            "Кнопка «Запуск» теперь автоматически выбирает и загружает исключительно самую свежую подписанную версию для каждого устройства, если пользователь вручную не отметил конкретные сборки."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Принудительная пауза и отмена службы с подтверждением",
+                            "В панели службы TSS добавлены кнопки принудительной паузы и отмены с диалогом подтверждения. Панель полностью адаптирована: статус не обрезается, кнопки очереди защищены от переполнения экрана."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Автозапуск службы при старте приложения",
+                            "Добавлена опция автоматического старта службы проверки и докачки актуальных прошивок сразу при открытии IPA Studio."),
+                    }),
+
+                new ReleaseNote(
                     version: "1.8.59",
                     date: "01.11.2026",
                     title: "Запуск прошивок, поддержка iPhone 18 / Duo и чтение почты iCloud",
@@ -414,6 +447,39 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.60",
+                date: "11/02/2026",
+                title: "IPSW Assembly Speedup, Sequential Queue Mode & Firmware Service Controls",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "High-Throughput File Assembly & Streaming SHA-1 Progress",
+                        "Upgraded segment merging to a high-speed 4 MB buffer with live progress reporting ('Assembling file (XX%)…'). SHA-1 verification now streams incrementally with dynamic percentage reporting ('Verifying SHA-1 (XX%)…') preventing visual stalls."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Sequential vs Parallel Firmware Download Modes",
+                        "Added a queue runner toggle in firmware settings: choose between sequential downloads (files download one by one, reducing disk and network strain) or parallel streaming downloads."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Smart Workflow Downloads Latest Signed Version",
+                        "Pressing 'Start' now downloads only the single latest signed release for each device unless specific versions are manually selected in the table."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Service Force Pause & Cancel with Confirmation",
+                        "Added responsive Pause/Resume and Cancel controls with a confirmation prompt to prevent accidental aborts. Redesigned TSS status card to avoid text clipping, and queue buttons are right-docked without overflow."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NEW",
+                        "Auto-Start Service on Application Launch",
+                        "Added setting to automatically launch the firmware check and download workflow on application startup."),
+                }),
+
             new ReleaseNote(
                 version: "1.8.59",
                 date: "11/01/2026",

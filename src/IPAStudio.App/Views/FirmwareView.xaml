@@ -835,14 +835,10 @@
 
                 <!-- Clean Apple-Style Auto-Check & TSS Monitoring Tile -->
                 <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12,10" Margin="0,10,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <StackPanel>
+                        <!-- Top Row: Title, Status Dot, Animated Toggle & Gear -->
+                        <DockPanel LastChildFill="False">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center">
                                     <Ellipse.Style>
                                         <Style TargetType="Ellipse">
@@ -855,126 +851,162 @@
                                         </Style>
                                     </Ellipse.Style>
                                 </Ellipse>
-                                <TextBlock Text="{DynamicResource L.Firmware.AutoCheck}" FontSize="11" FontWeight="SemiBold" />
+                                <TextBlock Text="{DynamicResource L.Firmware.AutoCheck}" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </StackPanel>
-                            <TextBlock FontSize="10">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-                                        <Setter Property="Text" Value="{DynamicResource L.Firmware.AutoCheck.On}" />
-                                        <Setter Property="Foreground" Value="#30D158" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsAutoCheckEnabled}" Value="False">
-                                                <Setter Property="Text" Value="{DynamicResource L.Firmware.AutoCheck.Off}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <!-- Active checking indicator -->
-                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0"
-                                        Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="9.5"
-                                           Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center"
-                                           RenderTransformOrigin="0.5, 0.5" Margin="0,0,4,0">
-                                    <TextBlock.RenderTransform>
-                                        <RotateTransform Angle="0" />
-                                    </TextBlock.RenderTransform>
-                                    <TextBlock.Triggers>
-                                        <EventTrigger RoutedEvent="Loaded">
-                                            <BeginStoryboard>
-                                                <Storyboard RepeatBehavior="Forever">
-                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
-                                                                     From="0" To="360" Duration="0:0:1" />
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </EventTrigger>
-                                    </TextBlock.Triggers>
-                                </TextBlock>
-                                <TextBlock Text="{DynamicResource L.Firmware.Checking}" FontSize="9.5"
-                                           Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <!-- Last verified timestamp -->
-                            <TextBlock Text="{Binding LastTssCheckText}" FontSize="9.5"
-                                       Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding HasTssCheckInfo}" Value="True" />
-                                                    <Condition Binding="{Binding IsChecking}" Value="False" />
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                        <!-- Animated iOS Toggle Switch -->
-                        <Border Grid.Column="1" Width="38" Height="22" CornerRadius="11" Padding="0"
-                                Cursor="Hand" VerticalAlignment="Center" Margin="0,0,8,0">
-                            <Border.InputBindings>
-                                <MouseBinding Gesture="LeftClick" Command="{Binding ToggleAutoCheckCommand}" />
-                            </Border.InputBindings>
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background" Value="#30D158" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsAutoCheckEnabled}" Value="False">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Border}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Canvas Width="38" Height="22">
-                                <Ellipse Width="18" Height="18" Fill="White" Canvas.Top="2" Canvas.Left="2">
-                                    <Ellipse.Effect>
-                                        <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.25" Color="#000000" />
-                                    </Ellipse.Effect>
-                                    <Ellipse.RenderTransform>
-                                        <TranslateTransform X="16" />
-                                    </Ellipse.RenderTransform>
-                                    <Ellipse.Style>
-                                        <Style TargetType="Ellipse">
+
+                            <!-- Right Controls: Toggle Switch + Settings Gear -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Animated iOS Toggle Switch -->
+                                <Border Width="38" Height="22" CornerRadius="11" Padding="0"
+                                        Cursor="Hand" VerticalAlignment="Center" Margin="0,0,6,0">
+                                    <Border.InputBindings>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding ToggleAutoCheckCommand}" />
+                                    </Border.InputBindings>
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#30D158" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsAutoCheckEnabled}" Value="False">
-                                                    <DataTrigger.EnterActions>
-                                                        <BeginStoryboard>
-                                                            <Storyboard>
-                                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                                 To="0" Duration="0:0:0.18">
-                                                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                </DoubleAnimation>
-                                                            </Storyboard>
-                                                        </BeginStoryboard>
-                                                    </DataTrigger.EnterActions>
-                                                    <DataTrigger.ExitActions>
-                                                        <BeginStoryboard>
-                                                            <Storyboard>
-                                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
-                                                                                 To="16" Duration="0:0:0.18">
-                                                                    <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                                                                </DoubleAnimation>
-                                                            </Storyboard>
-                                                        </BeginStoryboard>
-                                                    </DataTrigger.ExitActions>
+                                                    <Setter Property="Background" Value="{DynamicResource Brush.Border}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
-                                    </Ellipse.Style>
-                                </Ellipse>
-                            </Canvas>
+                                    </Border.Style>
+                                    <Canvas Width="38" Height="22">
+                                        <Ellipse Width="18" Height="18" Fill="White" Canvas.Top="2" Canvas.Left="2">
+                                            <Ellipse.Effect>
+                                                <DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.25" Color="#000000" />
+                                            </Ellipse.Effect>
+                                            <Ellipse.RenderTransform>
+                                                <TranslateTransform X="16" />
+                                            </Ellipse.RenderTransform>
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAutoCheckEnabled}" Value="False">
+                                                            <DataTrigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                                         To="0" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.EnterActions>
+                                                            <DataTrigger.ExitActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                                         To="16" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </DataTrigger.ExitActions>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Canvas>
+                                </Border>
+
+                                <!-- Settings Gear Button -->
+                                <Button Style="{StaticResource Button.Ghost}" Width="24" Height="24" Padding="0"
+                                        Command="{Binding ToggleSettingsCommand}"
+                                        ToolTip="{DynamicResource L.Firmware.Settings.Title}" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
+                                </Button>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- Middle Row: Status Badge & Freshness (Full-width, wraps cleanly so it NEVER clips!) -->
+                        <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6" Padding="8,5" Margin="0,8,0,0">
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <!-- Rotating spinner icon when checking -->
+                                    <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                               Foreground="{DynamicResource Brush.Accent}" VerticalAlignment="Center"
+                                               RenderTransformOrigin="0.5,0.5" Margin="0,0,6,0"
+                                               Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock.RenderTransform>
+                                            <RotateTransform Angle="0" />
+                                        </TextBlock.RenderTransform>
+                                        <TextBlock.Triggers>
+                                            <EventTrigger RoutedEvent="Loaded">
+                                                <BeginStoryboard>
+                                                    <Storyboard RepeatBehavior="Forever">
+                                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                         From="0" To="360" Duration="0:0:1" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </TextBlock.Triggers>
+                                    </TextBlock>
+
+                                    <!-- Service Status Badge text -->
+                                    <TextBlock Text="{Binding ServiceStatusBadgeText}" FontSize="10.5"
+                                               Foreground="{DynamicResource Brush.TextMuted}"
+                                               TextWrapping="Wrap" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </StackPanel>
                         </Border>
-                        <!-- Subtle settings gear button -->
-                        <Button Grid.Column="2" Style="{StaticResource Button.Ghost}" Width="26" Height="26" Padding="0"
-                                Command="{Binding ToggleSettingsCommand}"
-                                ToolTip="{DynamicResource L.Firmware.Settings.Title}" VerticalAlignment="Center">
-                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
-                        </Button>
-                    </Grid>
+
+                        <!-- Bottom Row: Force Pause and Cancel Service Controls with Animations -->
+                        <Border Margin="0,8,0,0"
+                                Visibility="{Binding IsServiceActive, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Pause / Resume Service button -->
+                                <Button Grid.Column="0" Height="26" Padding="6,0" FontSize="10.5"
+                                        ToolTip="{DynamicResource L.Firmware.PauseService}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource Button.Secondary}">
+                                            <Setter Property="Command" Value="{Binding PauseWorkflowServiceCommand}" />
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Warning}" />
+                                                        <TextBlock Text="{DynamicResource L.Firmware.PauseService}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsServicePaused}" Value="True">
+                                                    <Setter Property="Command" Value="{Binding ResumeWorkflowServiceCommand}" />
+                                                    <Setter Property="Content">
+                                                        <Setter.Value>
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                                <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="#30D158" />
+                                                                <TextBlock Text="{DynamicResource L.Firmware.ResumeService}" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- Cancel Service button (with confirmation) -->
+                                <Button Grid.Column="2" Command="{Binding CancelWorkflowServiceCommand}"
+                                        Style="{StaticResource MiniActionDanger}"
+                                        Height="26" Padding="6,0" FontSize="10.5"
+                                        ToolTip="{DynamicResource L.Firmware.CancelService}">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Danger}" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.CancelService}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
                 </Border>
             </Grid>
 
@@ -1152,35 +1184,13 @@
                                         </StackPanel>
                                     </Button>
 
-                                    <!-- 2. Check ALL devices button -->
-                                    <Button Command="{Binding CheckAllDevicesCommand}" Style="{StaticResource Button.Secondary}"
-                                            Height="28" Padding="10,0" FontSize="11" Margin="0,2,6,2"
-                                            ToolTip="{DynamicResource L.Firmware.CheckAll}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
-                                            <TextBlock Text="{Binding CheckAllButtonText}" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
-
-                                    <!-- 3. Batch Download button -->
+                                    <!-- Batch Download Selected button -->
                                     <Button Command="{Binding DownloadSelectedCommand}" Style="{StaticResource Button.Primary}"
-                                            Height="28" Padding="12,0" FontSize="11" Margin="0,2,6,2"
+                                            Height="28" Padding="12,0" FontSize="11" Margin="0,2,8,2"
                                             ToolTip="{DynamicResource L.Firmware.BatchDownloadHint}">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBlock Text="{Binding BatchButtonText}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
-
-                                    <!-- 4. Download ALL devices signed firmwares -->
-                                    <Button Command="{Binding DownloadAllMonitoredSignedCommand}" Style="{StaticResource Button.Primary}"
-                                            Height="28" Padding="12,0" FontSize="11" Margin="0,2,8,2"
-                                            Background="{DynamicResource Brush.Firmware}"
-                                            BorderBrush="{DynamicResource Brush.Firmware}"
-                                            ToolTip="{DynamicResource L.Firmware.DownloadAllSigned}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding DownloadAllButtonText}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
 
@@ -1509,34 +1519,59 @@
                         </Grid.RowDefinitions>
 
                         <!-- Header Bar -->
-                        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
+                            <!-- Right-aligned action buttons (docked first so they NEVER get pushed off) -->
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource Button.Secondary}"
+                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+                                        Command="{Binding PauseAllCommand}"
+                                        ToolTip="{DynamicResource L.Firmware.PauseAll}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Warning}" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.PauseService}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource Button.Secondary}"
+                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+                                        Command="{Binding ResumeAllCommand}"
+                                        ToolTip="{DynamicResource L.Firmware.ResumeAll}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="#30D158" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.ResumeService}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource Button.Secondary}"
+                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+                                        Command="{Binding ClearFinishedCommand}"
+                                        ToolTip="{DynamicResource L.Firmware.ClearFinished}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.ClearFinished}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource Button.Secondary}"
+                                        Height="26" Padding="8,0" FontSize="11"
+                                        Command="{Binding OpenFolderCommand}"
+                                        ToolTip="{DynamicResource L.Direct.OpenFolder}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Firmware}" />
+                                        <TextBlock Text="{DynamicResource L.Direct.OpenFolder}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Left: Title and Aggregate Status -->
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" />
-                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0">
+                                <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
                                         <TextBlock Text=" активных" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
                                     </StackPanel>
                                 </Border>
-                                <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="4,0,8,0" />
-                                <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" Margin="6,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-
-                            <!-- Right-aligned action buttons -->
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="{DynamicResource L.Firmware.PauseAll}" Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0"
-                                        Command="{Binding PauseAllCommand}" />
-                                <Button Content="{DynamicResource L.Firmware.ResumeAll}" Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0"
-                                        Command="{Binding ResumeAllCommand}" />
-                                <Button Content="{DynamicResource L.Firmware.ClearFinished}" Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="10,0" FontSize="11" Margin="0,0,6,0"
-                                        Command="{Binding ClearFinishedCommand}" />
-                                <Button Content="{DynamicResource L.Direct.OpenFolder}" Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="10,0" FontSize="11"
-                                        Command="{Binding OpenFolderCommand}" />
+                                <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="2,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" Margin="5,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </DockPanel>
 
@@ -1946,6 +1981,39 @@
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                                         <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifySha}" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="{DynamicResource L.Firmware.Settings.VerifyShaHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Group 5.1: Queue Mode (Sequential vs Parallel) -->
+                            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,6">
+                                        <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="{DynamicResource L.Firmware.Settings.QueueMode}" FontWeight="SemiBold" FontSize="13" />
+                                            <TextBlock Text="{DynamicResource L.Firmware.Settings.QueueMode.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <RadioButton Content="{DynamicResource L.Firmware.Settings.QueueMode.Sequential}" GroupName="FwModalQueueMode"
+                                                     Foreground="{StaticResource Brush.Text}"
+                                                     IsChecked="{Binding IsSequentialDownload}"
+                                                     Margin="0,0,24,0" />
+                                        <RadioButton Content="{DynamicResource L.Firmware.Settings.QueueMode.Parallel}" GroupName="FwModalQueueMode"
+                                                     Foreground="{StaticResource Brush.Text}"
+                                                     IsChecked="{Binding IsSequentialDownload, Converter={StaticResource InverseBool}}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Group 5.2: Auto-Start on Application Launch -->
+                            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}"
+                                              IsChecked="{Binding IsAutoStartOnLaunchEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </DockPanel>
                             </Border>

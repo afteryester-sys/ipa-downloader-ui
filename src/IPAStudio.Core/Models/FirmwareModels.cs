@@ -123,7 +123,7 @@ public sealed class FirmwareSegment
     public string PartPath { get; set; } = "";
 }
 
-public sealed record FirmwareDownloadProgress(long Downloaded, long Total, double BytesPerSecond, string? Phase = null)
+public sealed record FirmwareDownloadProgress(long Downloaded, long Total, double BytesPerSecond, string? Phase = null, double? PhasePercent = null)
 {
     public double Percent => Total > 0 ? Downloaded * 100d / Total : 0;
 }

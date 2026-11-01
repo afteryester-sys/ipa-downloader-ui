@@ -102,7 +102,8 @@ public sealed class FirmwareDownloadService
         FirmwarePendingDownload pending,
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool verifyHash = true)
     {
         var folder = Path.GetDirectoryName(pending.DestinationPath);
         if (string.IsNullOrWhiteSpace(folder)) throw new InvalidDataException("The interrupted download has no folder.");
@@ -112,7 +113,7 @@ public sealed class FirmwareDownloadService
             Sha1 = pending.Sha1,
             FileSize = pending.Total,
         };
-        return DownloadToAsync(firmware, folder, pending.DestinationPath, segmentCount, progress, ct);
+        return DownloadToAsync(firmware, folder, pending.DestinationPath, segmentCount, progress, ct, verifyHash);
     }
 
     public Task<string> DownloadAsync(
@@ -121,17 +122,19 @@ public sealed class FirmwareDownloadService
         string folder,
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
-        CancellationToken ct) =>
+        CancellationToken ct,
+        bool verifyHash = true) =>
         DownloadToAsync(firmware, folder, Path.Combine(folder, BuildFileName(device.Name, firmware.Version)),
-            segmentCount, progress, ct);
+            segmentCount, progress, ct, verifyHash);
 
     public Task<string> DownloadToFileAsync(
         FirmwareRelease firmware,
         string destinationPath,
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
-        CancellationToken ct) =>
-        DownloadToAsync(firmware, Path.GetDirectoryName(destinationPath) ?? "", destinationPath, segmentCount, progress, ct);
+        CancellationToken ct,
+        bool verifyHash = true) =>
+        DownloadToAsync(firmware, Path.GetDirectoryName(destinationPath) ?? "", destinationPath, segmentCount, progress, ct, verifyHash);
 
     private async Task<string> DownloadToAsync(
         FirmwareRelease firmware,
@@ -139,7 +142,8 @@ public sealed class FirmwareDownloadService
         string destination,
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool verifyHash = true)
     {
         Directory.CreateDirectory(folder);
         segmentCount = Math.Clamp(segmentCount, 1, 8);
@@ -269,25 +273,62 @@ public sealed class FirmwareDownloadService
         }
         else
         {
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling"));
-            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024, true))
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 0));
+            var copyBuffer = new byte[4 * 1024 * 1024]; // 4 MB buffer for high throughput
+            long assembledBytes = 0;
+            var assembleSw = Stopwatch.StartNew();
+            long lastAssembleReport = 0;
+
+            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
             {
                 foreach (var segment in manifest.Segments.OrderBy(s => s.Start))
                 {
-                    await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, true);
-                    await input.CopyToAsync(output, ct).ConfigureAwait(false);
+                    await using var input = new FileStream(segment.PartPath, FileMode.Open, FileAccess.Read, FileShare.Read, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+                    int read;
+                    while ((read = await input.ReadAsync(copyBuffer.AsMemory(0, copyBuffer.Length), ct).ConfigureAwait(false)) > 0)
+                    {
+                        await output.WriteAsync(copyBuffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                        assembledBytes += read;
+                        var nowMs = assembleSw.ElapsedMilliseconds;
+                        if (nowMs - lastAssembleReport >= 250)
+                        {
+                            lastAssembleReport = nowMs;
+                            var pct = length > 0 ? (assembledBytes * 100.0 / length) : 100;
+                            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", pct));
+                        }
+                    }
                 }
             }
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 100));
         }
 
         if (new FileInfo(temp).Length != length) throw new InvalidDataException("Downloaded firmware size does not match the API response.");
-        if (!string.IsNullOrWhiteSpace(firmware.Sha1))
+        if (verifyHash && !string.IsNullOrWhiteSpace(firmware.Sha1))
         {
-            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying"));
-            await using var input = File.OpenRead(temp);
-            var actual = Convert.ToHexString(await SHA1.HashDataAsync(input, ct).ConfigureAwait(false));
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 0));
+            using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
+            await using var input = new FileStream(temp, FileMode.Open, FileAccess.Read, FileShare.Read, 4 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var verifyBuffer = new byte[4 * 1024 * 1024];
+            long hashedBytes = 0;
+            var verifySw = Stopwatch.StartNew();
+            long lastVerifyReport = 0;
+            int read;
+            while ((read = await input.ReadAsync(verifyBuffer.AsMemory(0, verifyBuffer.Length), ct).ConfigureAwait(false)) > 0)
+            {
+                sha.AppendData(verifyBuffer, 0, read);
+                hashedBytes += read;
+                var nowMs = verifySw.ElapsedMilliseconds;
+                if (nowMs - lastVerifyReport >= 250)
+                {
+                    lastVerifyReport = nowMs;
+                    var pct = length > 0 ? (hashedBytes * 100.0 / length) : 100;
+                    progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", pct));
+                }
+            }
+            var actual = Convert.ToHexString(sha.GetHashAndReset());
             if (!actual.Equals(firmware.Sha1, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Firmware SHA-1 verification failed. Partial files were kept for diagnosis.");
+            progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 100));
         }
         File.Move(temp, destination, true);
         foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath)) File.Delete(segment.PartPath); }

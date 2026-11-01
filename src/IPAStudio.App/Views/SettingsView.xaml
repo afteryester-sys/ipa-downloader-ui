@@ -190,7 +190,27 @@
                     </Border>
 
                     <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.Settings.VerifySha}"
-                              IsChecked="{Binding FirmwareVerifyHash}" />
+                              IsChecked="{Binding FirmwareVerifyHash}" Margin="0,0,0,12" />
+
+                    <!-- Queue Mode: Sequential vs Parallel -->
+                    <TextBlock Text="{DynamicResource L.Firmware.Settings.QueueMode}" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <RadioButton Content="{DynamicResource L.Firmware.Settings.QueueMode.Sequential}" GroupName="FwQueueMode"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding FirmwareDownloadSequential}"
+                                     Margin="0,0,20,0" />
+                        <RadioButton Content="{DynamicResource L.Firmware.Settings.QueueMode.Parallel}" GroupName="FwQueueMode"
+                                     Foreground="{StaticResource Brush.Text}"
+                                     IsChecked="{Binding FirmwareDownloadSequential, Converter={StaticResource InverseBool}}" />
+                    </StackPanel>
+                    <TextBlock Text="{DynamicResource L.Firmware.Settings.QueueMode.Hint}"
+                               Style="{StaticResource Text.Caption}" FontSize="10.5" Margin="0,0,0,12" TextWrapping="Wrap" />
+
+                    <!-- Auto-start service on app launch -->
+                    <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch}"
+                              IsChecked="{Binding FirmwareAutoStartOnLaunch}" Margin="0,0,0,4" />
+                    <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch.Hint}"
+                               Style="{StaticResource Text.Caption}" FontSize="10.5" Margin="22,0,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 

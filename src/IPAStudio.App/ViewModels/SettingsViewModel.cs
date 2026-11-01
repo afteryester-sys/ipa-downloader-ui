@@ -94,6 +94,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private bool _firmwareVerifyHash = true;
 
+    [ObservableProperty]
+    private bool _firmwareDownloadSequential;
+
+    [ObservableProperty]
+    private bool _firmwareAutoStartOnLaunch;
+
     /// <summary>
     /// The iTunes "Mobile Applications" folder, for the iTunes 12.6.5.3 download route.
     /// Left blank on almost every machine: the default locations under Music are probed
@@ -542,6 +548,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         FirmwareAutoCheckEnabled = _settings.Current.FirmwareAutoCheckEnabled;
         FirmwareCheckIntervalHours = Math.Clamp(_settings.Current.FirmwareCheckIntervalHours, 1, 168);
         FirmwareVerifyHash = _settings.Current.FirmwareVerifyHash;
+        FirmwareDownloadSequential = _settings.Current.FirmwareDownloadSequential;
+        FirmwareAutoStartOnLaunch = _settings.Current.FirmwareAutoStartOnLaunch;
 
         var v = _updates.CurrentVersion;
         CurrentVersion = $"{v.Major}.{v.Minor}.{v.Build}";
@@ -864,6 +872,8 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.FirmwareAutoCheckEnabled = FirmwareAutoCheckEnabled;
         _settings.Current.FirmwareCheckIntervalHours = Math.Clamp(FirmwareCheckIntervalHours, 1, 168);
         _settings.Current.FirmwareVerifyHash = FirmwareVerifyHash;
+        _settings.Current.FirmwareDownloadSequential = FirmwareDownloadSequential;
+        _settings.Current.FirmwareAutoStartOnLaunch = FirmwareAutoStartOnLaunch;
         _settings.Save();
 
         // Applied live, without waiting for the current work to end: the throttle can change
