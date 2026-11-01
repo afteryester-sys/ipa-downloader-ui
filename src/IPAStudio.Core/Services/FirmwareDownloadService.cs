@@ -103,7 +103,8 @@ public sealed class FirmwareDownloadService
         int segmentCount,
         IProgress<FirmwareDownloadProgress>? progress,
         CancellationToken ct,
-        bool verifyHash = true)
+        bool verifyHash = true,
+        SemaphoreSlim? assemblyGate = null)
     {
         var folder = Path.GetDirectoryName(pending.DestinationPath);
         if (string.IsNullOrWhiteSpace(folder)) throw new InvalidDataException("The interrupted download has no folder.");
@@ -113,7 +114,7 @@ public sealed class FirmwareDownloadService
             Sha1 = pending.Sha1,
             FileSize = pending.Total,
         };
-        return DownloadToAsync(firmware, folder, pending.DestinationPath, segmentCount, progress, ct, verifyHash);
+        return DownloadToAsync(firmware, folder, pending.DestinationPath, segmentCount, progress, ct, verifyHash, assemblyGate);
     }
 
     public Task<string> DownloadAsync(

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Services;
 using IPAStudio.Core.Tools;
 using static IPAStudio.Core.Services.InstallMode;
@@ -89,7 +90,46 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private bool _firmwareAutoCheckEnabled = true;
 
     [ObservableProperty]
-    private int _firmwareCheckIntervalHours = 6;
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalBadgeText))]
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalSliderMin))]
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalSliderMax))]
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalSliderTick))]
+    private bool _firmwareCheckIntervalIsMinutes;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalBadgeText))]
+    [NotifyPropertyChangedFor(nameof(FirmwareCheckIntervalHours))]
+    private int _firmwareCheckIntervalValue = 6;
+
+    public int FirmwareCheckIntervalHours => FirmwareCheckIntervalIsMinutes
+        ? Math.Max(1, FirmwareCheckIntervalValue / 60)
+        : FirmwareCheckIntervalValue;
+
+    public double FirmwareCheckIntervalSliderMin => FirmwareCheckIntervalIsMinutes ? 5 : 1;
+    public double FirmwareCheckIntervalSliderMax => FirmwareCheckIntervalIsMinutes ? 120 : 72;
+    public double FirmwareCheckIntervalSliderTick => FirmwareCheckIntervalIsMinutes ? 5 : 1;
+
+    public string FirmwareCheckIntervalBadgeText => FirmwareCheckIntervalIsMinutes
+        ? $"{FirmwareCheckIntervalValue} {Loc.Get("L.Units.MinutesShort")}"
+        : $"{FirmwareCheckIntervalValue} {Loc.Get("L.Units.HoursShort")}";
+
+    [RelayCommand]
+    private void SetFirmwareIntervalUnit(string unit)
+    {
+        var isMin = string.Equals(unit, "min", StringComparison.OrdinalIgnoreCase);
+        if (FirmwareCheckIntervalIsMinutes == isMin) return;
+
+        if (isMin)
+        {
+            FirmwareCheckIntervalIsMinutes = true;
+            FirmwareCheckIntervalValue = Math.Clamp(FirmwareCheckIntervalValue * 60, 5, 120);
+        }
+        else
+        {
+            FirmwareCheckIntervalIsMinutes = false;
+            FirmwareCheckIntervalValue = Math.Clamp((int)Math.Round(FirmwareCheckIntervalValue / 60.0), 1, 72);
+        }
+    }
 
     [ObservableProperty]
     private bool _firmwareVerifyHash = true;
@@ -553,7 +593,13 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
         FirmwareDownloadThreads = Math.Clamp(_settings.Current.FirmwareDownloadThreads, 1, 16);
         FirmwareAutoCheckEnabled = _settings.Current.FirmwareAutoCheckEnabled;
-        FirmwareCheckIntervalHours = Math.Clamp(_settings.Current.FirmwareCheckIntervalHours, 1, 168);
+        FirmwareCheckIntervalIsMinutes = _settings.Current.FirmwareCheckIntervalIsMinutes;
+        var totalFwMin = _settings.Current.FirmwareCheckIntervalMinutes > 0
+            ? _settings.Current.FirmwareCheckIntervalMinutes
+            : _settings.Current.FirmwareCheckIntervalHours * 60;
+        FirmwareCheckIntervalValue = FirmwareCheckIntervalIsMinutes
+            ? Math.Clamp(totalFwMin, 5, 120)
+            : Math.Clamp(totalFwMin / 60, 1, 72);
         FirmwareVerifyHash = _settings.Current.FirmwareVerifyHash;
         FirmwareDownloadSequential = _settings.Current.FirmwareDownloadSequential;
         FirmwareAutoStartOnLaunch = _settings.Current.FirmwareAutoStartOnLaunch;
@@ -878,7 +924,12 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.FirmwareFolder = string.IsNullOrWhiteSpace(FirmwareFolder) ? null : FirmwareFolder;
         _settings.Current.FirmwareDownloadThreads = Math.Clamp(FirmwareDownloadThreads, 1, 16);
         _settings.Current.FirmwareAutoCheckEnabled = FirmwareAutoCheckEnabled;
-        _settings.Current.FirmwareCheckIntervalHours = Math.Clamp(FirmwareCheckIntervalHours, 1, 168);
+        var totalFwMinutes = FirmwareCheckIntervalIsMinutes
+            ? FirmwareCheckIntervalValue
+            : FirmwareCheckIntervalValue * 60;
+        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalFwMinutes, 5, 168 * 60);
+        _settings.Current.FirmwareCheckIntervalIsMinutes = FirmwareCheckIntervalIsMinutes;
+        _settings.Current.FirmwareCheckIntervalHours = Math.Max(1, totalFwMinutes / 60);
         _settings.Current.FirmwareVerifyHash = FirmwareVerifyHash;
         _settings.Current.FirmwareDownloadSequential = FirmwareDownloadSequential;
         _settings.Current.FirmwareAutoStartOnLaunch = FirmwareAutoStartOnLaunch;

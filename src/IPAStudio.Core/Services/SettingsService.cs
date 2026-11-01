@@ -343,8 +343,18 @@ public sealed class AppSettings
     /// <summary>Parallel HTTP Range segments used for one IPSW (1-8).</summary>
     public int FirmwareDownloadThreads { get; set; } = 4;
 
-    /// <summary>How often subscribed devices are checked for a new signed IPSW.</summary>
-    public int FirmwareCheckIntervalHours { get; set; } = 6;
+    /// <summary>How often subscribed devices are checked for a new signed IPSW in hours.</summary>
+    public int FirmwareCheckIntervalHours
+    {
+        get => Math.Max(1, FirmwareCheckIntervalMinutes / 60);
+        set => FirmwareCheckIntervalMinutes = value * 60;
+    }
+
+    /// <summary>Total minutes for the TSS check interval (supports sub-hour intervals, e.g. 15, 30 min).</summary>
+    public int FirmwareCheckIntervalMinutes { get; set; } = 360;
+
+    /// <summary>Whether the TSS check interval is set in minutes (true) or hours (false).</summary>
+    public bool FirmwareCheckIntervalIsMinutes { get; set; } = false;
 
     /// <summary>Whether automatic background checking for new IPSW releases is enabled.</summary>
     public bool FirmwareAutoCheckEnabled { get; set; } = true;

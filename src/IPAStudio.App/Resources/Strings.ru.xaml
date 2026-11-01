@@ -1111,4 +1111,13 @@
     <sys:String x:Key="L.Firmware.Log.ServicePaused">Служба прошивок приостановлена</sys:String>
     <sys:String x:Key="L.Firmware.Log.ServiceResumed">Служба прошивок возобновлена</sys:String>
     <sys:String x:Key="L.Firmware.Log.ServiceStopped">Служба прошивок остановлена, загрузки отменены</sys:String>
+    <!-- TSS Interval & Push Notifications & Network Recovery (v1.8.62) -->
+    <sys:String x:Key="L.Units.MinutesShort">мин</sys:String>
+    <sys:String x:Key="L.Units.HoursShort">ч</sys:String>
+    <sys:String x:Key="L.Firmware.WaitingForNetwork">Ожидание подключения к сети…</sys:String>
+    <sys:String x:Key="L.Firmware.ResumingDownload">Возобновление загрузки…</sys:String>
+    <sys:String x:Key="L.Firmware.NetworkRestored">Соединение с сетью восстановлено</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">Как часто опрашивать серверы Apple на наличие новых подписанных релизов</sys:String>
+    <sys:String x:Key="L.Settings.PushNotifications">Уведомления о завершённых задачах (пуш-уведомления)</sys:String>
+    <sys:String x:Key="L.Settings.PushNotificationsHint">Показывать всплывающие уведомления при завершении установки приложений, скачивания прошивок и резервного копирования</sys:String>
 </ResourceDictionary>

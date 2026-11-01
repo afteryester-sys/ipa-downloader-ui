@@ -1959,17 +1959,58 @@
                             <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <Slider Width="90" Minimum="1" Maximum="72" TickFrequency="1"
-                                                IsSnapToTickEnabled="True" Value="{Binding AutoCheckIntervalHours}" Margin="0,0,10,0" />
-                                        <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="6" Padding="8,3" MinWidth="40">
-                                            <TextBlock Text="{Binding AutoCheckIntervalHours, StringFormat='{}{0} ч'}" FontWeight="SemiBold" FontSize="12"
+                                        <!-- Unit Toggle: мин / ч -->
+                                        <Border Background="{DynamicResource Brush.Surface}" CornerRadius="6" Padding="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="{DynamicResource L.Units.MinutesShort}"
+                                                        Command="{Binding SetCheckIntervalUnitCommand}" CommandParameter="min"
+                                                        Padding="8,2" FontSize="11" Cursor="Hand">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AutoCheckIntervalIsMinutes}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                                    <Setter Property="Foreground" Value="White" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                <Button Content="{DynamicResource L.Units.HoursShort}"
+                                                        Command="{Binding SetCheckIntervalUnitCommand}" CommandParameter="hour"
+                                                        Padding="8,2" FontSize="11" Cursor="Hand">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                            <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AutoCheckIntervalIsMinutes}" Value="False">
+                                                                    <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                                    <Setter Property="Foreground" Value="White" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Slider Width="90" Minimum="{Binding AutoCheckIntervalSliderMin}"
+                                                Maximum="{Binding AutoCheckIntervalSliderMax}"
+                                                TickFrequency="{Binding AutoCheckIntervalSliderTick}"
+                                                IsSnapToTickEnabled="True"
+                                                Value="{Binding AutoCheckIntervalValue}" Margin="0,0,10,0" />
+                                        <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="6" Padding="8,3" MinWidth="48">
+                                            <TextBlock Text="{Binding AutoCheckIntervalBadgeText}" FontWeight="SemiBold" FontSize="12"
                                                        Foreground="{DynamicResource Brush.Firmware}"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
                                     </StackPanel>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Text="Периодичность автопроверки TSS" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="Как часто опрашивать серверы Apple на наличие новых подписанных релизов" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.CheckInterval}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.CheckInterval.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </DockPanel>
                             </Border>

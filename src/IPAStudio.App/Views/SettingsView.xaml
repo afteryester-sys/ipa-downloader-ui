@@ -173,10 +173,53 @@
                             Visibility="{Binding FirmwareAutoCheckEnabled, Converter={StaticResource BoolToVis}}">
                         <DockPanel>
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <Slider Width="110" Minimum="1" Maximum="72" TickFrequency="1"
-                                        IsSnapToTickEnabled="True" Value="{Binding FirmwareCheckIntervalHours}" Margin="0,0,10,0" />
-                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="6" Padding="8,3" MinWidth="42">
-                                    <TextBlock Text="{Binding FirmwareCheckIntervalHours, StringFormat='{}{0} ч'}" FontWeight="SemiBold" FontSize="11"
+                                <!-- Unit Toggle: мин / ч -->
+                                <Border Background="{DynamicResource Brush.Surface}" CornerRadius="6" Padding="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="{DynamicResource L.Units.MinutesShort}"
+                                                Command="{Binding SetFirmwareIntervalUnitCommand}" CommandParameter="min"
+                                                Padding="8,2" FontSize="11" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding FirmwareCheckIntervalIsMinutes}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                            <Setter Property="Foreground" Value="White" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="{DynamicResource L.Units.HoursShort}"
+                                                Command="{Binding SetFirmwareIntervalUnitCommand}" CommandParameter="hour"
+                                                Padding="8,2" FontSize="11" Cursor="Hand">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding FirmwareCheckIntervalIsMinutes}" Value="False">
+                                                            <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                            <Setter Property="Foreground" Value="White" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+
+                                <Slider Width="100"
+                                        Minimum="{Binding FirmwareCheckIntervalSliderMin}"
+                                        Maximum="{Binding FirmwareCheckIntervalSliderMax}"
+                                        TickFrequency="{Binding FirmwareCheckIntervalSliderTick}"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding FirmwareCheckIntervalValue}"
+                                        Margin="0,0,10,0" />
+                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="6" Padding="8,3" MinWidth="48">
+                                    <TextBlock Text="{Binding FirmwareCheckIntervalBadgeText}" FontWeight="SemiBold" FontSize="11"
                                                Foreground="{DynamicResource Brush.Firmware}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>

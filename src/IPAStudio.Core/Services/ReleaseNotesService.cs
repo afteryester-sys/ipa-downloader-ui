@@ -56,6 +56,23 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.62",
+                    date: "02.11.2026",
+                    title: "Интервал проверки в минутах и устойчивое автовозобновление загрузки",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Интервал автопроверки TSS в минутах или часах",
+                            "В настройках прошивок добавлен переключатель единиц измерения [мин | ч]. Теперь период автоопроса серверов Apple можно задавать от 5 минут (5–120 мин) либо в часах (1–72 ч) с плавной регулировкой слайдером."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Устойчивое автовозобновление скачивания при обрыве сети",
+                            "Загрузка прошивок теперь полностью устойчива к ночным сбоям интернета: при отключении сети процесс переходит в ожидание соединения, отслеживает доступность сети Windows и мгновенно продолжает скачивание с точного байта при восстановлении связи."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.61",
                     date: "02.11.2026",
                     title: "Запуск для всех устройств, прогресс в панели задач Windows, пуш-уведомления и конвейерная загрузка",
@@ -474,6 +491,23 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.62",
+                date: "11/02/2026",
+                title: "Minute-Based TSS Interval & Resilient Network Auto-Resume",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "TSS Check Interval in Minutes or Hours",
+                        "Added a segmented [min | h] unit selector for the TSS check interval in firmware settings. Checks can now be scheduled every 5–120 minutes or 1–72 hours with instant slider feedback."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Resilient Network Auto-Resume for Overnight Downloads",
+                        "Downloads left running overnight now automatically endure prolonged network outages. The service transitions to a waiting-for-network state and instantly resumes at the exact byte when connectivity is restored."),
+                }),
             new ReleaseNote(
                 version: "1.8.61",
                 date: "11/02/2026",

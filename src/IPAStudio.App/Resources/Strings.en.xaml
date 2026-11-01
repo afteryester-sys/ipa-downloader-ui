@@ -1113,4 +1113,13 @@
     <sys:String x:Key="L.Firmware.Log.ServicePaused">Firmware service paused</sys:String>
     <sys:String x:Key="L.Firmware.Log.ServiceResumed">Firmware service resumed</sys:String>
     <sys:String x:Key="L.Firmware.Log.ServiceStopped">Firmware service stopped, active downloads cancelled</sys:String>
+    <!-- TSS Interval & Push Notifications & Network Recovery (v1.8.62) -->
+    <sys:String x:Key="L.Units.MinutesShort">min</sys:String>
+    <sys:String x:Key="L.Units.HoursShort">h</sys:String>
+    <sys:String x:Key="L.Firmware.WaitingForNetwork">Waiting for network connection…</sys:String>
+    <sys:String x:Key="L.Firmware.ResumingDownload">Resuming download…</sys:String>
+    <sys:String x:Key="L.Firmware.NetworkRestored">Network connection restored</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">How often to poll Apple servers for new signed releases</sys:String>
+    <sys:String x:Key="L.Settings.PushNotifications">Completed task notifications (push toasts)</sys:String>
+    <sys:String x:Key="L.Settings.PushNotificationsHint">Show popup toast notifications when app installation, firmware download, or backup finishes</sys:String>
 </ResourceDictionary>

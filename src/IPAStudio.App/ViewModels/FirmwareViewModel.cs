@@ -62,7 +62,25 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares")
             : settings.Current.FirmwareFolder;
         SegmentCount = Math.Clamp(settings.Current.FirmwareDownloadThreads, 1, 16);
-        AutoCheckIntervalHours = Math.Clamp(settings.Current.FirmwareCheckIntervalHours, 1, 168);
+        AutoCheckIntervalIsMinutes = settings.Current.FirmwareCheckIntervalIsMinutes;
+        var totalMin = settings.Current.FirmwareCheckIntervalMinutes > 0
+            ? settings.Current.FirmwareCheckIntervalMinutes
+            : settings.Current.FirmwareCheckIntervalHours * 60;
+        AutoCheckIntervalValue = AutoCheckIntervalIsMinutes
+            ? Math.Clamp(totalMin, 5, 120)
+            : Math.Clamp(totalMin / 60, 1, 72);
+
+        System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, e) =>
+        {
+            if (e.IsAvailable)
+            {
+                System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
+                {
+                    AddActivityLog("🌐", Loc.Get("L.Firmware.NetworkRestored"));
+                    RecomputeAggregate();
+                });
+            }
+        };
         IsAutoCheckEnabled = settings.Current.FirmwareAutoCheckEnabled;
         VerifyHash = settings.Current.FirmwareVerifyHash;
         IsScheduleEnabled = settings.Current.FirmwareScheduleEnabled;
@@ -212,7 +230,54 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private string? _errorText;
     [ObservableProperty] private bool _autoUpdateSelected;
-    [ObservableProperty] private int _autoCheckIntervalHours = 6;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalBadgeText))]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalSliderMin))]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalSliderMax))]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalSliderTick))]
+    private bool _autoCheckIntervalIsMinutes;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalBadgeText))]
+    [NotifyPropertyChangedFor(nameof(AutoCheckIntervalHours))]
+    private int _autoCheckIntervalValue = 6;
+
+    public int AutoCheckIntervalHours => AutoCheckIntervalIsMinutes
+        ? Math.Max(1, AutoCheckIntervalValue / 60)
+        : AutoCheckIntervalValue;
+
+    public double AutoCheckIntervalSliderMin => AutoCheckIntervalIsMinutes ? 5 : 1;
+    public double AutoCheckIntervalSliderMax => AutoCheckIntervalIsMinutes ? 120 : 72;
+    public double AutoCheckIntervalSliderTick => AutoCheckIntervalIsMinutes ? 5 : 1;
+
+    public string AutoCheckIntervalBadgeText => AutoCheckIntervalIsMinutes
+        ? $"{AutoCheckIntervalValue} {Loc.Get("L.Units.MinutesShort")}"
+        : $"{AutoCheckIntervalValue} {Loc.Get("L.Units.HoursShort")}";
+
+    [RelayCommand]
+    private void SetCheckIntervalUnit(string unit)
+    {
+        var isMin = string.Equals(unit, "min", StringComparison.OrdinalIgnoreCase);
+        if (AutoCheckIntervalIsMinutes == isMin) return;
+
+        if (isMin)
+        {
+            AutoCheckIntervalIsMinutes = true;
+            AutoCheckIntervalValue = Math.Clamp(AutoCheckIntervalValue * 60, 5, 120);
+        }
+        else
+        {
+            AutoCheckIntervalIsMinutes = false;
+            AutoCheckIntervalValue = Math.Clamp((int)Math.Round(AutoCheckIntervalValue / 60.0), 1, 72);
+        }
+        PersistDownloadSettings();
+    }
+
+    partial void OnAutoCheckIntervalValueChanged(int value)
+    {
+        PersistDownloadSettings();
+    }
 
     // Aggregate state for the right-hand overall panel.
     [ObservableProperty] private double _overallProgress;
@@ -251,12 +316,6 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [RelayCommand] private void ClearHistory() => ActivityLogs.Clear();
 
     partial void OnActiveCountChanged(int value) => OnPropertyChanged(nameof(HasActiveJobs));
-
-    partial void OnAutoCheckIntervalHoursChanged(int value)
-    {
-        _settings.Current.FirmwareCheckIntervalHours = Math.Clamp(value, 1, 168);
-        _settings.Save();
-    }
 
     partial void OnSearchTextChanged(string value) => ApplyDeviceFilter();
 
@@ -342,7 +401,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private void CheckAutoTssInterval()
     {
         if (!IsAutoCheckEnabled || MyDevices.Count == 0 || IsChecking) return;
-        var interval = TimeSpan.FromHours(AutoCheckIntervalHours);
+        var interval = AutoCheckIntervalIsMinutes
+            ? TimeSpan.FromMinutes(Math.Clamp(AutoCheckIntervalValue, 5, 120))
+            : TimeSpan.FromHours(Math.Clamp(AutoCheckIntervalValue, 1, 72));
         if (DateTime.UtcNow - _lastPeriodicAutoCheck >= interval)
         {
             _lastPeriodicAutoCheck = DateTime.UtcNow;
@@ -1237,15 +1298,44 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         SegmentCount, reporter, job.Cts.Token, VerifyHash, _diskAssemblyGate);
                     break;
                 }
-                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException)
-                                           && attempt < 12 && !job.Cts.IsCancellationRequested)
+                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException or TimeoutException or System.Net.Sockets.SocketException)
+                                           && !job.Cts.IsCancellationRequested)
                 {
-                    var wait = Math.Min(30, 1 << Math.Min(attempt, 5));
+                    job.IsAssembling = false;
                     job.State = FirmwareJobState.Reconnecting;
-                    job.StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), wait);
-                    RecomputeAggregate();
-                    await Task.Delay(TimeSpan.FromSeconds(wait), job.Cts.Token);
-                    job.State = FirmwareJobState.Running;
+                    job.BytesPerSecond = 0;
+
+                    var isNetworkUp = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
+                    if (!isNetworkUp || attempt >= 5)
+                    {
+                        job.StatusText = Loc.Get("L.Firmware.WaitingForNetwork");
+                        operation.Detail = Loc.Get("L.Firmware.WaitingForNetwork");
+                        RecomputeAggregate();
+                        for (var w = 0; w < 7 && !job.Cts.IsCancellationRequested; w++)
+                        {
+                            await Task.Delay(1500, job.Cts.Token);
+                            if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var wait = Math.Min(30, 1 << Math.Min(attempt, 5));
+                        job.StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), wait);
+                        operation.Detail = job.StatusText;
+                        RecomputeAggregate();
+                        await Task.Delay(TimeSpan.FromSeconds(wait), job.Cts.Token);
+                    }
+
+                    if (!job.Cts.IsCancellationRequested)
+                    {
+                        job.StatusText = Loc.Get("L.Firmware.ResumingDownload");
+                        operation.Detail = job.StatusText;
+                        job.State = FirmwareJobState.Running;
+                        RecomputeAggregate();
+                    }
                 }
             }
 
@@ -1345,7 +1435,54 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         try
         {
-            await _downloads.ResumeAsync(pending, SegmentCount, reporter, job.Cts.Token, VerifyHash);
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    await _downloads.ResumeAsync(pending, SegmentCount, reporter, job.Cts.Token, VerifyHash, _diskAssemblyGate);
+                    break;
+                }
+                catch (Exception ex) when ((ex is HttpRequestException or IOException or EndOfStreamException or TimeoutException or System.Net.Sockets.SocketException)
+                                           && !job.Cts.IsCancellationRequested)
+                {
+                    job.IsAssembling = false;
+                    job.State = FirmwareJobState.Reconnecting;
+                    job.BytesPerSecond = 0;
+
+                    var isNetworkUp = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
+                    if (!isNetworkUp || attempt >= 5)
+                    {
+                        job.StatusText = Loc.Get("L.Firmware.WaitingForNetwork");
+                        operation.Detail = Loc.Get("L.Firmware.WaitingForNetwork");
+                        RecomputeAggregate();
+                        for (var w = 0; w < 7 && !job.Cts.IsCancellationRequested; w++)
+                        {
+                            await Task.Delay(1500, job.Cts.Token);
+                            if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
+                            {
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var wait = Math.Min(30, 1 << Math.Min(attempt, 5));
+                        job.StatusText = string.Format(Loc.Get("L.Firmware.Reconnecting"), wait);
+                        operation.Detail = job.StatusText;
+                        RecomputeAggregate();
+                        await Task.Delay(TimeSpan.FromSeconds(wait), job.Cts.Token);
+                    }
+
+                    if (!job.Cts.IsCancellationRequested)
+                    {
+                        job.StatusText = Loc.Get("L.Firmware.ResumingDownload");
+                        operation.Detail = job.StatusText;
+                        job.State = FirmwareJobState.Running;
+                        RecomputeAggregate();
+                    }
+                }
+            }
+
             job.State = FirmwareJobState.Done;
             job.Progress = 100;
             job.StatusText = Loc.Get("L.Firmware.Done");
@@ -1762,6 +1899,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         Directory.CreateDirectory(DestinationFolder);
         _settings.Current.FirmwareFolder = DestinationFolder;
         _settings.Current.FirmwareDownloadThreads = SegmentCount;
+        var totalMinutes = AutoCheckIntervalIsMinutes
+            ? AutoCheckIntervalValue
+            : AutoCheckIntervalValue * 60;
+        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalMinutes, 5, 168 * 60);
+        _settings.Current.FirmwareCheckIntervalIsMinutes = AutoCheckIntervalIsMinutes;
+        _settings.Current.FirmwareCheckIntervalHours = Math.Max(1, totalMinutes / 60);
         _settings.Save();
     }
 
