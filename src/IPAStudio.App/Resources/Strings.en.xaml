@@ -1142,4 +1142,8 @@
     <sys:String x:Key="L.Settings.TaskbarProgress.Hint">Taskbar button progress fill color during operations (Windows shell supports system green or amber)</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Green">Green (Windows default)</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Amber">Amber (accent)</sys:String>
+    <!-- Device card timestamps and Queue Header (v1.8.64) -->
+    <sys:String x:Key="L.Firmware.DeviceLastDownloaded">Downloaded: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.DeviceNeverDownloaded">Not downloaded</sys:String>
+    <sys:String x:Key="L.Firmware.ActiveCountSuffix">active</sys:String>
 </ResourceDictionary>

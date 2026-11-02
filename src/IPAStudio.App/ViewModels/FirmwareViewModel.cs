@@ -120,6 +120,13 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
     private bool _isAutoCheckEnabled = true;
+
+    partial void OnIsAutoCheckEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareAutoCheckEnabled = value;
+        _settings.Save();
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+    }
     [ObservableProperty] private bool _isScheduleEnabled;
     [ObservableProperty] private int _scheduleStartHour;
     [ObservableProperty] private int _scheduleEndHour = 6;
@@ -206,6 +213,11 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
     }
     [ObservableProperty] private int _segmentCount = 4;
+    partial void OnSegmentCountChanged(int value)
+    {
+        _settings.Current.FirmwareDownloadThreads = value;
+        _settings.Save();
+    }
     [ObservableProperty] private bool _signedOnly = true;
     [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
@@ -303,6 +315,8 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     public bool HasJobs => Jobs.Count > 0;
     public bool HasActiveJobs => ActiveCount > 0;
+    public bool HasResumableJobs => Jobs.Any(j => j.CanResume);
+    public bool HasFinishedJobs => Jobs.Any(j => j.State == FirmwareJobState.Done);
 
     public void AddActivityLog(string icon, string message)
     {
@@ -375,10 +389,17 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
         {
             // Prune completed jobs whose files were deleted externally from destination folder
+            // and remove any accidental duplicate jobs with identical destination path
+            var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (int i = Jobs.Count - 1; i >= 0; i--)
             {
                 var j = Jobs[i];
                 if (j.State == FirmwareJobState.Done && !File.Exists(j.DestinationPath))
+                {
+                    Jobs.RemoveAt(i);
+                    continue;
+                }
+                if (!seenPaths.Add(j.DestinationPath))
                 {
                     Jobs.RemoveAt(i);
                 }
@@ -591,7 +612,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     [RelayCommand] private void ToggleSettings() => IsSettingsOpen = !IsSettingsOpen;
     [RelayCommand] private void OpenSettings() => IsSettingsOpen = true;
-    [RelayCommand] private void CloseSettings() => IsSettingsOpen = false;
+    [RelayCommand]
+    private void CloseSettings()
+    {
+        PersistDownloadSettings();
+        IsSettingsOpen = false;
+    }
 
     [RelayCommand]
     private void SetThreads(object? arg)
@@ -874,16 +900,32 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         continue;
                     }
 
-                    // 2. Active, paused, or stale completed job already in memory
+                    // 2. Active, queued, paused, or stale completed job already in memory
                     var existing = Jobs.FirstOrDefault(j =>
-                        string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+                        string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) ||
+                        (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)));
                     if (existing is not null)
                     {
                         if (existing.State == FirmwareJobState.Done)
                         {
+                            if (fileOnDiskValid)
+                            {
+                                totalUpToDate++;
+                                continue;
+                            }
                             // File was deleted or missing on disk; remove stale completed job so it can re-download
                             Jobs.Remove(existing);
                             existing = null;
+                        }
+                        else if (existing.State == FirmwareJobState.Queued)
+                        {
+                            // Already waiting in queue — do not duplicate
+                            continue;
+                        }
+                        else if (existing.IsActive)
+                        {
+                            // Already actively downloading or assembling — do not duplicate
+                            continue;
                         }
                         else if (existing.CanResume)
                         {
@@ -892,8 +934,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                             AddActivityLog("▶️", $"{device.Name} ({release.Version}) — возобновление загрузки");
                             continue;
                         }
-                        else if (existing.IsActive)
+                        else
                         {
+                            // Any other state (e.g. waiting schedule) — do not duplicate
                             continue;
                         }
                     }
@@ -923,6 +966,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                     }
                 }
             }
+
+            RefreshAutoUpdateTimestamps();
+            LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
 
             if (totalEnqueued > 0 || totalResumed > 0)
             {
@@ -1056,14 +1102,28 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
             // Check if already in queue
             var existing = Jobs.FirstOrDefault(j =>
-                string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
+                string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)));
             if (existing is not null)
             {
                 if (existing.State == FirmwareJobState.Done)
                 {
+                    if (File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize)
+                    {
+                        alreadyDoneCount++;
+                        continue;
+                    }
                     // File was deleted or altered on disk: remove stale completed job so fresh download begins
                     Jobs.Remove(existing);
                     existing = null;
+                }
+                else if (existing.State == FirmwareJobState.Queued)
+                {
+                    continue;
+                }
+                else if (existing.IsActive)
+                {
+                    continue;
                 }
                 else if (existing.CanResume)
                 {
@@ -1071,7 +1131,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                     addedCount++;
                     continue;
                 }
-                else if (existing.IsActive)
+                else
                 {
                     continue;
                 }
@@ -1524,7 +1584,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Progress = 100;
             job.StatusText = Loc.Get("L.Firmware.Done");
             operation.Finish(OperationState.Done, job.StatusText);
-            TouchLastDownload();
+            TouchLastDownload(job.Device.Identifier);
         }
         catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||
                                    ex is OperationCanceledException ||
@@ -1709,6 +1769,10 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(ActiveJob));
         OnPropertyChanged(nameof(ServiceStatusBadgeText));
         OnPropertyChanged(nameof(IsServiceActive));
+        OnPropertyChanged(nameof(HasJobs));
+        OnPropertyChanged(nameof(HasActiveJobs));
+        OnPropertyChanged(nameof(HasResumableJobs));
+        OnPropertyChanged(nameof(HasFinishedJobs));
         ResumeAllCommand.NotifyCanExecuteChanged();
         UpdateDeviceDownloads();
 
@@ -1948,7 +2012,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private void RecordCompletedDownload(FirmwareDevice device, FirmwareRelease firmware, string path)
     {
         var subscription = _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == device.Identifier);
-        if (subscription is null) { TouchLastDownload(); return; }
+        if (subscription is null) { TouchLastDownload(device.Identifier); return; }
         var oldPath = subscription.LastFilePath;
         subscription.LastBuildId = firmware.BuildId;
         subscription.LastFilePath = path;
@@ -1971,11 +2035,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         RefreshAutoUpdateTimestamps();
     }
 
-    private void TouchLastDownload()
+    private void TouchLastDownload(string? identifier = null)
     {
-        var subscription = SelectedDevice is null
+        var targetId = identifier ?? SelectedDevice?.Identifier;
+        var subscription = targetId is null
             ? null
-            : _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == SelectedDevice.Identifier);
+            : _settings.Current.FirmwareSubscriptions.FirstOrDefault(s => s.Identifier == targetId);
         if (subscription is null) return;
         subscription.LastDownloadUtc = DateTimeOffset.UtcNow;
         _settings.Save();
@@ -2000,6 +2065,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         {
             var sub = subscriptions.FirstOrDefault(s => s.Identifier == dev.Identifier);
             dev.LastCheckText = Format(sub?.LastCheckUtc);
+            if (sub?.LastDownloadUtc is not null)
+            {
+                dev.HasDownloadedFirmware = true;
+                dev.LastDownloadText = string.Format(Loc.Get("L.Firmware.DeviceLastDownloaded"), sub.LastDownloadUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"));
+            }
+            else
+            {
+                dev.HasDownloadedFirmware = false;
+                dev.LastDownloadText = Loc.Get("L.Firmware.DeviceNeverDownloaded");
+            }
         }
 
         static string Format(DateTimeOffset? value) =>

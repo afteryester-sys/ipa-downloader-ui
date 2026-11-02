@@ -344,6 +344,7 @@ public sealed class AppSettings
     public int FirmwareDownloadThreads { get; set; } = 4;
 
     /// <summary>How often subscribed devices are checked for a new signed IPSW in hours.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public int FirmwareCheckIntervalHours
     {
         get => Math.Max(1, FirmwareCheckIntervalMinutes / 60);

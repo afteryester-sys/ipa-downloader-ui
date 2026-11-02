@@ -26,6 +26,7 @@ public sealed partial class FirmwareDownloadJob : ObservableObject
 {
     public FirmwareDevice Device { get; }
     public FirmwareRelease Firmware { get; }
+    public FirmwareRelease Release => Firmware;
     public string DestinationPath { get; }
     public bool IsSingleDownload { get; set; }
 

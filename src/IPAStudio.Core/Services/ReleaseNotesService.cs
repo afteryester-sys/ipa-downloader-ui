@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.64",
+                    date: "03.11.2026",
+                    title: "Надёжное сохранение настроек, исключение дубликатов очереди и отображение дат загрузок",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Сохранение настроек прошивок",
+                            "Устранён сброс интервала автопроверки TSS в минутах и параметров многопоточности при перезапуске приложения. Настройки теперь надёжно сохраняются в постоянную память."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Исключение дубликатов в очереди загрузок",
+                            "Устранена ошибка, при которой отсутствующая прошивка добавлялась в очередь повторно каждую минуту во время скачивания другого файла. Дубликаты полностью исключены."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Дата последней загрузки для каждого устройства",
+                            "В карточке каждого устройства отображается дата фактической загрузки прошивки («Загрузка: ДД.ММ.ГГГГ ЧЧ:ММ» или «Не загружалась»), а в шапке рядом с кнопкой обновления — точное время последней проверки Apple TSS, динамически обновляемое каждую минуту."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Адаптивные кнопки очереди и fluid-анимации",
+                            "Шапка очереди загрузок переведена на адаптивную сетку с автоматическим сокращением текста, что исключает наплывы при любом масштабе. Кнопки получили стиль Apple Liquid Glass, плавные анимации и лишённое пунктирных рамок оформление фокуса."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.63",
                     date: "03.11.2026",
                     title: "Интервал проверки от 1 минуты, автодокачивание удалённых прошивок и выбор цвета панели задач",
@@ -518,6 +545,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.64",
+                date: "11/03/2026",
+                title: "Reliable settings persistence, queue deduplication, and device download dates",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Firmware Settings Persistence",
+                        "Resolved an issue where TSS check minute intervals and thread settings reset upon application restart. All preferences are now reliably saved."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Queue Deduplication Guard",
+                        "Fixed an issue where absent firmwares were repeatedly re-added to the queue every minute during sequential downloading. Duplicate jobs are prevented."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Device Download Timestamps",
+                        "Each device card now displays its last download completion date, while the top header displays dynamic Apple TSS check freshness updating every minute."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Adaptive Queue Controls & Fluid Animations",
+                        "Queue header upgraded to an adaptive grid with responsive text trimming. Action buttons feature Apple Liquid Glass aesthetics, cubic easing animations, and clean focus styling."),
+                }),
             new ReleaseNote(
                 version: "1.8.63",
                 date: "11/03/2026",

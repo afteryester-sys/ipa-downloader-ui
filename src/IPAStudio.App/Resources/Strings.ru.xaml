@@ -1140,4 +1140,8 @@
     <sys:String x:Key="L.Settings.TaskbarProgress.Hint">Цвет заливки кнопки на панели задач при выполнении операций (ограничение Windows Shell: системный зелёный или янтарный)</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Green">Зелёный (системный Windows)</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Amber">Янтарный (акцент)</sys:String>
+    <!-- Device card timestamps and Queue Header (v1.8.64) -->
+    <sys:String x:Key="L.Firmware.DeviceLastDownloaded">Загрузка: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.DeviceNeverDownloaded">Не загружалась</sys:String>
+    <sys:String x:Key="L.Firmware.ActiveCountSuffix">активных</sys:String>
 </ResourceDictionary>

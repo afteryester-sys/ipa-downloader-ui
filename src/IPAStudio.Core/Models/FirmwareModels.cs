@@ -20,6 +20,8 @@ public class FirmwareDevice : INotifyPropertyChanged
     private string _downloadSpeedText = "";
     private string _downloadStatusText = "";
     private string _lastCheckText = "";
+    private string _lastDownloadText = "";
+    private bool _hasDownloadedFirmware;
 
     [JsonIgnore]
     public bool HasActiveDownload
@@ -54,6 +56,20 @@ public class FirmwareDevice : INotifyPropertyChanged
     {
         get => _lastCheckText;
         set { if (_lastCheckText != value) { _lastCheckText = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public string LastDownloadText
+    {
+        get => _lastDownloadText;
+        set { if (_lastDownloadText != value) { _lastDownloadText = value; OnPropertyChanged(); } }
+    }
+
+    [JsonIgnore]
+    public bool HasDownloadedFirmware
+    {
+        get => _hasDownloadedFirmware;
+        set { if (_hasDownloadedFirmware != value) { _hasDownloadedFirmware = value; OnPropertyChanged(); } }
     }
 }
 

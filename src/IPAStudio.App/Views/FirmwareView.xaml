@@ -194,6 +194,105 @@
             <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
         </Style>
 
+        <!-- Apple Liquid Glass Queue Action Button with fluid hover scale, tactile press and no dotted focus -->
+        <Style x:Key="QueueActionButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                Padding="{TemplateBinding Padding}"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                            </Border.RenderTransform>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.025" Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.025" Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.18">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.82" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="0.96" Duration="0:0:0.08" />
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="0.96" Duration="0:0:0.08" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.12" />
+                                            <DoubleAnimation Storyboard.TargetName="ButtonBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.12" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Segmented thread selection button with tactile hover and press scale -->
         <Style x:Key="SegmentThreadButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
@@ -727,8 +826,19 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </StackPanel.Style>
-                                                <Ellipse Width="4.5" Height="4.5" Fill="#30D158" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding LastCheckText}" FontSize="9"
+                                                <Ellipse Width="4.5" Height="4.5" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                    <Ellipse.Style>
+                                                        <Style TargetType="Ellipse">
+                                                            <Setter Property="Fill" Value="#30D158" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasDownloadedFirmware}" Value="False">
+                                                                    <Setter Property="Fill" Value="{DynamicResource Brush.TextMuted}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Ellipse.Style>
+                                                </Ellipse>
+                                                <TextBlock Text="{Binding LastDownloadText}" FontSize="9"
                                                            Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </StackPanel>
@@ -1518,62 +1628,77 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- Header Bar -->
-                        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="True">
-                            <!-- Right-aligned action buttons (docked first so they NEVER get pushed off) -->
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+                        <!-- Header Bar (Responsive 2-column layout to prevent any collision between progress and actions) -->
+                        <Grid Grid.Row="0" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Title, Active Badge, Speed, Size & Percentage (with responsive trimming) -->
+                            <Grid Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
+                                            <TextBlock Text="{DynamicResource L.Firmware.ActiveCountSuffix}" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" Margin="3,0,0,0" />
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="2,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center"
+                                               MaxWidth="170" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Brush.TextMuted}" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Right-aligned action buttons with Apple Liquid Glass styling and fluid animations -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Pause Active Downloads Button -->
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
                                         Command="{Binding PauseAllCommand}"
+                                        Visibility="{Binding HasActiveJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.PauseAll}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Warning}" />
+                                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10.5" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Warning}" />
                                         <TextBlock Text="{DynamicResource L.Firmware.PauseService}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+
+                                <!-- Resume Paused Downloads Button -->
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
                                         Command="{Binding ResumeAllCommand}"
+                                        Visibility="{Binding HasResumableJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.ResumeAll}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="#30D158" />
+                                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="10.5" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="#30D158" />
                                         <TextBlock Text="{DynamicResource L.Firmware.ResumeService}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="8,0" FontSize="11" Margin="0,0,5,0"
+
+                                <!-- Clear Finished Downloads Button -->
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
                                         Command="{Binding ClearFinishedCommand}"
+                                        Visibility="{Binding HasFinishedJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.ClearFinished}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="10" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.TextMuted}" />
                                         <TextBlock Text="{DynamicResource L.Firmware.ClearFinished}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                                <Button Style="{StaticResource Button.Secondary}"
-                                        Height="26" Padding="8,0" FontSize="11"
+
+                                <!-- Open Destination Folder Button -->
+                                <Button Style="{StaticResource QueueActionButton}"
                                         Command="{Binding OpenFolderCommand}"
                                         ToolTip="{DynamicResource L.Direct.OpenFolder}">
                                     <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Firmware}" />
+                                        <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Firmware}" />
                                         <TextBlock Text="{DynamicResource L.Direct.OpenFolder}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-
-                            <!-- Left: Title and Aggregate Status -->
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
-                                        <TextBlock Text=" активных" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
-                                    </StackPanel>
-                                </Border>
-                                <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="2,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" Margin="5,0,0,0" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </DockPanel>
+                        </Grid>
 
                         <!-- Overall Queue Progress Bar -->
                         <ProgressBar Grid.Row="1" Value="{Binding OverallProgress}" Maximum="100" Height="4"
