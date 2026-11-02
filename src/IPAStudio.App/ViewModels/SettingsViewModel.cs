@@ -105,9 +105,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         ? Math.Max(1, FirmwareCheckIntervalValue / 60)
         : FirmwareCheckIntervalValue;
 
-    public double FirmwareCheckIntervalSliderMin => FirmwareCheckIntervalIsMinutes ? 5 : 1;
+    public double FirmwareCheckIntervalSliderMin => 1;
     public double FirmwareCheckIntervalSliderMax => FirmwareCheckIntervalIsMinutes ? 120 : 72;
-    public double FirmwareCheckIntervalSliderTick => FirmwareCheckIntervalIsMinutes ? 5 : 1;
+    public double FirmwareCheckIntervalSliderTick => 1;
 
     public string FirmwareCheckIntervalBadgeText => FirmwareCheckIntervalIsMinutes
         ? $"{FirmwareCheckIntervalValue} {Loc.Get("L.Units.MinutesShort")}"
@@ -122,7 +122,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         if (isMin)
         {
             FirmwareCheckIntervalIsMinutes = true;
-            FirmwareCheckIntervalValue = Math.Clamp(FirmwareCheckIntervalValue * 60, 5, 120);
+            FirmwareCheckIntervalValue = Math.Clamp(FirmwareCheckIntervalValue * 60, 1, 120);
         }
         else
         {
@@ -170,6 +170,31 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     /// </summary>
     [ObservableProperty]
     private bool _taskCompletionNotificationsEnabled;
+
+    [ObservableProperty]
+    private string _taskbarProgressColorMode = "green";
+
+    public bool IsTaskbarColorGreen
+    {
+        get => !string.Equals(TaskbarProgressColorMode, "amber", StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            if (value) TaskbarProgressColorMode = "green";
+            OnPropertyChanged(nameof(IsTaskbarColorGreen));
+            OnPropertyChanged(nameof(IsTaskbarColorAmber));
+        }
+    }
+
+    public bool IsTaskbarColorAmber
+    {
+        get => string.Equals(TaskbarProgressColorMode, "amber", StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            if (value) TaskbarProgressColorMode = "amber";
+            OnPropertyChanged(nameof(IsTaskbarColorGreen));
+            OnPropertyChanged(nameof(IsTaskbarColorAmber));
+        }
+    }
 
     /// <summary>
     /// Writes routine background detail (device-poll tool calls, media pipeline timings)
@@ -598,8 +623,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             ? _settings.Current.FirmwareCheckIntervalMinutes
             : _settings.Current.FirmwareCheckIntervalHours * 60;
         FirmwareCheckIntervalValue = FirmwareCheckIntervalIsMinutes
-            ? Math.Clamp(totalFwMin, 5, 120)
+            ? Math.Clamp(totalFwMin, 1, 120)
             : Math.Clamp(totalFwMin / 60, 1, 72);
+        TaskbarProgressColorMode = _settings.Current.TaskbarProgressColorMode ?? "green";
         FirmwareVerifyHash = _settings.Current.FirmwareVerifyHash;
         FirmwareDownloadSequential = _settings.Current.FirmwareDownloadSequential;
         FirmwareAutoStartOnLaunch = _settings.Current.FirmwareAutoStartOnLaunch;
@@ -927,9 +953,10 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         var totalFwMinutes = FirmwareCheckIntervalIsMinutes
             ? FirmwareCheckIntervalValue
             : FirmwareCheckIntervalValue * 60;
-        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalFwMinutes, 5, 168 * 60);
+        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalFwMinutes, 1, 168 * 60);
         _settings.Current.FirmwareCheckIntervalIsMinutes = FirmwareCheckIntervalIsMinutes;
         _settings.Current.FirmwareCheckIntervalHours = Math.Max(1, totalFwMinutes / 60);
+        _settings.Current.TaskbarProgressColorMode = TaskbarProgressColorMode;
         _settings.Current.FirmwareVerifyHash = FirmwareVerifyHash;
         _settings.Current.FirmwareDownloadSequential = FirmwareDownloadSequential;
         _settings.Current.FirmwareAutoStartOnLaunch = FirmwareAutoStartOnLaunch;

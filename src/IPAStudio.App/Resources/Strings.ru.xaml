@@ -962,10 +962,10 @@
 
     <!-- Прошивки IPSW -->
     <sys:String x:Key="L.Firmware.Title">Прошивки</sys:String>
-    <sys:String x:Key="L.Firmware.Subtitle">Каталог IPSW для устройств Apple с паузой, многопоточной загрузкой и докачкой</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Официальные прошивки IPSW с многопоточной докачкой и проверкой подписей Apple TSS</sys:String>
     <sys:String x:Key="L.Firmware.Device">Устройство</sys:String>
     <sys:String x:Key="L.Firmware.Catalog">Каталог устройств</sys:String>
-    <sys:String x:Key="L.Firmware.CatalogHint">Начните вводить модель или идентификатор, затем добавьте устройство в свой список.</sys:String>
+    <sys:String x:Key="L.Firmware.CatalogHint">Введите название модели или идентификатор, чтобы добавить устройство для отслеживания.</sys:String>
     <sys:String x:Key="L.Firmware.MyDevices">Мои устройства</sys:String>
     <sys:String x:Key="L.Firmware.AddDevice">Добавить в мои устройства</sys:String>
     <sys:String x:Key="L.Firmware.RemoveDevice">Удалить из списка</sys:String>
@@ -986,13 +986,13 @@
     <sys:String x:Key="L.Firmware.Reconnecting">Соединение потеряно. Повтор через {0} сек…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Загрузка прошивки</sys:String>
     <sys:String x:Key="L.Firmware.Done">Прошивка загружена и проверена.</sys:String>
-    <sys:String x:Key="L.Firmware.Paused">Загрузка приостановлена. Нажмите «Скачать / продолжить», чтобы докачать файл.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Загрузка на паузе. Нажмите «Продолжить» для возобновления.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Не удалось загрузить прошивку.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Загружено устройств: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Найдите модели и выделите нужные: щёлкните с Ctrl или Shift, чтобы выбрать несколько.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Показано: {0} · выбрано: {1}</sys:String>
     <sys:String x:Key="L.Firmware.Queue">Загрузки</sys:String>
-    <sys:String x:Key="L.Firmware.QueueEmpty">Очередь пуста. Выберите устройство и нажмите «Скачать прошивку».</sys:String>
+    <sys:String x:Key="L.Firmware.QueueEmpty">Очередь загрузок пуста. Нажмите «Запуск» или выберите прошивку в каталоге.</sys:String>
     <sys:String x:Key="L.Firmware.Job">Прошивка</sys:String>
     <sys:String x:Key="L.Firmware.Overall">Общий прогресс</sys:String>
     <sys:String x:Key="L.Firmware.ActiveLabel">Активных</sys:String>
@@ -1034,7 +1034,7 @@
     <sys:String x:Key="L.Firmware.Settings.AutoCheck">Автопроверка</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Storage">Хранилище и Хэш</sys:String>
     <sys:String x:Key="L.Firmware.Settings.VerifySha">Верификация хэша после загрузки</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Сверяет SHA с официальным реестром Apple (защита от повреждения)</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Сверять контрольную сумму SHA-1 с базой Apple перед сохранением файла</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCache">Очистить кэш</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Удаляет незавершённые .part и .download.json файлы</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Apply">Готово</sys:String>
@@ -1059,7 +1059,7 @@
     <sys:String x:Key="L.Firmware.DownloadSelected">Скачать выбранные ({0})</sys:String>
     <sys:String x:Key="L.Firmware.DownloadAllSigned">Скачать все подписанные</sys:String>
     <sys:String x:Key="L.Firmware.SelectAllSigned">Выбрать все подписанные</sys:String>
-    <sys:String x:Key="L.Firmware.BatchDownloadHint">Скачать выбранные или все актуальные подписанные прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.BatchDownloadHint">Загрузить выбранные или актуальные подписанные прошивки</sys:String>
     <sys:String x:Key="L.Firmware.BatchAdded">Добавлено в очередь: {0} прошивок</sys:String>
     <sys:String x:Key="L.Firmware.AllAlreadyDownloaded">Все выбранные прошивки уже скачаны</sys:String>
     <sys:String x:Key="L.Firmware.NoFirmwaresToDownload">Нет доступных прошивок для скачивания</sys:String>
@@ -1082,16 +1082,16 @@
     <sys:String x:Key="L.Firmware.Log.DownloadFinished">Загрузка успешно завершена: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadPaused">Загрузка приостановлена: {0}</sys:String>
     <sys:String x:Key="L.Firmware.StartWorkflow">Запуск</sys:String>
-    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Проверить наличие, актуальность и докачать прошивки для выбранных моделей</sys:String>
-    <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">Все прошивки актуальны и полностью скачаны</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Проверить наличие и загрузить актуальные прошивки для добавленных устройств</sys:String>
+    <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">Все прошивки актуальны и загружены</sys:String>
     <sys:String x:Key="L.Firmware.Log.WorkflowStarted">Запуск проверки прошивок для {0} устр.</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CheckInterval">Периодичность автопроверки TSS</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode">Режим очереди загрузки</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Sequential">Последовательно (по очереди)</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Parallel">Параллельно (одновременно)</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Последовательно: файлы скачиваются строго по одному. Параллельно: несколько прошивок загружаются одновременно.</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Последовательно: загрузка файлов по очереди. Параллельно: одновременное скачивание нескольких прошивок.</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch">Автозапуск службы при старте приложения</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch.Hint">Автоматически проверять и докачивать актуальные прошивки при запуске IPA Studio</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch.Hint">Автоматически проверять и загружать актуальные прошивки при запуске IPA Studio</sys:String>
     <sys:String x:Key="L.Firmware.Service.Title">Служба TSS</sys:String>
     <sys:String x:Key="L.Firmware.Service.Active">Служба активна</sys:String>
     <sys:String x:Key="L.Firmware.Service.Disabled">Служба отключена</sys:String>
@@ -1117,7 +1117,27 @@
     <sys:String x:Key="L.Firmware.WaitingForNetwork">Ожидание подключения к сети…</sys:String>
     <sys:String x:Key="L.Firmware.ResumingDownload">Возобновление загрузки…</sys:String>
     <sys:String x:Key="L.Firmware.NetworkRestored">Соединение с сетью восстановлено</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">Как часто опрашивать серверы Apple на наличие новых подписанных релизов</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">Периодичность проверки новых подписанных прошивок на серверах Apple</sys:String>
     <sys:String x:Key="L.Settings.PushNotifications">Уведомления о завершённых задачах (пуш-уведомления)</sys:String>
     <sys:String x:Key="L.Settings.PushNotificationsHint">Показывать всплывающие уведомления при завершении установки приложений, скачивания прошивок и резервного копирования</sys:String>
+    <!-- Unslop UI Strings & Taskbar Progress Color (v1.8.63) -->
+    <sys:String x:Key="L.Firmware.Header.Build">Сборка</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Tss">Статус TSS</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Size">Размер</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Action">Действие</sys:String>
+    <sys:String x:Key="L.Firmware.NoDevices">Нет устройств</sys:String>
+    <sys:String x:Key="L.Firmware.NoDevicesHint">Нажмите «+ Добавить», чтобы отслеживать прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.SelectDeviceTitle">Выберите устройство</sys:String>
+    <sys:String x:Key="L.Firmware.SelectDeviceHint">Выберите модель слева для просмотра прошивок или скачайте файл по ссылке.</sys:String>
+    <sys:String x:Key="L.Firmware.AddDeviceButton">+ Добавить устройство</sys:String>
+    <sys:String x:Key="L.Firmware.LoadingList">Загрузка списка прошивок…</sys:String>
+    <sys:String x:Key="L.Firmware.NoFirmwaresFilter">Нет прошивок, соответствующих текущему фильтру</sys:String>
+    <sys:String x:Key="L.Firmware.SingleSelectModelPrompt">Выберите модель Apple выше</sys:String>
+    <sys:String x:Key="L.Firmware.SingleDirectUrlPrompt">Или укажите прямую ссылку на .ipsw для быстрой загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.ThreadsHint">Многопоточная загрузка Range-сегментами с CDN Apple</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoSavedHint">Настройки сохраняются автоматически</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Title">Цвет индикатора в панели задач Windows</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Hint">Цвет заливки кнопки на панели задач при выполнении операций (ограничение Windows Shell: системный зелёный или янтарный)</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Green">Зелёный (системный Windows)</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Amber">Янтарный (акцент)</sys:String>
 </ResourceDictionary>

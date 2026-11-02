@@ -964,10 +964,10 @@
 
     <!-- IPSW firmware -->
     <sys:String x:Key="L.Firmware.Title">Firmware</sys:String>
-    <sys:String x:Key="L.Firmware.Subtitle">Apple IPSW catalog with pause, multi-threaded downloads, and resume support</sys:String>
+    <sys:String x:Key="L.Firmware.Subtitle">Official IPSW firmwares with multi-threaded resume and Apple TSS signature checks</sys:String>
     <sys:String x:Key="L.Firmware.Device">Device</sys:String>
     <sys:String x:Key="L.Firmware.Catalog">Device catalog</sys:String>
-    <sys:String x:Key="L.Firmware.CatalogHint">Start typing a model or identifier, then add the device to your list.</sys:String>
+    <sys:String x:Key="L.Firmware.CatalogHint">Enter model name or device identifier to add device for monitoring.</sys:String>
     <sys:String x:Key="L.Firmware.MyDevices">My devices</sys:String>
     <sys:String x:Key="L.Firmware.AddDevice">Add to my devices</sys:String>
     <sys:String x:Key="L.Firmware.RemoveDevice">Remove from list</sys:String>
@@ -988,13 +988,13 @@
     <sys:String x:Key="L.Firmware.Reconnecting">Connection lost. Retrying in {0} sec…</sys:String>
     <sys:String x:Key="L.Firmware.Operation">Firmware download</sys:String>
     <sys:String x:Key="L.Firmware.Done">Firmware downloaded and verified.</sys:String>
-    <sys:String x:Key="L.Firmware.Paused">Download paused. Choose Download / resume to continue it.</sys:String>
+    <sys:String x:Key="L.Firmware.Paused">Download paused. Click "Resume" to continue.</sys:String>
     <sys:String x:Key="L.Firmware.Failed">Firmware download failed.</sys:String>
     <sys:String x:Key="L.Firmware.DevicesLoaded">Devices loaded: {0}</sys:String>
     <sys:String x:Key="L.Firmware.PickerHint">Search for models and highlight the ones you need: Ctrl-click or Shift-click to pick several.</sys:String>
     <sys:String x:Key="L.Firmware.PickerCount">Shown: {0} · selected: {1}</sys:String>
     <sys:String x:Key="L.Firmware.Queue">Downloads</sys:String>
-    <sys:String x:Key="L.Firmware.QueueEmpty">The queue is empty. Pick a device and choose Download firmware.</sys:String>
+    <sys:String x:Key="L.Firmware.QueueEmpty">Download queue is empty. Click "Start" or choose a firmware from the catalog.</sys:String>
     <sys:String x:Key="L.Firmware.Job">Firmware</sys:String>
     <sys:String x:Key="L.Firmware.Overall">Overall progress</sys:String>
     <sys:String x:Key="L.Firmware.ActiveLabel">Active</sys:String>
@@ -1036,7 +1036,7 @@
     <sys:String x:Key="L.Firmware.Settings.AutoCheck">Auto-check</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Storage">Storage &amp; Hash</sys:String>
     <sys:String x:Key="L.Firmware.Settings.VerifySha">Verify hash after download</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Checks SHA against Apple's official registry</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Verify SHA-1 checksum against Apple database before saving file</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCache">Clear Cache</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Deletes incomplete .part and .download.json files</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Apply">Done</sys:String>
@@ -1061,7 +1061,7 @@
     <sys:String x:Key="L.Firmware.DownloadSelected">Download Selected ({0})</sys:String>
     <sys:String x:Key="L.Firmware.DownloadAllSigned">Download All Signed</sys:String>
     <sys:String x:Key="L.Firmware.SelectAllSigned">Select All Signed</sys:String>
-    <sys:String x:Key="L.Firmware.BatchDownloadHint">Download selected or all active signed firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.BatchDownloadHint">Download selected or current signed firmwares</sys:String>
     <sys:String x:Key="L.Firmware.BatchAdded">Added to queue: {0} firmwares</sys:String>
     <sys:String x:Key="L.Firmware.AllAlreadyDownloaded">All selected firmwares are already downloaded</sys:String>
     <sys:String x:Key="L.Firmware.NoFirmwaresToDownload">No available firmwares to download</sys:String>
@@ -1084,16 +1084,16 @@
     <sys:String x:Key="L.Firmware.Log.DownloadFinished">Download completed: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.DownloadPaused">Download paused: {0}</sys:String>
     <sys:String x:Key="L.Firmware.StartWorkflow">Start</sys:String>
-    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Check presence, validity, and resume/download firmwares for selected models</sys:String>
+    <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Check availability and download current firmwares for monitored devices</sys:String>
     <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">All firmwares are current and downloaded</sys:String>
     <sys:String x:Key="L.Firmware.Log.WorkflowStarted">Started firmware workflow for {0} device(s)</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CheckInterval">TSS check interval</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode">Download Queue Mode</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Sequential">Sequential (one by one)</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Parallel">Parallel (concurrent)</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Sequential downloads files one after another. Parallel downloads multiple firmwares at once.</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Sequential: downloads one file at a time. Parallel: downloads multiple firmwares concurrently.</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch">Auto-start service on application launch</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch.Hint">Automatically check and resume current firmwares when IPA Studio starts</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch.Hint">Automatically check and download current firmwares on launch</sys:String>
     <sys:String x:Key="L.Firmware.Service.Title">TSS Service</sys:String>
     <sys:String x:Key="L.Firmware.Service.Active">Service Active</sys:String>
     <sys:String x:Key="L.Firmware.Service.Disabled">Service Disabled</sys:String>
@@ -1119,7 +1119,27 @@
     <sys:String x:Key="L.Firmware.WaitingForNetwork">Waiting for network connection…</sys:String>
     <sys:String x:Key="L.Firmware.ResumingDownload">Resuming download…</sys:String>
     <sys:String x:Key="L.Firmware.NetworkRestored">Network connection restored</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">How often to poll Apple servers for new signed releases</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">How often to check Apple servers for new signed firmwares</sys:String>
     <sys:String x:Key="L.Settings.PushNotifications">Completed task notifications (push toasts)</sys:String>
     <sys:String x:Key="L.Settings.PushNotificationsHint">Show popup toast notifications when app installation, firmware download, or backup finishes</sys:String>
+    <!-- Unslop UI Strings & Taskbar Progress Color (v1.8.63) -->
+    <sys:String x:Key="L.Firmware.Header.Build">Build</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Tss">TSS Status</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Size">Size</sys:String>
+    <sys:String x:Key="L.Firmware.Header.Action">Action</sys:String>
+    <sys:String x:Key="L.Firmware.NoDevices">No devices</sys:String>
+    <sys:String x:Key="L.Firmware.NoDevicesHint">Click "+ Add" to monitor firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.SelectDeviceTitle">Select a device</sys:String>
+    <sys:String x:Key="L.Firmware.SelectDeviceHint">Select a model on the left to view firmwares or download via direct link.</sys:String>
+    <sys:String x:Key="L.Firmware.AddDeviceButton">+ Add device</sys:String>
+    <sys:String x:Key="L.Firmware.LoadingList">Loading firmware list…</sys:String>
+    <sys:String x:Key="L.Firmware.NoFirmwaresFilter">No firmwares match current filter</sys:String>
+    <sys:String x:Key="L.Firmware.SingleSelectModelPrompt">Select an Apple model above</sys:String>
+    <sys:String x:Key="L.Firmware.SingleDirectUrlPrompt">Or paste direct link to .ipsw file for download</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.ThreadsHint">Multi-threaded HTTP Range downloading from Apple CDN</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoSavedHint">Settings are saved automatically</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Title">Windows taskbar progress indicator color</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Hint">Taskbar button progress fill color during operations (Windows shell supports system green or amber)</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Green">Green (Windows default)</sys:String>
+    <sys:String x:Key="L.Settings.TaskbarProgress.Amber">Amber (accent)</sys:String>
 </ResourceDictionary>

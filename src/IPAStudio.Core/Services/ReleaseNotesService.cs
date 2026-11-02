@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.63",
+                    date: "03.11.2026",
+                    title: "Интервал проверки от 1 минуты, автодокачивание удалённых прошивок и выбор цвета панели задач",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Интервал автопроверки TSS от 1 минуты",
+                            "Шкала интервала проверки серверов Apple теперь поддерживает выбор от 1 минуты (1–120 мин) с шагом в 1 минуту и мгновенным применением."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Автодокачивание удалённых с диска файлов",
+                            "Если скачанная прошивка была удалена или перемещена из папки, приложение автоматически очищает устаревший статус завершения и при очередном интервале проверки (или нажатии кнопки «Запуск») автоматически начинает скачивание файла заново."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "НОВОЕ",
+                            "Выбор цвета индикатора в панели задач Windows",
+                            "В настройки добавлен переключатель цвета заливки значка в панели задач: системный зелёный Windows (Normal) либо тёплый янтарный акцент (Amber)."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Лаконичный интерфейс меню прошивок (/unslop)",
+                            "Интерфейс раздела прошивок выверен по стандартам языка Apple: устранены канцеляризмы и лишний текст, унифицированы заголовки таблиц и всплывающие подсказки."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.62",
                     date: "02.11.2026",
                     title: "Интервал проверки в минутах и устойчивое автовозобновление загрузки",
@@ -491,6 +518,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.63",
+                date: "11/03/2026",
+                title: "1-Minute TSS Interval, Auto-Redownload of Deleted Files & Taskbar Color Mode",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "TSS Check Interval Down to 1 Minute",
+                        "The TSS auto-check slider now supports intervals down to 1 minute (1–120 min) with 1-minute step increments and immediate effect."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Automatic Redownload of Deleted Files",
+                        "If a downloaded firmware file is removed or moved from disk, the app automatically prunes the stale completed entry and re-downloads the firmware on the next check interval or when clicking 'Start'."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEATURE",
+                        "Windows Taskbar Progress Color Mode",
+                        "Added a setting to choose between standard Windows Green (Normal) and warm Amber accent progress on the taskbar button."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Crisp Firmware Interface (/unslop)",
+                        "Refined all labels, headers, and descriptions across the firmware module according to Apple HIG clarity standards."),
+                }),
             new ReleaseNote(
                 version: "1.8.62",
                 date: "11/02/2026",

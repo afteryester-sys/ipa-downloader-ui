@@ -390,6 +390,11 @@ public sealed class AppSettings
     public bool TaskCompletionNotificationsEnabled { get; set; } = false;
 
     /// <summary>
+    /// Color mode for the Windows taskbar progress indicator: "green" (default Windows system progress) or "amber" (warm accent progress).
+    /// </summary>
+    public string TaskbarProgressColorMode { get; set; } = "green";
+
+    /// <summary>
     /// Last application version for which the "What's New" release notes modal was displayed.
     /// When the running version is newer than this value (or if this is empty on an update),
     /// the release notes popup is presented once at startup with a smooth entrance animation.

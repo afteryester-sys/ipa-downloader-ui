@@ -168,8 +168,16 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     /// </summary>
     public event EventHandler? OperationMinimized;
 
-    public TaskbarItemProgressState TaskbarProgressState =>
-        Operations.HasRunning ? TaskbarItemProgressState.Normal : TaskbarItemProgressState.None;
+    public TaskbarItemProgressState TaskbarProgressState
+    {
+        get
+        {
+            if (!Operations.HasRunning) return TaskbarItemProgressState.None;
+            return string.Equals(_settings.Current.TaskbarProgressColorMode, "amber", StringComparison.OrdinalIgnoreCase)
+                ? TaskbarItemProgressState.Paused
+                : TaskbarItemProgressState.Normal;
+        }
+    }
 
     public double TaskbarProgressValue =>
         Operations.HasRunning ? Math.Clamp(Operations.OverallProgress / 100.0, 0.0, 1.0) : 0.0;
@@ -187,6 +195,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         Operations = operations;
         WhatsNew = whatsNew;
         _settings = settings;
+        _settings.Changed += (_, _) => OnPropertyChanged(nameof(TaskbarProgressState));
 
         Operations.ReturnRequested += (_, op) => GoToOperation(op);
         Operations.MinimizeRequested += (_, op) => MinimizeOperation(op);

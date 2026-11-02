@@ -67,7 +67,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             ? settings.Current.FirmwareCheckIntervalMinutes
             : settings.Current.FirmwareCheckIntervalHours * 60;
         AutoCheckIntervalValue = AutoCheckIntervalIsMinutes
-            ? Math.Clamp(totalMin, 5, 120)
+            ? Math.Clamp(totalMin, 1, 120)
             : Math.Clamp(totalMin / 60, 1, 72);
 
         System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged += (_, e) =>
@@ -247,9 +247,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         ? Math.Max(1, AutoCheckIntervalValue / 60)
         : AutoCheckIntervalValue;
 
-    public double AutoCheckIntervalSliderMin => AutoCheckIntervalIsMinutes ? 5 : 1;
+    public double AutoCheckIntervalSliderMin => 1;
     public double AutoCheckIntervalSliderMax => AutoCheckIntervalIsMinutes ? 120 : 72;
-    public double AutoCheckIntervalSliderTick => AutoCheckIntervalIsMinutes ? 5 : 1;
+    public double AutoCheckIntervalSliderTick => 1;
 
     public string AutoCheckIntervalBadgeText => AutoCheckIntervalIsMinutes
         ? $"{AutoCheckIntervalValue} {Loc.Get("L.Units.MinutesShort")}"
@@ -264,13 +264,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         if (isMin)
         {
             AutoCheckIntervalIsMinutes = true;
-            AutoCheckIntervalValue = Math.Clamp(AutoCheckIntervalValue * 60, 5, 120);
+            AutoCheckIntervalValue = Math.Clamp(AutoCheckIntervalValue * 60, 1, 120);
         }
         else
         {
             AutoCheckIntervalIsMinutes = false;
             AutoCheckIntervalValue = Math.Clamp((int)Math.Round(AutoCheckIntervalValue / 60.0), 1, 72);
         }
+        _lastPeriodicAutoCheck = DateTime.UtcNow;
         PersistDownloadSettings();
     }
 
@@ -371,10 +372,25 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private void EvaluateSchedule()
     {
-        if (!IsScheduleEnabled) return;
-        var inSchedule = IsCurrentTimeInSchedule();
         System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
         {
+            // Prune completed jobs whose files were deleted externally from destination folder
+            for (int i = Jobs.Count - 1; i >= 0; i--)
+            {
+                var j = Jobs[i];
+                if (j.State == FirmwareJobState.Done && !File.Exists(j.DestinationPath))
+                {
+                    Jobs.RemoveAt(i);
+                }
+            }
+
+            if (!IsScheduleEnabled)
+            {
+                RecomputeAggregate();
+                return;
+            }
+
+            var inSchedule = IsCurrentTimeInSchedule();
             if (!inSchedule)
             {
                 foreach (var job in Jobs.Where(j => j.IsActive).ToList())
@@ -402,14 +418,14 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     {
         if (!IsAutoCheckEnabled || MyDevices.Count == 0 || IsChecking) return;
         var interval = AutoCheckIntervalIsMinutes
-            ? TimeSpan.FromMinutes(Math.Clamp(AutoCheckIntervalValue, 5, 120))
+            ? TimeSpan.FromMinutes(Math.Clamp(AutoCheckIntervalValue, 1, 120))
             : TimeSpan.FromHours(Math.Clamp(AutoCheckIntervalValue, 1, 72));
         if (DateTime.UtcNow - _lastPeriodicAutoCheck >= interval)
         {
             _lastPeriodicAutoCheck = DateTime.UtcNow;
             System.Windows.Application.Current?.Dispatcher?.InvokeAsync(async () =>
             {
-                await CheckAllDevicesAsync();
+                await StartFirmwareWorkflowAsync();
             });
         }
     }
@@ -850,25 +866,36 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                     var partPath = destination + ".part";
 
                     // 1. Fully downloaded and matches size
-                    if (File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize)
+                    var fileOnDiskValid = File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize;
+                    if (fileOnDiskValid)
                     {
                         totalUpToDate++;
                         AddActivityLog("✅", $"{device.Name} ({release.Version}) — актуальна и скачана");
                         continue;
                     }
 
-                    // 2. Active or paused job already in memory
+                    // 2. Active, paused, or stale completed job already in memory
                     var existing = Jobs.FirstOrDefault(j =>
                         string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
                     if (existing is not null)
                     {
-                        if (existing.CanResume)
+                        if (existing.State == FirmwareJobState.Done)
+                        {
+                            // File was deleted or missing on disk; remove stale completed job so it can re-download
+                            Jobs.Remove(existing);
+                            existing = null;
+                        }
+                        else if (existing.CanResume)
                         {
                             ResumeJob(existing);
                             totalResumed++;
                             AddActivityLog("▶️", $"{device.Name} ({release.Version}) — возобновление загрузки");
+                            continue;
                         }
-                        continue;
+                        else if (existing.IsActive)
+                        {
+                            continue;
+                        }
                     }
 
                     // 3. Needs to be downloaded / resumed
@@ -1032,12 +1059,22 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase));
             if (existing is not null)
             {
-                if (existing.CanResume)
+                if (existing.State == FirmwareJobState.Done)
+                {
+                    // File was deleted or altered on disk: remove stale completed job so fresh download begins
+                    Jobs.Remove(existing);
+                    existing = null;
+                }
+                else if (existing.CanResume)
                 {
                     ResumeJob(existing);
                     addedCount++;
+                    continue;
                 }
-                continue;
+                else if (existing.IsActive)
+                {
+                    continue;
+                }
             }
 
             var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: isSingle);
@@ -1902,7 +1939,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         var totalMinutes = AutoCheckIntervalIsMinutes
             ? AutoCheckIntervalValue
             : AutoCheckIntervalValue * 60;
-        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalMinutes, 5, 168 * 60);
+        _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalMinutes, 1, 168 * 60);
         _settings.Current.FirmwareCheckIntervalIsMinutes = AutoCheckIntervalIsMinutes;
         _settings.Current.FirmwareCheckIntervalHours = Math.Max(1, totalMinutes / 60);
         _settings.Save();

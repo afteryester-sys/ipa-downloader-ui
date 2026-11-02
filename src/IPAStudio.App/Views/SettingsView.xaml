@@ -304,7 +304,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- Task Completion Notifications -->
+            <!-- Task Completion Notifications & Taskbar Progress -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="{DynamicResource L.Settings.Notifications}" Style="{StaticResource Text.Body}"
@@ -314,6 +314,20 @@
                               IsChecked="{Binding TaskCompletionNotificationsEnabled}" />
                     <TextBlock Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,8,0,0"
                                Text="{DynamicResource L.Settings.Notifications.TaskCompletion.Hint}" />
+
+                    <!-- Taskbar Progress Color -->
+                    <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="0,12,0,0" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource L.Settings.TaskbarProgress.Title}" FontWeight="SemiBold" FontSize="12.5" Margin="0,0,0,4" />
+                            <TextBlock Text="{DynamicResource L.Settings.TaskbarProgress.Hint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Content="{DynamicResource L.Settings.TaskbarProgress.Green}" GroupName="TaskbarColor"
+                                             Foreground="{StaticResource Brush.Text}" IsChecked="{Binding IsTaskbarColorGreen}" Margin="0,0,24,0" />
+                                <RadioButton Content="{DynamicResource L.Settings.TaskbarProgress.Amber}" GroupName="TaskbarColor"
+                                             Foreground="{StaticResource Brush.Text}" IsChecked="{Binding IsTaskbarColorAmber}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 

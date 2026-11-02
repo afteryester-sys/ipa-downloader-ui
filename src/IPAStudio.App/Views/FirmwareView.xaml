@@ -563,9 +563,9 @@
                                             VerticalAlignment="Top" Margin="0,3,0,0" />
                                 </Border>
                             </Border>
-                            <TextBlock Text="Нет устройств" FontSize="12" FontWeight="SemiBold"
+                            <TextBlock Text="{DynamicResource L.Firmware.NoDevices}" FontSize="12" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.Text}" HorizontalAlignment="Center" />
-                            <TextBlock Text="Нажмите «+ Добавить», чтобы отслеживать прошивки"
+                            <TextBlock Text="{DynamicResource L.Firmware.NoDevicesHint}"
                                        FontSize="10" Foreground="{DynamicResource Brush.TextMuted}" TextAlignment="Center"
                                        TextWrapping="Wrap" Opacity="0.75" Margin="0,4,0,0" />
                         </StackPanel>
@@ -1035,13 +1035,13 @@
                                                 VerticalAlignment="Top" Margin="0,3.5,0,0" />
                                     </Border>
                                 </Border>
-                                <TextBlock Text="Выберите устройство" FontSize="17" FontWeight="SemiBold"
+                                <TextBlock Text="{DynamicResource L.Firmware.SelectDeviceTitle}" FontSize="17" FontWeight="SemiBold"
                                            HorizontalAlignment="Center" Margin="0,0,0,8" />
-                                <TextBlock Text="Выберите устройство из списка слева для просмотра доступных официальных прошивок и проверки статуса цифровой подписи Apple TSS, либо воспользуйтесь разовым скачиванием."
+                                <TextBlock Text="{DynamicResource L.Firmware.SelectDeviceHint}"
                                            Style="{StaticResource Text.Caption}" FontSize="12" TextAlignment="Center"
                                            TextWrapping="Wrap" Margin="0,0,0,20" />
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <Button Content="+ Добавить устройство" Style="{StaticResource Button.Primary}"
+                                    <Button Content="{DynamicResource L.Firmware.AddDeviceButton}" Style="{StaticResource Button.Primary}"
                                             Click="AddDevices_Click" Height="34" Padding="18,0" FontSize="12" Margin="0,0,12,0" />
                                     <Button Command="{Binding SwitchToSingleModeCommand}" Style="{StaticResource Button.Secondary}"
                                             Height="34" Padding="16,0" FontSize="12">
@@ -1218,10 +1218,10 @@
                                           ToolTip="{DynamicResource L.Firmware.SelectAllSigned}"
                                           Margin="10,0,0,0" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="2" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="3" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="4" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                <TextBlock Grid.Column="5" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Text="{DynamicResource L.Firmware.Header.Build}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="3" Text="{DynamicResource L.Firmware.Header.Tss}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="4" Text="{DynamicResource L.Firmware.Header.Size}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                <TextBlock Grid.Column="5" Text="{DynamicResource L.Firmware.Header.Action}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
                             </Grid>
 
                             <!-- Firmwares List & Loading/Empty indicator -->
@@ -1230,7 +1230,7 @@
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
                                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
                                     <ProgressBar IsIndeterminate="True" Width="140" Height="4" Style="{StaticResource Progress.Slim}" Margin="0,0,0,10" />
-                                    <TextBlock Text="Загрузка списка прошивок..." Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{DynamicResource L.Firmware.LoadingList}" Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" />
                                 </StackPanel>
 
                                 <!-- Empty list when loaded but 0 items -->
@@ -1249,7 +1249,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
-                                    <TextBlock Text="Нет прошивок, соответствующих текущему фильтру"
+                                    <TextBlock Text="{DynamicResource L.Firmware.NoFirmwaresFilter}"
                                                Style="{StaticResource Text.Caption}" HorizontalAlignment="Center" />
                                 </StackPanel>
 
@@ -1403,9 +1403,9 @@
                                                     VerticalAlignment="Top" Margin="0,3.5,0,0" />
                                         </Border>
                                     </Border>
-                                    <TextBlock Text="Выберите модель устройства в выпадающем списке выше"
+                                    <TextBlock Text="{DynamicResource L.Firmware.SingleSelectModelPrompt}"
                                                FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Либо вставьте прямую ссылку на .ipsw файл для мгновенной загрузки"
+                                    <TextBlock Text="{DynamicResource L.Firmware.SingleDirectUrlPrompt}"
                                                Style="{StaticResource Text.Caption}" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0" />
                                 </StackPanel>
                             </Grid>
@@ -1427,10 +1427,10 @@
                                         <ColumnDefinition Width="1.5*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{DynamicResource L.Firmware.Release}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" />
-                                    <TextBlock Grid.Column="1" Text="Сборка" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                    <TextBlock Grid.Column="2" Text="Статус TSS" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                    <TextBlock Grid.Column="3" Text="Размер" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
-                                    <TextBlock Grid.Column="4" Text="Действие" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Firmware.Header.Build}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="2" Text="{DynamicResource L.Firmware.Header.Tss}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="3" Text="{DynamicResource L.Firmware.Header.Size}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="6,6" />
+                                    <TextBlock Grid.Column="4" Text="{DynamicResource L.Firmware.Header.Action}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="10,6" HorizontalAlignment="Right" />
                                 </Grid>
 
                                 <!-- Single Firmwares List -->
@@ -1914,7 +1914,7 @@
                                     </Border>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                                         <TextBlock Text="{DynamicResource L.Firmware.Threads}" FontWeight="SemiBold" FontSize="13" />
-                                        <TextBlock Text="Параллельные HTTP Range потоки ускоряют загрузку с CDN Apple" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.ThreadsHint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </DockPanel>
                             </Border>
@@ -2077,7 +2077,7 @@
                         <Button DockPanel.Dock="Right" Content="{DynamicResource L.Firmware.Settings.Apply}"
                                 Style="{StaticResource Button.Primary}" Command="{Binding CloseSettingsCommand}"
                                 Padding="24,8" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Right" />
-                        <TextBlock Text="Все настройки сохраняются автоматически" Style="{StaticResource Text.Caption}"
+                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoSavedHint}" Style="{StaticResource Text.Caption}"
                                    VerticalAlignment="Center" FontSize="12" Margin="0,0,16,0" />
                     </DockPanel>
                 </StackPanel>
