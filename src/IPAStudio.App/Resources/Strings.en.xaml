@@ -1076,7 +1076,7 @@
     <sys:String x:Key="L.Firmware.History.Tooltip">History of checks, additions, and firmware downloads</sys:String>
     <sys:String x:Key="L.Firmware.History.Clear">Clear</sys:String>
     <sys:String x:Key="L.Firmware.History.Empty">No activity records yet</sys:String>
-    <sys:String x:Key="L.Firmware.LastChecked">Firmwares up to date as of {0}</sys:String>
+    <sys:String x:Key="L.Firmware.LastChecked">Updated at: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.CheckedTss">Checked TSS signing status for {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.CheckedAllTss">Checked TSS signing status for all devices ({0})</sys:String>
     <sys:String x:Key="L.Firmware.Log.DeviceAdded">Device added to subscriptions: {0}</sys:String>

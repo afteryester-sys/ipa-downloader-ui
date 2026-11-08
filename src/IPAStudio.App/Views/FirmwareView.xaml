@@ -197,10 +197,10 @@
         <!-- Apple Liquid Glass Queue Action Button with fluid hover scale, tactile press and no dotted focus -->
         <Style x:Key="QueueActionButton" TargetType="Button">
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0" />
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
@@ -213,7 +213,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="7"
+                                CornerRadius="14"
                                 Padding="{TemplateBinding Padding}"
                                 RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
@@ -224,17 +224,18 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Firmware}" />
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="1.025" Duration="0:0:0.14">
+                                                             To="1.04" Duration="0:0:0.12">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="1.025" Duration="0:0:0.14">
+                                                             To="1.04" Duration="0:0:0.12">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                         </Storyboard>
@@ -245,12 +246,12 @@
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="1.0" Duration="0:0:0.18">
+                                                             To="1.0" Duration="0:0:0.16">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="1.0" Duration="0:0:0.18">
+                                                             To="1.0" Duration="0:0:0.16">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                         </Storyboard>
@@ -258,16 +259,20 @@
                                 </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.82" />
+                                <Setter TargetName="ButtonBorder" Property="Opacity" Value="0.85" />
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="0.96" Duration="0:0:0.08" />
+                                                             To="0.94" Duration="0:0:0.06">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="0.96" Duration="0:0:0.08" />
+                                                             To="0.94" Duration="0:0:0.06">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.EnterActions>
@@ -276,16 +281,20 @@
                                         <Storyboard>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                             To="1.0" Duration="0:0:0.12" />
+                                                             To="1.0" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction><BackEase Amplitude="0.3" EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
                                             <DoubleAnimation Storyboard.TargetName="ButtonBorder"
                                                              Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                             To="1.0" Duration="0:0:0.12" />
+                                                             To="1.0" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction><BackEase Amplitude="0.3" EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
                                         </Storyboard>
                                     </BeginStoryboard>
                                 </Trigger.ExitActions>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Opacity" Value="0.4" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1635,28 +1644,25 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Left: Title, Active Badge, Speed, Size & Percentage (with responsive trimming) -->
-                            <Grid Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
-                                            <TextBlock Text="{DynamicResource L.Firmware.ActiveCountSuffix}" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" Margin="3,0,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                    <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="2,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center"
-                                               MaxWidth="170" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource Brush.TextMuted}" Margin="5,0,0,0" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Grid>
+                            <!-- Left: Title, Active Badge, Speed, Size & Percentage -->
+                            <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,2">
+                                <TextBlock Text="{DynamicResource L.Firmware.Queue.Title}" FontWeight="Bold" FontSize="13" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource Brush.FirmwareSoft}" CornerRadius="10" Padding="8,2" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding ActiveCount}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.ActiveCountSuffix}" FontSize="11" Foreground="{DynamicResource Brush.Firmware}" Margin="3,0,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock Text="{Binding OverallSpeedText}" FontWeight="SemiBold" FontSize="12" Foreground="#30D158" Margin="2,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding OverallSizeText}" Style="{StaticResource Text.Caption}" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding OverallProgress, StringFormat='({0:F0}%)'}" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Brush.TextMuted}" VerticalAlignment="Center" />
+                            </WrapPanel>
 
-                            <!-- Right-aligned action buttons with Apple Liquid Glass styling and fluid animations -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Right-aligned action buttons with Apple Liquid Glass styling and fluid animations in WrapPanel -->
+                            <WrapPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <!-- Pause Active Downloads Button -->
-                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,2"
                                         Command="{Binding PauseAllCommand}"
                                         Visibility="{Binding HasActiveJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.PauseAll}">
@@ -1667,7 +1673,7 @@
                                 </Button>
 
                                 <!-- Resume Paused Downloads Button -->
-                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,2"
                                         Command="{Binding ResumeAllCommand}"
                                         Visibility="{Binding HasResumableJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.ResumeAll}">
@@ -1678,7 +1684,7 @@
                                 </Button>
 
                                 <!-- Clear Finished Downloads Button -->
-                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,0"
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,6,2"
                                         Command="{Binding ClearFinishedCommand}"
                                         Visibility="{Binding HasFinishedJobs, Converter={StaticResource BoolToVis}}"
                                         ToolTip="{DynamicResource L.Firmware.ClearFinished}">
@@ -1689,7 +1695,7 @@
                                 </Button>
 
                                 <!-- Open Destination Folder Button -->
-                                <Button Style="{StaticResource QueueActionButton}"
+                                <Button Style="{StaticResource QueueActionButton}" Margin="0,0,0,2"
                                         Command="{Binding OpenFolderCommand}"
                                         ToolTip="{DynamicResource L.Direct.OpenFolder}">
                                     <StackPanel Orientation="Horizontal">
@@ -1697,7 +1703,7 @@
                                         <TextBlock Text="{DynamicResource L.Direct.OpenFolder}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
-                            </StackPanel>
+                            </WrapPanel>
                         </Grid>
 
                         <!-- Overall Queue Progress Bar -->

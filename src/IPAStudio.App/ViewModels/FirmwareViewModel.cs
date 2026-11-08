@@ -7,6 +7,7 @@ using System.Net.Http;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
+using IPAStudio.Core.Diagnostics;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
@@ -519,7 +520,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 {
                     await LoadSingleFirmwaresAsync(SelectedSingleDevice);
                     StatusText = Loc.Get("L.Firmware.CheckCompleted");
-                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"));
                     AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedTss"), SelectedSingleDevice.Name));
                 }
             }
@@ -529,7 +530,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 {
                     await LoadFirmwaresAsync(SelectedDevice);
                     StatusText = Loc.Get("L.Firmware.CheckCompleted");
-                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+                    LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"));
                     AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedTss"), SelectedDevice.Name));
                 }
                 else if (MyDevices.Count > 0)
@@ -594,7 +595,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         }
 
         RefreshAutoUpdateTimestamps();
-        LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+        LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"));
         StatusText = string.Format(Loc.Get("L.Firmware.CheckAllCompleted"), count);
         AddActivityLog("🔄", string.Format(Loc.Get("L.Firmware.Log.CheckedAllTss"), count));
     }
@@ -919,12 +920,16 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         }
                         else if (existing.State == FirmwareJobState.Queued)
                         {
-                            // Already waiting in queue — do not duplicate
+                            // Already waiting in queue — purge any duplicate copies and do not duplicate
+                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                            foreach (var d in dups) Jobs.Remove(d);
                             continue;
                         }
                         else if (existing.IsActive)
                         {
-                            // Already actively downloading or assembling — do not duplicate
+                            // Already actively downloading or assembling — purge any stray queued copies and do not duplicate
+                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                            foreach (var d in dups) Jobs.Remove(d);
                             continue;
                         }
                         else if (existing.CanResume)
@@ -932,11 +937,15 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                             ResumeJob(existing);
                             totalResumed++;
                             AddActivityLog("▶️", $"{device.Name} ({release.Version}) — возобновление загрузки");
+                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                            foreach (var d in dups) Jobs.Remove(d);
                             continue;
                         }
                         else
                         {
-                            // Any other state (e.g. waiting schedule) — do not duplicate
+                            // Any other state (e.g. waiting schedule) — purge any duplicates and do not re-add
+                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                            foreach (var d in dups) Jobs.Remove(d);
                             continue;
                         }
                     }
@@ -968,7 +977,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             }
 
             RefreshAutoUpdateTimestamps();
-            LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("HH:mm"));
+            LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"));
 
             if (totalEnqueued > 0 || totalResumed > 0)
             {
@@ -1997,7 +2006,18 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
     private void PersistDownloadSettings()
     {
-        Directory.CreateDirectory(DestinationFolder);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(DestinationFolder))
+            {
+                Directory.CreateDirectory(DestinationFolder);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"Failed to create firmware folder '{DestinationFolder}': {ex.Message}");
+        }
+
         _settings.Current.FirmwareFolder = DestinationFolder;
         _settings.Current.FirmwareDownloadThreads = SegmentCount;
         var totalMinutes = AutoCheckIntervalIsMinutes
@@ -2005,7 +2025,12 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             : AutoCheckIntervalValue * 60;
         _settings.Current.FirmwareCheckIntervalMinutes = Math.Clamp(totalMinutes, 1, 168 * 60);
         _settings.Current.FirmwareCheckIntervalIsMinutes = AutoCheckIntervalIsMinutes;
-        _settings.Current.FirmwareCheckIntervalHours = Math.Max(1, totalMinutes / 60);
+        _settings.Current.FirmwareVerifyHash = VerifyHash;
+        _settings.Current.FirmwareDownloadSequential = IsSequentialDownload;
+        _settings.Current.FirmwareScheduleEnabled = IsScheduleEnabled;
+        _settings.Current.FirmwareScheduleStartHour = ScheduleStartHour;
+        _settings.Current.FirmwareScheduleEndHour = ScheduleEndHour;
+        _settings.Current.FirmwareAutoStartOnLaunch = IsAutoStartOnLaunchEnabled;
         _settings.Save();
     }
 
@@ -2061,6 +2086,15 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         LastCheckText = Format(source.Select(s => s.LastCheckUtc).Where(d => d.HasValue).Max());
         LastDownloadText = Format(source.Select(s => s.LastDownloadUtc).Where(d => d.HasValue).Max());
 
+        if (string.IsNullOrEmpty(LastTssCheckText))
+        {
+            var maxCheck = source.Select(s => s.LastCheckUtc).Where(d => d.HasValue).Max();
+            if (maxCheck.HasValue)
+            {
+                LastTssCheckText = string.Format(Loc.Get("L.Firmware.LastChecked"), maxCheck.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"));
+            }
+        }
+
         foreach (var dev in MyDevices)
         {
             var sub = subscriptions.FirstOrDefault(s => s.Identifier == dev.Identifier);
@@ -2072,12 +2106,51 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             }
             else
             {
-                dev.HasDownloadedFirmware = false;
-                dev.LastDownloadText = Loc.Get("L.Firmware.DeviceNeverDownloaded");
+                var localFile = FindLatestLocalFirmwareFile(dev, sub);
+                if (localFile is not null)
+                {
+                    dev.HasDownloadedFirmware = true;
+                    var fileTime = File.GetLastWriteTime(localFile);
+                    dev.LastDownloadText = string.Format(Loc.Get("L.Firmware.DeviceLastDownloaded"), fileTime.ToString("dd.MM.yyyy HH:mm"));
+                }
+                else
+                {
+                    dev.HasDownloadedFirmware = false;
+                    dev.LastDownloadText = Loc.Get("L.Firmware.DeviceNeverDownloaded");
+                }
             }
         }
 
         static string Format(DateTimeOffset? value) =>
             value is null ? "—" : value.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
+    }
+
+    private string? FindLatestLocalFirmwareFile(FirmwareDevice dev, IPAStudio.Core.Models.FirmwareSubscription? sub)
+    {
+        try
+        {
+            if (sub is not null && !string.IsNullOrWhiteSpace(sub.LastFilePath) && File.Exists(sub.LastFilePath))
+            {
+                return sub.LastFilePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(DestinationFolder) && Directory.Exists(DestinationFolder))
+            {
+                var file = Directory.EnumerateFiles(DestinationFolder, "*.ipsw", SearchOption.TopDirectoryOnly)
+                    .Where(p =>
+                    {
+                        var name = Path.GetFileName(p);
+                        return (!string.IsNullOrEmpty(dev.Name) && name.Contains(dev.Name, StringComparison.OrdinalIgnoreCase)) ||
+                               (!string.IsNullOrEmpty(dev.Identifier) && name.Contains(dev.Identifier, StringComparison.OrdinalIgnoreCase));
+                    })
+                    .Select(p => new FileInfo(p))
+                    .OrderByDescending(fi => fi.LastWriteTimeUtc)
+                    .FirstOrDefault();
+
+                return file?.FullName;
+            }
+        }
+        catch { }
+        return null;
     }
 }

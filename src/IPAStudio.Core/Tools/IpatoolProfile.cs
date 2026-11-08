@@ -100,7 +100,7 @@ public static class IpatoolProfile
             {
                 if (!File.Exists(path)) continue;
 
-                if (!force && IsLoadableJson(path)) continue;
+                if (!force && IsLoadableCookieJar(path)) continue;
 
                 var quarantine = path + ".corrupt";
                 if (File.Exists(quarantine))
@@ -129,16 +129,23 @@ public static class IpatoolProfile
         }
     }
 
-    private static bool IsLoadableJson(string path)
+    private static bool IsLoadableCookieJar(string path)
     {
         try
         {
             var text = File.ReadAllText(path);
 
-            // An empty jar is valid: persistent-cookiejar treats a zero-length file as
-            // "no cookies yet" and writes a fresh one.
+            // An empty jar is valid: treats a zero-length file as "no cookies yet"
             if (string.IsNullOrWhiteSpace(text)) return true;
 
+            var trimmed = text.TrimStart();
+            // Netscape HTTP Cookie File format written by libcurl / ipatool-cpp
+            if (trimmed.StartsWith("#") || trimmed.StartsWith("HttpOnly_") || text.Contains('\t'))
+            {
+                return true;
+            }
+
+            // JSON cookie jar format written by ipatool-rs / Go variants
             using var _ = JsonDocument.Parse(text);
             return true;
         }

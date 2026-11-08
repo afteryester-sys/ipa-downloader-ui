@@ -1034,16 +1034,16 @@
     <sys:String x:Key="L.Firmware.Settings.Network">Загрузка и Сеть</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoCheck">Автопроверка</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Storage">Хранилище и Хэш</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.VerifySha">Верификация хэша после загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.VerifySha">Проверка хэша SHA-1</sys:String>
     <sys:String x:Key="L.Firmware.Settings.VerifyShaHint">Сверять контрольную сумму SHA-1 с базой Apple перед сохранением файла</sys:String>
     <sys:String x:Key="L.Firmware.Settings.CleanCache">Очистить кэш</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Удаляет незавершённые .part и .download.json файлы</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CleanCacheHint">Удаляет незавершённые .part и .download.json файлы из папки</sys:String>
     <sys:String x:Key="L.Firmware.Settings.Apply">Готово</sys:String>
     <sys:String x:Key="L.Firmware.Job.Scheduled">Ожидание расписания ({0:D2}:00 — {1:D2}:00)</sys:String>
     <sys:String x:Key="L.Firmware.DeviceBadge">Устройство</sys:String>
     <sys:String x:Key="L.Firmware.Schedule.Title">Расписание загрузок</sys:String>
     <sys:String x:Key="L.Firmware.Schedule.Toggle">Скачивать по расписанию (ночной режим)</sys:String>
-    <sys:String x:Key="L.Firmware.Schedule.Hint">Автоматически скачивает прошивки только в указанный интервал времени (например, ночью с 00:00 до 06:00), экономя трафик.</sys:String>
+    <sys:String x:Key="L.Firmware.Schedule.Hint">Скачивать прошивки только в заданный промежуток времени (например, ночью с 00:00 до 06:00)</sys:String>
     <sys:String x:Key="L.Firmware.Schedule.From">С:</sys:String>
     <sys:String x:Key="L.Firmware.Schedule.To">До:</sys:String>
     <sys:String x:Key="L.Firmware.Queue.Title">Очередь загрузок</sys:String>
@@ -1074,7 +1074,7 @@
     <sys:String x:Key="L.Firmware.History.Tooltip">История проверок, добавлений и загрузок прошивок</sys:String>
     <sys:String x:Key="L.Firmware.History.Clear">Очистить</sys:String>
     <sys:String x:Key="L.Firmware.History.Empty">Записей в журнале пока нет</sys:String>
-    <sys:String x:Key="L.Firmware.LastChecked">Актуально на {0}</sys:String>
+    <sys:String x:Key="L.Firmware.LastChecked">Актуально на: {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.CheckedTss">Проверены подписи TSS для {0}</sys:String>
     <sys:String x:Key="L.Firmware.Log.CheckedAllTss">Проверены подписи TSS для всех устройств ({0})</sys:String>
     <sys:String x:Key="L.Firmware.Log.DeviceAdded">Устройство добавлено в подписки: {0}</sys:String>
@@ -1086,11 +1086,11 @@
     <sys:String x:Key="L.Firmware.StartWorkflowTooltip">Проверить наличие и загрузить актуальные прошивки для добавленных устройств</sys:String>
     <sys:String x:Key="L.Firmware.Status.AllDownloadedAndCurrent">Все прошивки актуальны и загружены</sys:String>
     <sys:String x:Key="L.Firmware.Log.WorkflowStarted">Запуск проверки прошивок для {0} устр.</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.CheckInterval">Периодичность автопроверки TSS</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.QueueMode">Режим очереди загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval">Интервал автопроверки TSS</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.QueueMode">Режим загрузки</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Sequential">Последовательно (по очереди)</sys:String>
     <sys:String x:Key="L.Firmware.Settings.QueueMode.Parallel">Параллельно (одновременно)</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Последовательно: загрузка файлов по очереди. Параллельно: одновременное скачивание нескольких прошивок.</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.QueueMode.Hint">Последовательно — по очереди; параллельно — несколько файлов сразу.</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch">Автозапуск службы при старте приложения</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoStartOnLaunch.Hint">Автоматически проверять и загружать актуальные прошивки при запуске IPA Studio</sys:String>
     <sys:String x:Key="L.Firmware.Service.Title">Служба TSS</sys:String>
@@ -1118,7 +1118,7 @@
     <sys:String x:Key="L.Firmware.WaitingForNetwork">Ожидание подключения к сети…</sys:String>
     <sys:String x:Key="L.Firmware.ResumingDownload">Возобновление загрузки…</sys:String>
     <sys:String x:Key="L.Firmware.NetworkRestored">Соединение с сетью восстановлено</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">Периодичность проверки новых подписанных прошивок на серверах Apple</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.CheckInterval.Hint">Как часто проверять новые подписанные версии на серверах Apple</sys:String>
     <sys:String x:Key="L.Settings.PushNotifications">Уведомления о завершённых задачах (пуш-уведомления)</sys:String>
     <sys:String x:Key="L.Settings.PushNotificationsHint">Показывать всплывающие уведомления при завершении установки приложений, скачивания прошивок и резервного копирования</sys:String>
     <!-- Unslop UI Strings & Taskbar Progress Color (v1.8.63) -->
@@ -1135,7 +1135,7 @@
     <sys:String x:Key="L.Firmware.NoFirmwaresFilter">Нет прошивок, соответствующих текущему фильтру</sys:String>
     <sys:String x:Key="L.Firmware.SingleSelectModelPrompt">Выберите модель Apple выше</sys:String>
     <sys:String x:Key="L.Firmware.SingleDirectUrlPrompt">Или укажите прямую ссылку на .ipsw для быстрой загрузки</sys:String>
-    <sys:String x:Key="L.Firmware.Settings.ThreadsHint">Многопоточная загрузка Range-сегментами с CDN Apple</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.ThreadsHint">Одновременные потоки скачивания сегментами с CDN Apple</sys:String>
     <sys:String x:Key="L.Firmware.Settings.AutoSavedHint">Настройки сохраняются автоматически</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Title">Цвет индикатора в панели задач Windows</sys:String>
     <sys:String x:Key="L.Settings.TaskbarProgress.Hint">Цвет заливки кнопки на панели задач при выполнении операций (ограничение Windows Shell: системный зелёный или янтарный)</sys:String>

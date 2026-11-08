@@ -347,8 +347,14 @@ public sealed class AppSettings
     [System.Text.Json.Serialization.JsonIgnore]
     public int FirmwareCheckIntervalHours
     {
-        get => Math.Max(1, FirmwareCheckIntervalMinutes / 60);
-        set => FirmwareCheckIntervalMinutes = value * 60;
+        get => Math.Max(1, (int)Math.Round(FirmwareCheckIntervalMinutes / 60.0));
+        set
+        {
+            if (!FirmwareCheckIntervalIsMinutes)
+            {
+                FirmwareCheckIntervalMinutes = Math.Max(1, value) * 60;
+            }
+        }
     }
 
     /// <summary>Total minutes for the TSS check interval (supports sub-hour intervals, e.g. 15, 30 min).</summary>

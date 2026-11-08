@@ -56,6 +56,38 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.66",
+                    date: "09.11.2026",
+                    title: "Исправление загрузки IPA (Store AMD), сохранение настроек и улучшенная очередь",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Загрузка IPA и сохранение сессионных куки",
+                            "Исправлена ошибка «invalid response: empty songList» при загрузке приложений: скорректирован заголовок Content-Type на application/x-apple-plist в протоколе volumeStoreDownloadProduct для генерации Store AMD-доказательства и предотвращён сброс сессионных куки Netscape формата."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Надёжное сохранение настроек прошивок",
+                            "Устранён сброс интервала проверки TSS (включая выбор 1 минуты) и других параметров при перезапуске программы. Все настройки прошивок надёжно сохраняются."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Исключение дубликатов в очереди загрузок",
+                            "Устранено повторное добавление отсутствующей прошивки в очередь при ежеминутной проверке подписей TSS, пока выполняется скачивание другого файла."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Адаптивные кнопки очереди в стиле Apple Liquid Glass",
+                            "Панель очереди получила гибкую вёрстку с защитой от наплыва кнопок на скорость и размер при любом масштабировании. Кнопки получили дизайн Apple Liquid Glass с тактильной отдачей и плавными анимациями."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Точные даты загрузок и проверок",
+                            "В карточке каждого устройства отображается фактическая дата последней загрузки прошивки, а сверху рядом с кнопкой обновления — время последней проверки Apple TSS с секундами, динамически обновляемое каждую минуту."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.65",
                     date: "09.11.2026",
                     title: "Восстановление авторизации Apple ID и поддержка нового протокола Store AMD",
@@ -562,6 +594,38 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+                        new ReleaseNote(
+                version: "1.8.66",
+                date: "11/09/2026",
+                title: "IPA Download Fix (Store AMD), Settings Persistence & Queue Refinement",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "IPA Download & Cookie Jar Preservation",
+                        "Resolved 'invalid response: empty songList' error during app downloads: set Content-Type to application/x-apple-plist for volumeStoreDownloadProduct Store AMD challenge negotiation and preserved Netscape cookie jar format."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Firmware Settings Persistence",
+                        "Fixed persistence of firmware settings, preventing the TSS check interval (including 1-minute mode) from reverting to 60 minutes upon application restart."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Queue Deduplication",
+                        "Prevented duplicate queue entries from being added every minute during auto-checks while another firmware download is active."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Apple Liquid Glass Responsive Queue Controls",
+                        "Upgraded queue toolbar buttons with Apple Liquid Glass pill styling, fluid hover scale, tactile spring press animations, and responsive wrapping to prevent text collisions on high DPI scaling."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Accurate Download & Verification Timestamps",
+                        "Each device card displays the last completed download timestamp, while the header displays the exact time and seconds of the last TSS signature check."),
+                }),
             new ReleaseNote(
                 version: "1.8.65",
                 date: "11/09/2026",
