@@ -29,6 +29,7 @@ jobs:
 
       - name: Clone and apply PR 5
         run: |
+          touch /mingw64/bin/minizipstatic.exe || true
           git clone https://github.com/Sorvigolova/ipatool.git
           cd ipatool
           git fetch origin refs/pull/5/head
