@@ -636,6 +636,10 @@ public sealed partial class AuthService
             || lower.Contains("permission denied"))
             return AuthFailureReason.ToolFailure;
 
+        if (lower.Contains("status=301") || lower.Contains("status=204") || lower.Contains("store amd")
+            || lower.Contains("native store authentication"))
+            return AuthFailureReason.AppleProtocolOverhaul;
+
         return AuthFailureReason.Unknown;
     }
 

@@ -566,6 +566,7 @@
     <sys:String x:Key="L.Login.Error.AccountLocked">This Apple ID is locked or needs attention at appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">The saved session is no longer valid. Please sign in again.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">ipatool could not be started. Reinstall the utilities from Settings.</sys:String>
+    <sys:String x:Key="L.Login.Error.AppleProtocolOverhaul">Apple updated its sign-in protocol (Store AMD). Please use the updated authentication engine.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Sign-in failed. See the log for details.</sys:String>
 
     <!-- App lookup (Bundle ID, App Store ID or store link) -->

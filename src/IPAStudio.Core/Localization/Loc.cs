@@ -120,6 +120,7 @@ public static class Loc
         ["L.Login.Error.AccountLocked"] = "This Apple ID is locked or needs attention at appleid.apple.com.",
         ["L.Login.Error.SessionExpired"] = "The saved session is no longer valid. Please sign in again.",
         ["L.Login.Error.ToolFailure"] = "ipatool could not be started. Reinstall the utilities from Settings.",
+        ["L.Login.Error.AppleProtocolOverhaul"] = "Apple updated its sign-in protocol (Store AMD). Please use the updated authentication engine.",
         ["L.Login.Error.Unknown"] = "Sign-in failed. See the log for details.",
 
         // App lookup by Bundle ID / App Store ID / store link

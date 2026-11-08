@@ -517,6 +517,7 @@
     <sys:String x:Key="L.Login.Error.AccountLocked">Этот Apple ID заблокирован или требует внимания на appleid.apple.com.</sys:String>
     <sys:String x:Key="L.Login.Error.SessionExpired">Сохранённая сессия больше не действует. Войдите заново.</sys:String>
     <sys:String x:Key="L.Login.Error.ToolFailure">Не удалось запустить ipatool. Переустановите утилиты в настройках.</sys:String>
+    <sys:String x:Key="L.Login.Error.AppleProtocolOverhaul">Apple обновила сетевой протокол входа (Store AMD). Используется обновленный модуль авторизации.</sys:String>
     <sys:String x:Key="L.Login.Error.Unknown">Не удалось войти. Подробности в журнале.</sys:String>
 
     <!-- Поиск приложения (Bundle ID, ID из App Store или ссылка) -->

@@ -45,6 +45,12 @@ public enum AuthFailureReason
     /// <summary>ipatool itself could not run (missing/blocked binary).</summary>
     ToolFailure,
 
+    /// <summary>
+    /// Apple migrated authentication to the modern Store AMD / ADI protocol or refused
+    /// the legacy handshake with HTTP 301 / 204.
+    /// </summary>
+    AppleProtocolOverhaul,
+
     /// <summary>Anything we could not classify. The raw text goes to the log.</summary>
     Unknown,
 }

@@ -44,11 +44,11 @@ $IpatoolSourceRevision = "3aa4a86febe9ee056b04b4d90ee5f62afaa31cc8"
 $IpatoolSource = "https://api.github.com/repos/majd/ipatool/tarball/$IpatoolSourceRevision"
 $IpatoolSourceSha256 = "43970e4b18cd2cdd91b0e947e1d8496f62136ddaa83d84274a03202d2d0a8644"
 $IpatoolBinarySha256 = "12ffaf59186f1e203f7adffdf3f523b9d61b7da63c15cc4043c11505248ea286"
-# ipatool-cpp (Sorvigolova, FairPlay Unicorn emulation with SAP & kbsync)
-$IpatoolCppVersion = "1.0.9"
-$IpatoolCppUrl = "https://github.com/Sorvigolova/ipatool/releases/download/$IpatoolCppVersion/windows_amd64_ipatool-cpp.zip"
-$IpatoolCppZipSha256 = "264be72d4b70e8a5540647277690fb47fcf1d7d6178acf84629e93c0e564a331"
-$IpatoolCppExeSha256 = "394e8953d317f39645f03a1bfe039d0dc0ffc04291eb9d0f535bd1bbca4f4581"
+# ipatool-cpp (Sorvigolova + t0pd3v1c3 PR #5, FairPlay Unicorn emulation with Store AMD support)
+$IpatoolCppVersion = "1.0.10-store-amd"
+$IpatoolCppUrl = "https://github.com/afteryester-sys/ipa-downloader-ui/releases/download/tools-v1/windows_amd64_ipatool-cpp-1.0.10.zip"
+$IpatoolCppZipSha256 = "7d72b42ebfd04c80be2f07819e33257846b0fce9fa56e922301ede8100d9f830"
+$IpatoolCppExeSha256 = "554d2a6558b7e78dd7c82b4886eb4ab50e7850521108164eafe6cabdf7ee502f"
 $ImobiledeviceRelease = "https://github.com/libimobiledevice-win32/imobiledevice-net/releases/download/v1.3.17/libimobiledevice.1.2.1-r1122-win-x64.zip"
 
 function Download-File {

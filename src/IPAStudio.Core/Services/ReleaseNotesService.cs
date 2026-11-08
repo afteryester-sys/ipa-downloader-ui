@@ -56,6 +56,23 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.65",
+                    date: "09.11.2026",
+                    title: "Восстановление авторизации Apple ID и поддержка нового протокола Store AMD",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Поддержка протокола Apple Store AMD / ADI",
+                            "Интегрирован обновлённый движок авторизации с поддержкой Store AMD (PR #5), генерацией заголовков x-apple-amd-action и корректной обработкой редиректов HTTP 301. Ошибки status=301 и status=204 при входе полностью устранены."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Диагностика и двухфакторная аутентификация",
+                            "Улучшена обработка кодов авторизации Apple и классификация сетевых сбоев. Программа надёжно принимает 2FA-коды и открывает сессию для загрузки и установки приложений."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.64",
                     date: "03.11.2026",
                     title: "Надёжное сохранение настроек, исключение дубликатов очереди и отображение дат загрузок",
@@ -545,6 +562,23 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.65",
+                date: "11/09/2026",
+                title: "Apple ID Authentication Recovery and Store AMD Protocol Support",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Apple Store AMD / ADI Protocol Support",
+                        "Integrated the updated authentication engine with Store AMD (PR #5) support, x-apple-amd-action generation, and proper HTTP 301 redirect handling. Error status=301 and status=204 on login are eliminated."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Diagnostics and 2FA Handling",
+                        "Improved Apple auth code handling and network fault classification. The app reliably receives 2FA prompts and unlocks App Store operations."),
+                }),
             new ReleaseNote(
                 version: "1.8.64",
                 date: "11/03/2026",

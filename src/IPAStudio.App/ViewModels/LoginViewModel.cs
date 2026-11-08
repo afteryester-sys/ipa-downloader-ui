@@ -204,6 +204,7 @@ public sealed partial class LoginViewModel : ObservableObject, IPageAware
         AuthFailureReason.AccountLocked  => Loc.Get("L.Login.Error.AccountLocked"),
         AuthFailureReason.SessionExpired => Loc.Get("L.Login.Error.SessionExpired"),
         AuthFailureReason.ToolFailure    => Loc.Get("L.Login.Error.ToolFailure"),
+        AuthFailureReason.AppleProtocolOverhaul => Loc.Get("L.Login.Error.AppleProtocolOverhaul"),
         _                                => Loc.Get("L.Login.Error.Unknown"),
     };
 
