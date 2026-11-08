@@ -1,0 +1,43 @@
+name: Build ipatool PR5
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-minizip
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-bzip2
+            mingw-w64-x86_64-nlohmann-json
+            mingw-w64-x86_64-mbedtls
+            mingw-w64-x86_64-curl
+
+      - name: Clone and apply PR 5
+        run: |
+          git clone https://github.com/Sorvigolova/ipatool.git
+          cd ipatool
+          git fetch origin refs/pull/5/head
+          git checkout --detach d5050b1604b8b8964061e59c789ba975b4a68691
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON
+          cmake --build build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipatool-windows-amd64
+          path: ipatool/build/ipatool.exe
