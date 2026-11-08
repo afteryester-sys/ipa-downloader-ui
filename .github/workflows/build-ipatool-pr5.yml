@@ -29,11 +29,13 @@ jobs:
 
       - name: Clone and apply PR 5
         run: |
-          touch /mingw64/bin/minizipstatic.exe /mingw64/bin/miniunzipstatic.exe || true
           git clone https://github.com/Sorvigolova/ipatool.git
           cd ipatool
           git fetch origin refs/pull/5/head
           git checkout --detach d5050b1604b8b8964061e59c789ba975b4a68691
+          sed -i 's/"application\/x-www-form-urlencoded; charset=utf-8"/"application\/x-apple-plist"/g' appstore.cpp
+          sed -i 's/response.statusCode != 200/(response.statusCode != 200 \&\& response.statusCode != 401)/g' store_proof.h
+          sed -i 's/headers\["User-Agent"\] = store_user_agent;/headers\["User-Agent"\] = store_user_agent; if (body.starts_with("<?xml") || body.starts_with("<plist")) headers\["Content-Type"\] = "application\/x-apple-plist";/g' store_proof.h
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON
           cmake --build build
 
