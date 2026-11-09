@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # Fetch-Tools.ps1
 # Downloads the command-line tool binaries required by IPA Studio into the
 # "tools" folder next to the application (or into src/IPAStudio.App/tools for
@@ -56,7 +56,20 @@ function Download-File {
     $dir = Split-Path -Parent $Destination
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     Write-Host "  -> $Url"
-    Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
+    $maxRetries = 5
+    for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+        try {
+            Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing
+            return
+        }
+        catch {
+            if ($attempt -eq $maxRetries) {
+                throw
+            }
+            Write-Warning "Download attempt $attempt failed ($($_.Exception.Message)). Retrying in 5 seconds..."
+            Start-Sleep -Seconds 5
+        }
+    }
 }
 
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
