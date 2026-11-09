@@ -1192,9 +1192,32 @@ public sealed partial class DownloadService
         var error = ExtractError(output);
         AppLog.Warn($"Download {app.Name} failed: {error}");
 
-        // Never retry a license problem: the caller resolves it with an explicit
-        // purchase, and a blind retry would just pay another handshake for nothing.
-        if (LicenseRequiredRegex().IsMatch(output))
+        // When automatic licensing is enabled, attempt to acquire or validate the Apple ID license
+        // through buyProduct (with Store AMD proof) and retry the download before giving up.
+        var isLicenseRequired = LicenseRequiredRegex().IsMatch(output);
+        var isEmptySongList = output.Contains("empty songlist", StringComparison.OrdinalIgnoreCase)
+            || output.Contains("failuretype 5002", StringComparison.OrdinalIgnoreCase);
+
+        if ((isLicenseRequired || isEmptySongList) && autoPurchase && app.AppStoreId > 0)
+        {
+            AppLog.Info($"download: {app.Name} requires license/session validation; acquiring via purchase...");
+            var (purchased, purchaseError, sessionExpired) = await PurchaseAsync(app.AppStoreId, app.BundleId, ct).ConfigureAwait(false);
+            if (purchased)
+            {
+                AppLog.Info($"download: license/session verified for {app.Name}; retrying download");
+                var (purchasedRetry, _) = await DownloadOnceAsync(
+                    app, outputPath, stagingDir, false, sizeHint, progress, attempt, ct,
+                    externalVersionId: externalVersionId).ConfigureAwait(false);
+                if (purchasedRetry.Success)
+                    return (purchasedRetry, false);
+            }
+            else if (sessionExpired)
+            {
+                return (DownloadResult.Expired(purchaseError ?? output), false);
+            }
+        }
+
+        if (isLicenseRequired)
             return (DownloadResult.NeedsLicense(error), false);
 
         var isTransient = TransientRegex().IsMatch(output);
@@ -1214,9 +1237,7 @@ public sealed partial class DownloadService
         // the very same redownload once it is pinned to a specific external version id, so
         // resolving one via ListVersionsAsync and retrying once, pinned, turns that dead end
         // into a working download.
-        var isEmptySongList = output.Contains("empty songlist", StringComparison.OrdinalIgnoreCase)
-            || output.Contains("failuretype 5002", StringComparison.OrdinalIgnoreCase);
-        if (isEmptySongList && externalVersionId is null && autoPurchase && app.AppStoreId > 0)
+        if (isEmptySongList && externalVersionId is null && app.AppStoreId > 0)
         {
             AppLog.Info($"download: {app.Name} got an empty songList on an unpinned redownload; " +
                         "resolving the current external version id and retrying pinned to it");

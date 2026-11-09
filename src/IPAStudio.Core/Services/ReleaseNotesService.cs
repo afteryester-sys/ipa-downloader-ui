@@ -56,6 +56,18 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.67",
+                    date: "09.11.2026",
+                    title: "Автоматическая валидация Store AMD и бесшовное скачивание IPA",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИСПРАВЛЕНИЕ",
+                            "Автоматическая валидация лицензии и сессии Store AMD",
+                            "Добавлена автоматическая верификация лицензии через защищённый протокол buyProduct при получении «empty songList». Сессия загрузки Apple ID активируется на лету без необходимости вручную нажимать «Купить»."),
+                    }),
+                new ReleaseNote(
                     version: "1.8.66",
                     date: "09.11.2026",
                     title: "Исправление загрузки IPA (Store AMD), сохранение настроек и улучшенная очередь",
@@ -594,6 +606,18 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+                        new ReleaseNote(
+                version: "1.8.67",
+                date: "11/09/2026",
+                title: "Automatic Store AMD Session Validation and Seamless IPA Download",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "FIX",
+                        "Automatic Store AMD License and Session Validation",
+                        "Added automatic license and session validation through the protected buyProduct protocol when 'empty songList' is returned. The Apple ID download session is refreshed on the fly without requiring a manual purchase click."),
+                }),
                         new ReleaseNote(
                 version: "1.8.66",
                 date: "11/09/2026",
