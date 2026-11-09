@@ -56,6 +56,23 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.68",
+                    date: "09.11.2026",
+                    title: "Поддержка установки корпоративных и профильных IPA через «Выбрать» и надёжный перенос",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "УЛУЧШЕНИЕ",
+                            "Поддержка установки сторонних и Enterprise IPA",
+                            "Анализатор лицензий теперь распознаёт embedded.mobileprovision. Корпоративные, ad-hoc и разработческие IPA больше не отклоняются ложной ошибкой отсутствия FairPlay-лицензии."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ПЕРЕНОС",
+                            "Надёжный перенос приложений между устройствами",
+                            "Перенос с одного iPhone на другой через «На устройстве» использует единый защищённый механизм Store AMD и автоматическую валидацию лицензий.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.67",
                     date: "09.11.2026",
                     title: "Автоматическая валидация Store AMD и бесшовное скачивание IPA",
@@ -606,6 +623,23 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.68",
+                date: "11/09/2026",
+                title: "Support for Provisioning Profiles in File Picker and Device Transfer",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "IMPROVEMENT",
+                        "Support for Enterprise and Developer Signed IPAs",
+                        "The license inspector now recognizes embedded.mobileprovision profiles. Enterprise, ad-hoc, and developer signed IPAs installed via the file picker are no longer blocked by false FairPlay checks."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "TRANSFER",
+                        "Seamless Device-to-Device Transfer",
+                        "App transfer between iPhones via 'On Device' uses the unified Store AMD engine with automatic session and license validation.")
+                }),
                         new ReleaseNote(
                 version: "1.8.67",
                 date: "11/09/2026",

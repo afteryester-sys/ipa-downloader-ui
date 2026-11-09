@@ -34,28 +34,39 @@ public sealed record IpaLicenseReport(
     string? AccountDsId,
     IReadOnlyList<string> RequiredSinfPaths,
     IReadOnlyList<string> MissingSinfPaths,
-    string? ReadError)
+    string? ReadError,
+    bool HasProvisioningProfile = false)
 {
     /// <summary>
     /// True when the archive is definitely missing the licence, so the app would install
     /// cleanly and then refuse to launch.
     ///
     /// Deliberately narrow: it covers only the two unambiguous cases (no metadata at all, or
-    /// not a single blob anywhere). An incomplete <see cref="MissingSinfPaths"/> is reported
-    /// but not counted here.
+    /// not a single blob anywhere), UNLESS the archive has a valid provisioning profile
+    /// (enterprise / ad-hoc / developer signed).
     /// </summary>
-    public bool IsDefinitelyUnlicensed => ReadError is null && (!HasMetadata || SinfCount == 0);
+    public bool IsDefinitelyUnlicensed =>
+        ReadError is null
+        && !HasProvisioningProfile
+        && (!HasMetadata || SinfCount == 0);
 
     /// <summary>
     /// True when the archive carries blobs but not the one the manifest names for the main
     /// executable. Rare, and unlike the framework paths this genuinely should stop it running.
     /// </summary>
-    public bool IsPartiallyLicensed => ReadError is null && SinfCount > 0 && MissingSinfPaths.Count > 0;
+    public bool IsPartiallyLicensed =>
+        ReadError is null
+        && !HasProvisioningProfile
+        && SinfCount > 0
+        && MissingSinfPaths.Count > 0;
 
     /// <summary>One log line describing what was found.</summary>
     public string Describe()
     {
         if (ReadError is not null) return $"licence check skipped: {ReadError}";
+
+        if (HasProvisioningProfile)
+            return $"provisioning profile: yes, iTunesMetadata.plist: {(HasMetadata ? "yes" : "NO")}";
 
         var who = AppleId is not null ? $", account {AppleId}"
                 : AccountDsId is not null ? $", DSID {AccountDsId}"
@@ -153,6 +164,7 @@ public static partial class IpaLicense
             using var zip = ZipFile.OpenRead(ipaPath);
 
             var hasMetadata = false;
+            var hasProvisioningProfile = false;
             string? appleId = null;
             string? dsId = null;
             var sinfEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -162,6 +174,11 @@ public static partial class IpaLicense
             foreach (var entry in zip.Entries)
             {
                 var name = entry.FullName.Replace('\\', '/');
+
+                if (!hasProvisioningProfile && name.EndsWith("embedded.mobileprovision", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasProvisioningProfile = true;
+                }
 
                 if (!hasMetadata && name.Equals(MetadataEntry, StringComparison.OrdinalIgnoreCase))
                 {
@@ -203,7 +220,8 @@ public static partial class IpaLicense
                 AccountDsId: dsId,
                 RequiredSinfPaths: required,
                 MissingSinfPaths: missing,
-                ReadError: null);
+                ReadError: null,
+                HasProvisioningProfile: hasProvisioningProfile);
         }
         catch (Exception ex)
         {
@@ -214,7 +232,8 @@ public static partial class IpaLicense
                 AccountDsId: null,
                 RequiredSinfPaths: Array.Empty<string>(),
                 MissingSinfPaths: Array.Empty<string>(),
-                ReadError: ex.Message);
+                ReadError: ex.Message,
+                HasProvisioningProfile: false);
         }
     }
 
