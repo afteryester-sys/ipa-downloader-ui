@@ -99,6 +99,8 @@ public sealed partial class Operation : ObservableObject
         _ => Loc.Get("L.Ops.State.Running"),
     };
 
+    public string DisplayStatusText => !string.IsNullOrWhiteSpace(Detail) ? Detail : StateText;
+
     /// <summary>
     /// Cancels the work. Supplied by whoever started it, because only they know how to stop
     /// it — a queue calls <c>Cancel</c>, a page trips its own token source.
@@ -161,5 +163,11 @@ public sealed partial class Operation : ObservableObject
         OnPropertyChanged(nameof(IsRunning));
         OnPropertyChanged(nameof(IsFinished));
         OnPropertyChanged(nameof(StateText));
+        OnPropertyChanged(nameof(DisplayStatusText));
+    }
+
+    partial void OnDetailChanged(string value)
+    {
+        OnPropertyChanged(nameof(DisplayStatusText));
     }
 }

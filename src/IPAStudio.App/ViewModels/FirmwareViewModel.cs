@@ -21,6 +21,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private readonly FirmwareDownloadService _downloads;
     private readonly SettingsService _settings;
     private readonly OperationService _operations;
+    private readonly StatisticsService _stats;
     private INavigator? _navigator;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _firmwaresCts;
@@ -53,12 +54,13 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     public Func<IReadOnlyList<FirmwarePendingDownload>, bool>? ConfirmResumePending { get; set; }
 
     public FirmwareViewModel(FirmwareCatalogService catalog, FirmwareDownloadService downloads,
-        SettingsService settings, OperationService operations)
+        SettingsService settings, OperationService operations, StatisticsService stats)
     {
         _catalog = catalog;
         _downloads = downloads;
         _settings = settings;
         _operations = operations;
+        _stats = stats;
         DestinationFolder = string.IsNullOrWhiteSpace(settings.Current.FirmwareFolder)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares")
             : settings.Current.FirmwareFolder;
@@ -1680,6 +1682,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             operation.Finish(OperationState.Done, job.StatusText);
             _jobOperations.Remove(job);
             RecordCompletedDownload(job.Device, job.Firmware, savedPath);
+            _stats.RecordFirmwareDownload(job.Device.Name, job.Firmware.Version, job.Firmware.FileSize);
             AddActivityLog("✅", string.Format(Loc.Get("L.Firmware.Log.DownloadFinished"), job.Title));
         }
         catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||

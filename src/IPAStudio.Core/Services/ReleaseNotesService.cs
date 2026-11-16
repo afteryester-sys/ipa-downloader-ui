@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.70",
+                    date: "17.11.2026",
+                    title: "Аналитический дашборд «Статистика», панель инструментов на главном экране и точные счётчики операций",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "СТАТИСТИКА",
+                            "Подробный аналитический центр установки и загрузок",
+                            "Во вкладке «Инструменты» добавлен полнофункциональный раздел статистики с фильтрацией по дням, неделям, месяцам, годам и за всё время. Доступны метрики установок приложений, обслуженных устройств, скачанных IPA и IPSW, интерактивные графики динамики и рейтинги популярных приложений и устройств."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ИНСТРУМЕНТЫ",
+                            "Вынос инструментов на главный экран",
+                            "Кнопки инструментов («Скачать IPA», «Прошивки», «iCloud», «Фото с носителя» и «Статистика») вынесены из настроек в элегантную панель инструментов на главном экране с уникальными иконками, микро-анимациями масштабирования и подсветкой при наведении."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ОПЕРАЦИИ",
+                            "Точное количество в уведомлениях и исправление границ окна",
+                            "Во всплывающем окне операций и системных уведомлениях теперь отображается точное количество установленных или перенесённых приложений (например: «Установка 10 приложений успешно завершена»). Исправлено позиционирование всплывающего окна операций, чтобы оно гарантированно оставалось внутри границ приложения.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.69",
                     date: "17.11.2026",
                     title: "Автоматический цикл прошивок, динамический запуск/остановка, журнал ошибок и ускорение сборки",
@@ -650,6 +672,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.70",
+                date: "11/17/2026",
+                title: "Analytics Dashboard 'Statistics', Main Screen Tools Toolbar, and Precise Operation Counters",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "STATISTICS",
+                        "Comprehensive Installation and Download Analytics",
+                        "Added a full-featured Statistics section with filtering by Day, Week, Month, Year, and All Time. Track installed apps, devices served, downloaded IPAs and IPSW firmwares, dynamic activity bar charts, and top rankings."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "TOOLBAR",
+                        "Tools Relocation to Main Screen",
+                        "Tools ('Download IPA', 'Firmware', 'iCloud', 'Media Export', and 'Statistics') are now placed in a sleek toolbar on the main dashboard with distinct color badges, smooth tactile hover scale animations, and one-click access."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "OPERATIONS",
+                        "Accurate Counts in Notifications and Popup Boundary Fix",
+                        "Notifications and operations cards now state the exact app counts (e.g., 'Installation of 10 apps successfully finished'). Fixed operations popup offset to stay strictly within main window bounds.")
+                }),
             new ReleaseNote(
                 version: "1.8.69",
                 date: "11/17/2026",

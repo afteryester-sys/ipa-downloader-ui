@@ -77,6 +77,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     /// and of the Apple ID signed in here — that is the entire reason it is worth having.
     /// </summary>
     private readonly ItunesLegacyService _itunes;
+    private readonly StatisticsService _stats;
 
     private INavigator? _navigator;
 
@@ -107,7 +108,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         InstallService install,
         OperationService operations,
         IpaCatalogService ipaCatalogs,
-        ItunesLegacyService itunes)
+        ItunesLegacyService itunes,
+        StatisticsService stats)
     {
         _itunes = itunes;
         _ipaCatalogs = ipaCatalogs;
@@ -118,6 +120,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
         _devices = devices;
         _install = install;
         _operations = operations;
+        _stats = stats;
 
         // Reuse the last folder so a user grabbing several apps in a row picks once.
         DestinationFolder = settings.Current.LastDirectDownloadFolder ?? "";
@@ -873,6 +876,15 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 _settings.MarkOwned(item.App.AppStoreId);
                 AppLog.Info($"Direct download queue item OK: '{item.Name}' -> {result.IpaPath}");
                 operation.Finish(OperationState.Done, Path.GetFileName(result.IpaPath));
+
+                long fileSize = 0;
+                try
+                {
+                    if (File.Exists(result.IpaPath))
+                        fileSize = new FileInfo(result.IpaPath).Length;
+                }
+                catch { }
+                _stats.RecordIpaDownload(item.Name, item.BundleId ?? "", fileSize);
             }
             else
             {

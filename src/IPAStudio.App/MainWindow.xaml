@@ -69,6 +69,9 @@
         <DataTemplate DataType="{x:Type vm:FirmwareViewModel}">
             <views:FirmwareView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:StatisticsViewModel}">
+            <views:StatisticsView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -392,24 +395,6 @@
                         <Border Height="1" Background="{StaticResource Brush.Border}"
                                 Margin="0,12,0,12" />
 
-                        <!-- Tools section. Lives here rather than on DevicesView because
-                             downloading an IPA by Bundle ID needs no connected device. -->
-                        <TextBlock Text="{DynamicResource L.Menu.Tools}" Style="{StaticResource Text.Caption}"
-                                   FontWeight="SemiBold" Opacity="0.7" Margin="0,0,0,6" />
-                        <Button Content="{DynamicResource L.Direct.Title}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenDirectDownload_Click"
-                                Margin="0,0,0,8" />
-                        <Button Content="{DynamicResource L.ICloud.Title}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenICloud_Click"
-                                Margin="0,0,0,8" />
-                        <Button Content="{DynamicResource L.MediaExport.MenuTitle}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenMediaExport_Click" Margin="0,0,0,8" />
-                        <Button Content="{DynamicResource L.Firmware.Title}" Style="{StaticResource Button.Secondary}"
-                                HorizontalAlignment="Stretch" Click="OpenFirmware_Click" />
-
-                        <!-- Divider -->
-                        <Border Height="1" Background="{StaticResource Brush.Border}"
-                                Margin="0,12,0,12" />
 
                         <!-- Diagnostics section -->
                         <TextBlock Text="{DynamicResource L.Menu.Diagnostics}" Style="{StaticResource Text.Caption}"
@@ -680,7 +665,7 @@
 
             <!-- Drops below the button centered directly beneath the circle. -->
             <Popup x:Name="OperationsPopup" IsOpen="{Binding IsListOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=OpsButton}"
-                   Placement="Bottom" HorizontalOffset="-146" VerticalOffset="6"
+                   Placement="Bottom" HorizontalOffset="-268" VerticalOffset="6"
                    StaysOpen="False" AllowsTransparency="True" PopupAnimation="None">
                 <!-- Wrapper grid with fixed width isolates WPF PopupRoot window layout
                      from inner RenderTransform/Storyboard scale shifts on Loaded. -->
@@ -688,7 +673,7 @@
                     <Border Background="{StaticResource Brush.Surface}" CornerRadius="12"
                             BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
                             Width="310" Padding="16" Margin="8"
-                            RenderTransformOrigin="0.5, 0.0">
+                            RenderTransformOrigin="0.88, 0.0">
                     <Border.RenderTransform>
                         <TransformGroup>
                             <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
@@ -782,8 +767,8 @@
                                                     </ProgressBar.Style>
                                                 </ProgressBar>
 
-                                                <TextBlock Text="{Binding StateText}" Style="{StaticResource Text.Caption}"
-                                                           Margin="0,6,0,0" />
+                                                <TextBlock Text="{Binding DisplayStatusText}" Style="{StaticResource Text.Caption}"
+                                                           TextWrapping="Wrap" Margin="0,6,0,0" />
 
                                                 <Grid Margin="0,10,0,0">
                                                     <Grid.ColumnDefinitions>

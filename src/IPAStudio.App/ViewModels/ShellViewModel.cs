@@ -53,6 +53,9 @@ public enum Page
 
     /// <summary>IPSW catalog and resumable firmware downloads.</summary>
     Firmware,
+
+    /// <summary>Application installation, downloads and devices analytics dashboard.</summary>
+    Statistics,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
@@ -224,6 +227,11 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
                 _ => Loc.Get("L.Notification.TaskCompleted")
             };
 
+            if (!string.IsNullOrWhiteSpace(op.Detail) && (op.Kind is OperationKind.Install or OperationKind.Transfer))
+            {
+                title = op.Detail;
+            }
+
             var msg = !string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle;
             if (!string.IsNullOrWhiteSpace(op.Subtitle) && op.Subtitle != msg)
             {
@@ -366,6 +374,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.IpaCatalogs => Resolve<IpaCatalogsViewModel>(),
             Page.MediaExport => Resolve<MediaExportViewModel>(),
             Page.Firmware => Resolve<FirmwareViewModel>(),
+            Page.Statistics => Resolve<StatisticsViewModel>(),
             _ => CurrentViewModel,
         };
 

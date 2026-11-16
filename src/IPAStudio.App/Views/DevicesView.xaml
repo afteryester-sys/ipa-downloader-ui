@@ -8,10 +8,125 @@
         <!-- Declared here rather than relying on MainWindow's copy: this view is also
              loaded on its own, and a StaticResource must resolve within this file. -->
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+
+        <!-- Tool Card Button Style with smooth hover and press micro-animations -->
+        <Style x:Key="ToolCardButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Height" Value="50" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RootBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10" Padding="10,6"
+                                RenderTransformOrigin="0.5, 0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="CardScale" ScaleX="1.0" ScaleY="1.0" />
+                            </Border.RenderTransform>
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource Brush.Hover}" />
+                                <Setter TargetName="RootBorder" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.025" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.025" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.12">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="0.97" Duration="0:0:0.06">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="0.97" Duration="0:0:0.06">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                             To="1.0" Duration="0:0:0.1">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                             To="1.0" Duration="0:0:0.1">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <QuadraticEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="32,24,32,32">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -47,7 +162,7 @@
         </Grid>
 
         <!-- ===== Catalog status bar ===== -->
-        <Border Grid.Row="1" Margin="0,0,0,20" Padding="14,10"
+        <Border Grid.Row="1" Margin="0,0,0,12" Padding="14,10"
                 CornerRadius="8" Background="{StaticResource Brush.Surface}"
                 BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
             <Grid>
@@ -73,8 +188,101 @@
             </Grid>
         </Border>
 
+        <!-- ===== Tools Toolbar ===== -->
+        <UniformGrid Grid.Row="2" Columns="5" Rows="1" Margin="-4,0,-4,20">
+            <!-- 1. Download IPA -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenDirectDownloadCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#180A84FF"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#0A84FF"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.DownloadIpa}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <!-- 2. Firmware -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenFirmwareCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#18BF5AF2"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#BF5AF2"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.Firmware}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <!-- 3. iCloud -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenICloudCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#185AC8FA"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#5AC8FA"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.ICloud}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <!-- 4. Media Export -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenMediaExportCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#1830D158"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#30D158"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.MediaExport}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <!-- 5. Statistics -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenStatisticsCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#18FF9F0A"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#FF9F0A"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.Statistics}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+        </UniformGrid>
+
         <!-- ===== Devices area (full width) ===== -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
 
             <!-- Empty state: animated "waiting for iPhone" -->
             <Border Style="{StaticResource Card}" Padding="48"

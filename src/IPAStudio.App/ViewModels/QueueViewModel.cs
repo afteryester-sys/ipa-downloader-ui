@@ -119,6 +119,7 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 {
     private readonly AuthService _auth;
     private readonly OperationService _operations;
+    private readonly StatisticsService _stats;
     private INavigator? _navigator;
 
     /// <summary>
@@ -162,10 +163,11 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
 
     public bool IsFinished => !IsRunning && Items.Count > 0;
 
-    public QueueViewModel(AuthService auth, OperationService operations)
+    public QueueViewModel(AuthService auth, OperationService operations, StatisticsService stats)
     {
         _auth = auth;
         _operations = operations;
+        _stats = stats;
     }
 
     /// <summary>
@@ -268,10 +270,59 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
         {
             await queue.RunAsync();
 
-            var failed = queue.Items.Count(i => i.Stage is QueueStage.Failed);
+            int succeeded = 0;
+            int failed = 0;
+            foreach (var item in queue.Items)
+            {
+                if (item.Stage is QueueStage.Done)
+                {
+                    succeeded++;
+                    string method = operation?.Kind == OperationKind.Transfer
+                        ? "Transfer"
+                        : (item.IsDirectIpaInstall ? "File" : "Catalog");
+                    _stats.RecordAppInstall(
+                        item.App.Name,
+                        item.App.BundleId ?? "",
+                        item.App.LatestVersion ?? "",
+                        item.TargetDevice.Name,
+                        item.TargetDevice.Udid,
+                        method,
+                        succeeded: true);
+                }
+                else if (item.Stage is QueueStage.Failed)
+                {
+                    failed++;
+                    string method = operation?.Kind == OperationKind.Transfer
+                        ? "Transfer"
+                        : (item.IsDirectIpaInstall ? "File" : "Catalog");
+                    _stats.RecordAppInstall(
+                        item.App.Name,
+                        item.App.BundleId ?? "",
+                        item.App.LatestVersion ?? "",
+                        item.TargetDevice.Name,
+                        item.TargetDevice.Udid,
+                        method,
+                        succeeded: false);
+                }
+            }
+
+            string finishText;
+            if (operation?.Kind == OperationKind.Transfer)
+            {
+                finishText = failed > 0
+                    ? string.Format(Loc.Get("L.Ops.Detail.TransferFailedCount"), succeeded, failed)
+                    : string.Format(Loc.Get("L.Ops.Detail.TransferFinishedCount"), succeeded);
+            }
+            else
+            {
+                finishText = failed > 0
+                    ? string.Format(Loc.Get("L.Ops.Detail.InstallFailedCount"), succeeded, failed)
+                    : string.Format(Loc.Get("L.Ops.Detail.InstallFinishedCount"), succeeded);
+            }
+
             operation?.Finish(
                 failed > 0 ? OperationState.Failed : OperationState.Done,
-                failed > 0 ? Loc.Get("L.Ops.State.Failed") : Loc.Get("L.Ops.State.Done"));
+                finishText);
         }
         catch (OperationCanceledException)
         {

@@ -136,6 +136,7 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private readonly CatalogService _catalog;
     private readonly AuthService _auth;
     private readonly InstallService _install;
+    private readonly StatisticsService _stats;
     private INavigator? _navigator;
     private bool _initialized;
 
@@ -163,12 +164,13 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private bool _hasDevices;
 
     public DevicesViewModel(
-        DeviceService devices, CatalogService catalog, AuthService auth, InstallService install)
+        DeviceService devices, CatalogService catalog, AuthService auth, InstallService install, StatisticsService stats)
     {
         _devices = devices;
         _catalog = catalog;
         _auth = auth;
         _install = install;
+        _stats = stats;
 
         _devices.DeviceConnected += OnDeviceConnected;
         _devices.DeviceDisconnected += OnDeviceDisconnected;
@@ -248,6 +250,21 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private void OpenDirectDownload() => _navigator?.GoTo(Page.DirectDownload);
+
+    [RelayCommand]
+    private void OpenFirmware() => _navigator?.GoTo(Page.Firmware);
+
+    [RelayCommand]
+    private void OpenICloud() => _navigator?.GoTo(Page.ICloud);
+
+    [RelayCommand]
+    private void OpenMediaExport() => _navigator?.GoTo(Page.MediaExport);
+
+    [RelayCommand]
+    private void OpenStatistics() => _navigator?.GoTo(Page.Statistics);
+
+    [RelayCommand]
     private void SignIn() => _navigator?.GoTo(Page.Login);
 
     [RelayCommand]
@@ -261,6 +278,11 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
 
     private void OnDeviceConnected(object? sender, Device device)
     {
+        _stats.RecordDeviceConnection(
+            device.Model,
+            device.Udid,
+            device.IsNetworkLink ? "Wi-Fi" : "USB");
+
         RunOnUi(() =>
         {
             var vm = new DeviceViewModel(device) { JustConnected = true };

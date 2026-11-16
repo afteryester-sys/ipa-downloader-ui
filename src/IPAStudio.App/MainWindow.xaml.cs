@@ -170,40 +170,6 @@ public partial class MainWindow : Window
         PageTranslate.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, slide);
     }
 
-    /// <summary>
-    /// Opens the direct download page from the corner flyout.
-    ///
-    /// This is a Click handler rather than a Command binding because the flyout's
-    /// DataContext is the Updater viewmodel, so a binding would look for the command
-    /// on the wrong object and silently do nothing. The navigator lives on the shell.
-    /// </summary>
-    private void OpenDirectDownload_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not ShellViewModel shell) return;
-        shell.Updater.IsOpen = false;
-        shell.GoTo(Page.DirectDownload);
-    }
-
-    private void OpenICloud_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not ShellViewModel shell) return;
-        shell.Updater.IsOpen = false;
-        shell.GoTo(Page.ICloud);
-    }
-
-    private void OpenMediaExport_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not ShellViewModel shell) return;
-        shell.Updater.IsOpen = false;
-        shell.GoTo(Page.MediaExport);
-    }
-
-    private void OpenFirmware_Click(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not ShellViewModel shell) return;
-        shell.Updater.IsOpen = false;
-        shell.GoTo(Page.Firmware);
-    }
 
     /// <summary>
     /// Feeds the rollback password box into the Updater view model. PasswordBox.Password is
