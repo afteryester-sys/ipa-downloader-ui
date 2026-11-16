@@ -165,4 +165,6 @@ public sealed class FirmwareLogEntry
     public string Message { get; set; } = "";
     public string TimeText => Timestamp.ToString("HH:mm:ss");
     public string Icon { get; set; } = "ℹ️";
+    public string Category { get; set; } = "All"; // "All", "Error", "Download"
+    public bool IsError => Category == "Error" || Icon == "❌" || Icon == "⚠️";
 }

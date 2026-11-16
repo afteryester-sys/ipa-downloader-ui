@@ -872,16 +872,82 @@
                                 <TextBlock Text="{DynamicResource L.Firmware.BatchActions}" FontSize="10" FontWeight="SemiBold"
                                            Foreground="{DynamicResource Brush.TextMuted}" Margin="2,0,0,6" />
                                 <StackPanel>
-                                    <!-- Start / Run Workflow button with fluid animation -->
-                                    <Button Command="{Binding StartFirmwareWorkflowCommand}"
-                                            Style="{StaticResource Button.Primary}"
+                                    <!-- Start / Stop Workflow button with fluid animation and dynamic state -->
+                                    <Button Command="{Binding ToggleFirmwareWorkflowCommand}"
                                             Height="32" Padding="8,0" FontSize="11" Margin="0,0,0,6"
                                             HorizontalAlignment="Stretch"
-                                            Background="{DynamicResource Brush.Firmware}"
-                                            BorderBrush="{DynamicResource Brush.Firmware}"
-                                            ToolTip="{DynamicResource L.Firmware.StartWorkflowTooltip}">
+                                            Cursor="Hand"
+                                            RenderTransformOrigin="0.5,0.5"
+                                            ToolTip="{Binding WorkflowButtonTooltip}">
+                                        <Button.RenderTransform>
+                                            <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                        </Button.RenderTransform>
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+                                                <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Brush.Firmware}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsWorkflowRunning}" Value="True">
+                                                        <Setter Property="Background" Value="#FF3B30" />
+                                                        <Setter Property="BorderBrush" Value="#FF3B30" />
+                                                    </DataTrigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="1.02" Duration="0:0:0.12">
+                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="1.02" Duration="0:0:0.12">
+                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                        <Trigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="1.0" Duration="0:0:0.12">
+                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="1.0" Duration="0:0:0.12">
+                                                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.ExitActions>
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="0.97" Duration="0:0:0.08" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="0.97" Duration="0:0:0.08" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                        <Trigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                     To="1.02" Duration="0:0:0.10" />
+                                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                     To="1.02" Duration="0:0:0.10" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.ExitActions>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"
+                                            <TextBlock Text="{Binding WorkflowButtonIcon}" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,6,0" VerticalAlignment="Center"
                                                        RenderTransformOrigin="0.5,0.5">
                                                 <TextBlock.RenderTransform>
                                                     <RotateTransform Angle="0" />
@@ -906,7 +972,7 @@
                                                     </Style>
                                                 </TextBlock.Style>
                                             </TextBlock>
-                                            <TextBlock Text="{DynamicResource L.Firmware.StartWorkflow}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding WorkflowButtonText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Button>
 
@@ -1204,54 +1270,138 @@
 
                                 <!-- Right-aligned controls: History, Check, Check All, Download, Download All, SignedOnly -->
                                 <WrapPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <!-- History / Logs Button -->
+                                    <!-- History / Logs Button with Error Badge -->
                                     <Button x:Name="HistoryButton" Command="{Binding ToggleHistoryCommand}" Style="{StaticResource Button.Secondary}"
                                             Height="28" Padding="8,0" FontSize="11" Margin="0,2,6,2"
                                             ToolTip="{DynamicResource L.Firmware.History.Tooltip}">
-                                        <StackPanel Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
                                             <TextBlock Text="{DynamicResource L.Firmware.History.Title}" VerticalAlignment="Center" />
+                                            <Border Margin="5,0,0,0" Padding="5,1" CornerRadius="8" Background="#FF3B30"
+                                                    Visibility="{Binding HasErrors, Converter={StaticResource BoolToVis}}" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ErrorLogCount}" FontSize="9.5" FontWeight="Bold" Foreground="White" />
+                                            </Border>
                                         </StackPanel>
                                     </Button>
 
                                     <Popup IsOpen="{Binding IsHistoryOpen, Mode=TwoWay}" PlacementTarget="{Binding ElementName=HistoryButton}"
-                                           Placement="Bottom" HorizontalOffset="-200" VerticalOffset="4"
+                                           Placement="Bottom" HorizontalOffset="-240" VerticalOffset="4"
                                            StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
                                         <Border Background="{DynamicResource Brush.Surface}" CornerRadius="12"
                                                 BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
-                                                Width="320" MaxHeight="380" Padding="14" Margin="6">
+                                                Width="380" MaxHeight="450" Padding="14" Margin="6">
                                             <Border.Effect>
                                                 <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.4" Color="#000000" />
                                             </Border.Effect>
                                             <Grid>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
                                                     <RowDefinition Height="*" />
+                                                    <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
+
                                                 <!-- Popup Header -->
-                                                <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                                                <DockPanel Grid.Row="0" Margin="0,0,0,8">
                                                     <StackPanel DockPanel.Dock="Left">
                                                         <TextBlock Text="{DynamicResource L.Firmware.History.Title}" FontWeight="SemiBold" FontSize="13" />
                                                         <TextBlock Text="{Binding LastTssCheckText}" FontSize="10" Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0"
                                                                    Visibility="{Binding HasTssCheckInfo, Converter={StaticResource BoolToVis}}" />
                                                     </StackPanel>
-                                                    <Button DockPanel.Dock="Right" Command="{Binding ClearHistoryCommand}"
-                                                            Style="{StaticResource Button.Ghost}" Padding="6,2" FontSize="10.5"
-                                                            HorizontalAlignment="Right" Content="{DynamicResource L.Firmware.History.Clear}" />
+                                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Button Command="{Binding ClearHistoryCommand}"
+                                                                Style="{StaticResource Button.Ghost}" Padding="6,2" FontSize="10.5" Margin="0,0,6,0"
+                                                                Content="{DynamicResource L.Firmware.History.Clear}" />
+                                                        <Button Command="{Binding CloseHistoryCommand}"
+                                                                Style="{StaticResource Button.Ghost}" Width="24" Height="24" Padding="0"
+                                                                ToolTip="{DynamicResource L.Firmware.History.Close}">
+                                                            <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
+                                                        </Button>
+                                                    </StackPanel>
                                                 </DockPanel>
+
+                                                <!-- Filter Tabs: Все | Ошибки | Загрузки -->
+                                                <Border Grid.Row="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="2" Margin="0,0,0,8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Button Grid.Column="0" Content="{DynamicResource L.Firmware.History.FilterAll}"
+                                                                Command="{Binding SetHistoryFilterCommand}" CommandParameter="All"
+                                                                Padding="6,3" FontSize="11" Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HistoryFilter}" Value="All">
+                                                                            <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                                            <Setter Property="Foreground" Value="White" />
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                        <Button Grid.Column="1" Content="{DynamicResource L.Firmware.History.FilterErrors}"
+                                                                Command="{Binding SetHistoryFilterCommand}" CommandParameter="Error"
+                                                                Padding="6,3" FontSize="11" Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HistoryFilter}" Value="Error">
+                                                                            <Setter Property="Background" Value="#FF3B30" />
+                                                                            <Setter Property="Foreground" Value="White" />
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                        <Button Grid.Column="2" Content="{DynamicResource L.Firmware.History.FilterDownloads}"
+                                                                Command="{Binding SetHistoryFilterCommand}" CommandParameter="Download"
+                                                                Padding="6,3" FontSize="11" Cursor="Hand">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HistoryFilter}" Value="Download">
+                                                                            <Setter Property="Background" Value="{DynamicResource Brush.Firmware}" />
+                                                                            <Setter Property="Foreground" Value="White" />
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+
                                                 <!-- Logs ScrollViewer -->
-                                                <ScrollViewer Grid.Row="1" MaxHeight="280" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                <ScrollViewer Grid.Row="2" MaxHeight="260" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                                     <StackPanel>
                                                         <!-- Empty State -->
                                                         <TextBlock Text="{DynamicResource L.Firmware.History.Empty}"
                                                                    Foreground="{DynamicResource Brush.TextMuted}" FontSize="11"
                                                                    HorizontalAlignment="Center" Margin="0,20"
-                                                                   Visibility="{Binding ActivityLogs.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}" />
+                                                                   Visibility="{Binding FilteredActivityLogs.Count, Converter={StaticResource IntEqualsToVis}, ConverterParameter=0}" />
                                                         <!-- Log Items -->
-                                                        <ItemsControl ItemsSource="{Binding ActivityLogs}">
+                                                        <ItemsControl ItemsSource="{Binding FilteredActivityLogs}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
-                                                                    <Border Padding="6,6" Margin="0,0,0,4" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6">
+                                                                    <Border Padding="6,6" Margin="0,0,0,4" CornerRadius="6">
+                                                                        <Border.Style>
+                                                                            <Style TargetType="Border">
+                                                                                <Setter Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding IsError}" Value="True">
+                                                                                        <Setter Property="Background" Value="#1FFF3B30" />
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </Border.Style>
                                                                         <Grid>
                                                                             <Grid.ColumnDefinitions>
                                                                                 <ColumnDefinition Width="Auto" />
@@ -1268,6 +1418,12 @@
                                                         </ItemsControl>
                                                     </StackPanel>
                                                 </ScrollViewer>
+
+                                                <!-- Footer: Auto-dismiss checkbox -->
+                                                <Border Grid.Row="3" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,1,0,0" Padding="0,8,0,0" Margin="0,6,0,0">
+                                                    <CheckBox Style="{StaticResource Check.Base}" Content="{DynamicResource L.Firmware.History.AutoClose}"
+                                                              IsChecked="{Binding IsAutoDismissHistoryEnabled}" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
+                                                </Border>
                                             </Grid>
                                         </Border>
                                     </Popup>
@@ -2186,6 +2342,30 @@
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                                         <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch}" FontWeight="SemiBold" FontSize="13" />
                                         <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoStartOnLaunch.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Group 5.3: Auto-Delete Obsolete Firmwares -->
+                            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}"
+                                              IsChecked="{Binding IsAutoDeleteObsoleteEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoDeleteObsolete}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoDeleteObsolete.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <!-- Group 5.4: Auto-Resume Pending Downloads -->
+                            <Border BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Padding="0,0,0,14" Margin="0,0,0,14">
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Right" Style="{StaticResource Check.Base}"
+                                              IsChecked="{Binding IsAutoResumePendingEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoResumePending}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{DynamicResource L.Firmware.Settings.AutoResumePending.Hint}" Style="{StaticResource Text.Caption}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap" />
                                     </StackPanel>
                                 </DockPanel>
                             </Border>

@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.69",
+                    date: "17.11.2026",
+                    title: "Автоматический цикл прошивок, динамический запуск/остановка, журнал ошибок и ускорение сборки",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ЦИКЛ",
+                            "Унифицированный цикл проверки, очистки и докачки",
+                            "Кнопка «Запуск» принудительно выполняет полный цикл: проверяет наличие свободного места на диске, удаляет битые и устаревшие неподписываемые файлы, докачивает незавершённые файлы и автоматически возобновляет работу при запуске программы."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ИНТЕРФЕЙС",
+                            "Динамическая кнопка «Запуск / Остановить» и анимации",
+                            "Во время работы цикла кнопка «Запуск» плавно переключается в красную кнопку «Остановить», позволяя мгновенно прервать процесс в один клик. Все элементы управления получили плавные микро-анимации."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ЖУРНАЛ",
+                            "Компактный журнал с фильтром ошибок и автозакрытием",
+                            "Кнопка «Журнал» отображает красный бейдж при наличии ошибок. В окне журнала добавлены фильтры (Все / Ошибки / Загрузки), автозакрытие (5 сек) и кнопка закрытия [✕]. При потере сети процесс автоматически ожидает восстановления и продолжает загрузку."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "СКОРОСТЬ",
+                            "Мгновенная сборка прошивок (Zero-Copy Multi-Segment)",
+                            "Многопоточная загрузка пишет фрагменты напрямую в единый файл без этапа финального копирования 12 ГБ, что полностью исключает задержку после завершения скачивания.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.68",
                     date: "09.11.2026",
                     title: "Поддержка установки корпоративных и профильных IPA через «Выбрать» и надёжный перенос",
@@ -623,6 +650,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.69",
+                date: "11/17/2026",
+                title: "Firmware Batch Cycle Resilience, Dynamic Start/Stop, Error Log, and Zero-Copy Assembly",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "WORKFLOW",
+                        "Unified Check, Prune, Resume, and Space-Verified Cycle",
+                        "The 'Start' button forcefully executes the full cycle: verifies disk free space, removes corrupted and obsolete unsigned firmwares, resumes partial downloads, and persists state across restarts."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UI",
+                        "Dynamic Start / Stop Button & Fluid Animations",
+                        "While the cycle is running, the Start button transforms into a danger red Stop button with an instant single-click halt. Added smooth tactile micro-animations to buttons, toggles, and sliders."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "LOGS",
+                        "Categorized History & Error Log with Auto-Dismiss",
+                        "The History button features an error counter badge. The log popup provides category tabs (All / Errors / Downloads), a 5-second auto-dismiss option, and explicit close button. Network drops automatically reconnect and resume seamlessly."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "PERFORMANCE",
+                        "Instant Zero-Copy Multi-Segment Firmware Assembly",
+                        "Multi-threaded Range downloading streams directly into the pre-allocated destination file, eliminating the 12 GB post-download assembly phase.")
+                }),
             new ReleaseNote(
                 version: "1.8.68",
                 date: "11/09/2026",

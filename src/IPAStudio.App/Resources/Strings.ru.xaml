@@ -1145,4 +1145,21 @@
     <sys:String x:Key="L.Firmware.DeviceLastDownloaded">Загрузка: {0}</sys:String>
     <sys:String x:Key="L.Firmware.DeviceNeverDownloaded">Не загружалась</sys:String>
     <sys:String x:Key="L.Firmware.ActiveCountSuffix">активных</sys:String>
+    <!-- Firmware Batch Workflow Resilience & History (v1.8.69) -->
+    <sys:String x:Key="L.Firmware.StopWorkflow">Остановить</sys:String>
+    <sys:String x:Key="L.Firmware.StopWorkflowTooltip">Остановить активный цикл проверки и загрузки прошивок</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterAll">Все</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterErrors">Ошибки</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterDownloads">Загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.History.AutoClose">Автозакрытие (5 сек)</sys:String>
+    <sys:String x:Key="L.Firmware.History.Close">Закрыть</sys:String>
+    <sys:String x:Key="L.Firmware.Error.InsufficientDiskSpace">Недостаточно места на диске {0}: доступно {1} ГБ, требуется {2} ГБ</sys:String>
+    <sys:String x:Key="L.Firmware.Log.ObsoletePruned">Удалена устаревшая прошивка: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.PendingResumed">Возобновлена незавершённая загрузка: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.NetworkIssue">Потеря связи при загрузке {0}, ожидание переподключения…</sys:String>
+    <sys:String x:Key="L.Firmware.Log.NetworkRestoredJob">Связь восстановлена, продолжение {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoDeleteObsolete">Удалять устаревшие прошивки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoDeleteObsolete.Hint">Автоматически освобождать место, удаляя неподписываемые старые версии IPSW</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoResumePending">Автоматически возобновлять загрузки</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoResumePending.Hint">Автоматически продолжать недокачанные файлы при запуске программы</sys:String>
 </ResourceDictionary>

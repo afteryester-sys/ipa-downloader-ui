@@ -89,6 +89,9 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         ScheduleEndHour = Math.Clamp(settings.Current.FirmwareScheduleEndHour, 0, 23);
         IsSequentialDownload = settings.Current.FirmwareDownloadSequential;
         IsAutoStartOnLaunchEnabled = settings.Current.FirmwareAutoStartOnLaunch;
+        IsAutoDismissHistoryEnabled = settings.Current.FirmwareAutoDismissHistory;
+        IsAutoDeleteObsoleteEnabled = settings.Current.FirmwareAutoDeleteObsolete;
+        IsAutoResumePendingEnabled = settings.Current.FirmwareAutoResumePending;
         Jobs.CollectionChanged += OnJobsChanged;
         MyDevices.CollectionChanged += (_, _) => UpdateDeviceActionLabels();
         RestoreMyDevices();
@@ -146,7 +149,24 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
     [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    [NotifyPropertyChangedFor(nameof(IsWorkflowRunning))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonText))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonIcon))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonTooltip))]
     private bool _isWorkflowActive;
+
+    public bool IsWorkflowRunning => IsWorkflowActive || HasActiveJobs || IsChecking;
+    public string WorkflowButtonText => IsWorkflowRunning ? Loc.Get("L.Firmware.StopWorkflow") : Loc.Get("L.Firmware.StartWorkflow");
+    public string WorkflowButtonIcon => IsWorkflowRunning ? "\uE71A" : "\uE768";
+    public string WorkflowButtonTooltip => IsWorkflowRunning ? Loc.Get("L.Firmware.StopWorkflowTooltip") : Loc.Get("L.Firmware.StartWorkflowTooltip");
+
+    public void NotifyWorkflowStateChanged()
+    {
+        OnPropertyChanged(nameof(IsWorkflowRunning));
+        OnPropertyChanged(nameof(WorkflowButtonText));
+        OnPropertyChanged(nameof(WorkflowButtonIcon));
+        OnPropertyChanged(nameof(WorkflowButtonTooltip));
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
@@ -224,6 +244,10 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ServiceStatusBadgeText))]
     [NotifyPropertyChangedFor(nameof(IsServiceActive))]
+    [NotifyPropertyChangedFor(nameof(IsWorkflowRunning))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonText))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonIcon))]
+    [NotifyPropertyChangedFor(nameof(WorkflowButtonTooltip))]
     private bool _isChecking;
     [ObservableProperty] private int _selectedFirmwareCount;
     [ObservableProperty] private string _batchButtonText = "";
@@ -310,6 +334,91 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     private string _lastTssCheckText = "";
     [ObservableProperty] private bool _isHistoryOpen;
     [ObservableProperty] private ObservableCollection<FirmwareLogEntry> _activityLogs = new();
+    [ObservableProperty] private ObservableCollection<FirmwareLogEntry> _filteredActivityLogs = new();
+    [ObservableProperty] private string _historyFilter = "All"; // "All", "Error", "Download"
+    [ObservableProperty] private int _errorLogCount;
+    public bool HasErrors => ErrorLogCount > 0;
+    [ObservableProperty] private bool _isAutoDismissHistoryEnabled;
+    [ObservableProperty] private bool _isAutoDeleteObsoleteEnabled;
+    [ObservableProperty] private bool _isAutoResumePendingEnabled = true;
+
+    partial void OnIsAutoDeleteObsoleteEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareAutoDeleteObsolete = value;
+        _settings.Save();
+    }
+
+    partial void OnIsAutoResumePendingEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareAutoResumePending = value;
+        _settings.Save();
+    }
+
+    partial void OnIsAutoDismissHistoryEnabledChanged(bool value)
+    {
+        _settings.Current.FirmwareAutoDismissHistory = value;
+        _settings.Save();
+    }
+
+    private CancellationTokenSource? _autoDismissCts;
+    partial void OnIsHistoryOpenChanged(bool value)
+    {
+        _autoDismissCts?.Cancel();
+        _autoDismissCts?.Dispose();
+        _autoDismissCts = null;
+
+        if (value && IsAutoDismissHistoryEnabled)
+        {
+            _autoDismissCts = new CancellationTokenSource();
+            var token = _autoDismissCts.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(5000, token);
+                    if (!token.IsCancellationRequested)
+                    {
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            if (IsHistoryOpen) IsHistoryOpen = false;
+                        });
+                    }
+                }
+                catch (OperationCanceledException) { }
+            }, token);
+        }
+    }
+
+    [RelayCommand] private void CloseHistory() => IsHistoryOpen = false;
+
+    [RelayCommand]
+    private void SetHistoryFilter(string filter)
+    {
+        HistoryFilter = filter ?? "All";
+    }
+
+    partial void OnHistoryFilterChanged(string value) => ApplyHistoryFilter();
+
+    private void ApplyHistoryFilter()
+    {
+        System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
+        {
+            FilteredActivityLogs.Clear();
+            IEnumerable<FirmwareLogEntry> source = ActivityLogs;
+            if (string.Equals(HistoryFilter, "Error", StringComparison.OrdinalIgnoreCase))
+            {
+                source = source.Where(e => e.IsError);
+            }
+            else if (string.Equals(HistoryFilter, "Download", StringComparison.OrdinalIgnoreCase))
+            {
+                source = source.Where(e => string.Equals(e.Category, "Download", StringComparison.OrdinalIgnoreCase));
+            }
+            foreach (var item in source)
+            {
+                FilteredActivityLogs.Add(item);
+            }
+        });
+    }
 
     public bool HasTssCheckInfo => !string.IsNullOrEmpty(LastTssCheckText);
     partial void OnLastTssCheckTextChanged(string value) => OnPropertyChanged(nameof(HasTssCheckInfo));
@@ -319,19 +428,49 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     public bool HasResumableJobs => Jobs.Any(j => j.CanResume);
     public bool HasFinishedJobs => Jobs.Any(j => j.State == FirmwareJobState.Done);
 
-    public void AddActivityLog(string icon, string message)
+    public void AddActivityLog(string icon, string message, string category = "All")
     {
+        if (category == "All")
+        {
+            if (icon == "❌" || icon == "⚠️") category = "Error";
+            else if (icon == "⬇️" || icon == "✅" || icon == "▶️" || icon == "⏸️" || icon == "⏳") category = "Download";
+        }
+        var entry = new FirmwareLogEntry
+        {
+            Icon = icon,
+            Message = message,
+            Timestamp = DateTime.Now,
+            Category = category
+        };
         System.Windows.Application.Current?.Dispatcher?.InvokeAsync(() =>
         {
-            ActivityLogs.Insert(0, new FirmwareLogEntry { Icon = icon, Message = message, Timestamp = DateTime.Now });
+            ActivityLogs.Insert(0, entry);
             while (ActivityLogs.Count > 100) ActivityLogs.RemoveAt(ActivityLogs.Count - 1);
+            if (entry.IsError)
+            {
+                ErrorLogCount++;
+                OnPropertyChanged(nameof(HasErrors));
+            }
+            ApplyHistoryFilter();
         });
     }
 
     [RelayCommand] private void ToggleHistory() => IsHistoryOpen = !IsHistoryOpen;
-    [RelayCommand] private void ClearHistory() => ActivityLogs.Clear();
 
-    partial void OnActiveCountChanged(int value) => OnPropertyChanged(nameof(HasActiveJobs));
+    [RelayCommand]
+    private void ClearHistory()
+    {
+        ActivityLogs.Clear();
+        FilteredActivityLogs.Clear();
+        ErrorLogCount = 0;
+        OnPropertyChanged(nameof(HasErrors));
+    }
+
+    partial void OnActiveCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasActiveJobs));
+        NotifyWorkflowStateChanged();
+    }
 
     partial void OnSearchTextChanged(string value) => ApplyDeviceFilter();
 
@@ -673,6 +812,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         if (MyDevices.Count == 0) RestoreMyDevices();
         if (Jobs.Count == 0) LoadPersistedJobs();
         if (_allDevices.Count == 0) await LoadDevicesAsync();
+        NotifyWorkflowStateChanged();
     }
 
     [RelayCommand] private void GoBack() => _navigator?.GoBack();
@@ -838,12 +978,48 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     }
 
     [RelayCommand]
+    private async Task ToggleFirmwareWorkflowAsync()
+    {
+        if (IsWorkflowRunning)
+        {
+            await StopWorkflowServiceAsync();
+        }
+        else
+        {
+            await StartFirmwareWorkflowAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task StopWorkflowServiceAsync()
+    {
+        IsServicePaused = false;
+        IsWorkflowActive = false;
+        IsChecking = false;
+
+        PauseAll();
+
+        var activeJobs = Jobs.Where(j => j.State is FirmwareJobState.Running or FirmwareJobState.Reconnecting or FirmwareJobState.Queued).ToList();
+        foreach (var job in activeJobs)
+        {
+            await StopJobCoreAsync(job);
+        }
+
+        StatusText = Loc.Get("L.Firmware.ServiceStopped");
+        AddActivityLog("⏹️", Loc.Get("L.Firmware.Log.ServiceStopped"), "All");
+        OnPropertyChanged(nameof(ServiceStatusBadgeText));
+        OnPropertyChanged(nameof(IsServiceActive));
+        NotifyWorkflowStateChanged();
+    }
+
+    [RelayCommand]
     private async Task StartFirmwareWorkflowAsync()
     {
         if (MyDevices.Count == 0 || IsChecking) return;
         IsChecking = true;
         IsWorkflowActive = true;
         IsServicePaused = false;
+        NotifyWorkflowStateChanged();
         StatusText = Loc.Get("L.Firmware.CheckingAll");
         PersistDownloadSettings();
 
@@ -856,8 +1032,40 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
 
         try
         {
-            AddActivityLog("🚀", string.Format(Loc.Get("L.Firmware.Log.WorkflowStarted"), targets.Count));
+            AddActivityLog("🚀", string.Format(Loc.Get("L.Firmware.Log.WorkflowStarted"), targets.Count), "All");
 
+            // 1. Clean up invalid/corrupt temporary parts
+            _downloads.CleanupInvalidTemporaryFiles(DestinationFolder);
+
+            // 2. Prune obsolete/unsigned firmwares for monitored devices if enabled
+            if (IsAutoDeleteObsoleteEnabled)
+            {
+                try
+                {
+                    var activeSignedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var device in targets)
+                    {
+                        var cached = _catalog.GetCachedDevice(device.Identifier) ?? await _catalog.GetDeviceAsync(device.Identifier);
+                        if (cached is null) continue;
+                        foreach (var signedRel in cached.Firmwares.Where(f => f.Signed))
+                        {
+                            activeSignedNames.Add(FirmwareDownloadService.BuildFileName(device.Name, signedRel.Version));
+                        }
+                    }
+                    var prunedCount = _downloads.PruneObsoleteFirmwares(DestinationFolder, targets, activeSignedNames);
+                    if (prunedCount > 0)
+                    {
+                        AddActivityLog("🗑️", string.Format(Loc.Get("L.Firmware.Log.ObsoletePruned"), $"{prunedCount} шт."), "All");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AddActivityLog("⚠️", $"Ошибка очистки устаревших прошивок: {ex.Message}", "Error");
+                }
+            }
+
+            // 3. Collect target releases and verify disk space before queueing
+            var releasesToProcess = new List<(FirmwareDevice Device, FirmwareRelease Release, string Destination, string PartPath)>();
             foreach (var device in targets)
             {
                 var cached = _catalog.GetCachedDevice(device.Identifier)
@@ -869,9 +1077,6 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 var signed = cached.Firmwares.Where(f => f.Signed).ToList();
                 if (signed.Count == 0) continue;
 
-                // Pick target firmwares:
-                // If user selected checkboxes for this device, use those.
-                // Otherwise, pick ONLY the single latest signed release!
                 var targetReleases = new List<FirmwareRelease>();
                 if (SelectedDevice?.Identifier == device.Identifier && Firmwares.Any(f => f.IsSelected))
                 {
@@ -892,87 +1097,107 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         FirmwareDownloadService.BuildFileName(device.Name, release.Version));
                     var partPath = destination + ".part";
 
-                    // 1. Fully downloaded and matches size
                     var fileOnDiskValid = File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize;
                     if (fileOnDiskValid)
                     {
                         totalUpToDate++;
-                        AddActivityLog("✅", $"{device.Name} ({release.Version}) — актуальна и скачана");
+                        AddActivityLog("✅", $"{device.Name} ({release.Version}) — актуальна и скачана", "Download");
                         continue;
                     }
 
-                    // 2. Active, queued, paused, or stale completed job already in memory
-                    var existing = Jobs.FirstOrDefault(j =>
-                        string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) ||
-                        (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)));
-                    if (existing is not null)
+                    releasesToProcess.Add((device, release, destination, partPath));
+                }
+            }
+
+            // Free disk space check
+            long totalEstimatedBytes = 0;
+            foreach (var r in releasesToProcess)
+            {
+                var currentPartBytes = File.Exists(r.PartPath) ? new FileInfo(r.PartPath).Length : 0;
+                totalEstimatedBytes += Math.Max(0, r.Release.FileSize - currentPartBytes);
+            }
+
+            if (totalEstimatedBytes > 0 && !FirmwareDownloadService.CheckDiskSpace(DestinationFolder, totalEstimatedBytes, out var availableBytes, out var driveName))
+            {
+                var requiredGb = (double)totalEstimatedBytes / (1024 * 1024 * 1024);
+                var availableGb = (double)availableBytes / (1024 * 1024 * 1024);
+                var errorMsg = string.Format(Loc.Get("L.Firmware.Error.InsufficientDiskSpace"), driveName, availableGb.ToString("F1"), requiredGb.ToString("F1"));
+                AddActivityLog("⚠️", errorMsg, "Error");
+                StatusText = errorMsg;
+                ErrorText = errorMsg;
+                return;
+            }
+
+            foreach (var (device, release, destination, partPath) in releasesToProcess)
+            {
+                // Active, queued, paused, or stale completed job already in memory
+                var existing = Jobs.FirstOrDefault(j =>
+                    string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) ||
+                    (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)));
+                if (existing is not null)
+                {
+                    if (existing.State == FirmwareJobState.Done)
                     {
-                        if (existing.State == FirmwareJobState.Done)
+                        var fileOnDiskValid = File.Exists(destination) && release.FileSize > 0 && new FileInfo(destination).Length == release.FileSize;
+                        if (fileOnDiskValid)
                         {
-                            if (fileOnDiskValid)
-                            {
-                                totalUpToDate++;
-                                continue;
-                            }
-                            // File was deleted or missing on disk; remove stale completed job so it can re-download
-                            Jobs.Remove(existing);
-                            existing = null;
-                        }
-                        else if (existing.State == FirmwareJobState.Queued)
-                        {
-                            // Already waiting in queue — purge any duplicate copies and do not duplicate
-                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
-                            foreach (var d in dups) Jobs.Remove(d);
+                            totalUpToDate++;
                             continue;
                         }
-                        else if (existing.IsActive)
-                        {
-                            // Already actively downloading or assembling — purge any stray queued copies and do not duplicate
-                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
-                            foreach (var d in dups) Jobs.Remove(d);
-                            continue;
-                        }
-                        else if (existing.CanResume)
-                        {
-                            ResumeJob(existing);
-                            totalResumed++;
-                            AddActivityLog("▶️", $"{device.Name} ({release.Version}) — возобновление загрузки");
-                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
-                            foreach (var d in dups) Jobs.Remove(d);
-                            continue;
-                        }
-                        else
-                        {
-                            // Any other state (e.g. waiting schedule) — purge any duplicates and do not re-add
-                            var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
-                            foreach (var d in dups) Jobs.Remove(d);
-                            continue;
-                        }
+                        Jobs.Remove(existing);
+                        existing = null;
                     }
-
-                    // 3. Needs to be downloaded / resumed
-                    var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: false);
-                    Jobs.Add(job);
-                    totalEnqueued++;
-
-                    if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+                    else if (existing.State == FirmwareJobState.Queued)
                     {
-                        job.State = FirmwareJobState.Queued;
-                        job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+                        var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                        foreach (var d in dups) Jobs.Remove(d);
+                        continue;
+                    }
+                    else if (existing.IsActive)
+                    {
+                        var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                        foreach (var d in dups) Jobs.Remove(d);
+                        continue;
+                    }
+                    else if (existing.CanResume)
+                    {
+                        ResumeJob(existing);
+                        totalResumed++;
+                        AddActivityLog("▶️", $"{device.Name} ({release.Version}) — возобновление загрузки", "Download");
+                        var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                        foreach (var d in dups) Jobs.Remove(d);
+                        continue;
                     }
                     else
                     {
-                        _ = RunJobAsync(job);
+                        var dups = Jobs.Where(j => j != existing && (string.Equals(j.DestinationPath, destination, StringComparison.OrdinalIgnoreCase) || (string.Equals(j.Device.Identifier, device.Identifier, StringComparison.OrdinalIgnoreCase) && string.Equals(j.Release.BuildId, release.BuildId, StringComparison.OrdinalIgnoreCase)))).ToList();
+                        foreach (var d in dups) Jobs.Remove(d);
+                        continue;
                     }
+                }
 
-                    if (File.Exists(partPath))
-                    {
-                        AddActivityLog("⏳", $"{device.Name} ({release.Version}) — обнаружен незавершённый файл, докачивание");
-                    }
-                    else
-                    {
-                        AddActivityLog("⬇️", $"{device.Name} ({release.Version}) — добавлена в очередь загрузки");
-                    }
+                // Needs to be downloaded / resumed
+                var job = new FirmwareDownloadJob(device, release, destination, PauseJob, ResumeJob, StopJob, isSingleDownload: false);
+                Jobs.Add(job);
+                totalEnqueued++;
+
+                if (IsSequentialDownload && Jobs.Any(j => j != job && j.IsActive))
+                {
+                    job.State = FirmwareJobState.Queued;
+                    job.StatusText = Loc.Get("L.Firmware.Job.Queued");
+                }
+                else
+                {
+                    _ = RunJobAsync(job);
+                }
+
+                if (File.Exists(partPath))
+                {
+                    AddActivityLog("⏳", $"{device.Name} ({release.Version}) — обнаружен незавершённый файл, докачивание", "Download");
+                }
+                else
+                {
+                    AddActivityLog("⬇️", $"{device.Name} ({release.Version}) — добавлена в очередь загрузки", "Download");
                 }
             }
 
@@ -1001,6 +1226,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             IsChecking = false;
             OnPropertyChanged(nameof(ServiceStatusBadgeText));
             OnPropertyChanged(nameof(IsServiceActive));
+            NotifyWorkflowStateChanged();
         }
     }
 
@@ -1410,6 +1636,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                     job.IsAssembling = false;
                     job.State = FirmwareJobState.Reconnecting;
                     job.BytesPerSecond = 0;
+                    AddActivityLog("⚠️", string.Format(Loc.Get("L.Firmware.Log.NetworkIssue"), job.Title), "Error");
 
                     var isNetworkUp = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable();
                     if (!isNetworkUp || attempt >= 5)
@@ -1440,6 +1667,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                         job.StatusText = Loc.Get("L.Firmware.ResumingDownload");
                         operation.Detail = job.StatusText;
                         job.State = FirmwareJobState.Running;
+                        AddActivityLog("🌐", string.Format(Loc.Get("L.Firmware.Log.NetworkRestoredJob"), job.Title), "Download");
                         RecomputeAggregate();
                     }
                 }
@@ -1473,6 +1701,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.BytesPerSecond = 0;
             job.ErrorText = ex.Message;
             job.StatusText = Loc.Get("L.Firmware.Failed");
+            AddActivityLog("❌", $"{job.Title}: {ex.Message}", "Error");
             if (_jobOperations.Remove(job, out var op))
             {
                 op.Finish(OperationState.Failed, ex.Message);
@@ -1687,6 +1916,15 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
                 Jobs.Add(job);
             }
             RecomputeAggregate();
+            if (IsAutoResumePendingEnabled)
+            {
+                var resumable = Jobs.Where(j => j.CanResume && (j.State == FirmwareJobState.Paused || j.State == FirmwareJobState.Queued)).ToList();
+                foreach (var job in resumable)
+                {
+                    ResumeJob(job);
+                    AddActivityLog("▶️", string.Format(Loc.Get("L.Firmware.Log.PendingResumed"), job.Title), "Download");
+                }
+            }
         }
         catch { }
     }
@@ -1782,6 +2020,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
         OnPropertyChanged(nameof(HasActiveJobs));
         OnPropertyChanged(nameof(HasResumableJobs));
         OnPropertyChanged(nameof(HasFinishedJobs));
+        NotifyWorkflowStateChanged();
         ResumeAllCommand.NotifyCanExecuteChanged();
         UpdateDeviceDownloads();
 

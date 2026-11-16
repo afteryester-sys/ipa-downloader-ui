@@ -1147,4 +1147,21 @@
     <sys:String x:Key="L.Firmware.DeviceLastDownloaded">Downloaded: {0}</sys:String>
     <sys:String x:Key="L.Firmware.DeviceNeverDownloaded">Not downloaded</sys:String>
     <sys:String x:Key="L.Firmware.ActiveCountSuffix">active</sys:String>
+    <!-- Firmware Batch Workflow Resilience & History (v1.8.69) -->
+    <sys:String x:Key="L.Firmware.StopWorkflow">Stop</sys:String>
+    <sys:String x:Key="L.Firmware.StopWorkflowTooltip">Stop the active check and download cycle</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterAll">All</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterErrors">Errors</sys:String>
+    <sys:String x:Key="L.Firmware.History.FilterDownloads">Downloads</sys:String>
+    <sys:String x:Key="L.Firmware.History.AutoClose">Auto-close (5 sec)</sys:String>
+    <sys:String x:Key="L.Firmware.History.Close">Close</sys:String>
+    <sys:String x:Key="L.Firmware.Error.InsufficientDiskSpace">Insufficient disk space on {0}: available {1} GB, required {2} GB</sys:String>
+    <sys:String x:Key="L.Firmware.Log.ObsoletePruned">Removed obsolete firmware: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.PendingResumed">Resumed incomplete download: {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Log.NetworkIssue">Network lost for {0}, waiting to reconnect…</sys:String>
+    <sys:String x:Key="L.Firmware.Log.NetworkRestoredJob">Connection restored, continuing {0}</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoDeleteObsolete">Delete obsolete firmwares</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoDeleteObsolete.Hint">Automatically free space by deleting unsigned legacy IPSW files</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoResumePending">Auto-resume pending downloads</sys:String>
+    <sys:String x:Key="L.Firmware.Settings.AutoResumePending.Hint">Automatically continue incomplete downloads when starting the app</sys:String>
 </ResourceDictionary>

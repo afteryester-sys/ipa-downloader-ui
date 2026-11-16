@@ -387,6 +387,15 @@ public sealed class AppSettings
     /// <summary>Whether the firmware service automatically runs checks and downloads on app launch.</summary>
     public bool FirmwareAutoStartOnLaunch { get; set; } = false;
 
+    /// <summary>Whether obsolete unsigned firmware versions are automatically pruned from the download folder.</summary>
+    public bool FirmwareAutoDeleteObsolete { get; set; } = false;
+
+    /// <summary>Whether the firmware history and errors popup automatically dismisses after a timeout.</summary>
+    public bool FirmwareAutoDismissHistory { get; set; } = false;
+
+    /// <summary>Whether unfinished (.part) firmware downloads are automatically resumed on app launch.</summary>
+    public bool FirmwareAutoResumePending { get; set; } = true;
+
     /// <summary>Cache of known Apple IDs / iCloud accounts mapped by device UDID.</summary>
     public Dictionary<string, string> DeviceAppleIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

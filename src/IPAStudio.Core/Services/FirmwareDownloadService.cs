@@ -65,6 +65,53 @@ public sealed class FirmwareDownloadService
     }
 
     /// <summary>
+    /// Checks whether the target drive has sufficient free space for the download plus a 2 GB safety buffer.
+    /// </summary>
+    public static bool CheckDiskSpace(string folder, long requiredBytes, out long availableBytes, out string driveName)
+    {
+        try
+        {
+            var fullPath = Path.GetFullPath(folder);
+            var root = Path.GetPathRoot(fullPath);
+            var drive = new DriveInfo(root ?? fullPath);
+            availableBytes = drive.AvailableFreeSpace;
+            driveName = drive.Name;
+            return availableBytes >= (requiredBytes + 2_147_483_648L);
+        }
+        catch
+        {
+            availableBytes = -1;
+            driveName = "";
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Prunes local .ipsw files belonging to monitored models whose firmware version is no longer signed.
+    /// </summary>
+    public int PruneObsoleteFirmwares(string folder, IEnumerable<FirmwareDevice> monitoredDevices, IEnumerable<string> activeSignedFileNames)
+    {
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return 0;
+        var activeSet = new HashSet<string>(activeSignedFileNames, StringComparer.OrdinalIgnoreCase);
+        int deletedCount = 0;
+        foreach (var file in Directory.EnumerateFiles(folder, "*.ipsw"))
+        {
+            var name = Path.GetFileName(file);
+            bool isMonitored = monitoredDevices.Any(d => name.Contains(d.Name, StringComparison.OrdinalIgnoreCase));
+            if (isMonitored && !activeSet.Contains(name))
+            {
+                try
+                {
+                    File.Delete(file);
+                    deletedCount++;
+                }
+                catch { }
+            }
+        }
+        return deletedCount;
+    }
+
+    /// <summary>
     /// Lists downloads that were interrupted, read straight from the manifests left on disk.
     /// Used at startup to offer resuming instead of silently leaving half a firmware behind.
     /// </summary>
@@ -85,6 +132,10 @@ public sealed class FirmwareDownloadService
                 var downloaded = manifest.Segments.Sum(s =>
                 {
                     var expected = s.End - s.Start + 1;
+                    if (s.PartPath.EndsWith(".part", StringComparison.OrdinalIgnoreCase) && File.Exists(s.PartPath))
+                    {
+                        return Math.Clamp(s.Downloaded, 0, expected);
+                    }
                     var onDisk = File.Exists(s.PartPath) ? new FileInfo(s.PartPath).Length : 0;
                     return Math.Clamp(onDisk, 0, expected);
                 });
@@ -172,6 +223,18 @@ public sealed class FirmwareDownloadService
         }
         await SaveManifestAsync(manifestPath, manifest, ct).ConfigureAwait(false);
 
+        var sharedPartPath = destination + ".part";
+        var isUnifiedPart = manifest.Segments.All(s => string.Equals(s.PartPath, sharedPartPath, StringComparison.OrdinalIgnoreCase));
+
+        if (isUnifiedPart)
+        {
+            if (!File.Exists(sharedPartPath) || new FileInfo(sharedPartPath).Length != length)
+            {
+                await using var initFs = new FileStream(sharedPartPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite);
+                try { initFs.SetLength(length); } catch { }
+            }
+        }
+
         var started = Stopwatch.StartNew();
         long initialBytes = manifest.Segments.Sum(s => Math.Min(s.Downloaded, s.End - s.Start + 1));
         long sessionBytes = 0;
@@ -193,8 +256,12 @@ public sealed class FirmwareDownloadService
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(segment.PartPath)!);
                 var expected = segment.End - segment.Start + 1;
-                var existing = File.Exists(segment.PartPath) ? new FileInfo(segment.PartPath).Length : 0;
-                segment.Downloaded = Math.Clamp(existing, 0, expected);
+                var isSegmentUnified = string.Equals(segment.PartPath, sharedPartPath, StringComparison.OrdinalIgnoreCase);
+                if (!isSegmentUnified)
+                {
+                    var existing = File.Exists(segment.PartPath) ? new FileInfo(segment.PartPath).Length : 0;
+                    segment.Downloaded = Math.Clamp(existing, 0, expected);
+                }
                 if (segment.Downloaded >= expected) return;
 
                 using var response = await SendWithReconnectAsync(() =>
@@ -209,9 +276,16 @@ public sealed class FirmwareDownloadService
                 response.EnsureSuccessStatusCode();
 
                 await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
-                await using var output = new FileStream(segment.PartPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite,
-                    1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
-                var buffer = new byte[1024 * 1024];
+                await using var output = isSegmentUnified
+                    ? new FileStream(sharedPartPath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite, 2 * 1024 * 1024, FileOptions.Asynchronous | FileOptions.RandomAccess)
+                    : new FileStream(segment.PartPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite, 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+                if (isSegmentUnified)
+                {
+                    output.Seek(segment.Start + segment.Downloaded, SeekOrigin.Begin);
+                }
+
+                var buffer = new byte[2 * 1024 * 1024];
 
                 while (segment.Downloaded < expected)
                 {
@@ -278,7 +352,13 @@ public sealed class FirmwareDownloadService
 
             var temp = destination + ".assembling";
 
-            if (manifest.Segments.Count == 1 && File.Exists(manifest.Segments[0].PartPath))
+            if (isUnifiedPart && File.Exists(sharedPartPath))
+            {
+                // Instant zero-copy path: file is already assembled directly during download!
+                progress?.Report(new FirmwareDownloadProgress(length, length, 0, "assembling", 100));
+                temp = sharedPartPath;
+            }
+            else if (manifest.Segments.Count == 1 && File.Exists(manifest.Segments[0].PartPath))
             {
                 // Fast-path: single segment direct move (instantaneous, zero disk copy overhead)
                 if (File.Exists(temp)) File.Delete(temp);
@@ -345,7 +425,7 @@ public sealed class FirmwareDownloadService
                 progress?.Report(new FirmwareDownloadProgress(length, length, 0, "verifying", 100));
             }
             File.Move(temp, destination, true);
-            foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath)) File.Delete(segment.PartPath); }
+            foreach (var segment in manifest.Segments) { if (File.Exists(segment.PartPath) && !string.Equals(segment.PartPath, temp, StringComparison.OrdinalIgnoreCase)) File.Delete(segment.PartPath); }
             if (File.Exists(manifestPath)) File.Delete(manifestPath);
             progress?.Report(new FirmwareDownloadProgress(length, length, 0));
             return destination;
@@ -389,11 +469,12 @@ public sealed class FirmwareDownloadService
             ETag = head.Headers.ETag?.Tag, LastModified = head.Content.Headers.LastModified,
         };
         var partSize = (long)Math.Ceiling(length / (double)count);
+        var sharedPartPath = path + ".part";
         for (var i = 0; i < count; i++)
         {
             var start = i * partSize;
             var end = Math.Min(length - 1, start + partSize - 1);
-            if (start <= end) manifest.Segments.Add(new FirmwareSegment { Start = start, End = end, PartPath = path + $".part{i}" });
+            if (start <= end) manifest.Segments.Add(new FirmwareSegment { Start = start, End = end, PartPath = sharedPartPath });
         }
         return manifest;
     }
