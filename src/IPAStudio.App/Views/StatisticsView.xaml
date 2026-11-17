@@ -9,12 +9,168 @@
         <conv:IconPathConverter x:Key="IconPath" />
 
         <!-- Segmented period toggle button style -->
-        <Style x:Key="PeriodButton" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
+        <Style x:Key="PeriodButton" TargetType="Button">
             <Setter Property="Height" Value="28" />
             <Setter Property="Padding" Value="12,0" />
             <Setter Property="FontSize" Value="11.5" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              RecognizesAccessKey="False" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceActive}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Brush.Text}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Opacity" Value="0.75" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PeriodButton.Today" TargetType="Button" BasedOn="{StaticResource PeriodButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Today}">
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Today}" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PeriodButton.Week" TargetType="Button" BasedOn="{StaticResource PeriodButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Week}">
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Week}" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PeriodButton.Month" TargetType="Button" BasedOn="{StaticResource PeriodButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Month}">
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Month}" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PeriodButton.Year" TargetType="Button" BasedOn="{StaticResource PeriodButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Year}">
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Year}" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PeriodButton.AllTime" TargetType="Button" BasedOn="{StaticResource PeriodButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.AllTime}">
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.AllTime}" />
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Destructive Action Button Style (calm ghost, danger highlight on hover) -->
+        <Style x:Key="StatsDangerButton" TargetType="Button">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Brush.DangerSoft}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.75" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Stat Card Style -->
@@ -65,104 +221,43 @@
             </StackPanel>
 
             <!-- Period Switcher & Actions (Right) -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- Segmented Control Container -->
-                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="2" Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal">
-                        <!-- Today -->
-                        <Button Content="{DynamicResource L.Stats.Period.Today}"
-                                Command="{Binding SetPeriodCommand}" CommandParameter="Today">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource PeriodButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Today}">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
-                        <!-- Week (7 days) -->
-                        <Button Content="{DynamicResource L.Stats.Period.Week}"
-                                Command="{Binding SetPeriodCommand}" CommandParameter="Week">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource PeriodButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Week}">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
-                        <!-- Month (30 days) -->
-                        <Button Content="{DynamicResource L.Stats.Period.Month}"
-                                Command="{Binding SetPeriodCommand}" CommandParameter="Month">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource PeriodButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Month}">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
-                        <!-- Year (365 days) -->
-                        <Button Content="{DynamicResource L.Stats.Period.Year}"
-                                Command="{Binding SetPeriodCommand}" CommandParameter="Year">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource PeriodButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Year}">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-
-                        <!-- All Time -->
-                        <Button Content="{DynamicResource L.Stats.Period.AllTime}"
-                                Command="{Binding SetPeriodCommand}" CommandParameter="AllTime">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource PeriodButton}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.AllTime}">
-                                            <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
-                <!-- Refresh Button -->
+            <!-- 60px right margin keeps comfortably clear of MainWindow Settings gear button -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,60,0">
+                <!-- Action Controls: Refresh and Clear grouped cleanly on the left of segmented period -->
                 <Button Command="{Binding RefreshCommand}" Style="{StaticResource Button.Secondary}"
-                        Width="32" Height="32" Padding="0" Margin="0,0,6,0" ToolTip="{DynamicResource L.Refresh}">
+                        Width="32" Height="28" Padding="0" Margin="0,0,6,0" ToolTip="{DynamicResource L.Refresh}">
                     <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
 
-                <!-- Clear Stats Button -->
-                <Button Command="{Binding ClearStatsCommand}" Style="{StaticResource Button.Ghost}"
-                        Width="32" Height="32" Padding="0" ToolTip="{DynamicResource L.Stats.Clear}">
+                <Button Command="{Binding ClearStatsCommand}" Style="{StaticResource StatsDangerButton}"
+                        Margin="0,0,10,0" ToolTip="{DynamicResource L.Stats.Clear}">
                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{DynamicResource Brush.TextMuted}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
+
+                <!-- Subtle separator between actions and period filter -->
+                <Rectangle Width="1" Height="16" Fill="{DynamicResource Brush.Border}" Margin="0,0,10,0" VerticalAlignment="Center" />
+
+                <!-- Segmented Control Container -->
+                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="2">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Content="{DynamicResource L.Stats.Period.Today}"
+                                Style="{StaticResource PeriodButton.Today}"
+                                Command="{Binding SetPeriodCommand}" CommandParameter="Today" />
+                        <Button Content="{DynamicResource L.Stats.Period.Week}"
+                                Style="{StaticResource PeriodButton.Week}"
+                                Command="{Binding SetPeriodCommand}" CommandParameter="Week" />
+                        <Button Content="{DynamicResource L.Stats.Period.Month}"
+                                Style="{StaticResource PeriodButton.Month}"
+                                Command="{Binding SetPeriodCommand}" CommandParameter="Month" />
+                        <Button Content="{DynamicResource L.Stats.Period.Year}"
+                                Style="{StaticResource PeriodButton.Year}"
+                                Command="{Binding SetPeriodCommand}" CommandParameter="Year" />
+                        <Button Content="{DynamicResource L.Stats.Period.AllTime}"
+                                Style="{StaticResource PeriodButton.AllTime}"
+                                Command="{Binding SetPeriodCommand}" CommandParameter="AllTime" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Grid>
 
@@ -181,12 +276,19 @@
             <!-- Card 1: App Installs -->
             <Border Grid.Column="0" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,6">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Installs}" Style="{StaticResource Text.Caption}"
-                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding PeriodTitle}" FontSize="10.5"
-                                   Foreground="{DynamicResource Brush.Accent}" HorizontalAlignment="Right" />
-                    </DockPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Installs}" Style="{StaticResource Text.Caption}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding PeriodTitle}" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Brush.Accent}" />
+                        </Border>
+                    </Grid>
                     <TextBlock Text="{Binding TotalInstalls}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.TodayPrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
@@ -199,12 +301,19 @@
             <!-- Card 2: Devices Served -->
             <Border Grid.Column="2" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,6">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Devices}" Style="{StaticResource Text.Caption}"
-                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="10.5"
-                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
-                    </DockPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Devices}" Style="{StaticResource Text.Caption}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="10" FontWeight="Medium"
+                                       Foreground="{DynamicResource Brush.TextMuted}" />
+                        </Border>
+                    </Grid>
                     <TextBlock Text="{Binding UniqueDevices}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.ConnectionsCount}" Style="{StaticResource Text.Caption}" FontSize="11" />
@@ -217,12 +326,19 @@
             <!-- Card 3: IPA Downloads -->
             <Border Grid.Column="4" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,6">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Ipa}" Style="{StaticResource Text.Caption}"
-                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding IpaVolumeText}" FontSize="10.5"
-                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
-                    </DockPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Ipa}" Style="{StaticResource Text.Caption}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding IpaVolumeText}" FontSize="10" FontWeight="Medium"
+                                       Foreground="{DynamicResource Brush.TextMuted}" />
+                        </Border>
+                    </Grid>
                     <TextBlock Text="{Binding TotalIpaDownloads}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.VolumePrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
@@ -235,12 +351,19 @@
             <!-- Card 4: Firmware Downloads -->
             <Border Grid.Column="6" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,6">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Firmwares}" Style="{StaticResource Text.Caption}"
-                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
-                        <TextBlock DockPanel.Dock="Right" Text="{Binding FirmwareVolumeText}" FontSize="10.5"
-                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
-                    </DockPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Firmwares}" Style="{StaticResource Text.Caption}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FirmwareVolumeText}" FontSize="10" FontWeight="Medium"
+                                       Foreground="{DynamicResource Brush.TextMuted}" />
+                        </Border>
+                    </Grid>
                     <TextBlock Text="{Binding TotalFirmwareDownloads}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.VolumePrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
@@ -271,13 +394,13 @@
                 <Border Grid.Row="0" Style="{StaticResource StatCard}">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,14">
-                            <TextBlock Text="{DynamicResource L.Stats.Chart.Activity}" FontWeight="SemiBold" FontSize="13" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
                                 <Border Width="8" Height="8" CornerRadius="2" Background="{DynamicResource Brush.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource L.Stats.Legend.Installs}" Style="{StaticResource Text.Caption}" FontSize="10.5" Margin="0,0,12,0" />
                                 <Border Width="8" Height="8" CornerRadius="2" Background="{DynamicResource Brush.Border}" Margin="0,0,4,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource L.Stats.Legend.Downloads}" Style="{StaticResource Text.Caption}" FontSize="10.5" />
                             </StackPanel>
+                            <TextBlock Text="{DynamicResource L.Stats.Chart.Activity}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
                         </DockPanel>
 
                         <!-- Bars UniformGrid -->
@@ -449,11 +572,11 @@
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
                                             <DockPanel Grid.Row="0" Margin="0,0,0,3">
-                                                <TextBlock Text="{Binding DisplayName}" FontSize="11" FontWeight="SemiBold" />
                                                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Caption}" FontSize="10.5" HorizontalAlignment="Right">
                                                     <Run Text="{Binding Count, Mode=OneWay}" />
                                                     <Run Text=" (" /><Run Text="{Binding PercentageText, Mode=OneWay}" /><Run Text=")" />
                                                 </TextBlock>
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
                                             </DockPanel>
                                             <ProgressBar Grid.Row="1" Height="4" Maximum="100" Value="{Binding Percentage, Mode=OneWay}"
                                                          BorderThickness="0" Background="{DynamicResource Brush.Border}" Foreground="{DynamicResource Brush.Accent}" />

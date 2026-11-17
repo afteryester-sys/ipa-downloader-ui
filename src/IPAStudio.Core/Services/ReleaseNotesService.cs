@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.75",
+                    date: "18.11.2026",
+                    title: "Компоновка панели статистики, контраст активных кнопок и чистая разметка карточек",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИНТЕРФЕЙС",
+                            "Контраст активных кнопок периода при наведении",
+                            "Устранена проблема, при которой выбранная кнопка периода в статистике становилась белой на белом при наведении курсора. Переключатели получили выделенный шаблон с сохранением акцентного цвета и белого текста во всех состояниях."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "КОМПОНОВКА",
+                            "Безопасное расположение панели действий статистики",
+                            "Кнопки обновления и очистки статистики вынесены влево от переключателя периодов с отступом 60 px от края окна, исключая случайные нажатия и конфликт с системной шестерёнкой настроек приложения."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ДИЗАЙН",
+                            "Разделение заголовков и бейджей показателей",
+                            "В карточках ключевых метрик устранено наложение названия показателя и бейджа периода: внедрена табличная вёрстка с отступами и аккуратными чипами в стилистике Google Stitch.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.74",
                     date: "18.11.2026",
                     title: "Глубокое зондирование MTP Shell, реактивная фильтрация медиа и стабильный экспорт",
@@ -743,6 +765,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.75",
+                date: "11/18/2026",
+                title: "Statistics Toolbar Recomposition, Active Button Contrast, and Clean Card Metric Layout",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "UI",
+                        "Active Period Button Hover Contrast",
+                        "Fixed active period filter button turning white-on-white when hovered. Buttons now use dedicated template triggers ensuring high contrast with accent background and crisp white text."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "LAYOUT",
+                        "Safe Statistics Toolbar Recomposition",
+                        "Refresh and clear action buttons are now safely grouped to the left of the period selector with a 60px right margin, eliminating visual clash and accidental clicks near the window settings gear."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "DESIGN",
+                        "Clean Separation of Metric Titles and Period Badges",
+                        "Resolved text collision between metric titles and period labels across KPI cards by introducing two-column grid layouts with styled pill badges following Google Stitch clean UI principles.")
+                }),
             new ReleaseNote(
                 version: "1.8.74",
                 date: "11/18/2026",
