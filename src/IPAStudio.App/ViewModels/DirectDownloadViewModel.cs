@@ -696,7 +696,17 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
         var app = FoundApp;
 
-        if (DownloadQueue.Any(q => q.BundleId == app.BundleId && (q.IsQueued || q.IsActive)))
+        // Check if this exact app is already actively downloading or waiting in queue
+        bool isAlreadyQueuedOrActive = false;
+        RunOnUi(() =>
+        {
+            isAlreadyQueuedOrActive = DownloadQueue.Any(q =>
+                (q.IsQueued || q.IsActive) &&
+                ((!string.IsNullOrEmpty(app.BundleId) && string.Equals(q.BundleId, app.BundleId, StringComparison.OrdinalIgnoreCase))
+                 || (app.AppStoreId > 0 && q.App.AppStoreId == app.AppStoreId)));
+        });
+
+        if (isAlreadyQueuedOrActive)
         {
             StatusText = Loc.Format("L.Direct.Queue.AlreadyInQueue", app.Name);
             return;
@@ -718,9 +728,24 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             onRemove: RemoveFromQueue,
             onRetry: RetryQueueItem);
 
-        queueItem.UpdateDevices(_devices.ConnectedDevices);
-        DownloadQueue.Add(queueItem);
-        UpdateQueueMetrics();
+        RunOnUi(() =>
+        {
+            // Remove previous finished, failed or cancelled card for the same app to keep the queue clean
+            var existingFinished = DownloadQueue.FirstOrDefault(q =>
+                (q.IsDone || q.IsFailed || q.IsCancelled) &&
+                ((!string.IsNullOrEmpty(app.BundleId) && string.Equals(q.BundleId, app.BundleId, StringComparison.OrdinalIgnoreCase))
+                 || (app.AppStoreId > 0 && q.App.AppStoreId == app.AppStoreId)));
+
+            if (existingFinished is not null)
+            {
+                DownloadQueue.Remove(existingFinished);
+            }
+
+            queueItem.UpdateDevices(_devices.ConnectedDevices);
+            // Insert at index 0 so new downloads are immediately visible at the top without scrolling
+            DownloadQueue.Insert(0, queueItem);
+            UpdateQueueMetrics();
+        });
 
         StatusText = Loc.Format("L.Direct.Queue.Added", app.Name);
         ErrorText = null;
@@ -742,7 +767,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 DirectDownloadQueueItem? nextItem = null;
                 RunOnUi(() =>
                 {
-                    nextItem = DownloadQueue.FirstOrDefault(x => x.State == DirectQueueState.Queued);
+                    // Pick oldest queued item to preserve FIFO download execution order
+                    nextItem = DownloadQueue.LastOrDefault(x => x.State == DirectQueueState.Queued);
                 });
 
                 if (nextItem is null)
@@ -768,12 +794,15 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             return;
         }
 
-        item.Cts = new CancellationTokenSource();
-        item.State = DirectQueueState.Connecting;
-        item.IsIndeterminate = true;
-        item.Progress = 0;
-        item.StatusText = Loc.Get("L.Direct.Connecting");
-        item.ErrorText = null;
+        RunOnUi(() =>
+        {
+            item.Cts = new CancellationTokenSource();
+            item.State = DirectQueueState.Connecting;
+            item.IsIndeterminate = true;
+            item.Progress = 0;
+            item.StatusText = Loc.Get("L.Direct.Connecting");
+            item.ErrorText = null;
+        });
 
         var operation = _operations.Start(new Operation(
             OperationKind.Download,
@@ -783,7 +812,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             cancel: () => item.CancelCommand.Execute(null)));
         item.BackgroundOperation = operation;
 
-        var progress = new System.Progress<DownloadProgress>(p =>
+        var progress = new System.Progress<DownloadProgress>(p => RunOnUi(() =>
         {
             item.Progress = p.Percent;
             item.IsIndeterminate = p.Connecting || p.Finalizing || (p.Percent <= 0 && p.TotalBytes <= 0);
@@ -845,7 +874,7 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
             operation.Progress = item.Progress;
             operation.Detail = item.StatusText;
-        });
+        }));
 
         try
         {
@@ -854,23 +883,26 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 autoPurchase: true,
                 progress,
                 destinationFolder: item.DestinationFolder,
-                ct: item.Cts.Token,
-                fileNameOverride: item.FileNameOverride).ConfigureAwait(true);
+                ct: item.Cts!.Token,
+                fileNameOverride: item.FileNameOverride).ConfigureAwait(false);
 
             if (result.Success && result.IpaPath is not null)
             {
-                item.IpaPath = result.IpaPath;
-                item.Progress = 100;
-                item.IsIndeterminate = false;
-                item.State = DirectQueueState.Done;
-                item.StatusText = $"{Str("L.Direct.Done")} {Path.GetFileName(result.IpaPath)}";
-                item.SpeedText = "";
-                item.RemainingText = "";
-
-                if (FoundApp?.BundleId == item.BundleId)
+                RunOnUi(() =>
                 {
-                    SavedPath = result.IpaPath;
-                }
+                    item.IpaPath = result.IpaPath;
+                    item.Progress = 100;
+                    item.IsIndeterminate = false;
+                    item.State = DirectQueueState.Done;
+                    item.StatusText = $"{Str("L.Direct.Done")} {Path.GetFileName(result.IpaPath)}";
+                    item.SpeedText = "";
+                    item.RemainingText = "";
+
+                    if (FoundApp?.BundleId == item.BundleId)
+                    {
+                        SavedPath = result.IpaPath;
+                    }
+                });
 
                 item.App.License = LicenseState.Owned;
                 _settings.MarkOwned(item.App.AppStoreId);
@@ -888,12 +920,15 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             }
             else
             {
-                item.State = DirectQueueState.Failed;
-                item.IsIndeterminate = false;
-                item.ErrorText = result.SessionExpired
-                    ? Str("L.Direct.NeedLogin")
-                    : result.Error ?? Loc.Get("L.Error.DownloadFailed");
-                item.StatusText = item.ErrorText;
+                RunOnUi(() =>
+                {
+                    item.State = DirectQueueState.Failed;
+                    item.IsIndeterminate = false;
+                    item.ErrorText = result.SessionExpired
+                        ? Str("L.Direct.NeedLogin")
+                        : result.Error ?? Loc.Get("L.Error.DownloadFailed");
+                    item.StatusText = item.ErrorText;
+                });
                 operation.Finish(OperationState.Failed, item.ErrorText);
 
                 if (!string.IsNullOrWhiteSpace(result.Detail))
@@ -902,26 +937,35 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 if (result.SessionExpired)
                 {
                     _auth.InvalidateSession();
-                    OnPropertyChanged(nameof(IsSignedIn));
-                    _navigator?.GoTo(Page.Login);
+                    RunOnUi(() =>
+                    {
+                        OnPropertyChanged(nameof(IsSignedIn));
+                        _navigator?.GoTo(Page.Login);
+                    });
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            item.State = DirectQueueState.Cancelled;
-            item.IsIndeterminate = false;
-            item.StatusText = Loc.Get("L.Direct.Queue.Cancelled");
-            item.SpeedText = "";
-            item.RemainingText = "";
+            RunOnUi(() =>
+            {
+                item.State = DirectQueueState.Cancelled;
+                item.IsIndeterminate = false;
+                item.StatusText = Loc.Get("L.Direct.Queue.Cancelled");
+                item.SpeedText = "";
+                item.RemainingText = "";
+            });
             operation.Finish(OperationState.Cancelled);
         }
         catch (Exception ex)
         {
-            item.State = DirectQueueState.Failed;
-            item.IsIndeterminate = false;
-            item.ErrorText = Loc.Get("L.Error.Unknown");
-            item.StatusText = item.ErrorText;
+            RunOnUi(() =>
+            {
+                item.State = DirectQueueState.Failed;
+                item.IsIndeterminate = false;
+                item.ErrorText = Loc.Get("L.Error.Unknown");
+                item.StatusText = item.ErrorText;
+            });
             AppLog.Error($"Direct download queue item '{item.Name}' threw.", ex);
             operation.Finish(OperationState.Failed, ex.Message);
         }
@@ -952,6 +996,8 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             item.StatusText = Loc.Get("L.Direct.Queue.Waiting");
             item.SpeedText = "";
             item.RemainingText = "";
+            DownloadQueue.Remove(item);
+            DownloadQueue.Insert(0, item);
             UpdateQueueMetrics();
             _ = ProcessQueueLoopAsync();
         });

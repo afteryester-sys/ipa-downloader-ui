@@ -1088,9 +1088,9 @@
                 <!-- Message Stack -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="{Binding ToastTitle}" FontWeight="SemiBold" FontSize="13"
-                               Foreground="{DynamicResource Brush.Text.Primary}" TextTrimming="CharacterEllipsis" />
+                               Foreground="{DynamicResource Brush.Text}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding ToastMessage}" FontSize="12"
-                               Foreground="{DynamicResource Brush.Text.Secondary}" Margin="0,2,0,0"
+                               Foreground="{DynamicResource Brush.TextMuted}" Margin="0,2,0,0"
                                TextWrapping="Wrap" MaxHeight="42" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 

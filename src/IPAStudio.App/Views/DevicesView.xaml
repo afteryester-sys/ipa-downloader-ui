@@ -11,8 +11,8 @@
 
         <!-- Tool Card Button Style with smooth hover and press micro-animations -->
         <Style x:Key="ToolCardButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Margin" Value="4,0" />
@@ -32,8 +32,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="RootBorder" Property="Background" Value="{StaticResource Brush.Hover}" />
-                                <Setter TargetName="RootBorder" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                <Setter TargetName="RootBorder" Property="Background" Value="{DynamicResource Brush.SurfaceHover}" />
+                                <Setter TargetName="RootBorder" Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
@@ -197,9 +197,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#180A84FF"
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#0A84FF"
+                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.DownloadIpa}"
@@ -215,9 +215,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#18BF5AF2"
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#BF5AF2"
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.Firmware}"
@@ -233,9 +233,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#185AC8FA"
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#5AC8FA"
+                        <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.ICloud}"
@@ -251,9 +251,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#1830D158"
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#30D158"
+                        <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.MediaExport}"
@@ -269,9 +269,9 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="#18FF9F0A"
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="#FF9F0A"
+                        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.Statistics}"

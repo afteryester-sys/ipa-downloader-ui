@@ -143,19 +143,28 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
 
     public void UpdateDevices(IEnumerable<Device> devices)
     {
-        var deviceList = devices.ToList();
-        var selectedUdids = TargetDevices.Where(d => d.IsSelected).Select(d => d.Udid).ToHashSet();
-        TargetDevices.Clear();
-
-        foreach (var dev in deviceList)
+        void Update()
         {
-            var isSelected = selectedUdids.Contains(dev.Udid) || (selectedUdids.Count == 0 && deviceList.Count == 1);
-            TargetDevices.Add(new SelectableDevice(dev, isSelected));
+            var deviceList = devices.ToList();
+            var selectedUdids = TargetDevices.Where(d => d.IsSelected).Select(d => d.Udid).ToHashSet();
+            TargetDevices.Clear();
+
+            foreach (var dev in deviceList)
+            {
+                var isSelected = selectedUdids.Contains(dev.Udid) || (selectedUdids.Count == 0 && deviceList.Count == 1);
+                TargetDevices.Add(new SelectableDevice(dev, isSelected));
+            }
+
+            OnPropertyChanged(nameof(HasConnectedDevices));
+            OnPropertyChanged(nameof(HasSelectedDevices));
+            OnPropertyChanged(nameof(CanInstall));
         }
 
-        OnPropertyChanged(nameof(HasConnectedDevices));
-        OnPropertyChanged(nameof(HasSelectedDevices));
-        OnPropertyChanged(nameof(CanInstall));
+        var app = System.Windows.Application.Current;
+        if (app is not null && !app.Dispatcher.CheckAccess())
+            app.Dispatcher.Invoke(Update);
+        else
+            Update();
     }
 
     [RelayCommand]

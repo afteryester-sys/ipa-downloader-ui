@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.71",
+                    date: "18.11.2026",
+                    title: "Исправление ошибки наведения Background, монохромные иконки инструментов и оптимизация очереди загрузок",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИНТЕРФЕЙС",
+                            "Устранение ошибки DependencyProperty.UnsetValue для свойства Background",
+                            "Исправлена критическая ошибка при наведении курсора на кнопки инструментов на главном экране. Добавлены все недостающие ресурсы палитры тем (Brush.SurfaceHover, Brush.SurfaceActive, Brush.Text.Primary, Brush.Text.Secondary), исключающие сбои отрисовки элементов управления."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ДИЗАЙН",
+                            "Монохромные иконки панели инструментов",
+                            "Иконки панели инструментов («Скачать IPA», «Прошивки», «iCloud», «Фото с носителя» и «Статистика») переведены в строгий элегантный монохромный стиль с единым акцентным оформлением, идеально гармонирующим с нативной тёмной и светлой темами приложения."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ЗАГРУЗКИ",
+                            "Надёжная очередь прямой загрузки IPA",
+                            "Новые закачки теперь мгновенно отображаются в самом верху очереди без необходимости очищать завершённые элементы. Устранена блокировка добавления приложений по числовому идентификатору AppStoreId, добавление и обновление очереди безопасно синхронизированы с потоком интерфейса, а повторная загрузка автоматически заменяет старую завершённую карточку.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.70",
                     date: "17.11.2026",
                     title: "Аналитический дашборд «Статистика», панель инструментов на главном экране и точные счётчики операций",
@@ -672,6 +694,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.71",
+                date: "11/18/2026",
+                title: "Fix Background Hover Crash, Monochrome Toolbar Icons, and Download Queue Improvements",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "UI RESILIENCE",
+                        "Resolved DependencyProperty.UnsetValue Exception on Button Hover",
+                        "Fixed a crash occurring when hovering over toolbar action buttons on the home screen. Ensured all theme palette resources (Brush.SurfaceHover, Brush.SurfaceActive, Brush.Text.Primary, Brush.Text.Secondary) are strictly resolved in both dark and light modes."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "DESIGN",
+                        "Monochrome Native Toolbar Icons",
+                        "Restyled toolbar buttons ('Download IPA', 'Firmware', 'iCloud', 'Media Export', and 'Statistics') into a refined, cohesive monochrome aesthetic matching the app's native visual language without rainbow color clashing."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "QUEUE",
+                        "Direct IPA Download Queue Reliability",
+                        "Newly queued downloads now immediately appear at the top of the queue without requiring manual cleanup of completed items. Fixed bundle/AppStoreId deduplication so apps with null bundle IDs can always be queued, and safely marshaled all collection operations to the UI dispatcher.")
+                }),
             new ReleaseNote(
                 version: "1.8.70",
                 date: "11/17/2026",
