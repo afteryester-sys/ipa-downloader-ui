@@ -56,6 +56,8 @@ public sealed class TopItemStat
     public int Rank { get; set; }
     public string Name { get; set; } = "";
     public string Subtitle { get; set; } = "";
+    public string? BundleId { get; set; }
+    public string? IconPath { get; set; }
     public int Count { get; set; }
     public double Percentage { get; set; }
     public string CountText => $"{Count}";
@@ -84,9 +86,11 @@ public sealed class RecentActivityStat
 {
     public DateTime Timestamp { get; set; }
     public string TimeText => Timestamp.ToString("dd.MM HH:mm");
+    public string? IconPath { get; set; }
     public string Icon { get; set; } = "📲";
     public string Title { get; set; } = "";
     public string Subtitle { get; set; } = "";
+    public string? BundleId { get; set; }
     public string StatusText { get; set; } = "Успешно";
     public bool IsSuccess { get; set; } = true;
 }

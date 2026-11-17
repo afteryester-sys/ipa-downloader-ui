@@ -1,6 +1,9 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
@@ -14,11 +17,9 @@ namespace IPAStudio.App.ViewModels;
 
 /// <summary>
 /// "Export photos and videos from media": scans a chosen drive, folder, or Android phone
-/// mounted as a plain file system, and copies whatever media it found onto the PC.
-///
-/// Scan and copy are two separate steps on purpose — the user asked for a look before
-/// anything is written, so <see cref="ScanAsync"/> only ever reads, and <see cref="ExportAsync"/>
-/// works from the list it built rather than walking the source again.
+/// mounted as a file system / MTP, with deep probing of Android folder structures,
+/// media type filtering (Photos / Videos / All), and flexible organization (by category,
+/// by source folder, by date, or flat).
 /// </summary>
 public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 {
@@ -38,9 +39,10 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 
         SourcePath = settings.Current.LastMediaExportSource ?? "";
         DestinationPath = settings.Current.LastMediaExportDestination ?? "";
-        _byFolder = settings.Current.MediaExportByFolder;
         _junkThresholdKb = settings.Current.MediaExportJunkThresholdKb;
         _skipJunk = _junkThresholdKb > 0;
+        _filterType = (MediaExportFilterType)Math.Clamp(settings.Current.MediaExportFilter, 0, 2);
+        _organization = (MediaExportOrganization)Math.Clamp(settings.Current.MediaExportOrganization, 0, 3);
     }
 
     public void OnNavigatedTo(INavigator navigator) => _navigator = navigator;
@@ -54,18 +56,96 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private string _destinationPath = "";
 
-    /// <summary>True lays copies out one sub-folder per source group; false flattens everything
-    /// into <see cref="DestinationPath"/> directly. Two radio buttons bind to this pair the same
-    /// way the theme picker does.</summary>
+    // ---- Media Type Filter ----
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilterAll))]
+    [NotifyPropertyChangedFor(nameof(FilterPhotosOnly))]
+    [NotifyPropertyChangedFor(nameof(FilterVideosOnly))]
+    private MediaExportFilterType _filterType = MediaExportFilterType.All;
+
+    public bool FilterAll
+    {
+        get => FilterType == MediaExportFilterType.All;
+        set { if (value) { FilterType = MediaExportFilterType.All; SaveFilterSettings(); } }
+    }
+
+    public bool FilterPhotosOnly
+    {
+        get => FilterType == MediaExportFilterType.PhotosOnly;
+        set { if (value) { FilterType = MediaExportFilterType.PhotosOnly; SaveFilterSettings(); } }
+    }
+
+    public bool FilterVideosOnly
+    {
+        get => FilterType == MediaExportFilterType.VideosOnly;
+        set { if (value) { FilterType = MediaExportFilterType.VideosOnly; SaveFilterSettings(); } }
+    }
+
+    private void SaveFilterSettings()
+    {
+        _settings.Current.MediaExportFilter = (int)FilterType;
+        _settings.Save();
+    }
+
+    // ---- Folder Organization ----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OrgByCategory))]
+    [NotifyPropertyChangedFor(nameof(OrgByFolder))]
+    [NotifyPropertyChangedFor(nameof(OrgByDate))]
+    [NotifyPropertyChangedFor(nameof(OrgSingleFolder))]
+    [NotifyPropertyChangedFor(nameof(ByFolder))]
     [NotifyPropertyChangedFor(nameof(SingleFolder))]
-    private bool _byFolder;
+    private MediaExportOrganization _organization = MediaExportOrganization.ByCategory;
+
+    public bool OrgByCategory
+    {
+        get => Organization == MediaExportOrganization.ByCategory;
+        set { if (value) SetOrganization(MediaExportOrganization.ByCategory); }
+    }
+
+    public bool OrgByFolder
+    {
+        get => Organization == MediaExportOrganization.ByFolder;
+        set { if (value) SetOrganization(MediaExportOrganization.ByFolder); }
+    }
+
+    public bool OrgByDate
+    {
+        get => Organization == MediaExportOrganization.ByDate;
+        set { if (value) SetOrganization(MediaExportOrganization.ByDate); }
+    }
+
+    public bool OrgSingleFolder
+    {
+        get => Organization == MediaExportOrganization.SingleFolder;
+        set { if (value) SetOrganization(MediaExportOrganization.SingleFolder); }
+    }
+
+    /// <summary>Backwards-compatible wrapper for settings and bindings.</summary>
+    public bool ByFolder
+    {
+        get => Organization == MediaExportOrganization.ByFolder;
+        set { if (value) SetOrganization(MediaExportOrganization.ByFolder); }
+    }
 
     public bool SingleFolder
     {
-        get => !ByFolder;
-        set => ByFolder = !value;
+        get => Organization == MediaExportOrganization.SingleFolder;
+        set { if (value) SetOrganization(MediaExportOrganization.SingleFolder); }
     }
+
+    private void SetOrganization(MediaExportOrganization org)
+    {
+        Organization = org;
+        _settings.Current.MediaExportOrganization = (int)org;
+        _settings.Current.MediaExportByFolder = org == MediaExportOrganization.ByFolder;
+        _settings.Save();
+        RefreshDisplayedGroups();
+    }
+
+    // ---- Junk Options ----
 
     [ObservableProperty]
     private bool _skipJunk = true;
@@ -98,9 +178,6 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     [ObservableProperty]
     private string? _errorText;
 
-    /// <summary>True once a scan has completed, whether or not it found anything — this is
-    /// what unlocks the export step, and what tells the "nothing found" message apart from
-    /// the page's very first, never-scanned state.</summary>
     [ObservableProperty]
     private bool _hasScanned;
 
@@ -166,6 +243,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
         _settings.Current.LastMediaExportDestination = DestinationPath;
         _settings.Save();
         ErrorText = null;
+        ExportCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -176,13 +254,15 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     [RelayCommand(CanExecute = nameof(CanScan))]
     private async Task ScanAsync()
     {
-        if (string.IsNullOrWhiteSpace(SourcePath) || !Directory.Exists(SourcePath))
+        if (string.IsNullOrWhiteSpace(SourcePath) || !MediaExportService.IsSourceAccessible(SourcePath))
         {
             ErrorText = Loc.Get("L.MediaExport.NeedSource");
             return;
         }
 
         _settings.Current.MediaExportJunkThresholdKb = SkipJunk ? Math.Max(0, JunkThresholdKb) : 0;
+        _settings.Current.MediaExportFilter = (int)FilterType;
+        _settings.Current.MediaExportOrganization = (int)Organization;
         _settings.Save();
 
         _cts = new CancellationTokenSource();
@@ -212,12 +292,19 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
                 operation.Detail = StatusText ?? "";
             });
 
-            _scanResult = await _mediaExport.ScanAsync(SourcePath, minBytes, progress, _cts.Token).ConfigureAwait(true);
+            _scanResult = await _mediaExport.ScanAsync(
+                SourcePath,
+                minBytes,
+                FilterType,
+                progress,
+                Loc.Get,
+                _cts.Token).ConfigureAwait(true);
+
             ShowScan(_scanResult);
             operation.Finish(OperationState.Done, TotalFoundText);
             AppLog.Info($"media export: scanned '{SourcePath}', found {_scanResult.TotalCount} " +
                         $"({_scanResult.TotalPhotos} photos, {_scanResult.TotalVideos} videos), " +
-                        $"skipped {_scanResult.SkippedJunkCount} as junk.");
+                        $"filter: {FilterType}, skipped {_scanResult.SkippedJunkCount} as junk.");
         }
         catch (OperationCanceledException)
         {
@@ -241,12 +328,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 
     private void ShowScan(MediaExportScanResult scan)
     {
-        Groups.Clear();
-        foreach (var group in scan.Groups)
-            Groups.Add(new MediaExportGroupRow(
-                string.IsNullOrEmpty(group.Name) ? Loc.Get("L.MediaExport.RootGroup") : group.Name,
-                group.PhotoCount, group.VideoCount, FormatSize(group.TotalBytes)));
-
+        RefreshDisplayedGroups();
         HasScanned = true;
         TotalFoundText = scan.TotalCount == 0
             ? Loc.Get("L.MediaExport.NothingFound")
@@ -258,6 +340,26 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 
         StatusText = null;
         ExportCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RefreshDisplayedGroups()
+    {
+        if (_scanResult is null) return;
+        Groups.Clear();
+
+        var sourceList = Organization switch
+        {
+            MediaExportOrganization.ByCategory => _scanResult.CategoryGroups,
+            MediaExportOrganization.ByDate => _scanResult.DateGroups,
+            _ => _scanResult.Groups
+        };
+
+        foreach (var group in sourceList)
+        {
+            Groups.Add(new MediaExportGroupRow(
+                string.IsNullOrEmpty(group.Name) ? Loc.Get("L.MediaExport.RootGroup") : group.Name,
+                group.PhotoCount, group.VideoCount, FormatSize(group.TotalBytes)));
+        }
     }
 
     private bool CanExport() => !IsBusy && _scanResult is { TotalCount: > 0 } && !string.IsNullOrWhiteSpace(DestinationPath);
@@ -288,7 +390,6 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 
         try
         {
-            var mode = ByFolder ? MediaExportCopyMode.ByFolder : MediaExportCopyMode.SingleFolder;
             var progress = new Progress<MediaExportProgress>(p =>
             {
                 if (p.Total > 0) ExportProgress = 100.0 * p.Completed / p.Total;
@@ -301,13 +402,17 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
             });
 
             var copied = await _mediaExport.CopyAsync(
-                scan, DestinationPath, mode, Loc.Get("L.MediaExport.RootGroup"),
-                progress, _cts.Token).ConfigureAwait(true);
+                scan,
+                DestinationPath,
+                Organization,
+                Loc.Get("L.MediaExport.RootGroup"),
+                progress,
+                _cts.Token).ConfigureAwait(true);
 
             ExportProgress = 100;
             StatusText = Loc.Format("L.MediaExport.Exported", copied, scan.TotalCount, DestinationPath);
             operation.Finish(OperationState.Done, StatusText);
-            AppLog.Info($"media export: copied {copied}/{scan.TotalCount} file(s) to '{DestinationPath}' ({mode}).");
+            AppLog.Info($"media export: copied {copied}/{scan.TotalCount} file(s) to '{DestinationPath}' ({Organization}).");
         }
         catch (OperationCanceledException)
         {
@@ -353,5 +458,5 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     }
 }
 
-/// <summary>One row of the scan breakdown: a source folder and what was found in it.</summary>
+/// <summary>One row of the scan breakdown: a category/folder and what was found in it.</summary>
 public sealed record MediaExportGroupRow(string Name, int PhotoCount, int VideoCount, string SizeText);

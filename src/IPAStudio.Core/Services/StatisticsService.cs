@@ -4,19 +4,22 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using IPAStudio.Core.Models;
+using IPAStudio.Core.Tools;
 
 namespace IPAStudio.Core.Services;
 
 public sealed class StatisticsService
 {
     private readonly string _storagePath;
+    private readonly ToolLocator _tools;
     private readonly object _lock = new();
     private StatisticsStore _store = new();
 
     public event EventHandler? StatisticsChanged;
 
-    public StatisticsService()
+    public StatisticsService(ToolLocator? tools = null)
     {
+        _tools = tools ?? new ToolLocator();
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dir = Path.Combine(localAppData, "IPAStudio");
         Directory.CreateDirectory(dir);
@@ -225,11 +228,14 @@ public sealed class StatisticsService
             foreach (var g in appGroups)
             {
                 var first = g.First();
+                var iconPath = AppIconResolver.ResolveIconPath(first.BundleId, g.Key, _tools);
                 summary.TopApps.Add(new TopItemStat
                 {
                     Rank = rank++,
                     Name = g.Key,
                     Subtitle = first.BundleId,
+                    BundleId = first.BundleId,
+                    IconPath = iconPath,
                     Count = g.Count(),
                     Percentage = Math.Round((double)g.Count() * 100 / totalTopApps, 1)
                 });
@@ -360,6 +366,8 @@ public sealed class StatisticsService
             summary.RecentActivity = filteredInstalls.Take(15).Select(i => new RecentActivityStat
             {
                 Timestamp = i.Timestamp,
+                BundleId = i.BundleId,
+                IconPath = AppIconResolver.ResolveIconPath(i.BundleId, i.AppName, _tools),
                 Icon = i.Method == "Transfer" ? "🔄" : (i.Method == "File" ? "📁" : "📲"),
                 Title = i.AppName,
                 Subtitle = $"{i.DeviceModel} · {i.Method}",

@@ -289,6 +289,12 @@ public sealed class AppSettings
     /// false drops everything found into a single destination folder.</summary>
     public bool MediaExportByFolder { get; set; } = true;
 
+    /// <summary>Media export filter type: 0 = All, 1 = PhotosOnly, 2 = VideosOnly.</summary>
+    public int MediaExportFilter { get; set; } = 0;
+
+    /// <summary>Media export destination organization: 0 = ByCategory, 1 = ByFolder, 2 = ByDate, 3 = SingleFolder.</summary>
+    public int MediaExportOrganization { get; set; } = 0;
+
     /// <summary>
     /// Files smaller than this (in KB) are treated as junk — app icons and thumbnail sidecars
     /// rather than real photos or videos — and left out of both the count and the copy.

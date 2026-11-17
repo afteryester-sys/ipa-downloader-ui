@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.73",
+                    date: "18.11.2026",
+                    title: "Лаконичное меню «Статистика», реальные иконки приложений и расширенный экспорт фото с носителей (Android/MTP)",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ДИЗАЙН",
+                            "Облегчённый дизайн дашборда статистики",
+                            "Меню «Статистика» переработано по стандартам Google Stitch и чистых интерфейсов: устранена цветовая перегрузка, унифицированы карточки показателей (KPI), оптимизированы графики динамики и шрифтовая иерархия."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "СТАТИСТИКА",
+                            "Реальные иконки приложений и единая системная заглушка",
+                            "В рейтингах популярных приложений и журнале последних действий теперь отображаются оригинальные иконки из кэша каталога и локальных библиотек IPA (по схеме меню «Установка из файла»). При отсутствии иконки используется аккуратная системная заглушка единого стиля без разрозненных эмодзи."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "МЕДИА",
+                            "Фильтрация типов файлов и сортировка по папкам",
+                            "В инструмент «Фото с носителя» добавлена возможность выбора типа файлов («Все файлы», «Только фото», «Только видео»), а также интеллектуальное разделение: по категориям (Снимки камеры, Видеозаписи, Скриншоты, Селфи, Прочее), по датам (Год/Месяц) или по исходным папкам носителя."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "СОВМЕСТИМОСТЬ",
+                            "Зондирование файловой структуры Android и MTP-устройств",
+                            "Решена проблема невидимости файлов на подключённых Android-телефонах. Реализован механизм глубокого зондирования известных каталогов галереи (DCIM/Camera, Pictures/Screenshots, Movies, Telegram, WhatsApp) с обходом виртуальных задержек и поддержкой системного пространства имён Windows Shell.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.72",
                     date: "18.11.2026",
                     title: "Исправление ошибки наведения Background, монохромные иконки инструментов и оптимизация очереди загрузок",
@@ -694,6 +721,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.73",
+                date: "11/18/2026",
+                title: "Streamlined Statistics Dashboard, Real App Icons, and Enhanced Media Export with Android/MTP Probing",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "DESIGN",
+                        "Streamlined Statistics Dashboard",
+                        "Refined the Statistics screen according to Google Stitch and clean interface principles: eliminated color clutter, unified KPI cards, and improved activity chart typography."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "STATISTICS",
+                        "Real App Icons with Unified Fallback",
+                        "Top Apps and Recent Activity now resolve real application icons from the catalog cache and local IPA databases. If an icon is missing, a calm, uniform default squircle tile is displayed instead of synthetic glyphs or emojis."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "MEDIA EXPORT",
+                        "Filter by Media Type and Smart Folder Organization",
+                        "Added media filtering options (All, Photos only, Videos only) and folder organization: by detected categories (Camera, Videos, Screenshots, Selfies, Other), by date (Year/Month), by source folder, or flat."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "COMPATIBILITY",
+                        "Deep Probing for Android & MTP Devices",
+                        "Implemented an active deep probing crawler for Android devices and external media, automatically discovering lazy-loaded DCIM/Camera, Screenshots, and Movies folders even across Windows Shell namespaces.")
+                }),
             new ReleaseNote(
                 version: "1.8.72",
                 date: "11/18/2026",

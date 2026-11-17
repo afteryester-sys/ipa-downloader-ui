@@ -31,7 +31,7 @@
         </Grid>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel MaxWidth="780" HorizontalAlignment="Left">
 
                 <!-- ===== Step 1: source ===== -->
                 <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
@@ -40,9 +40,9 @@
                                    Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
                         <TextBlock Text="{DynamicResource L.MediaExport.SourceHint}"
                                    Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                                   Margin="0,2,0,10" />
+                                   Margin="0,2,0,8" />
 
-                        <Grid>
+                        <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
@@ -54,10 +54,20 @@
                                      VerticalAlignment="Center" IsReadOnly="True" />
 
                             <Button Grid.Column="1" Content="{DynamicResource L.MediaExport.Browse}"
-                                    Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
-                                    Command="{Binding BrowseSourceCommand}"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                                     Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
+                                     Command="{Binding BrowseSourceCommand}"
+                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         </Grid>
+
+                        <!-- Android Probing Hint -->
+                        <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6" Padding="10,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                           Foreground="{DynamicResource Brush.Accent}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{DynamicResource L.MediaExport.ProbingHint}"
+                                           Style="{StaticResource Text.Caption}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
@@ -82,9 +92,9 @@
                                      VerticalAlignment="Center" IsReadOnly="True" />
 
                             <Button Grid.Column="1" Content="{DynamicResource L.MediaExport.Browse}"
-                                    Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
-                                    Command="{Binding BrowseDestinationCommand}"
-                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                                     Style="{StaticResource Button.Secondary}" Margin="10,0,0,0"
+                                     Command="{Binding BrowseDestinationCommand}"
+                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -93,19 +103,49 @@
                 <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,16">
                     <StackPanel>
                         <TextBlock Text="{DynamicResource L.MediaExport.OptionsLabel}"
-                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,0,0,10" />
+                                   Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,0,0,14" />
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <RadioButton Content="{DynamicResource L.MediaExport.ByFolder}" GroupName="ExportLayout"
+                        <!-- Section 1: Media Type Filter -->
+                        <TextBlock Text="{DynamicResource L.MediaExport.FilterLabel}"
+                                   Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                            <RadioButton Content="{DynamicResource L.MediaExport.Filter.All}" GroupName="MediaFilter"
                                          Foreground="{StaticResource Brush.Text}"
-                                         IsChecked="{Binding ByFolder}" Margin="0,0,20,0"
+                                         IsChecked="{Binding FilterAll}" Margin="0,0,20,0"
                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                            <RadioButton Content="{DynamicResource L.MediaExport.SingleFolder}" GroupName="ExportLayout"
+                            <RadioButton Content="{DynamicResource L.MediaExport.Filter.PhotosOnly}" GroupName="MediaFilter"
                                          Foreground="{StaticResource Brush.Text}"
-                                         IsChecked="{Binding SingleFolder}"
+                                         IsChecked="{Binding FilterPhotosOnly}" Margin="0,0,20,0"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="{DynamicResource L.MediaExport.Filter.VideosOnly}" GroupName="MediaFilter"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding FilterVideosOnly}"
                                          IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         </StackPanel>
 
+                        <!-- Section 2: Folder Organization -->
+                        <TextBlock Text="{DynamicResource L.MediaExport.OrgLabel}"
+                                   Style="{StaticResource Text.Caption}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <StackPanel Margin="0,0,0,16">
+                            <RadioButton Content="{DynamicResource L.MediaExport.Org.ByCategory}" GroupName="ExportOrg"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding OrgByCategory}" Margin="0,0,0,8"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="{DynamicResource L.MediaExport.Org.BySourceFolder}" GroupName="ExportOrg"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding OrgByFolder}" Margin="0,0,0,8"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="{DynamicResource L.MediaExport.Org.ByDate}" GroupName="ExportOrg"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding OrgByDate}" Margin="0,0,0,8"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="{DynamicResource L.MediaExport.Org.SingleFolder}" GroupName="ExportOrg"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding OrgSingleFolder}"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        </StackPanel>
+
+                        <!-- Section 3: Skip Junk -->
                         <CheckBox Content="{DynamicResource L.MediaExport.SkipJunk}"
                                   Foreground="{StaticResource Brush.Text}"
                                   IsChecked="{Binding SkipJunk}"

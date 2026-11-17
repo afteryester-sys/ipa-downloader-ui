@@ -6,12 +6,13 @@
     <UserControl.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:NullToCollapsedConverter x:Key="NullToCollapsed" />
+        <conv:IconPathConverter x:Key="IconPath" />
 
         <!-- Segmented period toggle button style -->
         <Style x:Key="PeriodButton" TargetType="Button" BasedOn="{StaticResource Button.Ghost}">
             <Setter Property="Height" Value="28" />
-            <Setter Property="Padding" Value="10,0" />
-            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="11.5" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
         </Style>
@@ -21,8 +22,8 @@
             <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18,16" />
         </Style>
     </UserControl.Resources>
 
@@ -34,7 +35,7 @@
         </Grid.RowDefinitions>
 
         <!-- ===== Header Row ===== -->
-        <Grid Grid.Row="0" Margin="0,0,0,16">
+        <Grid Grid.Row="0" Margin="0,0,0,18">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -53,7 +54,7 @@
                         Width="32" Height="32" Padding="0" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="{DynamicResource L.Home}">
                     <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
-                <Border Width="34" Height="34" CornerRadius="10" Background="{DynamicResource Brush.AccentSoft}" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Border Width="34" Height="34" CornerRadius="8" Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource Brush.Accent}"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Border>
@@ -66,7 +67,7 @@
             <!-- Period Switcher & Actions (Right) -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- Segmented Control Container -->
-                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="3" Margin="0,0,10,0">
+                <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8" Padding="2" Margin="0,0,10,0">
                     <StackPanel Orientation="Horizontal">
                         <!-- Today -->
                         <Button Content="{DynamicResource L.Stats.Period.Today}"
@@ -165,7 +166,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- ===== Row 1: KPI Metric Cards (4 cards) ===== -->
+        <!-- ===== Row 1: KPI Metric Cards (4 cards, unified calm style) ===== -->
         <Grid Grid.Row="1" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -180,13 +181,13 @@
             <!-- Card 1: App Installs -->
             <Border Grid.Column="0" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Installs}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" />
-                        <Border DockPanel.Dock="Right" Background="#1A0A84FF" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding PeriodTitle}" FontSize="10" Foreground="{DynamicResource Brush.Accent}" FontWeight="SemiBold" />
-                        </Border>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="{DynamicResource L.Stats.Card.Installs}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding PeriodTitle}" FontSize="10.5"
+                                   Foreground="{DynamicResource Brush.Accent}" HorizontalAlignment="Right" />
                     </DockPanel>
-                    <TextBlock Text="{Binding TotalInstalls}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Brush.Accent}" />
+                    <TextBlock Text="{Binding TotalInstalls}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.TodayPrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
                         <TextBlock Text="{Binding TodayInstalls}" Style="{StaticResource Text.Caption}" FontSize="11" FontWeight="SemiBold"
@@ -198,17 +199,17 @@
             <!-- Card 2: Devices Served -->
             <Border Grid.Column="2" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Devices}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" />
-                        <Border DockPanel.Dock="Right" Background="#1A30D158" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="10" Foreground="#30D158" FontWeight="SemiBold" />
-                        </Border>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="{DynamicResource L.Stats.Card.Devices}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="10.5"
+                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
                     </DockPanel>
-                    <TextBlock Text="{Binding UniqueDevices}" FontSize="28" FontWeight="Bold" Foreground="#30D158" />
+                    <TextBlock Text="{Binding UniqueDevices}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.ConnectionsCount}" Style="{StaticResource Text.Caption}" FontSize="11" />
                         <TextBlock Text="{Binding TotalConnections}" Style="{StaticResource Text.Caption}" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="#30D158" Margin="4,0,0,0" />
+                                   Foreground="{DynamicResource Brush.Text}" Margin="4,0,0,0" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -216,17 +217,17 @@
             <!-- Card 3: IPA Downloads -->
             <Border Grid.Column="4" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Ipa}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" />
-                        <Border DockPanel.Dock="Right" Background="#1AFF9F0A" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding IpaVolumeText}" FontSize="10" Foreground="#FF9F0A" FontWeight="SemiBold" />
-                        </Border>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="{DynamicResource L.Stats.Card.Ipa}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding IpaVolumeText}" FontSize="10.5"
+                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
                     </DockPanel>
-                    <TextBlock Text="{Binding TotalIpaDownloads}" FontSize="28" FontWeight="Bold" Foreground="#FF9F0A" />
+                    <TextBlock Text="{Binding TotalIpaDownloads}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.VolumePrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
                         <TextBlock Text="{Binding IpaVolumeText}" Style="{StaticResource Text.Caption}" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="#FF9F0A" Margin="4,0,0,0" />
+                                   Foreground="{DynamicResource Brush.Text}" Margin="4,0,0,0" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -234,17 +235,17 @@
             <!-- Card 4: Firmware Downloads -->
             <Border Grid.Column="6" Style="{StaticResource StatCard}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource L.Stats.Card.Firmwares}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" />
-                        <Border DockPanel.Dock="Right" Background="#1ABF5AF2" CornerRadius="6" Padding="6,2" HorizontalAlignment="Right">
-                            <TextBlock Text="{Binding FirmwareVolumeText}" FontSize="10" Foreground="{DynamicResource Brush.Firmware}" FontWeight="SemiBold" />
-                        </Border>
+                    <DockPanel Margin="0,0,0,6">
+                        <TextBlock Text="{DynamicResource L.Stats.Card.Firmwares}" Style="{StaticResource Text.Caption}"
+                                   FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding FirmwareVolumeText}" FontSize="10.5"
+                                   Foreground="{DynamicResource Brush.TextMuted}" HorizontalAlignment="Right" />
                     </DockPanel>
-                    <TextBlock Text="{Binding TotalFirmwareDownloads}" FontSize="28" FontWeight="Bold" Foreground="{DynamicResource Brush.Firmware}" />
+                    <TextBlock Text="{Binding TotalFirmwareDownloads}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Brush.Text}" />
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                         <TextBlock Text="{DynamicResource L.Stats.VolumePrefix}" Style="{StaticResource Text.Caption}" FontSize="11" />
                         <TextBlock Text="{Binding FirmwareVolumeText}" Style="{StaticResource Text.Caption}" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Brush.Firmware}" Margin="4,0,0,0" />
+                                   Foreground="{DynamicResource Brush.Text}" Margin="4,0,0,0" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -272,15 +273,15 @@
                         <DockPanel Margin="0,0,0,14">
                             <TextBlock Text="{DynamicResource L.Stats.Chart.Activity}" FontWeight="SemiBold" FontSize="13" />
                             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Ellipse Width="8" Height="8" Fill="{DynamicResource Brush.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                <Border Width="8" Height="8" CornerRadius="2" Background="{DynamicResource Brush.Accent}" Margin="0,0,4,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource L.Stats.Legend.Installs}" Style="{StaticResource Text.Caption}" FontSize="10.5" Margin="0,0,12,0" />
-                                <Ellipse Width="8" Height="8" Fill="#FF9F0A" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                <Border Width="8" Height="8" CornerRadius="2" Background="{DynamicResource Brush.Border}" Margin="0,0,4,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{DynamicResource L.Stats.Legend.Downloads}" Style="{StaticResource Text.Caption}" FontSize="10.5" />
                             </StackPanel>
                         </DockPanel>
 
-                        <!-- Bars Canvas / ItemsControl -->
-                        <Border Height="130" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Margin="0,0,0,6">
+                        <!-- Bars UniformGrid -->
+                        <Border Height="110" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="0,0,0,1" Margin="0,0,0,6">
                             <ItemsControl ItemsSource="{Binding Timeline}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -289,7 +290,7 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid VerticalAlignment="Bottom" Margin="3,0" HorizontalAlignment="Center">
+                                        <Grid VerticalAlignment="Bottom" Margin="4,0" HorizontalAlignment="Center">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="*" />
@@ -297,7 +298,7 @@
                                             <TextBlock Grid.Row="0" Text="{Binding Installs}" FontSize="9.5" Foreground="{DynamicResource Brush.TextMuted}"
                                                        HorizontalAlignment="Center" Margin="0,0,0,3"
                                                        Visibility="{Binding Installs, Converter={StaticResource BoolToVis}}" />
-                                            <Border Grid.Row="1" Width="14" Height="{Binding BarHeight}" CornerRadius="4,4,0,0"
+                                            <Border Grid.Row="1" Width="12" Height="{Binding BarHeight}" CornerRadius="3,3,0,0"
                                                     Background="{DynamicResource Brush.Accent}" VerticalAlignment="Bottom"
                                                     ToolTip="{Binding Label}" />
                                         </Grid>
@@ -340,18 +341,35 @@
                                 <ItemsControl ItemsSource="{Binding RecentActivity}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Padding="8,6" Margin="0,0,0,4" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8">
+                                            <Border Padding="10,8" Margin="0,0,0,4" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="8">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center" />
+
+                                                    <!-- App Icon / Default squircle -->
+                                                    <Grid Grid.Column="0" Width="30" Height="30" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                        <Border CornerRadius="7" Background="{DynamicResource Brush.Surface}">
+                                                            <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                                                       Foreground="{DynamicResource Brush.TextMuted}"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <Border CornerRadius="7"
+                                                                Visibility="{Binding IconPath, Converter={StaticResource NullToCollapsed}}">
+                                                            <Border.Background>
+                                                                <ImageBrush ImageSource="{Binding IconPath, Converter={StaticResource IconPath}}"
+                                                                            Stretch="UniformToFill" />
+                                                            </Border.Background>
+                                                        </Border>
+                                                    </Grid>
+
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11.5" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}" FontSize="9.5" TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
+
                                                     <TextBlock Grid.Column="2" Text="{Binding TimeText}" Style="{StaticResource Text.Caption}" FontSize="10"
                                                                VerticalAlignment="Center" Margin="6,0,0,0" />
                                                 </Grid>
@@ -365,10 +383,60 @@
                 </Border>
             </Grid>
 
-            <!-- Right Column: Methods Breakdown & Top Lists -->
+            <!-- Right Column: Top Apps, Methods & Devices -->
             <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel>
-                    <!-- Methods Card -->
+                    <!-- Top Apps Card with Real App Icons / Fallback Default -->
+                    <Border Style="{StaticResource StatCard}" Margin="0,0,0,14">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource L.Stats.TopApps}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,12" />
+                            <ItemsControl ItemsSource="{Binding TopApps}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- App Icon / Default Squircle -->
+                                            <Grid Grid.Column="0" Width="36" Height="36" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                <Border CornerRadius="8" Background="{DynamicResource Brush.SurfaceHover}">
+                                                    <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                                                               Foreground="{DynamicResource Brush.TextMuted}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <Border CornerRadius="8"
+                                                        Visibility="{Binding IconPath, Converter={StaticResource NullToCollapsed}}">
+                                                    <Border.Background>
+                                                        <ImageBrush ImageSource="{Binding IconPath, Converter={StaticResource IconPath}}"
+                                                                    Stretch="UniformToFill" />
+                                                    </Border.Background>
+                                                </Border>
+                                            </Grid>
+
+                                            <!-- App Title & Bundle ID -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}" FontSize="9.5" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <!-- Count and % -->
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                                <TextBlock Text="{Binding CountText}" FontWeight="Bold" FontSize="11.5"
+                                                           HorizontalAlignment="Right" Foreground="{DynamicResource Brush.Accent}" />
+                                                <TextBlock Text="{Binding PercentageText}" Style="{StaticResource Text.Caption}" FontSize="9.5"
+                                                           HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Methods Breakdown Card -->
                     <Border Style="{StaticResource StatCard}" Margin="0,0,0,14">
                         <StackPanel>
                             <TextBlock Text="{DynamicResource L.Stats.Methods}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,10" />
@@ -387,37 +455,8 @@
                                                     <Run Text=" (" /><Run Text="{Binding PercentageText, Mode=OneWay}" /><Run Text=")" />
                                                 </TextBlock>
                                             </DockPanel>
-                                            <ProgressBar Grid.Row="1" Height="5" Maximum="100" Value="{Binding Percentage, Mode=OneWay}"
+                                            <ProgressBar Grid.Row="1" Height="4" Maximum="100" Value="{Binding Percentage, Mode=OneWay}"
                                                          BorderThickness="0" Background="{DynamicResource Brush.Border}" Foreground="{DynamicResource Brush.Accent}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Top Apps Card -->
-                    <Border Style="{StaticResource StatCard}" Margin="0,0,0,14">
-                        <StackPanel>
-                            <TextBlock Text="{DynamicResource L.Stats.TopApps}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,10" />
-                            <ItemsControl ItemsSource="{Binding TopApps}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="22" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="18" Height="18" CornerRadius="9" Background="{DynamicResource Brush.SurfaceHover}" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Rank}" FontSize="9.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,8,0">
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}" FontSize="9.5" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="2" Text="{Binding CountText}" FontWeight="Bold" FontSize="11"
-                                                       VerticalAlignment="Center" Foreground="{DynamicResource Brush.Accent}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -434,17 +473,20 @@
                                     <DataTemplate>
                                         <Grid Margin="0,0,0,8">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="22" />
+                                                <ColumnDefinition Width="28" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="📱" FontSize="12" VerticalAlignment="Center" />
+                                            <Border Grid.Column="0" Width="24" Height="24" CornerRadius="6" Background="{DynamicResource Brush.SurfaceHover}" VerticalAlignment="Center">
+                                                <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{DynamicResource Brush.TextMuted}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,8,0">
                                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Text.Caption}" FontSize="9.5" />
                                             </StackPanel>
                                             <TextBlock Grid.Column="2" Text="{Binding CountText}" FontWeight="Bold" FontSize="11"
-                                                       VerticalAlignment="Center" Foreground="#30D158" />
+                                                       VerticalAlignment="Center" Foreground="{DynamicResource Brush.Text}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
