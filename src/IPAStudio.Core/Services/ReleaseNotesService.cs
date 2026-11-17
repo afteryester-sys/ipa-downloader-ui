@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.78",
+                    date: "18.11.2026",
+                    title: "Именные пуш-уведомления обо всех действиях, расширенная безопасность диалогов и надёжный автопоиск",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "УВЕДОМЛЕНИЯ",
+                            "Точные названия приложений и устройств в пуш-уведомлениях",
+                            "Уведомления при установке и переносе одиночных приложений теперь сообщают название приложения («Установка «Telegram» успешно завершена»), а при пакетной установке — точное количество и целевое устройство. Разблокированы уведомления для загрузки и извлечения приложений на экране «На устройстве» при выключенной многозадачности, а для прошивок всегда выводятся модель и версия iOS."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ИНТЕРФЕЙС",
+                            "Безопасность и эргономика встроенных диалогов ModernDialog",
+                            "Информационные и ошибочные окна закрываются по клавише Escape, опасные действия (сброс статистики, удаление фото) по умолчанию защищены фокусировкой на кнопке отмены, устранено мерцание затемнения фона при последовательных модальных окнах, а также обеспечено безопасное центрирование на экране при скрытом родительском окне."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ОБНОВЛЕНИЯ",
+                            "Устойчивый автопоиск обновлений с адаптивным повтором",
+                            "Если сеть недоступна при старте программы (например, во время подключения Wi-Fi), автопоиск автоматически повторяет попытку через 2 минуты вместо ожидания полного часа, сохраняя ежечасный график при стабильном подключении.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.77",
                     date: "18.11.2026",
                     title: "Современные встроенные диалоги, расширенные пуш-уведомления и надёжный автопоиск обновлений",
@@ -809,6 +831,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.78",
+                date: "11/18/2026",
+                title: "Named Push Notifications for All Tasks, Enhanced Dialog Safety, and Resilient Update Checks",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NOTIFICATIONS",
+                        "App Names and Target Devices in Push Notifications",
+                        "Single-app installs and transfers now include the exact app name (e.g. \"Installation of 'Telegram' completed successfully\") while batch installs report counts and target devices. Unlocked completion notifications for On-Device app downloads regardless of multitasking mode, and guaranteed device model and iOS version in firmware notifications."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UI",
+                        "Keyboard Navigation & Destructive Safety in ModernDialog",
+                        "Informational and error dialogs now cleanly dismiss with the Escape key. Destructive actions focus the Cancel button by default to prevent accidental Enter submission. Background dimmer lifecycle now uses reference counting to prevent flicker on chained modals, and dialogs center safely on screen when owner is not visible."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UPDATER",
+                        "Adaptive Retry for Background Update Checks",
+                        "If network connectivity is not yet established during startup, auto-check automatically retries after 2 minutes instead of waiting a full hour, while retaining hourly polling on stable connections.")
+                }),
             new ReleaseNote(
                 version: "1.8.77",
                 date: "11/18/2026",

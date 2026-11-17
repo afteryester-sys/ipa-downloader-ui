@@ -1216,9 +1216,11 @@
     <sys:String x:Key="L.Stats.ClearConfirmText">Are you sure you want to reset all stored statistics history?</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFinishedCount">Installation of {0} apps successfully finished</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFinishedSingle">App installation successfully finished</sys:String>
+    <sys:String x:Key="L.Ops.Detail.InstallFinishedNamed">Installation of '{0}' completed successfully</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFailedCount">Installation finished: {0} succeeded, {1} failed</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFinishedCount">Transfer of {0} apps successfully finished</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFinishedSingle">App transfer successfully finished</sys:String>
+    <sys:String x:Key="L.Ops.Detail.TransferFinishedNamed">Transfer of '{0}' completed successfully</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFailedCount">Transfer finished: {0} succeeded, {1} failed</sys:String>
     <sys:String x:Key="L.MediaExport.ExportedWithCounts">Copied {0} files ({1} photos, {2} videos) to {3}.</sys:String>
     <sys:String x:Key="L.Tools.DownloadIpa">Download IPA</sys:String>

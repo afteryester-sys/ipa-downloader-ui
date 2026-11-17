@@ -30,6 +30,18 @@ public partial class ModernDialogWindow : Window
 
         ConfigureVisuals(type, isDestructive);
         ConfigureButtons(buttons, confirmText, cancelText, isDestructive);
+
+        Loaded += (_, _) =>
+        {
+            if (isDestructive && CancelBtn.Visibility == Visibility.Visible)
+            {
+                CancelBtn.Focus();
+            }
+            else
+            {
+                ConfirmBtn.Focus();
+            }
+        };
     }
 
     private void ConfigureVisuals(ModernDialogType type, bool isDestructive)
@@ -98,9 +110,14 @@ public partial class ModernDialogWindow : Window
         string? cancelText,
         bool isDestructive)
     {
-        if (isDestructive && TryFindResource("Button.Danger") is Style dangerStyle)
+        if (isDestructive)
         {
-            ConfirmBtn.Style = dangerStyle;
+            if (TryFindResource("Button.Danger") is Style dangerStyle)
+            {
+                ConfirmBtn.Style = dangerStyle;
+            }
+            ConfirmBtn.IsDefault = false;
+            CancelBtn.IsDefault = true;
         }
 
         switch (buttons)
@@ -132,6 +149,28 @@ public partial class ModernDialogWindow : Window
                     ? confirmText
                     : Loc.Get("L.Dialog.Ok");
                 break;
+        }
+    }
+
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        if (e.Key == Key.Escape)
+        {
+            if (_buttons == ModernDialogButtons.Ok)
+            {
+                DialogResultType = ModernDialogResult.Ok;
+                DialogResult = true;
+            }
+            else
+            {
+                DialogResultType = _buttons == ModernDialogButtons.YesNo
+                    ? ModernDialogResult.No
+                    : ModernDialogResult.Cancel;
+                DialogResult = false;
+            }
+            Close();
+            e.Handled = true;
         }
     }
 

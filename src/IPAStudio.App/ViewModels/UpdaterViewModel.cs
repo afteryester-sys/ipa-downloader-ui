@@ -192,11 +192,12 @@ public sealed partial class UpdaterViewModel : ObservableObject
         };
         _autoCheckTimer.Tick += async (_, _) =>
         {
-            // The first tick uses the short startup delay; every one after it is hourly.
-            if (_autoCheckTimer is { } timer && timer.Interval != AutoCheckInterval)
-                timer.Interval = AutoCheckInterval;
-
-            await AutoCheckAsync().ConfigureAwait(true);
+            var checkSucceeded = await AutoCheckAsync().ConfigureAwait(true);
+            if (_autoCheckTimer is { } timer)
+            {
+                // If successful (or already updated), check hourly. If failed (e.g. WiFi reconnecting at boot), retry after 2 minutes.
+                timer.Interval = checkSucceeded ? AutoCheckInterval : TimeSpan.FromMinutes(2);
+            }
         };
         _autoCheckTimer.Start();
     }
@@ -209,32 +210,39 @@ public sealed partial class UpdaterViewModel : ObservableObject
     /// task that reports "no connection" into the menu, or blanks the dot for the duration
     /// of its own request, would be reporting on itself rather than on updates.
     /// </summary>
-    private async Task AutoCheckAsync()
+    private async Task<bool> AutoCheckAsync()
     {
         // Anything the user started owns the status text; an already-downloaded update is
         // waiting to be installed, and the dot has nothing left to say.
-        if (IsBusy || UpdateReady || UpdateAvailable) return;
+        if (IsBusy || UpdateReady || UpdateAvailable) return true;
 
         // Not while the menu is open: text changing under the pointer reads as a glitch,
         // and the Check button is right there for anyone who wants an answer now.
-        if (IsOpen) return;
+        if (IsOpen) return true;
 
         try
         {
             var hasUpdate = await _updates.CheckForUpdatesAsync().ConfigureAwait(true);
-            if (!hasUpdate || _updates.LatestVersion is not { } latest) return;
+            if (_updates.State is not (UpdateState.Available or UpdateState.UpToDate))
+            {
+                return false;
+            }
+
+            if (!hasUpdate || _updates.LatestVersion is not { } latest) return true;
 
             UpdateAvailable = true;
             StatusText = string.Format(Str("L.Update.Available"),
                 $"{latest.Major}.{latest.Minor}.{latest.Build}");
             AppLog.Info($"Automatic check found update {latest.Major}.{latest.Minor}.{latest.Build}.");
             UpdateFound?.Invoke(latest);
+            return true;
         }
         catch (Exception ex)
         {
             // Logged, never shown: an unreachable network is the normal case here, and the
-            // next attempt is an hour away.
+            // next attempt is retried shortly.
             AppLog.Info($"Automatic update check failed, will retry later ({ex.Message}).");
+            return false;
         }
     }
 

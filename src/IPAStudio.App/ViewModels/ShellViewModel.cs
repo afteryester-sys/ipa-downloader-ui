@@ -246,13 +246,13 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             {
                 msg = !string.IsNullOrWhiteSpace(op.Detail)
                     ? op.Detail
-                    : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
+                    : (!string.IsNullOrWhiteSpace(op.Subtitle) ? op.Subtitle : op.Title);
             }
             else if (op.Kind is OperationKind.Firmware)
             {
                 msg = !string.IsNullOrWhiteSpace(op.Detail) && op.Detail != Loc.Get("L.Firmware.Done")
                     ? op.Detail
-                    : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
+                    : (!string.IsNullOrWhiteSpace(op.Subtitle) ? op.Subtitle : op.Title);
             }
             else
             {

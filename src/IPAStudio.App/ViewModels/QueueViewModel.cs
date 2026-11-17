@@ -307,12 +307,17 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
             }
 
             string finishText;
+            var singleApp = queue.Items.FirstOrDefault(a => a.Stage is QueueStage.Done);
+            var singleName = singleApp?.App.Name;
+
             if (operation?.Kind == OperationKind.Transfer)
             {
                 finishText = failed > 0
                     ? string.Format(Loc.Get("L.Ops.Detail.TransferFailedCount"), succeeded, failed)
                     : succeeded == 1
-                        ? Loc.Get("L.Ops.Detail.TransferFinishedSingle")
+                        ? (!string.IsNullOrWhiteSpace(singleName)
+                            ? string.Format(Loc.Get("L.Ops.Detail.TransferFinishedNamed"), singleName)
+                            : Loc.Get("L.Ops.Detail.TransferFinishedSingle"))
                         : string.Format(Loc.Get("L.Ops.Detail.TransferFinishedCount"), succeeded);
             }
             else
@@ -320,7 +325,9 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
                 finishText = failed > 0
                     ? string.Format(Loc.Get("L.Ops.Detail.InstallFailedCount"), succeeded, failed)
                     : succeeded == 1
-                        ? Loc.Get("L.Ops.Detail.InstallFinishedSingle")
+                        ? (!string.IsNullOrWhiteSpace(singleName)
+                            ? string.Format(Loc.Get("L.Ops.Detail.InstallFinishedNamed"), singleName)
+                            : Loc.Get("L.Ops.Detail.InstallFinishedSingle"))
                         : string.Format(Loc.Get("L.Ops.Detail.InstallFinishedCount"), succeeded);
             }
 

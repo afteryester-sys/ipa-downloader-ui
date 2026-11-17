@@ -1007,12 +1007,6 @@ public sealed partial class OnDeviceViewModel : ObservableObject, IPageAware
     /// </summary>
     private Operation? StartOperation(string subtitle, CancellationTokenSource cts)
     {
-        // Only in multitasking mode. With it off OperationService keeps a single slot per kind
-        // and cancels whatever held it, so registering here would make a second download on
-        // this page kill the first - two rows fetched at once work fine today, and nothing in
-        // the off mode has any UI to show an operation in.
-        if (!_operations.MultitaskingEnabled) return null;
-
         _operation = _operations.Start(new Operation(
             OperationKind.Download,
             Page.OnDevice,

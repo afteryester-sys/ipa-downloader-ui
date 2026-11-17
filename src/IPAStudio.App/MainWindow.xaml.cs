@@ -466,22 +466,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private int _dimmerRefCount = 0;
+
     public void ShowDimmer()
     {
         if (DimmerOverlay == null) return;
-        DimmerOverlay.Visibility = Visibility.Visible;
-        var anim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180));
-        DimmerOverlay.BeginAnimation(OpacityProperty, anim);
+        _dimmerRefCount++;
+        if (_dimmerRefCount == 1)
+        {
+            DimmerOverlay.Visibility = Visibility.Visible;
+            var anim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180));
+            DimmerOverlay.BeginAnimation(OpacityProperty, anim);
+        }
     }
 
     public void HideDimmer()
     {
         if (DimmerOverlay == null) return;
-        var anim = new DoubleAnimation(DimmerOverlay.Opacity, 0, TimeSpan.FromMilliseconds(150));
-        anim.Completed += (_, _) =>
+        _dimmerRefCount = Math.Max(0, _dimmerRefCount - 1);
+        if (_dimmerRefCount == 0)
         {
-            DimmerOverlay.Visibility = Visibility.Collapsed;
-        };
-        DimmerOverlay.BeginAnimation(OpacityProperty, anim);
+            var anim = new DoubleAnimation(DimmerOverlay.Opacity, 0, TimeSpan.FromMilliseconds(150));
+            anim.Completed += (_, _) =>
+            {
+                if (_dimmerRefCount == 0)
+                {
+                    DimmerOverlay.Visibility = Visibility.Collapsed;
+                }
+            };
+            DimmerOverlay.BeginAnimation(OpacityProperty, anim);
+        }
     }
 }

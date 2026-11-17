@@ -35,10 +35,17 @@ public class ModernDialogService : IDialogService
 
         try
         {
-            var dialog = new ModernDialogWindow(title, message, buttons, type, confirmText, cancelText, isDestructive)
+            var dialog = new ModernDialogWindow(title, message, buttons, type, confirmText, cancelText, isDestructive);
+            if (owner != null && owner.IsVisible && owner.WindowState != WindowState.Minimized)
             {
-                Owner = owner
-            };
+                dialog.Owner = owner;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+            else
+            {
+                dialog.Owner = null;
+                dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
             dialog.ShowDialog();
             return dialog.DialogResultType;
         }

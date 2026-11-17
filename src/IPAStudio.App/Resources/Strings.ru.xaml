@@ -1214,9 +1214,11 @@
     <sys:String x:Key="L.Stats.ClearConfirmText">Вы уверены, что хотите сбросить всю сохранённую историю статистики?</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFinishedCount">Установка {0} приложений успешно завершена</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFinishedSingle">Установка приложения успешно завершена</sys:String>
+    <sys:String x:Key="L.Ops.Detail.InstallFinishedNamed">Установка «{0}» успешно завершена</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFailedCount">Установка завершена: {0} успешно, {1} с ошибкой</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFinishedCount">Перенос {0} приложений успешно завершён</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFinishedSingle">Перенос приложения успешно завершён</sys:String>
+    <sys:String x:Key="L.Ops.Detail.TransferFinishedNamed">Перенос «{0}» успешно завершён</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFailedCount">Перенос завершён: {0} успешно, {1} с ошибкой</sys:String>
     <sys:String x:Key="L.MediaExport.ExportedWithCounts">Скопировано {0} файлов ({1} фото, {2} видео) в {3}.</sys:String>
     <sys:String x:Key="L.Tools.DownloadIpa">Скачать IPA</sys:String>
