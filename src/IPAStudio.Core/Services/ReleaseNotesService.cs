@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.76",
+                    date: "18.11.2026",
+                    title: "Доработка панели статистики: отклик активных кнопок, подсветка кнопки очистки и адаптивность карточек",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИНТЕРФЕЙС",
+                            "Отклик активных кнопок периода при нажатии и наведении",
+                            "Исправлен конфликт приоритетов триггеров: добавлены явные условия MultiDataTrigger для IsPressed, возвращающие тактильный отклик (opacity 0.75) при клике по активному фильтру при сохранении синего фона и белого текста."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ДИЗАЙН",
+                            "Динамическая подсветка кнопки очистки статистики",
+                            "Устранена блокировка наследования цвета иконки корзины (локальное свойство TextBlock перенесено в стиль): при наведении значок корректно окрашивается в акцентный красный (Brush.Danger) с мягким фоном (Brush.DangerSoft), а высота кнопки выровнена по 32 px."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "АДАПТИВНОСТЬ",
+                            "Оптимизация размеров и предотвращение усечения заголовков карточек",
+                            "Скорректированы внутренние отступы карточек метрик и типографика заголовков: длинные русские названия ('УСТАНОВЛЕНО ПРИЛОЖЕНИЙ') больше не обрезаются многоточием при стандартном размере окна 1120 px, сохраняя компактные бейджи периодов и всплывающие подсказки.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.75",
                     date: "18.11.2026",
                     title: "Компоновка панели статистики, контраст активных кнопок и чистая разметка карточек",
@@ -765,6 +787,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.76",
+                date: "11/18/2026",
+                title: "Statistics Polish: Active Filter Press Feedback, Danger Action Highlighting, and Card Layout Fit",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "UI",
+                        "Active Filter Button Press & Hover State Feedback",
+                        "Resolved trigger priority clash on active period buttons by implementing explicit IsPressed MultiDataTriggers, restoring crisp tactile press feedback (opacity 0.75) while preserving accent blue background and white text."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "DESIGN",
+                        "Reactive Clear Stats Danger Button Highlighting",
+                        "Removed local TextBlock foreground override on the trash icon, allowing dynamic style triggers to illuminate the glyph in vibrant red (Brush.Danger) over soft red fill (Brush.DangerSoft) on hover with aligned 32px height."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "LAYOUT",
+                        "Card Metric Typography & Truncation Prevention",
+                        "Fine-tuned metric card padding and title font sizing so wide Russian headings ('УСТАНОВЛЕНО ПРИЛОЖЕНИЙ') render completely without ellipsis clipping at standard 1120px window width while keeping compact period badges and tooltips.")
+                }),
             new ReleaseNote(
                 version: "1.8.75",
                 date: "11/18/2026",

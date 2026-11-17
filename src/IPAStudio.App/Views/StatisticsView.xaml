@@ -60,6 +60,16 @@
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="Opacity" Value="0.92" />
                 </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Today}" />
+                        <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.75" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -79,6 +89,16 @@
                     <Setter Property="Foreground" Value="White" />
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Week}" />
+                        <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.75" />
                 </MultiDataTrigger>
             </Style.Triggers>
         </Style>
@@ -100,6 +120,16 @@
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="Opacity" Value="0.92" />
                 </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Month}" />
+                        <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.75" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
@@ -119,6 +149,16 @@
                     <Setter Property="Foreground" Value="White" />
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="Opacity" Value="0.92" />
+                </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.Year}" />
+                        <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.75" />
                 </MultiDataTrigger>
             </Style.Triggers>
         </Style>
@@ -140,16 +180,27 @@
                     <Setter Property="FontWeight" Value="SemiBold" />
                     <Setter Property="Opacity" Value="0.92" />
                 </MultiDataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding SelectedPeriod}" Value="{x:Static models:StatisticsPeriod.AllTime}" />
+                        <Condition Binding="{Binding IsPressed, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Opacity" Value="0.75" />
+                </MultiDataTrigger>
             </Style.Triggers>
         </Style>
 
         <!-- Destructive Action Button Style (calm ghost, danger highlight on hover) -->
         <Style x:Key="StatsDangerButton" TargetType="Button">
             <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="28" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
@@ -179,7 +230,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="Padding" Value="16,14" />
         </Style>
     </UserControl.Resources>
 
@@ -225,13 +276,13 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,60,0">
                 <!-- Action Controls: Refresh and Clear grouped cleanly on the left of segmented period -->
                 <Button Command="{Binding RefreshCommand}" Style="{StaticResource Button.Secondary}"
-                        Width="32" Height="28" Padding="0" Margin="0,0,6,0" ToolTip="{DynamicResource L.Refresh}">
+                        Width="32" Height="32" Padding="0" Margin="0,0,6,0" ToolTip="{DynamicResource L.Refresh}">
                     <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
 
                 <Button Command="{Binding ClearStatsCommand}" Style="{StaticResource StatsDangerButton}"
                         Margin="0,0,10,0" ToolTip="{DynamicResource L.Stats.Clear}">
-                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13" Foreground="{DynamicResource Brush.TextMuted}"
+                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                 </Button>
 
@@ -282,10 +333,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Installs}" Style="{StaticResource Text.Caption}"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Border Grid.Column="1" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding PeriodTitle}" FontSize="10" FontWeight="SemiBold"
+                                   FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   ToolTip="{DynamicResource L.Stats.Card.Installs}" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.AccentSoft}" CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding PeriodTitle}" FontSize="9.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.Accent}" />
                         </Border>
                     </Grid>
@@ -307,10 +359,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Devices}" Style="{StaticResource Text.Caption}"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="10" FontWeight="Medium"
+                                   FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   ToolTip="{DynamicResource L.Stats.Card.Devices}" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L.Stats.Badge.Unique}" FontSize="9.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.TextMuted}" />
                         </Border>
                     </Grid>
@@ -332,10 +385,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Ipa}" Style="{StaticResource Text.Caption}"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding IpaVolumeText}" FontSize="10" FontWeight="Medium"
+                                   FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   ToolTip="{DynamicResource L.Stats.Card.Ipa}" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding IpaVolumeText}" FontSize="9.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.TextMuted}" />
                         </Border>
                     </Grid>
@@ -357,10 +411,11 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{DynamicResource L.Stats.Card.Firmwares}" Style="{StaticResource Text.Caption}"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding FirmwareVolumeText}" FontSize="10" FontWeight="Medium"
+                                   FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Brush.TextMuted}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,4,0"
+                                   ToolTip="{DynamicResource L.Stats.Card.Firmwares}" />
+                        <Border Grid.Column="1" Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="4" Padding="5,1.5" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FirmwareVolumeText}" FontSize="9.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Brush.TextMuted}" />
                         </Border>
                     </Grid>
