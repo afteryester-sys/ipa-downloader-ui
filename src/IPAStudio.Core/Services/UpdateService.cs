@@ -224,7 +224,7 @@ public sealed class UpdateService
             : asset?.DownloadUrl;
         _downloadFileName = asset?.Name;
 
-        if (LatestVersion is not null && LatestVersion > CurrentVersion)
+        if (LatestVersion is not null && NormalizeVersion(LatestVersion) > NormalizeVersion(CurrentVersion))
         {
             AppLog.Info($"Update available: v{LatestVersion} > v{CurrentVersion}.");
             Set(UpdateState.Available);
@@ -604,13 +604,16 @@ public sealed class UpdateService
         ?? release.Assets?.FirstOrDefault(a =>
             a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
 
-    private static Version? ParseVersion(string tag)
+    public static Version NormalizeVersion(Version v) =>
+        new(v.Major, Math.Max(0, v.Minor), Math.Max(0, v.Build), Math.Max(0, v.Revision));
+
+    public static Version? ParseVersion(string tag)
     {
         // Tags look like "v1.2.3" or "1.2.3".
         var cleaned = tag.TrimStart('v', 'V').Trim();
         var dash = cleaned.IndexOf('-');
         if (dash > 0) cleaned = cleaned[..dash];
-        return Version.TryParse(cleaned, out var v) ? v : null;
+        return Version.TryParse(cleaned, out var v) ? NormalizeVersion(v) : null;
     }
 
     // ------------------------------------------------------ GitHub API models

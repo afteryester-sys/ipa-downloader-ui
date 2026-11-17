@@ -407,9 +407,9 @@ public sealed class AppSettings
 
     /// <summary>
     /// When true, displays an animated push/toast notification whenever a task completes (install, download, export).
-    /// Disabled by default.
+    /// Enabled by default.
     /// </summary>
-    public bool TaskCompletionNotificationsEnabled { get; set; } = false;
+    public bool TaskCompletionNotificationsEnabled { get; set; } = true;
 
     /// <summary>
     /// Color mode for the Windows taskbar progress indicator: "green" (default Windows system progress) or "amber" (warm accent progress).

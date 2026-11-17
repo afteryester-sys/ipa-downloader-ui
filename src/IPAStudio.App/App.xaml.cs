@@ -290,13 +290,13 @@ public partial class App : Application
         try
         {
             _isShowingError = true;
-            MessageBox.Show(
+            ModernDialog.Show(
                 Loc.Get("L.Crash.Recovered") + "\n\n" +
                 $"{ex.GetType().Name}: {ex.Message}\n\n" +
                 Loc.Get("L.Crash.SeeLog"),
                 "IPA Studio",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+                ModernDialogButtons.Ok,
+                ModernDialogType.Error);
         }
         catch { /* never let the error handler itself crash */ }
         finally

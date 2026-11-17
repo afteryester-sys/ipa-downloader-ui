@@ -808,6 +808,11 @@
             </Popup>
         </Grid>
 
+        <!-- ===== In-App Modern Dialog Window Dimmer Overlay ===== -->
+        <Border x:Name="DimmerOverlay" Background="#75000000"
+                Panel.ZIndex="150" Visibility="Collapsed" Opacity="0"
+                SnapsToDevicePixels="True" UseLayoutRounding="True" />
+
         <!-- ===== What's New / Release Notes Modal Overlay ===== -->
         <Grid x:Name="WhatsNewOverlay" Panel.ZIndex="100"
               Visibility="Collapsed">
@@ -1061,10 +1066,12 @@
                 Padding="16,12"
                 Opacity="0"
                 Visibility="Collapsed"
+                Cursor="Hand"
                 SnapsToDevicePixels="True"
                 UseLayoutRounding="True"
                 MouseEnter="ToastNotificationCard_MouseEnter"
-                MouseLeave="ToastNotificationCard_MouseLeave">
+                MouseLeave="ToastNotificationCard_MouseLeave"
+                MouseLeftButtonDown="ToastNotificationCard_MouseLeftButtonDown">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="28" ShadowDepth="4" Opacity="0.35" Color="#000000" />
             </Border.Effect>

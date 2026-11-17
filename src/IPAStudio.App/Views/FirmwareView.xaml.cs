@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using IPAStudio.App.Services;
 using IPAStudio.App.ViewModels;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
@@ -25,12 +26,11 @@ public partial class FirmwareView : UserControl
     {
         if (e.NewValue is not FirmwareViewModel vm) return;
 
-        vm.ConfirmResumePending = pending => MessageBox.Show(
-            Window.GetWindow(this),
+        vm.ConfirmResumePending = pending => ModernDialog.Confirm(
             Loc.Format("L.Firmware.ResumePrompt", pending.Count),
             Loc.Get("L.Firmware.ResumePromptTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question) == MessageBoxResult.Yes;
+            ModernDialogType.Question,
+            owner: Window.GetWindow(this));
     }
 
     private void DevicesList_SelectionChanged(object sender, SelectionChangedEventArgs e)

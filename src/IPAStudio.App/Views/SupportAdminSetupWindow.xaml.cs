@@ -1,4 +1,5 @@
 using System.Windows;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Services;
 
 namespace IPAStudio.App.Views;
@@ -46,9 +47,12 @@ public partial class SupportAdminSetupWindow : Window
         {
             await _support.CreateAdministratorKeyAsync(dialog.FileName, BootstrapSecret.Password, Password.Password);
             await _support.ImportAdministratorKeyAsync(dialog.FileName);
-            MessageBox.Show(this,
+            ModernDialog.Show(
                 "Ключ создан и безопасно импортирован на этот ПК. Сохраните TXT-файл как резервную копию отдельно от пароля.",
-                "Ключ администратора готов", MessageBoxButton.OK, MessageBoxImage.Information);
+                "Ключ администратора готов",
+                ModernDialogButtons.Ok,
+                ModernDialogType.Success,
+                owner: this);
             DialogResult = true;
         }
         catch (Exception ex) { StatusText.Text = ex.Message; IsEnabled = true; }

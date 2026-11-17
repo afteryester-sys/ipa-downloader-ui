@@ -1,0 +1,109 @@
+<Window x:Class="IPAStudio.App.Views.ModernDialogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        MinWidth="420"
+        MaxWidth="560">
+
+    <Grid Margin="24">
+        <!-- Background Shadow Layer -->
+        <Border CornerRadius="16"
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" Direction="270"
+                                  RenderingBias="Quality" ShadowDepth="6"
+                                  Color="#000000" Opacity="0.45" />
+            </Border.Effect>
+        </Border>
+
+        <!-- Main Card -->
+        <Border x:Name="CardBorder"
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="16"
+                Padding="24,20,24,22"
+                MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Header with Icon & Title & Close button -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Message Body -->
+                    <RowDefinition Height="*" />
+                    <!-- Action Buttons -->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Icon Circle -->
+                    <Border Grid.Column="0" x:Name="IconBadge" Width="40" Height="40" CornerRadius="20"
+                            Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="IconText" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Title -->
+                    <TextBlock Grid.Column="1" x:Name="TitleText"
+                               Style="{StaticResource Text.Body}"
+                               FontSize="16" FontWeight="SemiBold"
+                               VerticalAlignment="Center" TextWrapping="Wrap" />
+
+                    <!-- Close (X) button -->
+                    <Button Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                            Width="28" Height="28" Padding="0"
+                            VerticalAlignment="Center" Cursor="Hand"
+                            Click="OnCloseClick">
+                        <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                </Grid>
+
+                <!-- Message Body -->
+                <ScrollViewer Grid.Row="1" MaxHeight="320" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,20">
+                    <TextBlock x:Name="MessageText"
+                               Style="{StaticResource Text.Body}"
+                               FontSize="13.5" LineHeight="20"
+                               Foreground="{DynamicResource Brush.Text}"
+                               TextWrapping="Wrap" />
+                </ScrollViewer>
+
+                <!-- Action Buttons -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- Cancel Button -->
+                    <Button x:Name="CancelBtn"
+                            Style="{StaticResource Button.Ghost}"
+                            MinWidth="105" Margin="0,0,10,0"
+                            IsCancel="True"
+                            Click="OnCancelClick" />
+
+                    <!-- Confirm / OK Button -->
+                    <Button x:Name="ConfirmBtn"
+                            Style="{StaticResource Button.Primary}"
+                            MinWidth="115"
+                            IsDefault="True"
+                            Click="OnConfirmClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

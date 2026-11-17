@@ -227,18 +227,52 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
                 _ => Loc.Get("L.Notification.TaskCompleted")
             };
 
-            if (!string.IsNullOrWhiteSpace(op.Detail) && (op.Kind is OperationKind.Install or OperationKind.Transfer))
+            string msg;
+            if (op.Kind is OperationKind.Install or OperationKind.Transfer)
             {
-                title = op.Detail;
+                if (!string.IsNullOrWhiteSpace(op.Detail))
+                {
+                    title = op.Detail;
+                }
+                msg = !string.IsNullOrWhiteSpace(op.Subtitle) ? op.Subtitle : op.Title;
             }
-
-            var msg = !string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle;
-            if (!string.IsNullOrWhiteSpace(op.Subtitle) && op.Subtitle != msg)
+            else if (op.Kind is OperationKind.MediaExport or OperationKind.Photos)
             {
-                msg = $"{msg} ({op.Subtitle})";
+                msg = !string.IsNullOrWhiteSpace(op.Detail)
+                    ? op.Detail
+                    : (!string.IsNullOrWhiteSpace(op.Subtitle) ? op.Subtitle : op.Title);
+            }
+            else if (op.Kind is OperationKind.Download)
+            {
+                msg = !string.IsNullOrWhiteSpace(op.Detail)
+                    ? op.Detail
+                    : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
+            }
+            else if (op.Kind is OperationKind.Firmware)
+            {
+                msg = !string.IsNullOrWhiteSpace(op.Detail) && op.Detail != Loc.Get("L.Firmware.Done")
+                    ? op.Detail
+                    : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
+            }
+            else
+            {
+                msg = !string.IsNullOrWhiteSpace(op.Detail)
+                    ? op.Detail
+                    : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
             }
 
             ShowToast(title, msg);
+        };
+
+        Updater.UpdateFound += ver =>
+        {
+            var verStr = $"{ver.Major}.{ver.Minor}.{ver.Build}";
+            ShowToast(Loc.Get("L.Update.Title"), Loc.Format("L.Update.Available", verStr), "🔄");
+        };
+
+        Updater.UpdateDownloaded += () =>
+        {
+            ShowToast(Loc.Get("L.Update.Title"), Loc.Get("L.Update.Ready"), "✓");
         };
 
         GoTo(Page.Setup);
@@ -272,6 +306,16 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     {
         _toastDismissTimer?.Stop();
         IsToastVisible = false;
+    }
+
+    [RelayCommand]
+    public void ToastClick()
+    {
+        if (Updater.UpdateAvailable || Updater.UpdateReady)
+        {
+            Updater.IsOpen = true;
+        }
+        DismissToast();
     }
 
     /// <summary>

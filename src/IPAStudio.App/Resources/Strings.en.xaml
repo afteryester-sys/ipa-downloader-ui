@@ -19,6 +19,11 @@
     <sys:String x:Key="L.Guard.Serial">Serial number: {0}</sys:String>
     <sys:String x:Key="L.Guard.Wrong">Incorrect password. Try again.</sys:String>
     <sys:String x:Key="L.Guard.Confirm">Confirm</sys:String>
+    <sys:String x:Key="L.Dialog.Ok">OK</sys:String>
+    <sys:String x:Key="L.Dialog.Yes">Yes</sys:String>
+    <sys:String x:Key="L.Dialog.No">No</sys:String>
+    <sys:String x:Key="L.Dialog.Close">Close</sys:String>
+    <sys:String x:Key="L.Dialog.Confirm">Confirm</sys:String>
 
     <!-- Environment setup -->
     <sys:String x:Key="L.Setup.Title">Environment Check</sys:String>
@@ -1210,9 +1215,12 @@
     <sys:String x:Key="L.Stats.ClearConfirmTitle">Clear Statistics</sys:String>
     <sys:String x:Key="L.Stats.ClearConfirmText">Are you sure you want to reset all stored statistics history?</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFinishedCount">Installation of {0} apps successfully finished</sys:String>
+    <sys:String x:Key="L.Ops.Detail.InstallFinishedSingle">App installation successfully finished</sys:String>
     <sys:String x:Key="L.Ops.Detail.InstallFailedCount">Installation finished: {0} succeeded, {1} failed</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFinishedCount">Transfer of {0} apps successfully finished</sys:String>
+    <sys:String x:Key="L.Ops.Detail.TransferFinishedSingle">App transfer successfully finished</sys:String>
     <sys:String x:Key="L.Ops.Detail.TransferFailedCount">Transfer finished: {0} succeeded, {1} failed</sys:String>
+    <sys:String x:Key="L.MediaExport.ExportedWithCounts">Copied {0} files ({1} photos, {2} videos) to {3}.</sys:String>
     <sys:String x:Key="L.Tools.DownloadIpa">Download IPA</sys:String>
     <sys:String x:Key="L.Tools.Firmware">Firmware</sys:String>
     <sys:String x:Key="L.Tools.ICloud">iCloud</sys:String>

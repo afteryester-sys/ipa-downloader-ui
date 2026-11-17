@@ -317,14 +317,14 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
                 StatusText = total == 1
                     ? Loc.Format("L.Direct.InstallSuccess", targets[0].Name)
                     : Loc.Format("L.Direct.InstallSuccessMulti", total);
-                operation.Finish(OperationState.Done);
+                operation.Finish(OperationState.Done, StatusText);
                 IsDevicePickerOpen = false;
             }
             else if (successful > 0)
             {
                 State = DirectQueueState.Done;
                 StatusText = Loc.Format("L.Direct.InstallPartial", successful, total);
-                operation.Finish(OperationState.Done);
+                operation.Finish(OperationState.Done, StatusText);
             }
             else
             {

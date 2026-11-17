@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IPAStudio.App.Services;
 using IPAStudio.Core.Diagnostics;
+using IPAStudio.Core.Localization;
 using IPAStudio.Core.Services;
 
 namespace IPAStudio.App.ViewModels;
@@ -23,6 +24,12 @@ public sealed partial class UpdaterViewModel : ObservableObject
     // single QueueService reference would only have seen one of them.
     private readonly OperationService _operations;
     private readonly CleanupService _cleanup;
+
+    /// <summary>Raised whenever an automatic or manual update check identifies a newer release.</summary>
+    public event Action<Version>? UpdateFound;
+
+    /// <summary>Raised whenever an update finishes downloading and is ready to install.</summary>
+    public event Action? UpdateDownloaded;
 
     /// <summary>
     /// Last measurement. Reused by "Clear cache" so the amount shown in the
@@ -164,11 +171,9 @@ public sealed partial class UpdaterViewModel : ObservableObject
     private static readonly TimeSpan AutoCheckInterval = TimeSpan.FromHours(1);
 
     /// <summary>
-    /// Delay before the first look. Startup is already busy probing tools, polling for
-    /// devices and loading the catalog; adding a network call to that makes the window
-    /// slower to become usable and buys nothing, since the answer then keeps for an hour.
+    /// Delay before the first look. Gives the UI and devices time to settle before checking for updates.
     /// </summary>
-    private static readonly TimeSpan FirstCheckDelay = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan FirstCheckDelay = TimeSpan.FromSeconds(6);
 
     /// <summary>
     /// Starts checking in the background. Safe to call again — a running timer is left
@@ -223,6 +228,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
             StatusText = string.Format(Str("L.Update.Available"),
                 $"{latest.Major}.{latest.Minor}.{latest.Build}");
             AppLog.Info($"Automatic check found update {latest.Major}.{latest.Minor}.{latest.Build}.");
+            UpdateFound?.Invoke(latest);
         }
         catch (Exception ex)
         {
@@ -288,6 +294,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
                 UpdateAvailable = true;
                 StatusText = string.Format(Str("L.Update.Available"),
                     $"{latest.Major}.{latest.Minor}.{latest.Build}");
+                UpdateFound?.Invoke(latest);
             }
             else if (_updates.State == UpdateState.UpToDate)
             {
@@ -336,6 +343,7 @@ public sealed partial class UpdaterViewModel : ObservableObject
                 UpdateReady = true;
                 UpdateAvailable = false;
                 StatusText = Str("L.Update.Ready");
+                UpdateDownloaded?.Invoke();
             }
             else if (_updates.State == UpdateState.Failed)
             {
@@ -453,12 +461,12 @@ public sealed partial class UpdaterViewModel : ObservableObject
             return;
         }
 
-        var confirm = MessageBox.Show(
+        var confirm = ModernDialog.Confirm(
             string.Format(Str("L.Cache.ConfirmBody"), FormatSize(report.TotalBytes)),
             Str("L.Cache.ConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (confirm != MessageBoxResult.Yes) return;
+            ModernDialogType.Question,
+            isDestructive: true);
+        if (!confirm) return;
 
         IsClearingCache = true;
         CacheProgress = 0;
@@ -614,12 +622,12 @@ public sealed partial class UpdaterViewModel : ObservableObject
     {
         if (IsBusy || SelectedRollbackRelease is not { } release) return;
 
-        var confirm = MessageBox.Show(
+        var confirm = ModernDialog.Confirm(
             string.Format(Str("L.Rollback.ConfirmBody"), release.DisplayVersion),
             Str("L.Rollback.ConfirmTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-        if (confirm != MessageBoxResult.Yes) return;
+            ModernDialogType.Warning,
+            isDestructive: true);
+        if (!confirm) return;
 
         IsRollingBack = true;
         Progress = 0;

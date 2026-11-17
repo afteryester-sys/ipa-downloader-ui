@@ -311,13 +311,17 @@ public sealed partial class QueueViewModel : ObservableObject, IPageAware
             {
                 finishText = failed > 0
                     ? string.Format(Loc.Get("L.Ops.Detail.TransferFailedCount"), succeeded, failed)
-                    : string.Format(Loc.Get("L.Ops.Detail.TransferFinishedCount"), succeeded);
+                    : succeeded == 1
+                        ? Loc.Get("L.Ops.Detail.TransferFinishedSingle")
+                        : string.Format(Loc.Get("L.Ops.Detail.TransferFinishedCount"), succeeded);
             }
             else
             {
                 finishText = failed > 0
                     ? string.Format(Loc.Get("L.Ops.Detail.InstallFailedCount"), succeeded, failed)
-                    : string.Format(Loc.Get("L.Ops.Detail.InstallFinishedCount"), succeeded);
+                    : succeeded == 1
+                        ? Loc.Get("L.Ops.Detail.InstallFinishedSingle")
+                        : string.Format(Loc.Get("L.Ops.Detail.InstallFinishedCount"), succeeded);
             }
 
             operation?.Finish(

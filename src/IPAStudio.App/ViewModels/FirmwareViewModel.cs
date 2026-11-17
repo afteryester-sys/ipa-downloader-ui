@@ -1267,13 +1267,13 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private async Task CancelWorkflowServiceAsync()
     {
-        var result = System.Windows.MessageBox.Show(
+        var confirmed = ModernDialog.Confirm(
             Loc.Get("L.Firmware.CancelWorkflowConfirmText"),
             Loc.Get("L.Firmware.CancelWorkflowConfirmTitle"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Question);
+            ModernDialogType.Warning,
+            isDestructive: true);
 
-        if (result != System.Windows.MessageBoxResult.Yes) return;
+        if (!confirmed) return;
 
         IsServicePaused = false;
         IsWorkflowActive = false;
@@ -1679,7 +1679,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.Progress = 100;
             job.BytesPerSecond = 0;
             job.StatusText = Loc.Get("L.Firmware.Done");
-            operation.Finish(OperationState.Done, job.StatusText);
+            operation.Finish(OperationState.Done, job.Title);
             _jobOperations.Remove(job);
             RecordCompletedDownload(job.Device, job.Firmware, savedPath);
             _stats.RecordFirmwareDownload(job.Device.Name, job.Firmware.Version, job.Firmware.FileSize);
@@ -1824,7 +1824,7 @@ public sealed partial class FirmwareViewModel : ObservableObject, IPageAware
             job.State = FirmwareJobState.Done;
             job.Progress = 100;
             job.StatusText = Loc.Get("L.Firmware.Done");
-            operation.Finish(OperationState.Done, job.StatusText);
+            operation.Finish(OperationState.Done, job.Title);
             TouchLastDownload(job.Device.Identifier);
         }
         catch (Exception ex) when (job.Cts?.IsCancellationRequested == true ||

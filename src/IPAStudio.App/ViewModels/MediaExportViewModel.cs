@@ -441,7 +441,9 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
                 _cts.Token).ConfigureAwait(true);
 
             ExportProgress = 100;
-            StatusText = Loc.Format("L.MediaExport.Exported", copied, scan.TotalCount, DestinationPath);
+            StatusText = scan.TotalVideos > 0
+                ? Loc.Format("L.MediaExport.ExportedWithCounts", copied, scan.TotalPhotos, scan.TotalVideos, DestinationPath)
+                : Loc.Format("L.MediaExport.Exported", copied, scan.TotalCount, DestinationPath);
             operation.Finish(OperationState.Done, StatusText);
             AppLog.Info($"media export: copied {copied}/{scan.TotalCount} file(s) to '{DestinationPath}' ({Organization}).");
         }

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Services;
 
 namespace IPAStudio.App.Views;
@@ -72,8 +73,13 @@ public partial class SupportAdminWindow : Window
     private async void Revoke_Click(object sender, RoutedEventArgs e)
     {
         if (_token is null || (sender as Button)?.Tag is not SupportComputer computer) return;
-        if (MessageBox.Show(this, $"Отозвать доступ для «{computer.DisplayName}»?", "Отзыв доступа",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) != MessageBoxResult.Yes) return;
+        var confirmed = ModernDialog.Confirm(
+            $"Отозвать доступ для «{computer.DisplayName}»?",
+            "Отзыв доступа",
+            ModernDialogType.Danger,
+            owner: this,
+            isDestructive: true);
+        if (!confirmed) return;
         SetBusy(true, "Отзыв доступа…");
         try { await _support.RevokeAsync(_token, computer.Id); await RefreshAsync(); }
         catch (Exception ex) { StatusText.Text = ex.Message; }

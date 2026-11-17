@@ -618,13 +618,12 @@ public sealed partial class IpaCatalogsViewModel : ObservableObject, IPageAware
     {
         if (SelectedCatalog is null) return;
 
-        var confirm = MessageBox.Show(
+        var confirm = ModernDialog.Confirm(
             Loc.Format("L.Catalogs.RemoveBody", SelectedCatalog.Name),
             Loc.Get("L.Catalogs.RemoveTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question,
-            MessageBoxResult.No);
-        if (confirm != MessageBoxResult.Yes) return;
+            ModernDialogType.Danger,
+            isDestructive: true);
+        if (!confirm) return;
 
         _catalogs.Remove(SelectedCatalog.Id);
         LoadCatalogs();

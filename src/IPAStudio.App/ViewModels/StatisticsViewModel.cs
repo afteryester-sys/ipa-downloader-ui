@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IPAStudio.App.Services;
 using IPAStudio.Core.Localization;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
@@ -99,13 +100,15 @@ public sealed partial class StatisticsViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void ClearStats()
     {
-        var result = System.Windows.MessageBox.Show(
+        var confirmed = ModernDialog.Confirm(
             Loc.Get("L.Stats.ClearConfirmText"),
             Loc.Get("L.Stats.ClearConfirmTitle"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Question);
+            ModernDialogType.Danger,
+            confirmText: Loc.Get("L.Stats.Clear"),
+            cancelText: Loc.Get("L.Cancel"),
+            isDestructive: true);
 
-        if (result == System.Windows.MessageBoxResult.Yes)
+        if (confirmed)
         {
             _stats.ClearAll();
             RefreshData();

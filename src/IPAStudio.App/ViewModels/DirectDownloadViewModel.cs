@@ -1162,13 +1162,13 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
                 StatusText = total == 1
                     ? Loc.Format("L.Direct.InstallSuccess", targets[0].Name)
                     : Loc.Format("L.Direct.InstallSuccessMulti", total);
-                operation.Finish(OperationState.Done);
+                operation.Finish(OperationState.Done, StatusText);
                 IsDevicePickerOpen = false;
             }
             else if (successful > 0)
             {
                 StatusText = Loc.Format("L.Direct.InstallPartial", successful, total);
-                operation.Finish(OperationState.Done);
+                operation.Finish(OperationState.Done, StatusText);
             }
             else
             {

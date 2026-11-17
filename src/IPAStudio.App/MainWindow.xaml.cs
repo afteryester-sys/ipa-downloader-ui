@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using IPAStudio.App.Services;
 using IPAStudio.App.ViewModels;
 using IPAStudio.Core.Localization;
 
@@ -133,11 +134,16 @@ public partial class MainWindow : Window
                 var list = string.Join("\n", unfinished.Select(o => $"  • {o.Title} — {o.Subtitle}"));
                 var body = $"{Loc.Get("L.Ops.ExitBody")}\n\n{list}";
 
-                var answer = MessageBox.Show(
-                    this, body, Loc.Get("L.Ops.ExitTitle"),
-                    MessageBoxButton.OKCancel, MessageBoxImage.Warning, MessageBoxResult.Cancel);
+                var confirmed = ModernDialog.Confirm(
+                    body,
+                    Loc.Get("L.Ops.ExitTitle"),
+                    ModernDialogType.Warning,
+                    owner: this,
+                    confirmText: Loc.Get("L.Ops.ExitConfirm"),
+                    cancelText: Loc.Get("L.Ops.ExitCancel"),
+                    isDestructive: true);
 
-                if (answer != MessageBoxResult.OK)
+                if (!confirmed)
                 {
                     e.Cancel = true;
                     return;
@@ -450,5 +456,32 @@ public partial class MainWindow : Window
 
     private void ToastNotificationCard_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
     {
+    }
+
+    private void ToastNotificationCard_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not System.Windows.Controls.Button && DataContext is ShellViewModel shell)
+        {
+            shell.ToastClickCommand.Execute(null);
+        }
+    }
+
+    public void ShowDimmer()
+    {
+        if (DimmerOverlay == null) return;
+        DimmerOverlay.Visibility = Visibility.Visible;
+        var anim = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180));
+        DimmerOverlay.BeginAnimation(OpacityProperty, anim);
+    }
+
+    public void HideDimmer()
+    {
+        if (DimmerOverlay == null) return;
+        var anim = new DoubleAnimation(DimmerOverlay.Opacity, 0, TimeSpan.FromMilliseconds(150));
+        anim.Completed += (_, _) =>
+        {
+            DimmerOverlay.Visibility = Visibility.Collapsed;
+        };
+        DimmerOverlay.BeginAnimation(OpacityProperty, anim);
     }
 }

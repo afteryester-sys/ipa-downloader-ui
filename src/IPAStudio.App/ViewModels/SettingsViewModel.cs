@@ -835,10 +835,11 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private async Task EnableRemoteSupportAsync()
     {
         if (IsRemoteSupportBusy) return;
-        var answer = MessageBox.Show(
+        var answer = ModernDialog.Confirm(
             "Разрешить администратору IPA Studio видеть этот компьютер в панели поддержки и подключаться через RustDesk? Доступ можно отозвать здесь в любой момент. Apple ID, пароли и содержимое файлов не передаются.",
-            "Разрешить удалённую поддержку", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No);
-        if (answer != MessageBoxResult.Yes) return;
+            "Разрешить удалённую поддержку",
+            ModernDialogType.Question);
+        if (!answer) return;
         IsRemoteSupportBusy = true;
         try
         {
@@ -891,7 +892,7 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
             try { await _remoteSupport.ImportAdministratorKeyAsync(dialog.FileName); }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Импорт ключа", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernDialog.Show(ex.Message, "Импорт ключа", ModernDialogButtons.Ok, ModernDialogType.Error);
                 return;
             }
         }

@@ -1408,13 +1408,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         var selected = Photos.Where(p => p.IsSelected).ToList();
         if (selected.Count == 0) return;
 
-        var confirm = MessageBox.Show(
+        var confirm = ModernDialog.Confirm(
             Loc.Format("L.Photos.ConfirmDeleteBody", selected.Count),
             Loc.Get("L.Photos.ConfirmDeleteTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (confirm != MessageBoxResult.Yes) return;
+            ModernDialogType.Danger,
+            isDestructive: true);
+        if (!confirm) return;
 
         var items = selected.Select(p => p.Item).ToList();
         await RunTransferAsync(async (progress, ct) =>
@@ -1496,11 +1495,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             : result.ClientOpened
                 ? "L.Photos.SyncInstructions"
                 : "L.Photos.SyncClientOpenFailed";
-        MessageBox.Show(
+        ModernDialog.Show(
             Loc.Format(bodyKey, result.Prepared, result.Total, result.Folder, clientName),
             Loc.Get("L.Photos.SyncTitle"),
-            MessageBoxButton.OK,
-            result.Client == ApplePhotoClient.None ? MessageBoxImage.Warning : MessageBoxImage.Information);
+            ModernDialogButtons.Ok,
+            result.Client == ApplePhotoClient.None ? ModernDialogType.Warning : ModernDialogType.Information);
     }
 
     private static IEnumerable<string> ExpandImportPaths(IEnumerable<string> paths)
@@ -1567,7 +1566,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
                 operation.Detail = StatusText;
             });
             await work(progress, cts.Token);
-            operation.Finish(OperationState.Done);
+            operation.Finish(OperationState.Done, StatusText);
         }
         catch (OperationCanceledException)
         {

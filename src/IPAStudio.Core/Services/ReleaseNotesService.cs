@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.77",
+                    date: "18.11.2026",
+                    title: "Современные встроенные диалоги, расширенные пуш-уведомления и надёжный автопоиск обновлений",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ИНТЕРФЕЙС",
+                            "Полная замена классических окон MessageBox на современные встроенные диалоги",
+                            "Все устаревшие окна подтверждений (сброс статистики, завершение работы при незавершённых операциях, удаление фото, отзыв удалённого доступа, очистка кэша) переведены на единую дизайн-систему ModernDialog с поддержкой тёмной/светлой темы, мягким затемнением фона, закруглёнными углами 16 px, векторными бейджами и акцентными кнопками действий."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "УВЕДОМЛЕНИЯ",
+                            "Информативные пуш-уведомления обо всех успешных операциях",
+                            "Уведомления включены по умолчанию и выводят точные названия и количество элементов: одиночная и пакетная установка приложений («Установка 5 приложений успешно завершена»), передача между устройствами, загрузка IPA и IPSW прошивок (с указанием модели и версии iOS), а также экспорт медиафайлов с разбивкой на количество фото и видеозаписей."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ОБНОВЛЕНИЯ",
+                            "Надёжный автопоиск обновлений программы и нормализация версий",
+                            "Оптимизирован таймер фоновой проверки при старте (6 секунд), исправлена погрешность сравнения 3-компонентных тегов GitHub Releases с 4-компонентными сборками .NET, а при обнаружении новой версии выводится интерактивный пуш-баннер с переходом к загрузчику.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.76",
                     date: "18.11.2026",
                     title: "Доработка панели статистики: отклик активных кнопок, подсветка кнопки очистки и адаптивность карточек",
@@ -787,6 +809,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.77",
+                date: "11/18/2026",
+                title: "Modern In-App Dialogs, Comprehensive Task Completion Notifications, and Reliable Auto-Update Checks",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UI",
+                        "Complete Replacement of Win32 MessageBox with Modern In-App Dialogs",
+                        "Replaced all legacy system confirmation popups (statistics reset, exit with unfinished operations, media deletion, remote support revoke, cache cleanup) with a unified ModernDialog architecture featuring dark/light theme support, smooth background dimming, 16px corner radii, vector icon badges, and styled danger/primary actions."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NOTIFICATIONS",
+                        "Comprehensive Push Notifications for All Successful Operations",
+                        "Task completion push notifications are now enabled by default and report exact counts and device details: single and multi-app installs, device-to-device transfers, IPA and firmware downloads (with device model and iOS version), and media export with precise photo and video breakdowns."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UPDATER",
+                        "Reliable Auto-Update Checks & Version Normalization",
+                        "Optimized startup update check delay to 6 seconds, resolved 3-part vs 4-part semantic version comparison against GitHub Releases tags, and added interactive push notifications that announce newly published versions with one-click access.")
+                }),
             new ReleaseNote(
                 version: "1.8.76",
                 date: "11/18/2026",
