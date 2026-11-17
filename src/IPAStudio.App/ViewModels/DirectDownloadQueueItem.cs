@@ -34,6 +34,7 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
     private readonly OperationService _operations;
     private readonly Action<DirectDownloadQueueItem> _onRemove;
     private readonly Action<DirectDownloadQueueItem> _onRetry;
+    private readonly Action<DirectDownloadQueueItem>? _onStateChanged;
 
     public string Id { get; } = Guid.NewGuid().ToString("N");
 
@@ -126,7 +127,8 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
         InstallService install,
         OperationService operations,
         Action<DirectDownloadQueueItem> onRemove,
-        Action<DirectDownloadQueueItem> onRetry)
+        Action<DirectDownloadQueueItem> onRetry,
+        Action<DirectDownloadQueueItem>? onStateChanged = null)
     {
         App = app;
         DestinationFolder = destinationFolder;
@@ -137,6 +139,7 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
         _operations = operations;
         _onRemove = onRemove;
         _onRetry = onRetry;
+        _onStateChanged = onStateChanged;
 
         StatusText = Loc.Get("L.Direct.Queue.Waiting");
     }
@@ -183,6 +186,7 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
         {
             State = DirectQueueState.Cancelled;
             StatusText = Loc.Get("L.Direct.Queue.Cancelled");
+            _onStateChanged?.Invoke(this);
         }
     }
 

@@ -217,7 +217,7 @@
                     </Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
+                        <TextBlock Text="&#xE8EA;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.Firmware}"

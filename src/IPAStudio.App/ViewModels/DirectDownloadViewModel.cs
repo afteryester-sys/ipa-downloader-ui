@@ -136,6 +136,32 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [ObservableProperty]
     private string _bundleId = "";
 
+    partial void OnBundleIdChanged(string value)
+    {
+        if (FoundApp is not null && !IsFoundAppMatchingQuery())
+        {
+            FoundApp = null;
+            FoundIconUrl = null;
+            FoundIconImage = null;
+            IsInCatalog = false;
+        }
+    }
+
+    private bool IsFoundAppMatchingQuery()
+    {
+        if (FoundApp is null) return false;
+        var query = AppQueryParser.Parse(BundleId);
+        if (!query.IsValid) return false;
+
+        if (!string.IsNullOrEmpty(FoundApp.BundleId) && string.Equals(FoundApp.BundleId, query.BundleId, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (FoundApp.AppStoreId > 0 && (FoundApp.AppStoreId == query.AppStoreId || string.Equals(FoundApp.AppStoreId.ToString(), BundleId?.Trim(), StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        return false;
+    }
+
     [ObservableProperty]
     private string _destinationFolder = "";
 
@@ -674,10 +700,10 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
     [RelayCommand]
     private async Task DownloadAsync()
     {
-        if (FoundApp is null)
+        if (FoundApp is null || !IsFoundAppMatchingQuery())
         {
             // Let the button work as "find and download" when the user typed something and
-            // pressed Download without pressing Find first.
+            // pressed Download without pressing Find first, or changed the typed identifier.
             await LookupAsync().ConfigureAwait(true);
             if (FoundApp is null) return;
         }
@@ -726,19 +752,20 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
             _install,
             _operations,
             onRemove: RemoveFromQueue,
-            onRetry: RetryQueueItem);
+            onRetry: RetryQueueItem,
+            onStateChanged: _ => RunOnUi(UpdateQueueMetrics));
 
         RunOnUi(() =>
         {
-            // Remove previous finished, failed or cancelled card for the same app to keep the queue clean
-            var existingFinished = DownloadQueue.FirstOrDefault(q =>
+            // Remove previous finished, failed or cancelled cards for the same app to keep the queue clean
+            var existingFinishedList = DownloadQueue.Where(q =>
                 (q.IsDone || q.IsFailed || q.IsCancelled) &&
                 ((!string.IsNullOrEmpty(app.BundleId) && string.Equals(q.BundleId, app.BundleId, StringComparison.OrdinalIgnoreCase))
-                 || (app.AppStoreId > 0 && q.App.AppStoreId == app.AppStoreId)));
+                 || (app.AppStoreId > 0 && q.App.AppStoreId == app.AppStoreId))).ToList();
 
-            if (existingFinished is not null)
+            foreach (var existing in existingFinishedList)
             {
-                DownloadQueue.Remove(existingFinished);
+                DownloadQueue.Remove(existing);
             }
 
             queueItem.UpdateDevices(_devices.ConnectedDevices);
