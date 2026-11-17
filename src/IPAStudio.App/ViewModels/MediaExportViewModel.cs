@@ -29,6 +29,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
 
     private INavigator? _navigator;
     private CancellationTokenSource? _cts;
+    private MediaExportScanResult? _rawScanResult;
     private MediaExportScanResult? _scanResult;
 
     public MediaExportViewModel(MediaExportService mediaExport, SettingsService settings, OperationService operations)
@@ -67,25 +68,40 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     public bool FilterAll
     {
         get => FilterType == MediaExportFilterType.All;
-        set { if (value) { FilterType = MediaExportFilterType.All; SaveFilterSettings(); } }
+        set { if (value) { FilterType = MediaExportFilterType.All; SaveFilterSettings(); UpdateFilteredView(); } }
     }
 
     public bool FilterPhotosOnly
     {
         get => FilterType == MediaExportFilterType.PhotosOnly;
-        set { if (value) { FilterType = MediaExportFilterType.PhotosOnly; SaveFilterSettings(); } }
+        set { if (value) { FilterType = MediaExportFilterType.PhotosOnly; SaveFilterSettings(); UpdateFilteredView(); } }
     }
 
     public bool FilterVideosOnly
     {
         get => FilterType == MediaExportFilterType.VideosOnly;
-        set { if (value) { FilterType = MediaExportFilterType.VideosOnly; SaveFilterSettings(); } }
+        set { if (value) { FilterType = MediaExportFilterType.VideosOnly; SaveFilterSettings(); UpdateFilteredView(); } }
     }
 
     private void SaveFilterSettings()
     {
         _settings.Current.MediaExportFilter = (int)FilterType;
         _settings.Save();
+    }
+
+    private void UpdateFilteredView()
+    {
+        if (_rawScanResult is null) return;
+
+        var filteredFiles = FilterType switch
+        {
+            MediaExportFilterType.PhotosOnly => _rawScanResult.Files.Where(f => !f.IsVideo).ToList(),
+            MediaExportFilterType.VideosOnly => _rawScanResult.Files.Where(f => f.IsVideo).ToList(),
+            _ => _rawScanResult.Files.ToList()
+        };
+
+        _scanResult = _mediaExport.BuildResultFromFiles(filteredFiles, _rawScanResult.SkippedJunkCount, Loc.Get);
+        ShowScan(_scanResult);
     }
 
     // ---- Folder Organization ----
@@ -221,6 +237,7 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
         ErrorText = null;
 
         // A new source invalidates whatever the last scan found.
+        _rawScanResult = null;
         _scanResult = null;
         HasScanned = false;
         Groups.Clear();
@@ -292,19 +309,19 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
                 operation.Detail = StatusText ?? "";
             });
 
-            _scanResult = await _mediaExport.ScanAsync(
+            _rawScanResult = await _mediaExport.ScanAsync(
                 SourcePath,
                 minBytes,
-                FilterType,
+                MediaExportFilterType.All,
                 progress,
                 Loc.Get,
                 _cts.Token).ConfigureAwait(true);
 
-            ShowScan(_scanResult);
+            UpdateFilteredView();
             operation.Finish(OperationState.Done, TotalFoundText);
-            AppLog.Info($"media export: scanned '{SourcePath}', found {_scanResult.TotalCount} " +
-                        $"({_scanResult.TotalPhotos} photos, {_scanResult.TotalVideos} videos), " +
-                        $"filter: {FilterType}, skipped {_scanResult.SkippedJunkCount} as junk.");
+            AppLog.Info($"media export: scanned '{SourcePath}', found {_rawScanResult.TotalCount} " +
+                        $"({_rawScanResult.TotalPhotos} photos, {_rawScanResult.TotalVideos} videos), " +
+                        $"filter: {FilterType}, skipped {_rawScanResult.SkippedJunkCount} as junk.");
         }
         catch (OperationCanceledException)
         {
@@ -330,9 +347,23 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     {
         RefreshDisplayedGroups();
         HasScanned = true;
-        TotalFoundText = scan.TotalCount == 0
-            ? Loc.Get("L.MediaExport.NothingFound")
-            : Loc.Format("L.MediaExport.FoundTotal", scan.TotalPhotos, scan.TotalVideos, FormatSize(scan.TotalBytes));
+
+        if (scan.TotalCount == 0)
+        {
+            TotalFoundText = Loc.Get("L.MediaExport.NothingFound");
+        }
+        else if (FilterType == MediaExportFilterType.PhotosOnly)
+        {
+            TotalFoundText = Loc.Format("L.MediaExport.FoundPhotosOnly", scan.TotalPhotos, FormatSize(scan.TotalBytes));
+        }
+        else if (FilterType == MediaExportFilterType.VideosOnly)
+        {
+            TotalFoundText = Loc.Format("L.MediaExport.FoundVideosOnly", scan.TotalVideos, FormatSize(scan.TotalBytes));
+        }
+        else
+        {
+            TotalFoundText = Loc.Format("L.MediaExport.FoundTotal", scan.TotalPhotos, scan.TotalVideos, FormatSize(scan.TotalBytes));
+        }
 
         SkippedJunkText = scan.SkippedJunkCount > 0
             ? Loc.Format("L.MediaExport.SkippedJunk", scan.SkippedJunkCount)

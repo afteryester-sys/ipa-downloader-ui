@@ -1,12 +1,15 @@
 namespace IPAStudio.Core.Tests;
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 
 /// <summary>
-/// Unit tests for Media Export categorization, date parsing, and app icon resolver.
+/// Unit tests for Media Export categorization, date parsing, app icon resolver,
+/// dynamic filtering, and statistics metrics.
 /// </summary>
 public static class MediaExportAndIconTests
 {
@@ -16,6 +19,8 @@ public static class MediaExportAndIconTests
         TestCategoryDetection();
         TestDateDetection();
         TestAppIconResolver();
+        TestBuildResultFromFiles();
+        TestStatisticsSummaryZeroHandling();
     }
 
     public static void TestMediaClassification()
@@ -80,6 +85,62 @@ public static class MediaExportAndIconTests
 
         // Non-existent bundle returns null
         AssertEqual(AppIconResolver.ResolveIconPath("non.existent.bundle.12345", "NonExistentApp"), null, "Unknown bundle returns null");
+    }
+
+    public static void TestBuildResultFromFiles()
+    {
+        var service = new MediaExportService();
+        var files = new List<MediaExportFile>
+        {
+            new MediaExportFile
+            {
+                FullPath = @"C:\DCIM\Camera\IMG_001.jpg",
+                FileName = "IMG_001.jpg",
+                GroupName = "DCIM",
+                IsVideo = false,
+                SizeBytes = 2_000_000,
+                Category = "Снимки камеры",
+                MediaDate = new DateTime(2024, 5, 1)
+            },
+            new MediaExportFile
+            {
+                FullPath = @"C:\DCIM\Camera\VID_001.mp4",
+                FileName = "VID_001.mp4",
+                GroupName = "DCIM",
+                IsVideo = true,
+                SizeBytes = 10_000_000,
+                Category = "Видеозаписи",
+                MediaDate = new DateTime(2024, 5, 2)
+            },
+            new MediaExportFile
+            {
+                FullPath = @"C:\Pictures\Screenshots\Screen_001.png",
+                FileName = "Screen_001.png",
+                GroupName = "Pictures",
+                IsVideo = false,
+                SizeBytes = 500_000,
+                Category = "Скриншоты",
+                MediaDate = null
+            }
+        };
+
+        var result = service.BuildResultFromFiles(files, 2, key => key == "L.MediaExport.NoDate" ? "Без даты" : key);
+        AssertEqual(result.TotalCount, 3, "TotalCount is 3");
+        AssertEqual(result.TotalPhotos, 2, "TotalPhotos is 2");
+        AssertEqual(result.TotalVideos, 1, "TotalVideos is 1");
+        AssertEqual(result.CategoryGroups.Count, 3, "CategoryGroups count is 3");
+        AssertEqual(result.DateGroups.Any(g => g.Name == "Без даты"), true, "DateGroups has Без даты fallback");
+    }
+
+    public static void TestStatisticsSummaryZeroHandling()
+    {
+        var stats = new StatisticsSummary
+        {
+            TotalInstalls = 0,
+            UniqueDevices = 0,
+            TotalConnections = 0
+        };
+        AssertEqual(stats.UniqueDevices, 0, "Cleared statistics unique devices is 0");
     }
 
     private static void AssertEqual<T>(T actual, T expected, string testName)

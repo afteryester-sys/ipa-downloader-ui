@@ -921,8 +921,11 @@
     <sys:String x:Key="L.MediaExport.Cancelled">Отменено.</sys:String>
     <sys:String x:Key="L.MediaExport.ScanFailed">Поиск не удался: {0}</sys:String>
     <sys:String x:Key="L.MediaExport.RootGroup">(корень)</sys:String>
+    <sys:String x:Key="L.MediaExport.NoDate">Без даты</sys:String>
     <sys:String x:Key="L.MediaExport.NothingFound">Фото и видео не найдены.</sys:String>
     <sys:String x:Key="L.MediaExport.FoundTotal">Найдено {0} фото и {1} видео, всего {2}</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundPhotosOnly">Найдено {0} фото, всего {1}</sys:String>
+    <sys:String x:Key="L.MediaExport.FoundVideosOnly">Найдено {0} видео, всего {1}</sys:String>
     <sys:String x:Key="L.MediaExport.SkippedJunk">Пропущено {0} мелких файлов как мусор.</sys:String>
     <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>

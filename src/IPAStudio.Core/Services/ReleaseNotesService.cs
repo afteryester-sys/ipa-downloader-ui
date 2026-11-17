@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.74",
+                    date: "18.11.2026",
+                    title: "Глубокое зондирование MTP Shell, реактивная фильтрация медиа и стабильный экспорт",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "СОВМЕСТИМОСТЬ",
+                            "Поддержка виртуальных путей проводника Windows и MTP",
+                            "Исправлена проблема, из-за которой выбор Android-телефона в диалоге выбора папки приводил к ошибке доступности источника или отсутствию найденных файлов. Реализован разбор путей Windows Shell («Этот компьютер», системные имена контейнеров), пробуждение ленивых каталогов MTP и корректное сохранение оригинальных имён файлов."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "МЕДИА",
+                            "Мгновенное переключение фильтров без повторного сканирования",
+                            "Переключение между «Все файлы», «Только фото» и «Только видео» теперь мгновенно обновляет отображаемый список и группы без долгого повторного чтения устройства. Экспорт копирует строго выбранные типы файлов."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "СТАТИСТИКА",
+                            "Расширенный поиск иконок и корректный учёт устройств",
+                            "AppIconResolver теперь индексирует и пользовательский каталог (user-apps.json) по Bundle ID и названию приложения. Исправлено отображение количества устройств при очищенной статистике.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.73",
                     date: "18.11.2026",
                     title: "Лаконичное меню «Статистика», реальные иконки приложений и расширенный экспорт фото с носителей (Android/MTP)",
@@ -721,6 +743,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.74",
+                date: "11/18/2026",
+                title: "Deep MTP Shell Probing, Reactive Media Filtering, and Stable Export",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "COMPATIBILITY",
+                        "Windows Shell Virtual Path Resolution & MTP Stability",
+                        "Fixed Android phones selected via folder dialog returning 0 files or showing source inaccessible. Added full Windows Shell namespace resolution for 'This PC' paths, lazy directory wake-up, real filename preservation, and synchronized single-threaded MTP file transfers."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "MEDIA EXPORT",
+                        "Reactive Filtering Without Re-scanning",
+                        "Switching between 'All', 'Photos only', and 'Videos only' now dynamically filters results and tallies instantly in-memory without re-reading slow devices, ensuring only matching media is exported."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "STATISTICS",
+                        "Expanded Catalog Icon Indexing & Zero-Device Metric",
+                        "AppIconResolver now indexes user-catalog entries by both bundle ID and app title. Fixed device metric displaying 1 when statistics history is cleared.")
+                }),
             new ReleaseNote(
                 version: "1.8.73",
                 date: "11/18/2026",

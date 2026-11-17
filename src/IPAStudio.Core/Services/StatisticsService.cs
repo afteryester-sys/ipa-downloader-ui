@@ -25,11 +25,14 @@ public sealed class StatisticsService
         Directory.CreateDirectory(dir);
         _storagePath = Path.Combine(dir, "statistics.json");
 
-        Load();
-        if (_store.Installs.Count == 0 && _store.Downloads.Count == 0 && _store.Connections.Count == 0)
+        if (!File.Exists(_storagePath))
         {
             SeedInitialData();
             Save();
+        }
+        else
+        {
+            Load();
         }
     }
 
@@ -208,7 +211,7 @@ public sealed class StatisticsService
                 Period = period,
                 TotalInstalls = filteredInstalls.Count,
                 TodayInstalls = todayInstalls,
-                UniqueDevices = Math.Max(uniqueDevices, 1),
+                UniqueDevices = (filteredInstalls.Count > 0 || filteredConnections.Count > 0) ? Math.Max(uniqueDevices, 1) : 0,
                 TotalIpaDownloads = ipaDownloads.Count,
                 TotalIpaBytes = ipaDownloads.Sum(d => d.FileSize),
                 TotalFirmwareDownloads = fwDownloads.Count,

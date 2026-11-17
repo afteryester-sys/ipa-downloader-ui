@@ -37,10 +37,28 @@ public sealed class MediaExportService
     };
 
     /// <summary>
+    /// Common storage container names on Android devices.
+    /// Probing these prefixes allows discovering media whether the user picks the phone root
+    /// or a specific internal storage container.
+    /// </summary>
+    private static readonly string[] StoragePrefixes =
+    [
+        "",
+        "Internal storage",
+        "Internal shared storage",
+        "Внутренний накопитель",
+        "Внутренняя память",
+        "Phone",
+        "Память телефона",
+        "SD card",
+        "SD-карта"
+    ];
+
+    /// <summary>
     /// Standard well-known Android media directory paths relative to internal storage root.
     /// Probing these explicitly wakes up MTP drivers and populates lazy directory listings.
     /// </summary>
-    private static readonly string[] WellKnownAndroidPaths =
+    private static readonly string[] BaseWellKnownAndroidPaths =
     [
         "DCIM",
         "DCIM/Camera",
@@ -77,6 +95,22 @@ public sealed class MediaExportService
         "Documents",
     ];
 
+    private static readonly string[] WellKnownAndroidPaths = BuildAllProbingPaths();
+
+    private static string[] BuildAllProbingPaths()
+    {
+        var list = new List<string>(BaseWellKnownAndroidPaths);
+        foreach (var prefix in StoragePrefixes)
+        {
+            if (string.IsNullOrEmpty(prefix)) continue;
+            foreach (var rel in BaseWellKnownAndroidPaths)
+            {
+                list.Add($"{prefix}/{rel}");
+            }
+        }
+        return list.ToArray();
+    }
+
     private static readonly Regex DateInFileNameRegex = new(
         @"(?:IMG_|VID_|PHOTO_|Screenshot_|Screen_|PXL_|\b)(20\d{2})[-_]?(0[1-9]|1[0-2])[-_]?(0[1-9]|[12]\d|3[01])(?:[-_](\d{2})(\d{2})(\d{2}))?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -89,6 +123,7 @@ public sealed class MediaExportService
 
     /// <summary>
     /// Checks if a path is a valid filesystem directory or accessible via Windows Shell namespace.
+    /// Supports virtual shell paths like "This PC\Galaxy S21" and localized names.
     /// </summary>
     public static bool IsSourceAccessible(string path)
     {
@@ -97,19 +132,10 @@ public sealed class MediaExportService
 
         if (OperatingSystem.IsWindows())
         {
-            // Check Windows Shell namespace accessibility
             try
             {
-                var shellType = Type.GetTypeFromProgID("Shell.Application");
-                if (shellType is not null)
-                {
-                    dynamic? shell = Activator.CreateInstance(shellType);
-                    if (shell is not null)
-                    {
-                        dynamic? folder = shell.NameSpace(path);
-                        if (folder is not null) return true;
-                    }
-                }
+                var folder = ResolveShellFolder(path);
+                if (folder is not null) return true;
             }
             catch
             {
@@ -118,6 +144,110 @@ public sealed class MediaExportService
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Resolves a folder via Windows Shell COM. Handles both filesystem paths, GUIDs, and
+    /// virtual shell paths returned by Windows folder pickers (e.g. "This PC\Galaxy S21\Internal storage").
+    /// </summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    public static dynamic? ResolveShellFolder(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        try
+        {
+            var shellType = Type.GetTypeFromProgID("Shell.Application");
+            if (shellType is null) return null;
+            dynamic? shell = Activator.CreateInstance(shellType);
+            if (shell is null) return null;
+
+            // 1. Direct NameSpace (works for regular directories, drive letters, GUIDs)
+            dynamic? folder = shell.NameSpace(path);
+            if (folder is not null) return folder;
+
+            // 2. My Computer (17 / ssfDRIVES) traversal for virtual shell paths (MTP, portable devices)
+            dynamic? myComputer = shell.NameSpace(17);
+            if (myComputer is null) return null;
+
+            var normalized = path.Replace('/', '\\').Trim();
+            var parts = normalized.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return null;
+
+            // Strip virtual roots like "This PC", "Этот компьютер", "Мой компьютер", etc.
+            var startIndex = 0;
+            var first = parts[0].Trim();
+            if (first.Equals("This PC", StringComparison.OrdinalIgnoreCase) ||
+                first.Equals("Этот компьютер", StringComparison.OrdinalIgnoreCase) ||
+                first.Equals("Мой компьютер", StringComparison.OrdinalIgnoreCase) ||
+                first.Equals("My Computer", StringComparison.OrdinalIgnoreCase) ||
+                first.Equals("Компьютер", StringComparison.OrdinalIgnoreCase) ||
+                first.Equals("Computer", StringComparison.OrdinalIgnoreCase))
+            {
+                startIndex = 1;
+            }
+
+            if (startIndex >= parts.Length) return myComputer;
+
+            dynamic current = myComputer;
+            for (var p = startIndex; p < parts.Length; p++)
+            {
+                var targetPart = parts[p].Trim();
+                dynamic? next = null;
+                dynamic? items = current.Items();
+                if (items is null) return null;
+
+                int count = items.Count;
+                // First pass: exact match on Name or Path
+                for (var i = 0; i < count; i++)
+                {
+                    dynamic? item = items.Item(i);
+                    if (item is null) continue;
+                    string name = item.Name ?? "";
+                    string itemPath = item.Path ?? "";
+                    string fileName = Path.GetFileName(itemPath);
+
+                    if (string.Equals(name, targetPart, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(itemPath, targetPart, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(fileName, targetPart, StringComparison.OrdinalIgnoreCase))
+                    {
+                        next = item.GetFolder;
+                        if (next is not null) break;
+                    }
+                }
+
+                // Second pass: contains / prefix match if exact match not found
+                if (next is null)
+                {
+                    for (var i = 0; i < count; i++)
+                    {
+                        dynamic? item = items.Item(i);
+                        if (item is null) continue;
+                        string name = item.Name ?? "";
+                        string itemPath = item.Path ?? "";
+                        string fileName = Path.GetFileName(itemPath);
+
+                        if (name.Contains(targetPart, StringComparison.OrdinalIgnoreCase) ||
+                            targetPart.Contains(name, StringComparison.OrdinalIgnoreCase) ||
+                            fileName.Contains(targetPart, StringComparison.OrdinalIgnoreCase) ||
+                            targetPart.Contains(fileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            next = item.GetFolder;
+                            if (next is not null) break;
+                        }
+                    }
+                }
+
+                if (next is null) return null;
+                current = next;
+            }
+
+            return current;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -297,52 +427,66 @@ public sealed class MediaExportService
                     ct);
             }
 
-            // Build breakdowns
-            var folderGroups = files
-                .GroupBy(f => string.IsNullOrEmpty(f.GroupName) ? "(корень)" : f.GroupName)
-                .Select(g => new MediaExportGroup
-                {
-                    Name = g.Key,
-                    PhotoCount = g.Count(f => !f.IsVideo),
-                    VideoCount = g.Count(f => f.IsVideo),
-                    TotalBytes = g.Sum(f => f.SizeBytes),
-                })
-                .OrderByDescending(g => g.Count)
-                .ToList();
-
-            var categoryGroups = files
-                .GroupBy(f => f.Category)
-                .Select(g => new MediaExportGroup
-                {
-                    Name = g.Key,
-                    PhotoCount = g.Count(f => !f.IsVideo),
-                    VideoCount = g.Count(f => f.IsVideo),
-                    TotalBytes = g.Sum(f => f.SizeBytes),
-                })
-                .OrderByDescending(g => g.Count)
-                .ToList();
-
-            var dateGroups = files
-                .GroupBy(f => f.MediaDate?.ToString("yyyy-MM") ?? "Unknown")
-                .Select(g => new MediaExportGroup
-                {
-                    Name = g.Key,
-                    PhotoCount = g.Count(f => !f.IsVideo),
-                    VideoCount = g.Count(f => f.IsVideo),
-                    TotalBytes = g.Sum(f => f.SizeBytes),
-                })
-                .OrderByDescending(g => g.Name)
-                .ToList();
-
-            return new MediaExportScanResult
-            {
-                Files = files,
-                Groups = folderGroups,
-                CategoryGroups = categoryGroups,
-                DateGroups = dateGroups,
-                SkippedJunkCount = skippedJunk,
-            };
+            return BuildResultFromFiles(files, skippedJunk, locResolver);
         }, ct);
+
+    /// <summary>
+    /// Builds a <see cref="MediaExportScanResult"/> from an in-memory list of media files,
+    /// generating folder, category, and date breakdowns dynamically.
+    /// </summary>
+    public MediaExportScanResult BuildResultFromFiles(
+        IReadOnlyList<MediaExportFile> files,
+        int skippedJunkCount,
+        Func<string, string>? locResolver = null)
+    {
+        var rootGroup = locResolver?.Invoke("L.MediaExport.RootGroup") ?? "(корень)";
+        var noDate = locResolver?.Invoke("L.MediaExport.NoDate") ?? "Без даты";
+
+        var folderGroups = files
+            .GroupBy(f => string.IsNullOrEmpty(f.GroupName) ? rootGroup : f.GroupName)
+            .Select(g => new MediaExportGroup
+            {
+                Name = g.Key,
+                PhotoCount = g.Count(f => !f.IsVideo),
+                VideoCount = g.Count(f => f.IsVideo),
+                TotalBytes = g.Sum(f => f.SizeBytes),
+            })
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        var categoryGroups = files
+            .GroupBy(f => f.Category)
+            .Select(g => new MediaExportGroup
+            {
+                Name = g.Key,
+                PhotoCount = g.Count(f => !f.IsVideo),
+                VideoCount = g.Count(f => f.IsVideo),
+                TotalBytes = g.Sum(f => f.SizeBytes),
+            })
+            .OrderByDescending(g => g.Count)
+            .ToList();
+
+        var dateGroups = files
+            .GroupBy(f => f.MediaDate?.ToString("yyyy-MM") ?? noDate)
+            .Select(g => new MediaExportGroup
+            {
+                Name = g.Key,
+                PhotoCount = g.Count(f => !f.IsVideo),
+                VideoCount = g.Count(f => f.IsVideo),
+                TotalBytes = g.Sum(f => f.SizeBytes),
+            })
+            .OrderByDescending(g => g.Name)
+            .ToList();
+
+        return new MediaExportScanResult
+        {
+            Files = files,
+            Groups = folderGroups,
+            CategoryGroups = categoryGroups,
+            DateGroups = dateGroups,
+            SkippedJunkCount = skippedJunkCount,
+        };
+    }
 
     private void ScanFileSystemWithProbing(
         string root,
@@ -440,6 +584,7 @@ public sealed class MediaExportService
                 files.Add(new MediaExportFile
                 {
                     FullPath = filePath,
+                    FileName = Path.GetFileName(filePath),
                     GroupName = groupName,
                     IsVideo = isVid,
                     SizeBytes = size,
@@ -498,13 +643,7 @@ public sealed class MediaExportService
     {
         try
         {
-            var shellType = Type.GetTypeFromProgID("Shell.Application");
-            if (shellType is null) return;
-
-            dynamic? shell = Activator.CreateInstance(shellType);
-            if (shell is null) return;
-
-            dynamic? folder = shell.NameSpace(root);
+            var folder = ResolveShellFolder(root);
             if (folder is null) return;
 
             report("Зондирование MTP-устройства…");
@@ -533,24 +672,47 @@ public sealed class MediaExportService
     {
         if (depth > 12) return; // Prevent excessive recursion
 
-        dynamic? items = folder.Items();
+        dynamic? items = null;
+        try { items = folder.Items(); } catch { return; }
         if (items is null) return;
 
-        int count = items.Count;
+        int count = 0;
+        try { count = items.Count; } catch { count = 0; }
+
+        // MTP devices can be slow to populate initially; retry once if count is 0 to wake the driver
+        if (count == 0)
+        {
+            Thread.Sleep(150);
+            try
+            {
+                items = folder.Items();
+                if (items is not null) count = items.Count;
+            }
+            catch { count = 0; }
+        }
+
+        if (items is null || count == 0) return;
+
         for (int i = 0; i < count; i++)
         {
             ct.ThrowIfCancellationRequested();
-            dynamic? item = items.Item(i);
+            dynamic? item = null;
+            try { item = items.Item(i); } catch { continue; }
             if (item is null) continue;
 
-            bool isFolder = item.IsFolder;
-            string name = item.Name ?? "";
-            string itemPath = item.Path ?? name;
+            bool isFolder = false;
+            try { isFolder = item.IsFolder; } catch { continue; }
+
+            string name = "";
+            try { name = item.Name ?? ""; } catch {}
+            string itemPath = "";
+            try { itemPath = item.Path ?? name; } catch { itemPath = name; }
 
             if (isFolder)
             {
                 var nextRel = string.IsNullOrEmpty(relPath) ? name : $"{relPath}/{name}";
-                dynamic? subFolder = item.GetFolder;
+                dynamic? subFolder = null;
+                try { subFolder = item.GetFolder; } catch {}
                 if (subFolder is not null)
                 {
                     report(string.IsNullOrEmpty(relPath) ? name : relPath);
@@ -573,27 +735,40 @@ public sealed class MediaExportService
                 }
                 catch
                 {
-                    size = 100_000; // estimated size if Shell doesn't expose it
+                    size = 0;
                 }
 
-                if (size < minFileSizeBytes)
+                if (size > 0 && size < minFileSizeBytes)
                 {
                     skippedJunk++;
                     continue;
                 }
 
-                var groupName = string.IsNullOrEmpty(relPath) ? "" : relPath.Split('/')[0];
+                // If relPath starts with a storage container prefix ("Internal storage/DCIM"), strip it for clean group naming
+                var cleanRel = relPath;
+                foreach (var prefix in StoragePrefixes)
+                {
+                    if (!string.IsNullOrEmpty(prefix) && cleanRel.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cleanRel = cleanRel[(prefix.Length + 1)..];
+                        break;
+                    }
+                }
+
+                var groupName = string.IsNullOrEmpty(cleanRel) ? "" : cleanRel.Split('/')[0];
                 var cat = DetectCategory(name, isVid, groupName, locResolver);
                 var date = DetectMediaDate(name);
 
                 files.Add(new MediaExportFile
                 {
                     FullPath = itemPath,
+                    FileName = name,
                     GroupName = groupName,
                     IsVideo = isVid,
                     SizeBytes = size,
                     Category = cat,
                     MediaDate = date,
+                    ShellItem = item,
                 });
 
                 seen++;
@@ -627,7 +802,9 @@ public sealed class MediaExportService
             {
                 ct.ThrowIfCancellationRequested();
 
-                var name = Path.GetFileName(file.FullPath);
+                var name = !string.IsNullOrWhiteSpace(file.FileName)
+                    ? file.FileName
+                    : Path.GetFileName(file.FullPath);
                 if (string.IsNullOrEmpty(name)) name = "media_item";
 
                 progress?.Report(new MediaExportProgress(done, total, name));
@@ -635,7 +812,7 @@ public sealed class MediaExportService
                 string targetSubfolder = organization switch
                 {
                     MediaExportOrganization.ByCategory => SafeFolderName(string.IsNullOrWhiteSpace(file.Category) ? "Other" : file.Category),
-                    MediaExportOrganization.ByDate => file.MediaDate?.ToString("yyyy-MM") ?? "Unknown",
+                    MediaExportOrganization.ByDate => file.MediaDate?.ToString("yyyy-MM") ?? SafeFolderName(rootGroupLabel == "(корень)" ? "Без даты" : "No date"),
                     MediaExportOrganization.ByFolder => SafeFolderName(string.IsNullOrEmpty(file.GroupName) ? rootGroupLabel : file.GroupName),
                     MediaExportOrganization.SingleFolder => "",
                     _ => ""
@@ -653,13 +830,16 @@ public sealed class MediaExportService
                     if (File.Exists(file.FullPath))
                     {
                         File.Copy(file.FullPath, destination, overwrite: false);
+                        done++;
                     }
                     else if (OperatingSystem.IsWindows())
                     {
                         // Try Shell COM copy for virtual MTP items
-                        CopyViaShell(file.FullPath, targetDir);
+                        if (CopyViaShell(file.ShellItem ?? file.FullPath, targetDir, name))
+                        {
+                            done++;
+                        }
                     }
-                    done++;
                 }
                 catch (Exception ex)
                 {
@@ -672,24 +852,35 @@ public sealed class MediaExportService
         }, ct);
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static void CopyViaShell(string shellItemPath, string targetDir)
+    private static bool CopyViaShell(object shellItemOrPath, string targetDir, string expectedFileName)
     {
         try
         {
             var shellType = Type.GetTypeFromProgID("Shell.Application");
-            if (shellType is null) return;
+            if (shellType is null) return false;
             dynamic? shell = Activator.CreateInstance(shellType);
-            if (shell is null) return;
+            if (shell is null) return false;
 
             dynamic? destFolder = shell.NameSpace(targetDir);
-            if (destFolder is null) return;
+            if (destFolder is null) return false;
 
             // 4 = do not show progress dialog, 16 = respond with "Yes to All" for any dialog, 512 = do not confirm creation of new directory
-            destFolder.CopyHere(shellItemPath, 4 | 16 | 512 | 1024);
+            destFolder.CopyHere(shellItemOrPath, 4 | 16 | 512 | 1024);
+
+            // Synchronize sequentially to avoid saturating the single-threaded MTP USB endpoint
+            var targetFile = Path.Combine(targetDir, expectedFileName);
+            var startWait = DateTime.UtcNow;
+            while (!File.Exists(targetFile) && (DateTime.UtcNow - startWait).TotalSeconds < 5)
+            {
+                Thread.Sleep(30);
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
-            AppLog.Warn($"media export: shell copy failed for '{shellItemPath}': {ex.Message}");
+            AppLog.Warn($"media export: shell copy failed for '{expectedFileName}': {ex.Message}");
+            return false;
         }
     }
 

@@ -41,6 +41,9 @@ public sealed record MediaExportFile
     /// <summary>Full path on the scanned source (drive, folder or mounted device).</summary>
     public required string FullPath { get; init; }
 
+    /// <summary>Actual file name including extension (e.g. IMG_20240512.jpg).</summary>
+    public string FileName { get; init; } = "";
+
     /// <summary>Name of the top-level folder under the scanned root the file was found in
     /// (e.g. "DCIM", "Download"), or "" when the file sits directly in the root.</summary>
     public required string GroupName { get; init; }
@@ -54,6 +57,9 @@ public sealed record MediaExportFile
 
     /// <summary>Date associated with the media file (from timestamp in filename or file creation/write time).</summary>
     public DateTime? MediaDate { get; init; }
+
+    /// <summary>Optional Windows Shell COM FolderItem object for virtual MTP devices.</summary>
+    public object? ShellItem { get; init; }
 }
 
 /// <summary>One row of breakdown: a group/category/folder and its tally.</summary>
