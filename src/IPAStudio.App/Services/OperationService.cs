@@ -325,6 +325,12 @@ public sealed partial class OperationService : ObservableObject
     /// </summary>
     private void Recalculate()
     {
+        if (System.Windows.Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
+        {
+            dispatcher.InvokeAsync(Recalculate);
+            return;
+        }
+
         var running = Operations.Where(o => o.IsRunning).ToList();
 
         RunningCount = running.Count;

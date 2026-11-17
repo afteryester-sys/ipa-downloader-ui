@@ -64,21 +64,24 @@ public partial class MainWindow : Window
         // Shell property changes (Toast & Taskbar progress)
         shell.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(ViewModels.ShellViewModel.IsToastVisible))
+            Dispatcher.InvokeAsync(() =>
             {
-                if (shell.IsToastVisible)
-                    ShowToastAnimated();
-                else
-                    HideToastAnimated();
-            }
-            else if (args.PropertyName is nameof(ViewModels.ShellViewModel.TaskbarProgressState) or nameof(ViewModels.ShellViewModel.TaskbarProgressValue))
-            {
-                if (AppTaskbarInfo != null)
+                if (args.PropertyName == nameof(ViewModels.ShellViewModel.IsToastVisible))
                 {
-                    AppTaskbarInfo.ProgressState = shell.TaskbarProgressState;
-                    AppTaskbarInfo.ProgressValue = shell.TaskbarProgressValue;
+                    if (shell.IsToastVisible)
+                        ShowToastAnimated();
+                    else
+                        HideToastAnimated();
                 }
-            }
+                else if (args.PropertyName is nameof(ViewModels.ShellViewModel.TaskbarProgressState) or nameof(ViewModels.ShellViewModel.TaskbarProgressValue))
+                {
+                    if (AppTaskbarInfo != null)
+                    {
+                        AppTaskbarInfo.ProgressState = shell.TaskbarProgressState;
+                        AppTaskbarInfo.ProgressValue = shell.TaskbarProgressValue;
+                    }
+                }
+            });
         };
 
         // When the window loads, check if we need to show the What's New modal for this version

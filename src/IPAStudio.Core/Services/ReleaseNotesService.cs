@@ -56,6 +56,18 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.80",
+                    date: "18.11.2026",
+                    title: "Стабильность прямого скачивания и многопоточная безопасность интерфейса",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "СТАБИЛЬНОСТЬ",
+                            "Потокобезопасное завершение операций в очереди загрузок",
+                            "Исправлена ошибка InvalidOperationException при завершении фоновой загрузки IPA, когда обновление прогресса в панели задач и уведомлений вызывалось не из потока пользовательского интерфейса. Все изменения статуса операций теперь гарантированно маршалируются в поток Dispatcher.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.78",
                     date: "18.11.2026",
                     title: "Именные пуш-уведомления обо всех действиях, расширенная безопасность диалогов и надёжный автопоиск",
@@ -831,6 +843,18 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.80",
+                date: "11/18/2026",
+                title: "Direct Download Queue Thread Safety & UI Dispatcher Marshaling",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "STABILITY",
+                        "Cross-Thread UI Dispatcher Safety for Operation Progress",
+                        "Fixed an InvalidOperationException when background IPA downloads finished and updated taskbar progress or toast notifications across threads. All operation state changes and collection events are now reliably marshaled to the UI Dispatcher.")
+                }),
             new ReleaseNote(
                 version: "1.8.78",
                 date: "11/18/2026",
