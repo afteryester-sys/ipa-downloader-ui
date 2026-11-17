@@ -56,7 +56,7 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
-                    version: "1.8.71",
+                    version: "1.8.72",
                     date: "18.11.2026",
                     title: "Исправление ошибки наведения Background, монохромные иконки инструментов и оптимизация очереди загрузок",
                     items: new List<ReleaseItem>
@@ -695,7 +695,7 @@ public sealed class ReleaseNotesService
         return new List<ReleaseNote>
         {
             new ReleaseNote(
-                version: "1.8.71",
+                version: "1.8.72",
                 date: "11/18/2026",
                 title: "Fix Background Hover Crash, Monochrome Toolbar Icons, and Download Queue Improvements",
                 items: new List<ReleaseItem>

@@ -26,4 +26,4 @@
 1. Verify 0 missing XAML resources via static scan.
 2. Verify Russian and English localization dictionaries via `build/Check-Localization.ps1`.
 3. Validate Release build with `dotnet build IPAStudio.sln -c Release`.
-4. Bump version to 1.8.71 and update release notes.
+4. Bump version to 1.8.72 and update release notes.

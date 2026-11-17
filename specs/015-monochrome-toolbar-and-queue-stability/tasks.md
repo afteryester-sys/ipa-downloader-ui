@@ -15,7 +15,7 @@
   - Insert new downloads at top of `DownloadQueue` on UI thread.
   - Execute queue in FIFO order with `LastOrDefault(Queued)`.
   - Marshal all item state, progress, device collection mutations, and cancellation events to the UI Dispatcher.
-- [x] Task 4: Bump version to 1.8.71 and release notes <!-- id: 4 -->
-  - Update `IPAStudio.App.csproj` to 1.8.71.
+- [x] Task 4: Bump version to 1.8.72 and release notes <!-- id: 4 -->
+  - Update `IPAStudio.App.csproj` to 1.8.72.
   - Add RU and EN release notes in `ReleaseNotesService.cs`.
   - Verify static analysis (0 missing keys, 0 build warnings/errors).
