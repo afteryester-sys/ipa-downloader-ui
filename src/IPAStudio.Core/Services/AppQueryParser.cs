@@ -62,6 +62,12 @@ public static partial class AppQueryParser
         // Strip a wrapping pair of quotes or angle brackets — pasted links often carry them.
         text = text!.Trim('"', '\'', '<', '>', ' ');
 
+        // Strip leading hyphen or flag prefixes e.g. "-481627348", "-i 481627348", "id: 481627348"
+        if (text.StartsWith("-i ", StringComparison.OrdinalIgnoreCase) || text.StartsWith("id:", StringComparison.OrdinalIgnoreCase))
+            text = text[3..].Trim();
+        else if (text.StartsWith("-", StringComparison.Ordinal))
+            text = text.TrimStart('-', ' ');
+
         if (BareIdRegex().IsMatch(text) && long.TryParse(text, out var bare))
             return new AppQuery(AppQueryKind.AppStoreId, null, bare);
 

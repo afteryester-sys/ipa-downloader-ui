@@ -38,7 +38,35 @@ public sealed partial class DirectDownloadQueueItem : ObservableObject
 
     public string Id { get; } = Guid.NewGuid().ToString("N");
 
-    public AppEntry App { get; }
+    public AppEntry App { get; private set; }
+
+    /// <summary>
+    /// Updates the queue item with the extracted metadata and icon from the downloaded IPA file.
+    /// Must be called on the UI thread.
+    /// </summary>
+    public void RefreshFromEnrichedApp(AppEntry enriched)
+    {
+        App = enriched;
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(BundleId));
+        OnPropertyChanged(nameof(Version));
+        OnPropertyChanged(nameof(Developer));
+
+        if (!string.IsNullOrEmpty(enriched.CachedIconPath) && File.Exists(enriched.CachedIconPath))
+        {
+            try
+            {
+                var bi = new System.Windows.Media.Imaging.BitmapImage();
+                bi.BeginInit();
+                bi.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bi.UriSource = new Uri(enriched.CachedIconPath, UriKind.Absolute);
+                bi.EndInit();
+                bi.Freeze();
+                IconImage = bi;
+            }
+            catch { }
+        }
+    }
 
     public string Name => App.Name;
     public string? BundleId => App.BundleId;

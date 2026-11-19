@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using IPAStudio.Core.Diagnostics;
 
@@ -83,17 +84,15 @@ public static class IpaMetadata
         {
             using var zip = ZipFile.OpenRead(ipaPath);
 
-            // The App Store's own metadata comes first: it is plain XML at the archive root
-            // and states the name as the store shows it, which is the name the user recognises.
-            // Info.plist is authoritative for the bundle id but often gives a terse internal
-            // name ("Mail" for what the store calls something longer).
-            string? name = null, bundleId = null, version = null;
+            // The App Store's own metadata: it is plain XML at the archive root
+            // and states the marketing name, itemId, bundleId and version.
+            string? itunesName = null, bundleId = null, version = null;
             long? storeId = null;
 
             var itunes = zip.GetEntry("iTunesMetadata.plist");
             if (itunes is not null && ReadPlist(itunes) is Dictionary<string, object?> meta)
             {
-                name = FirstString(meta, "itemName", "playlistName");
+                itunesName = FirstString(meta, "itemName", "playlistName");
                 bundleId = FirstString(meta, "softwareVersionBundleId", "bundleId");
                 version = FirstString(meta, "bundleShortVersionString", "shortVersionString");
                 // Same key spellings the install path already has to accept.
@@ -105,15 +104,44 @@ public static class IpaMetadata
             // one place that always has it.
             var bundleRoot = FindBundleRoot(zip);
             Dictionary<string, object?>? info = null;
-            if (bundleRoot is not null &&
-                zip.GetEntry(bundleRoot + "Info.plist") is { } plist &&
-                ReadPlist(plist) is Dictionary<string, object?> parsed)
+            string? localizedDisplayName = null;
+            string? plistDisplayName = null;
+            string? bundleName = null;
+
+            if (bundleRoot is not null)
             {
-                info = parsed;
-                bundleId ??= FirstString(info, "CFBundleIdentifier");
-                name ??= FirstString(info, "CFBundleDisplayName", "CFBundleName");
-                version ??= FirstString(info, "CFBundleShortVersionString", "CFBundleVersion");
+                // Real application name: search localized InfoPlist.strings (ru, Base, en)
+                foreach (var loc in new[] { "ru.lproj/", "Base.lproj/", "en.lproj/" })
+                {
+                    var stringsEntry = zip.GetEntry(bundleRoot + loc + "InfoPlist.strings");
+                    if (stringsEntry is not null)
+                    {
+                        var stringsDict = ReadStrings(stringsEntry);
+                        if (stringsDict.TryGetValue("CFBundleDisplayName", out var disp) && !string.IsNullOrWhiteSpace(disp))
+                        {
+                            localizedDisplayName = disp.Trim();
+                            break;
+                        }
+                    }
+                }
+
+                if (zip.GetEntry(bundleRoot + "Info.plist") is { } plist &&
+                    ReadPlist(plist) is Dictionary<string, object?> parsed)
+                {
+                    info = parsed;
+                    bundleId ??= FirstString(info, "CFBundleIdentifier");
+                    plistDisplayName = FirstString(info, "CFBundleDisplayName");
+                    bundleName = FirstString(info, "CFBundleName");
+                    version ??= FirstString(info, "CFBundleShortVersionString", "CFBundleVersion");
+                }
             }
+
+            // The real concise display name from inside the app takes absolute precedence over long marketing store titles
+            var name = localizedDisplayName
+                       ?? plistDisplayName
+                       ?? itunesName
+                       ?? bundleName
+                       ?? fallbackName;
 
             var icon = iconAlreadyThere
                 ? cachedIcon
@@ -137,6 +165,32 @@ public static class IpaMetadata
     }
 
     // ───────────────────────────────── artwork ─────────────────────────────────
+
+    /// <summary>
+    /// Extracts the archive's artwork directly to a specific target file (e.g. {appStoreId}.png),
+    /// converting Apple CgBI format if necessary.
+    /// </summary>
+    public static string? ExtractIconToFile(string ipaPath, string destination)
+    {
+        try
+        {
+            using var zip = ZipFile.OpenRead(ipaPath);
+            var bundleRoot = FindBundleRoot(zip);
+            Dictionary<string, object?>? info = null;
+            if (bundleRoot is not null &&
+                zip.GetEntry(bundleRoot + "Info.plist") is { } plist &&
+                ReadPlist(plist) is Dictionary<string, object?> parsed)
+            {
+                info = parsed;
+            }
+            return ExtractIcon(zip, bundleRoot, info, destination);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Info($"Could not extract icon from '{ipaPath}' to '{destination}': {ex.Message}");
+            return null;
+        }
+    }
 
     /// <summary>
     /// Writes the archive's artwork to <paramref name="destination"/> and returns it, or null
@@ -296,6 +350,55 @@ public static class IpaMetadata
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Parses an InfoPlist.strings member in binary plist or text format (UTF-16LE/UTF-8),
+    /// returning key-value pairs such as CFBundleDisplayName.
+    /// </summary>
+    private static Dictionary<string, string> ReadStrings(ZipArchiveEntry entry)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var bytes = ReadEntry(entry, maxBytes: 1024 * 1024);
+        if (bytes is null || bytes.Length == 0) return result;
+
+        if (BinaryPlist.LooksBinary(bytes))
+        {
+            if (BinaryPlist.Parse(bytes) is Dictionary<string, object?> dict)
+            {
+                foreach (var (k, v) in dict)
+                {
+                    if (v is string s && !string.IsNullOrWhiteSpace(s))
+                        result[k] = s.Trim();
+                }
+            }
+            return result;
+        }
+
+        string text;
+        if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE)
+            text = Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2);
+        else if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF)
+            text = Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2);
+        else if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+            text = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+        else if (bytes.Length >= 4 && bytes[1] == 0 && bytes[3] == 0)
+            text = Encoding.Unicode.GetString(bytes);
+        else
+            text = Encoding.UTF8.GetString(bytes);
+
+        var matches = Regex.Matches(text, @"\""([^\""\\]*(?:\\.[^\""\\]*)*)\""\s*=\s*\""([^\""\\]*(?:\\.[^\""\\]*)*)\""");
+        foreach (Match match in matches)
+        {
+            if (match.Groups.Count >= 3)
+            {
+                var k = Regex.Unescape(match.Groups[1].Value).Trim();
+                var v = Regex.Unescape(match.Groups[2].Value).Trim();
+                if (!string.IsNullOrEmpty(k) && !string.IsNullOrEmpty(v))
+                    result[k] = v;
+            }
+        }
+        return result;
     }
 
     /// <summary>XML plist element to the same shapes <see cref="BinaryPlist"/> produces.</summary>

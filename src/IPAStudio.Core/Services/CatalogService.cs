@@ -144,6 +144,124 @@ public sealed class CatalogService
         return true;
     }
 
+    private readonly SemaphoreSlim _catalogGate = new(1, 1);
+
+    /// <summary>
+    /// Inspects a downloaded .ipa file, extracts its real display name, bundle ID, version,
+    /// Store ID, and icon, and adds or enriches the entry in the user catalog (user-apps.json).
+    /// Thread-safe and atomic.
+    /// </summary>
+    public async Task<AppEntry?> EnrichFromIpaAsync(string ipaPath, long fallbackId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ipaPath) || !File.Exists(ipaPath)) return null;
+
+        _tools.EnsureFolders();
+
+        // 1. Read IPA metadata (concise display name, bundle id, version, store id)
+        var info = IpaMetadata.Read(ipaPath);
+        var targetStoreId = info.StoreId is { } sId && sId > 0 ? sId : fallbackId;
+
+        // 2. Extract and cache icon as {targetStoreId}.png in _tools.IconCacheFolder
+        string? iconPath = null;
+        if (targetStoreId > 0)
+        {
+            var destination = Path.Combine(_tools.IconCacheFolder, $"{targetStoreId}.png");
+            iconPath = IpaMetadata.ExtractIconToFile(ipaPath, destination) ?? destination;
+            if (!File.Exists(iconPath)) iconPath = null;
+        }
+
+        // 3. Atomically update user-apps.json under SemaphoreSlim lock
+        await _catalogGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var userEntries = LoadUserCatalog().Select(UserApp.From).ToList();
+            var existingIndex = userEntries.FindIndex(u =>
+                (targetStoreId > 0 && u.AppStoreId == targetStoreId) ||
+                (!string.IsNullOrEmpty(info.BundleId) && string.Equals(u.BundleId, info.BundleId, StringComparison.OrdinalIgnoreCase)));
+
+            var appName = !string.IsNullOrWhiteSpace(info.Name) ? info.Name : Path.GetFileNameWithoutExtension(ipaPath);
+
+            AppEntry resultEntry;
+            long? fileSize = null;
+            try { fileSize = new FileInfo(ipaPath).Length; } catch { }
+
+            if (existingIndex >= 0)
+            {
+                var existing = userEntries[existingIndex];
+                var updated = new UserApp
+                {
+                    Name = !string.IsNullOrWhiteSpace(appName) ? appName : existing.Name,
+                    AppStoreId = targetStoreId > 0 ? targetStoreId : existing.AppStoreId,
+                    BundleId = !string.IsNullOrWhiteSpace(info.BundleId) ? info.BundleId : existing.BundleId,
+                    LatestVersion = !string.IsNullOrWhiteSpace(info.Version) ? info.Version : existing.LatestVersion,
+                    IconUrl = existing.IconUrl,
+                    IconUrlLarge = existing.IconUrlLarge,
+                    Category = existing.Category,
+                    Developer = existing.Developer,
+                    FileSizeBytes = fileSize ?? existing.FileSizeBytes,
+                    MinimumOsVersion = existing.MinimumOsVersion,
+                };
+                userEntries[existingIndex] = updated;
+
+                resultEntry = new AppEntry
+                {
+                    Name = updated.Name ?? appName,
+                    AppStoreId = updated.AppStoreId,
+                    BundleId = updated.BundleId,
+                    LatestVersion = updated.LatestVersion,
+                    CachedIconPath = iconPath,
+                    Developer = updated.Developer,
+                    Category = updated.Category,
+                    FileSizeBytes = updated.FileSizeBytes,
+                    LocalIpaPath = ipaPath,
+                    IsDownloaded = true,
+                    HasLocalMetadata = true,
+                };
+            }
+            else
+            {
+                var newApp = new UserApp
+                {
+                    Name = appName,
+                    AppStoreId = targetStoreId,
+                    BundleId = info.BundleId ?? "",
+                    LatestVersion = info.Version ?? "",
+                    FileSizeBytes = fileSize,
+                };
+                userEntries.Add(newApp);
+
+                resultEntry = new AppEntry
+                {
+                    Name = newApp.Name,
+                    AppStoreId = newApp.AppStoreId,
+                    BundleId = newApp.BundleId,
+                    LatestVersion = newApp.LatestVersion,
+                    CachedIconPath = iconPath,
+                    FileSizeBytes = newApp.FileSizeBytes,
+                    LocalIpaPath = ipaPath,
+                    IsDownloaded = true,
+                    HasLocalMetadata = true,
+                };
+            }
+
+            var tempFile = $"{_tools.UserCatalogFile}.{Guid.NewGuid():N}.tmp";
+            await using (var stream = File.Create(tempFile))
+            {
+                await JsonSerializer.SerializeAsync(stream, userEntries, JsonOptions, ct).ConfigureAwait(false);
+            }
+            File.Move(tempFile, _tools.UserCatalogFile, overwrite: true);
+
+            // Notify UI that catalog metadata has been refreshed
+            MetadataUpdated?.Invoke(this, new[] { resultEntry });
+
+            return resultEntry;
+        }
+        finally
+        {
+            _catalogGate.Release();
+        }
+    }
+
     /// <summary>Downloads and pins one entry's icon. Failure is not an error.</summary>
     private async Task TryPinIconAsync(AppEntry entry, CancellationToken ct)
     {

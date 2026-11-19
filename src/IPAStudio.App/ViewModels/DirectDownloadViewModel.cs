@@ -915,8 +915,30 @@ public sealed partial class DirectDownloadViewModel : ObservableObject, IPageAwa
 
             if (result.Success && result.IpaPath is not null)
             {
+                // Auto-enrich catalog and icons directly from the downloaded IPA archive
+                AppEntry? enriched = null;
+                try
+                {
+                    enriched = await _catalog.EnrichFromIpaAsync(result.IpaPath, item.App.AppStoreId, item.Cts!.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Warn($"Failed to enrich catalog from IPA '{result.IpaPath}': {ex.Message}");
+                }
+
                 RunOnUi(() =>
                 {
+                    if (enriched is not null)
+                    {
+                        item.RefreshFromEnrichedApp(enriched);
+                        if (FoundApp is not null && (FoundApp.AppStoreId == enriched.AppStoreId ||
+                            (!string.IsNullOrEmpty(FoundApp.BundleId) && FoundApp.BundleId == enriched.BundleId)))
+                        {
+                            FoundApp = enriched;
+                            IsInCatalog = true;
+                        }
+                    }
+
                     item.IpaPath = result.IpaPath;
                     item.Progress = 100;
                     item.IsIndeterminate = false;

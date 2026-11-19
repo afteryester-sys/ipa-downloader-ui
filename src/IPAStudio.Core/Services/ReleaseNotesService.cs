@@ -56,6 +56,18 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.82",
+                    date: "20.11.2026",
+                    title: "Автоматическое извлечение метаданных и иконок из скачанных IPA в каталог",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "КАТАЛОГ",
+                            "Автообогащение каталога и кэша иконок из скачанного IPA",
+                            "Сразу после успешного скачивания IPA программа считывает реальное отображаемое имя (с приоритетом CFBundleDisplayName и InfoPlist.strings), извлекает и конвертирует иконку CgBI в локальный кэш {id}.png и потокобезопасно сохраняет приложение в пользовательский каталог user-apps.json. Карточка очереди скачивания динамически заменяет числовой ID на настоящее название и показывает цветную иконку.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.80",
                     date: "18.11.2026",
                     title: "Стабильность прямого скачивания и многопоточная безопасность интерфейса",
@@ -843,6 +855,18 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.82",
+                date: "11/20/2026",
+                title: "Automatic Metadata and Icon Extraction from Downloaded IPAs to Catalog",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "CATALOG",
+                        "Auto-Enrich Catalog and Icon Cache from Downloaded IPA",
+                        "Immediately upon successful IPA download, the application extracts the real display name (prioritizing CFBundleDisplayName and InfoPlist.strings), un-crushes and caches the CgBI icon as {id}.png, and thread-safely enriches user-apps.json. The download queue item dynamically replaces raw numeric IDs with the real application title and artwork.")
+                }),
             new ReleaseNote(
                 version: "1.8.80",
                 date: "11/18/2026",
