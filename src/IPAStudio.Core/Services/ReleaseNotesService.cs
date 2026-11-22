@@ -56,6 +56,18 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.84",
+                    date: "23.11.2026",
+                    title: "Поддержка выбора Android-телефонов (MTP) в качестве источника для экспорта медиа",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ЭКСПОРТ МЕДИА",
+                            "Выбор Android-устройств (MTP) и быстрый выбор носителя",
+                            "Устранено системное ограничение Windows OpenFolderDialog, блокировавшее выбор подключённых по USB телефонов на Android (MTP). Добавлен встроенный современный диалог выбора источника с отображением всех подключённых телефонов, их внутренних накопителей и SD-карт, а также съёмных дисков и флешек. На экране экспорта добавлены кнопки быстрого выбора обнаруженных устройств в 1 клик и пошаговые подсказки по переключению режима USB.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.82",
                     date: "20.11.2026",
                     title: "Автоматическое извлечение метаданных и иконок из скачанных IPA в каталог",
@@ -855,6 +867,18 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.84",
+                date: "11/23/2026",
+                title: "Android Phone (MTP) Source Selection & Quick Device Bar for Media Export",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "MEDIA EXPORT",
+                        "Android (MTP) Device Selection & Modern In-App Source Picker",
+                        "Overcomes the native Windows OpenFolderDialog limitation that greyed out and prevented selecting USB-connected Android phones (MTP). Added a modern in-app source picker dialog listing connected Android devices, internal storage, SD cards, and external drives. Introduced one-click quick selection chips for detected devices on the export screen, along with actionable connection guidance.")
+                }),
             new ReleaseNote(
                 version: "1.8.82",
                 date: "11/20/2026",

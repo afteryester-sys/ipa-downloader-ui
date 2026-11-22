@@ -46,7 +46,46 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
         _organization = (MediaExportOrganization)Math.Clamp(settings.Current.MediaExportOrganization, 0, 3);
     }
 
-    public void OnNavigatedTo(INavigator navigator) => _navigator = navigator;
+    public void OnNavigatedTo(INavigator navigator)
+    {
+        _navigator = navigator;
+        _ = LoadDetectedSourcesAsync();
+    }
+
+    // ---- Detected Sources / Devices ----
+
+    public ObservableCollection<MediaExportSourceDevice> DetectedSources { get; } = new();
+
+    [ObservableProperty]
+    private bool _hasDetectedSources;
+
+    public async Task LoadDetectedSourcesAsync()
+    {
+        try
+        {
+            var sources = await Task.Run(() => MediaExportService.GetAvailableSources(Loc.Get));
+            DetectedSources.Clear();
+            foreach (var s in sources)
+            {
+                DetectedSources.Add(s);
+            }
+            HasDetectedSources = DetectedSources.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"media export: failed to load detected sources: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshDevicesAsync() => await LoadDetectedSourcesAsync();
+
+    [RelayCommand]
+    private void SelectSourceDevice(MediaExportSourceDevice? device)
+    {
+        if (device is null) return;
+        ApplySource(device.Path);
+    }
 
     // ---- Input ----
 
@@ -224,14 +263,20 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
     [RelayCommand]
     private void BrowseSource()
     {
-        var dialog = new OpenFolderDialog
+        var window = new Views.MediaSourcePickerWindow(SourcePath)
         {
-            Title = Loc.Get("L.MediaExport.PickSourceTitle"),
-            InitialDirectory = Directory.Exists(SourcePath) ? SourcePath : "",
+            Owner = System.Windows.Application.Current?.MainWindow
         };
-        if (dialog.ShowDialog() != true) return;
 
-        SourcePath = dialog.FolderName;
+        if (window.ShowDialog() == true && window.SelectedSource is { } selected)
+        {
+            ApplySource(selected.Path);
+        }
+    }
+
+    private void ApplySource(string newPath)
+    {
+        SourcePath = newPath;
         _settings.Current.LastMediaExportSource = SourcePath;
         _settings.Save();
         ErrorText = null;

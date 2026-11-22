@@ -251,6 +251,193 @@ public sealed class MediaExportService
     }
 
     /// <summary>
+    /// Enumerates all connected media sources: MTP portable devices (Android phones, tablets, cameras)
+    /// via Windows Shell namespace (ssfDRIVES / 17), and physical drives (flash drives, external HDDs, local drives)
+    /// via DriveInfo.
+    /// </summary>
+    public static List<MediaExportSourceDevice> GetAvailableSources(Func<string, string>? loc = null)
+    {
+        string GetText(string key, string fallback) => loc?.Invoke(key) ?? fallback;
+        var result = new List<MediaExportSourceDevice>();
+
+        if (OperatingSystem.IsWindows())
+        {
+            // 1. Enumerate Shell ssfDRIVES (17) for MTP Android phones and portable devices
+            try
+            {
+                var shellType = Type.GetTypeFromProgID("Shell.Application");
+                if (shellType is not null)
+                {
+                    dynamic? shell = Activator.CreateInstance(shellType);
+                    if (shell is not null)
+                    {
+                        dynamic? myComputer = shell.NameSpace(17);
+                        if (myComputer is not null)
+                        {
+                            dynamic? items = myComputer.Items();
+                            if (items is not null)
+                            {
+                                int count = items.Count;
+                                for (int i = 0; i < count; i++)
+                                {
+                                    try
+                                    {
+                                        dynamic? item = items.Item(i);
+                                        if (item is null) continue;
+                                        string name = item.Name ?? "";
+                                        string path = item.Path ?? "";
+                                        bool isFolder = false;
+                                        try { isFolder = item.IsFolder; } catch { }
+
+                                        if (string.IsNullOrWhiteSpace(name)) continue;
+
+                                        // Skip user profile folders (Downloads, Documents, Desktop, Pictures, Videos, etc.)
+                                        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                                        if (!string.IsNullOrEmpty(userProfile) && path.StartsWith(userProfile, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            continue;
+                                        }
+
+                                        // Skip standard drive letters (C:\, D:\, etc.) — DriveInfo handles them with accurate volume metadata
+                                        bool isDriveLetter = Regex.IsMatch(path, @"^[a-zA-Z]:\\?$");
+
+                                        // If it's not a drive letter, not in user profile, and is a folder:
+                                        // It is a portable device (Android phone, tablet, camera)!
+                                        if (!isDriveLetter && isFolder)
+                                        {
+                                            dynamic? deviceFolder = null;
+                                            try { deviceFolder = item.GetFolder; } catch { }
+
+                                            var subStorages = new List<string>();
+                                            if (deviceFolder is not null)
+                                            {
+                                                try
+                                                {
+                                                    dynamic? subItems = deviceFolder.Items();
+                                                    if (subItems is not null)
+                                                    {
+                                                        int subCount = subItems.Count;
+                                                        for (int s = 0; s < subCount; s++)
+                                                        {
+                                                            try
+                                                            {
+                                                                dynamic? subItem = subItems.Item(s);
+                                                                if (subItem is not null)
+                                                                {
+                                                                    bool isSubFolder = false;
+                                                                    try { isSubFolder = subItem.IsFolder; } catch { }
+                                                                    if (isSubFolder)
+                                                                    {
+                                                                        string subName = (string?)subItem.Name ?? "";
+                                                                        if (!string.IsNullOrWhiteSpace(subName))
+                                                                        {
+                                                                            subStorages.Add(subName);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                            catch { }
+                                                        }
+                                                    }
+                                                }
+                                                catch { }
+                                            }
+
+                                            string details = subStorages.Count > 0
+                                                ? string.Join(", ", subStorages)
+                                                : GetText("L.MediaExport.Device.MtpActive", "Подключено по MTP (файловая система)");
+
+                                            // Add the phone root device
+                                            result.Add(new MediaExportSourceDevice(
+                                                Name: name,
+                                                Path: name, // Using the device name resolves in ResolveShellFolder
+                                                SourceType: MediaExportSourceType.AndroidPhone,
+                                                Subtitle: GetText("L.MediaExport.Device.AndroidPhone", "Android-телефон / планшет"),
+                                                Details: details,
+                                                IconGlyph: "\uE8EA", // CellPhone icon in Segoe MDL2 Assets
+                                                IsPhone: true,
+                                                StorageContainers: subStorages
+                                            ));
+
+                                            // If multiple distinct storage containers exist (e.g. Internal storage, SD card),
+                                            // also add them as individual selectable entries
+                                            if (subStorages.Count > 1)
+                                            {
+                                                foreach (var sub in subStorages)
+                                                {
+                                                    result.Add(new MediaExportSourceDevice(
+                                                        Name: $"{name} — {sub}",
+                                                        Path: $"{name}\\{sub}",
+                                                        SourceType: MediaExportSourceType.AndroidPhone,
+                                                        Subtitle: GetText("L.MediaExport.Device.AndroidStorage", "Хранилище Android"),
+                                                        Details: sub,
+                                                        IconGlyph: "\uEDA2",
+                                                        IsPhone: true
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // Ignore transient COM read errors on individual items
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"media export: failed enumerating shell devices: {ex.Message}");
+            }
+        }
+
+        // 2. Enumerate Physical Drives via DriveInfo
+        try
+        {
+            var drives = DriveInfo.GetDrives();
+            foreach (var drive in drives)
+            {
+                if (!drive.IsReady) continue;
+                if (drive.DriveType == DriveType.CDRom) continue;
+
+                var isRemovable = drive.DriveType == DriveType.Removable;
+                var letter = drive.Name.TrimEnd('\\');
+                var label = string.IsNullOrWhiteSpace(drive.VolumeLabel)
+                    ? (isRemovable ? GetText("L.MediaExport.Device.UsbDrive", "USB-накопитель") : GetText("L.MediaExport.Device.LocalDisk", "Локальный диск"))
+                    : drive.VolumeLabel;
+
+                var freeGb = Math.Round((double)drive.AvailableFreeSpace / (1024 * 1024 * 1024), 1);
+                var totalGb = Math.Round((double)drive.TotalSize / (1024 * 1024 * 1024), 1);
+
+                var subtitle = isRemovable
+                    ? GetText("L.MediaExport.Device.ExternalStorage", "Внешний накопитель / флешка")
+                    : GetText("L.MediaExport.Device.InternalStorage", "Локальный диск");
+
+                var details = $"{drive.DriveFormat} • {freeGb} ГБ свободно из {totalGb} ГБ";
+
+                result.Add(new MediaExportSourceDevice(
+                    Name: $"{label} ({letter})",
+                    Path: drive.RootDirectory.FullName,
+                    SourceType: isRemovable ? MediaExportSourceType.RemovableDrive : MediaExportSourceType.FixedDrive,
+                    Subtitle: subtitle,
+                    Details: details,
+                    IconGlyph: "\uEDA2",
+                    IsPhone: false
+                ));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"media export: failed enumerating drives: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Detects the semantic category of a media file:
     /// - Camera photos (DCIM, Camera, IMG_, DSC_, PXL_)
     /// - Screenshots (Screenshot_, Screen_, Screenshots folder)
@@ -679,8 +866,9 @@ public sealed class MediaExportService
         int count = 0;
         try { count = items.Count; } catch { count = 0; }
 
-        // MTP devices can be slow to populate initially; retry once if count is 0 to wake the driver
-        if (count == 0)
+        // MTP devices can be slow to populate initially; retry up to 3 times if count is 0 to wake the driver
+        int retries = 0;
+        while (count == 0 && retries < 3)
         {
             Thread.Sleep(150);
             try
@@ -689,6 +877,7 @@ public sealed class MediaExportService
                 if (items is not null) count = items.Count;
             }
             catch { count = 0; }
+            retries++;
         }
 
         if (items is null || count == 0) return;
@@ -710,6 +899,19 @@ public sealed class MediaExportService
 
             if (isFolder)
             {
+                // Skip system caches and protected Android folders to avoid permission errors and slowdowns
+                if (name.StartsWith('.') ||
+                    name.Equals(".thumbnails", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals(".trash", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("lost.dir", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("$RECYCLE.BIN", StringComparison.OrdinalIgnoreCase) ||
+                    (relPath.EndsWith("Android", StringComparison.OrdinalIgnoreCase) &&
+                     (name.Equals("data", StringComparison.OrdinalIgnoreCase) || name.Equals("obb", StringComparison.OrdinalIgnoreCase))))
+                {
+                    continue;
+                }
+
                 var nextRel = string.IsNullOrEmpty(relPath) ? name : $"{relPath}/{name}";
                 dynamic? subFolder = null;
                 try { subFolder = item.GetFolder; } catch {}
@@ -870,9 +1072,42 @@ public sealed class MediaExportService
             // Synchronize sequentially to avoid saturating the single-threaded MTP USB endpoint
             var targetFile = Path.Combine(targetDir, expectedFileName);
             var startWait = DateTime.UtcNow;
-            while (!File.Exists(targetFile) && (DateTime.UtcNow - startWait).TotalSeconds < 5)
+            while (!File.Exists(targetFile) && (DateTime.UtcNow - startWait).TotalSeconds < 10)
             {
                 Thread.Sleep(30);
+            }
+
+            // If file appeared, wait until size is stable (transfer complete)
+            if (File.Exists(targetFile))
+            {
+                long lastLen = -1;
+                int stableTicks = 0;
+                var copyWaitLimit = DateTime.UtcNow.AddMinutes(2);
+                while (DateTime.UtcNow < copyWaitLimit)
+                {
+                    try
+                    {
+                        var info = new FileInfo(targetFile);
+                        if (info.Exists)
+                        {
+                            if (info.Length > 0 && info.Length == lastLen)
+                            {
+                                stableTicks++;
+                                if (stableTicks >= 2) break;
+                            }
+                            else
+                            {
+                                lastLen = info.Length;
+                                stableTicks = 0;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // File locked by Shell during copy
+                    }
+                    Thread.Sleep(50);
+                }
             }
 
             return true;

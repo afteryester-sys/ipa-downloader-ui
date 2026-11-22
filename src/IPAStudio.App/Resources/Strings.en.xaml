@@ -348,6 +348,25 @@
     <sys:String x:Key="L.MediaExport.Exporting">Exporting…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Copied {0} of {1} file(s) to {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Export failed: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceDialogTitle">Select Media Source</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceDialogSubtitle">Choose a connected Android phone, external drive, or folder on PC</sys:String>
+    <sys:String x:Key="L.MediaExport.Section.Phones">Connected Android Devices (MTP)</sys:String>
+    <sys:String x:Key="L.MediaExport.Section.Drives">Drives &amp; Storage</sys:String>
+    <sys:String x:Key="L.MediaExport.BrowseFolder">Browse another folder on PC…</sys:String>
+    <sys:String x:Key="L.MediaExport.BrowseFolderHint">Open folder dialog to pick an individual subfolder on disk</sys:String>
+    <sys:String x:Key="L.MediaExport.RefreshDevices">Refresh list</sys:String>
+    <sys:String x:Key="L.MediaExport.NoPhoneFound">No Android phone detected</sys:String>
+    <sys:String x:Key="L.MediaExport.NoPhoneHint">Connect your phone via USB cable, unlock the screen, and switch USB mode to 'File Transfer (MTP)' in the notification tray. Then click 'Refresh list'.</sys:String>
+    <sys:String x:Key="L.MediaExport.DetectedDevices">Detected devices:</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.AndroidPhone">Android phone / tablet</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.AndroidStorage">Android storage</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.UsbDrive">USB drive</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.LocalDisk">Local disk</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.ExternalStorage">External drive / flash drive</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.InternalStorage">Local disk</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.MtpActive">Connected via MTP (file system)</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.CustomFolder">Selected folder</sys:String>
+    <sys:String x:Key="L.MediaExport.Select">Select</sys:String>
 
     <!-- Alternative route: iTunes 12.6.5.3 -->
     <sys:String x:Key="L.Itunes.Button">Via iTunes 12.6.5.3</sys:String>

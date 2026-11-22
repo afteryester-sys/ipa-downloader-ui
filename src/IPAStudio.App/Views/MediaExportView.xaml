@@ -59,6 +59,40 @@
                                      IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         </Grid>
 
+                        <!-- Quick detected devices chips -->
+                        <WrapPanel Margin="0,0,0,8" Visibility="{Binding HasDetectedSources, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{DynamicResource L.MediaExport.DetectedDevices}"
+                                       Style="{StaticResource Text.Caption}" VerticalAlignment="Center" Margin="0,0,8,4" />
+                            <ItemsControl ItemsSource="{Binding DetectedSources}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Margin="0,0,6,4" Padding="10,4"
+                                                Style="{StaticResource Button.Ghost}"
+                                                BorderThickness="1" BorderBrush="{DynamicResource Brush.Border}"
+                                                Command="{Binding DataContext.SelectSourceDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding IconGlyph}" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Brush.Accent}" />
+                                                <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Style="{StaticResource Button.Ghost}" Margin="2,0,0,4" Padding="6,4"
+                                    ToolTip="{DynamicResource L.MediaExport.RefreshDevices}"
+                                    Command="{Binding RefreshDevicesCommand}">
+                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" />
+                            </Button>
+                        </WrapPanel>
+
                         <!-- Android Probing Hint -->
                         <Border Background="{DynamicResource Brush.SurfaceHover}" CornerRadius="6" Padding="10,8">
                             <StackPanel Orientation="Horizontal">

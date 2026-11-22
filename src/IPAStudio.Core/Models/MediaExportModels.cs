@@ -4,6 +4,26 @@ using System.Linq;
 
 namespace IPAStudio.Core.Models;
 
+/// <summary>Source category for device enumeration.</summary>
+public enum MediaExportSourceType
+{
+    AndroidPhone,
+    RemovableDrive,
+    FixedDrive,
+    CustomFolder,
+}
+
+/// <summary>Represents a selectable storage device or folder for media export.</summary>
+public sealed record MediaExportSourceDevice(
+    string Name,
+    string Path,
+    MediaExportSourceType SourceType,
+    string? Subtitle = null,
+    string? Details = null,
+    string? IconGlyph = null,
+    bool IsPhone = false,
+    IReadOnlyList<string>? StorageContainers = null);
+
 /// <summary>Which media types to include during scan and export.</summary>
 public enum MediaExportFilterType
 {

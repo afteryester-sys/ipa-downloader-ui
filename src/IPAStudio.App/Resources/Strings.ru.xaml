@@ -935,6 +935,25 @@
     <sys:String x:Key="L.MediaExport.Exporting">Копирование…</sys:String>
     <sys:String x:Key="L.MediaExport.Exported">Скопировано {0} из {1} файлов в {2}.</sys:String>
     <sys:String x:Key="L.MediaExport.ExportFailed">Экспорт не удался: {0}</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceDialogTitle">Выбор источника для поиска</sys:String>
+    <sys:String x:Key="L.MediaExport.PickSourceDialogSubtitle">Выберите подключённый Android-телефон, накопитель или папку на диске</sys:String>
+    <sys:String x:Key="L.MediaExport.Section.Phones">Подключённые Android-устройства (MTP)</sys:String>
+    <sys:String x:Key="L.MediaExport.Section.Drives">Накопители и диски</sys:String>
+    <sys:String x:Key="L.MediaExport.BrowseFolder">Выбрать другую папку на компьютере…</sys:String>
+    <sys:String x:Key="L.MediaExport.BrowseFolderHint">Открыть проводник для выбора отдельной подпапки на диске</sys:String>
+    <sys:String x:Key="L.MediaExport.RefreshDevices">Обновить список</sys:String>
+    <sys:String x:Key="L.MediaExport.NoPhoneFound">Android-телефон не обнаружен</sys:String>
+    <sys:String x:Key="L.MediaExport.NoPhoneHint">Подключите телефон по USB-кабелю, разблокируйте экран и в шторке уведомлений переключите режим USB на «Передача файлов (MTP)». Затем нажмите «Обновить список».</sys:String>
+    <sys:String x:Key="L.MediaExport.DetectedDevices">Обнаруженные устройства:</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.AndroidPhone">Android-телефон / планшет</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.AndroidStorage">Хранилище Android</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.UsbDrive">USB-накопитель</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.LocalDisk">Локальный диск</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.ExternalStorage">Внешний накопитель / флешка</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.InternalStorage">Локальный диск</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.MtpActive">Подключено по MTP (файловая система)</sys:String>
+    <sys:String x:Key="L.MediaExport.Device.CustomFolder">Выбранная папка</sys:String>
+    <sys:String x:Key="L.MediaExport.Select">Выбрать</sys:String>
 
     <!-- Quick Transfer -->
     <sys:String x:Key="L.QuickTransfer.Open">Быстрый перенос</sys:String>

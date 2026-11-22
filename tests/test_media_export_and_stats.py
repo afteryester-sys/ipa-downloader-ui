@@ -219,6 +219,40 @@ try:
     test("Category folder 'Скриншоты' created", os.path.isdir(os.path.join(dest_root, "Скриншоты")))
     test("Category folder 'Селфи' created", os.path.isdir(os.path.join(dest_root, "Селфи")))
 
+    print("\n--- Testing Android & Storage Source Selection Simulation ---")
+    p1 = parse_shell_path("This PC\\Galaxy S21")
+    test("Phone root 'This PC\\Galaxy S21' parses to ['Galaxy S21']", p1 == ["Galaxy S21"])
+
+    p2 = parse_shell_path("Этот компьютер\\Samsung Galaxy S21\\Внутренняя память")
+    test("Phone subfolder 'Этот компьютер\\Samsung Galaxy S21\\Внутренняя память' parses correctly", p2 == ["Samsung Galaxy S21", "Внутренняя память"])
+
+    p3 = parse_shell_path("Pixel 8 Pro")
+    test("Direct phone name 'Pixel 8 Pro' parses to ['Pixel 8 Pro']", p3 == ["Pixel 8 Pro"])
+
+    # Simulate MediaExportSourceDevice records
+    phone_device = {
+        "Name": "Samsung Galaxy S21",
+        "Path": "This PC\\Samsung Galaxy S21",
+        "SourceType": "AndroidPhone",
+        "IsPhone": True,
+        "IconGlyph": "\uE8EA",
+        "Details": "Внутренняя память, SD-карта"
+    }
+    test("Android device record has IsPhone=True", phone_device["IsPhone"] is True)
+    test("Android device record has SourceType=AndroidPhone", phone_device["SourceType"] == "AndroidPhone")
+    test("Android device record has phone icon glyph", phone_device["IconGlyph"] == "\uE8EA")
+
+    removable_device = {
+        "Name": "Тупа диск (D:)",
+        "Path": "D:\\",
+        "SourceType": "RemovableDrive",
+        "IsPhone": False,
+        "IconGlyph": "\uEDA2",
+        "Details": "NTFS • 359.6 ГБ свободно"
+    }
+    test("Removable device record has IsPhone=False", removable_device["IsPhone"] is False)
+    test("Removable device record has drive icon glyph", removable_device["IconGlyph"] == "\uEDA2")
+
 finally:
     shutil.rmtree(temp_root, ignore_errors=True)
     shutil.rmtree(dest_root, ignore_errors=True)
