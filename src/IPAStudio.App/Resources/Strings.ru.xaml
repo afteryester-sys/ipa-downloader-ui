@@ -667,6 +667,9 @@
     <sys:String x:Key="L.Photos.DropHintSub">Фото и видео; папки будут просмотрены целиком</sys:String>
     <sys:String x:Key="L.Photos.DropNoMedia">Среди выбранных файлов нет поддерживаемых фото и видео</sys:String>
     <sys:String x:Key="L.Photos.SyncTitle">Синхронизация фото через Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncSuccess">Синхронизировано фото: {0} из {1} в альбом «{2}»</sys:String>
+    <sys:String x:Key="L.Photos.SyncSuccessMessage">Успешно синхронизировано {0} из {1} фото в альбом «{2}» на iPhone. Фотографии уже доступны в приложении «Фото»!</sys:String>
+    <sys:String x:Key="L.Photos.SyncDefaultAlbum">IPA Studio</sys:String>
     <sys:String x:Key="L.Photos.SyncPrepared">Подготовлено для синхронизации: {0} из {1}</sys:String>
     <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
     <sys:String x:Key="L.Photos.AppleClient">Apple Devices или iTunes</sys:String>

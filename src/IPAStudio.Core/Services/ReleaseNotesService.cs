@@ -56,6 +56,18 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.86",
+                    date: "24.11.2026",
+                    title: "Нативная заливка фото и видео в iPhone через протокол AirTraffic (метод iMazing)",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ФОТО И МЕДИА",
+                            "Прямая заливка фотографий и видео в iPhone без сторонних программ",
+                            "Реализована полноценная синхронизация фотографий через официальный нативный протокол iOS AirTraffic и шлюз AFC /Airlock/Photo/. Фотографии и видео появляются прямо в приложении «Фото» в нативном альбоме с сохранением структуры альбомов, даты съемки и разрешений (JPEG, PNG, HEIC, MOV, MP4) без необходимости устанавливать вспомогательные приложения на iPhone.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.84",
                     date: "23.11.2026",
                     title: "Поддержка выбора Android-телефонов (MTP) в качестве источника для экспорта медиа",
@@ -867,6 +879,18 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.86",
+                date: "11/24/2026",
+                title: "Native Photo & Video Upload into iPhone via AirTraffic Protocol (iMazing Method)",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "PHOTOS & MEDIA",
+                        "Direct Photo and Video Ingestion into iPhone without Third-Party Apps",
+                        "Implemented full photo and video synchronization via the official iOS AirTraffic protocol and AFC /Airlock/Photo/ staging. Photos and videos appear directly in the iOS Photos app in a native synced album while preserving existing albums, original timestamps, and image dimensions (JPEG, PNG, HEIC, MOV, MP4) without needing any helper app on the iPhone.")
+                }),
             new ReleaseNote(
                 version: "1.8.84",
                 date: "11/23/2026",

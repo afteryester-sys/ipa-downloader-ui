@@ -73,6 +73,7 @@ public partial class App : Application
         services.AddSingleton<AuthService>();
         services.AddSingleton<CatalogService>();
         services.AddSingleton<DeviceService>();
+        services.AddSingleton<AirTrafficPhotoSyncService>();
         services.AddSingleton<PhotoService>();
         services.AddSingleton<ApplePhotoSyncService>();
         services.AddSingleton<PhotoThumbnailCache>();

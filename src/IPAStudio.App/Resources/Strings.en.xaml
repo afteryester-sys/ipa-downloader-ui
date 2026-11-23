@@ -753,6 +753,9 @@
     <sys:String x:Key="L.Photos.DropHintSub">Photos and videos; folders are searched through</sys:String>
     <sys:String x:Key="L.Photos.DropNoMedia">None of those files are supported photos or videos</sys:String>
     <sys:String x:Key="L.Photos.SyncTitle">Sync photos with Apple</sys:String>
+    <sys:String x:Key="L.Photos.SyncSuccess">Synchronized photos: {0} of {1} to album "{2}"</sys:String>
+    <sys:String x:Key="L.Photos.SyncSuccessMessage">Successfully synced {0} of {1} photos to album "{2}" on iPhone. Photos are now available in the Photos app!</sys:String>
+    <sys:String x:Key="L.Photos.SyncDefaultAlbum">IPA Studio</sys:String>
     <sys:String x:Key="L.Photos.SyncPrepared">Prepared for sync: {0} of {1}</sys:String>
     <sys:String x:Key="L.Photos.AppleDevices">Apple Devices</sys:String>
     <sys:String x:Key="L.Photos.AppleClient">Apple Devices or iTunes</sys:String>

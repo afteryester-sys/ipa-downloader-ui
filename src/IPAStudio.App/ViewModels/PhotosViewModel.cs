@@ -201,6 +201,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 {
     private readonly PhotoService _photos;
     private readonly ApplePhotoSyncService _applePhotoSync;
+    private readonly AirTrafficPhotoSyncService _airTrafficSync;
 
     /// <summary>
     /// Thumbnails kept on disk between visits, so reopening an album does not pay for the
@@ -547,10 +548,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     private CancellationTokenSource? _thumbCts;
 
     public PhotosViewModel(PhotoService photos, ApplePhotoSyncService applePhotoSync,
+        AirTrafficPhotoSyncService airTrafficSync,
         PhotoThumbnailCache thumbCache, OperationService operations, SettingsService settings)
     {
         _photos = photos;
         _applePhotoSync = applePhotoSync;
+        _airTrafficSync = airTrafficSync;
         _thumbCache = thumbCache;
         _operations = operations;
         _settings = settings;
@@ -1458,9 +1461,8 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     }
 
     /// <summary>
-    /// Stages local media in a persistent folder and opens Apple's supported Windows sync
-    /// client. Direct writes to DCIM are deliberately not used: current iOS does not create
-    /// Photos-library assets for files placed there by AFC.
+    /// Synchronizes local media directly into a native album on the iOS device via AirTraffic,
+    /// or stages in a persistent folder if the native sync engine is unavailable.
     /// </summary>
     public async Task ImportFilesAsync(IEnumerable<string> paths)
     {
@@ -1469,9 +1471,51 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         var files = ExpandImportPaths(paths)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        if (!files.Any(ApplePhotoSyncService.IsSupportedMedia))
+        if (!files.Any(AirTrafficPhotoSyncService.IsSupportedMedia))
         {
             StatusText = Loc.Get("L.Photos.DropNoMedia");
+            return;
+        }
+
+        if (_airTrafficSync.IsAvailable)
+        {
+            AirTrafficSyncResult? syncRes = null;
+            var albumTitle = (!IsAlbumMode && CurrentAlbum != null && !CurrentAlbum.IsEverything)
+                ? CurrentAlbum.Name
+                : Loc.Get("L.Photos.SyncDefaultAlbum");
+
+            if (string.IsNullOrWhiteSpace(albumTitle) || albumTitle == "L.Photos.SyncDefaultAlbum")
+                albumTitle = "IPA Studio";
+
+            await RunTransferAsync(async (progress, ct) =>
+            {
+                syncRes = await _airTrafficSync.SyncPhotosAsync(_device.Udid, files, albumTitle, progress, ct);
+            }, "L.Ops.Photos.Import");
+
+            if (syncRes is null) return;
+
+            if (!syncRes.Success)
+            {
+                var errorMsg = syncRes.ErrorMessage ?? Loc.Get("L.Photos.TransferFailed");
+                StatusText = errorMsg;
+                ModernDialog.Show(
+                    errorMsg,
+                    Loc.Get("L.Photos.SyncTitle"),
+                    ModernDialogButtons.Ok,
+                    ModernDialogType.Error);
+                return;
+            }
+
+            if (syncRes.Copied == 0) return;
+
+            StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
+            ModernDialog.Show(
+                Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
+                Loc.Get("L.Photos.SyncTitle"),
+                ModernDialogButtons.Ok,
+                ModernDialogType.Information);
+
+            await LoadAsync(forceRefresh: true);
             return;
         }
 

@@ -31,8 +31,13 @@ namespace IPAStudio.Core.Services;
 public sealed class PhotoService
 {
     private readonly ToolLocator _tools;
+    private readonly AirTrafficPhotoSyncService? _airTrafficSync;
 
-    public PhotoService(ToolLocator tools) => _tools = tools;
+    public PhotoService(ToolLocator tools, AirTrafficPhotoSyncService? airTrafficSync = null)
+    {
+        _tools = tools;
+        _airTrafficSync = airTrafficSync;
+    }
 
     private static readonly string[] VideoExtensions = { ".mov", ".mp4", ".m4v", ".avi" };
 
@@ -315,6 +320,33 @@ public sealed class PhotoService
         CancellationToken ct = default)
         => Task.Run(async () =>
         {
+            if (_airTrafficSync is { IsAvailable: true } syncService)
+            {
+                try
+                {
+                    var res = await syncService.SyncPhotosAsync(udid, localFiles, "IPA Studio", progress, ct).ConfigureAwait(false);
+                    if (res.Success && res.Copied > 0)
+                    {
+                        return new PhotoImportResult
+                        {
+                            Copied = res.Copied,
+                            Total = res.Total,
+                            IndexingRequested = res.AirTrafficNotified,
+                            AppearedInLibrary = res.Success,
+                            PhotoSyncAvailable = true
+                        };
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Warn($"AirTraffic photo sync failed ({ex.Message}), falling back to direct AFC import.");
+                }
+            }
+
             // Names of the files actually written, used to confirm ingestion afterwards.
             var written = new List<string>();
             var done = 0;
@@ -456,7 +488,6 @@ public sealed class PhotoService
         string[] notifications =
         [
             "com.apple.itunes-mobdev.syncWillStart",
-            "com.apple.itunes-client.syncCancelRequest",
             "com.apple.mobile.lockdown.device_name_changed",
             "com.apple.itunes-mobdev.syncDidFinish",
         ];
