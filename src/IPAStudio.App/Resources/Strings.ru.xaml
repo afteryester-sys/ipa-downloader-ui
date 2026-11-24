@@ -1002,8 +1002,13 @@
     <sys:String x:Key="L.QuickTransfer.TargetPhotos">Медиатека «Фото» (iPhone)</sys:String>
     <sys:String x:Key="L.QuickTransfer.TargetInstall">Установка на iPhone</sys:String>
     <sys:String x:Key="L.QuickTransfer.TargetContacts">Контакты</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DeviceDownloads">Память iPhone (Загрузки)</sys:String>
     <sys:String x:Key="L.QuickTransfer.ImportingPhotos">Импорт в «Фото» {0} из {1}: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingContacts">Импорт контактов {0} из {1}: {2} ({3} конт.)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ContactImportHint">Контакты vCard импортируются в телефонную книгу iPhone и сохраняются на устройстве.</sys:String>
     <sys:String x:Key="L.QuickTransfer.VerifiedAll">Готово: в «Фото» — {0}; файлов — {1}; IPA в очереди — {2}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.VerifiedAllFull">Готово: в «Фото» — {0}; контактов — {1}; файлов — {2}; IPA в очереди — {3}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.StagedOnDevice">Файлы сохранены в памяти iPhone: {0}.</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Прямой импорт в системную медиатеку «Фото» недоступен через открытый протокол Apple на этой версии iOS. Используйте «Быстрый перенос» и выберите совместимое приложение; фиктивное копирование в DCIM отключено.</sys:String>
 
     <!-- Прошивки IPSW -->

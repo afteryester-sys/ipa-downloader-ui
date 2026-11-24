@@ -156,7 +156,7 @@ public static class FileClassifier
                     yield return file;
                 }
             }
-            else if (File.Exists(path))
+            else
             {
                 yield return path;
             }
@@ -183,9 +183,9 @@ public static class FileClassifier
         }
         catch { }
 
-        var destination = category == FileCategory.App
-            ? Loc.Get("L.QuickTransfer.Apps")
-            : (!string.IsNullOrWhiteSpace(targetAppName) ? targetAppName : Loc.Get("L.QuickTransfer.NoDestination"));
+        var destination = !string.IsNullOrWhiteSpace(targetAppName)
+            ? targetAppName
+            : (category == FileCategory.App ? Loc.Get("L.QuickTransfer.TargetInstall") : Loc.Get("L.QuickTransfer.NoDestination"));
 
         return new TransferPayload(
             path,

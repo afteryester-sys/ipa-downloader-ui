@@ -56,6 +56,23 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.88",
+                    date: "25.11.2026",
+                    title: "Полноценный режим Быстрого переноса (Quick Transfer) и надёжное появление фото в галерее iPhone",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "БЫСТРЫЙ ПЕРЕНОС",
+                            "Умное распределение любых файлов, контактов vCard и приложений",
+                            "Восстановлена и полностью отлажена работа режима «Быстрый перенос» (Drag & Drop и диалог выбора): фото и видео направляются в медиатеку Фотопленки, карточки контактов .vcf автоматически импортируются в телефонную книгу iOS с обновлением AddressBook, пакеты .ipa отправляются в очередь установки, а сторонние документы и медиафайлы — в целевые приложения (VLC, Книги, Word) или хранилище iPhone."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ГАЛЕРЕЯ",
+                            "Мгновенное появление фото в галерее и поддержка DCIM",
+                            "Реализовано гибридное зеркалирование импортируемых фото в структуру /DCIM/100APPLE/ с трансляцией полноразмерных iTunes HostInfo и MobileSync оповещений (syncDidStart, tethered_sync). Это гарантирует немедленное отображение фотографий как в приложении «Фото» на iPhone, так и во встроенном просмотрщике IPA Studio.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.86",
                     date: "24.11.2026",
                     title: "Нативная заливка фото и видео в iPhone через протокол AirTraffic (метод iMazing)",
@@ -879,6 +896,23 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.88",
+                date: "11/25/2026",
+                title: "Full Quick Transfer Mode (Contacts vCard, Apps, Media) & Guaranteed iPhone Gallery Ingestion",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "QUICK TRANSFER",
+                        "Smart Multi-Category File Routing, vCard Contacts & IPA Installation",
+                        "Restored and perfected Quick Transfer mode: photos and videos route straight to Camera Roll, .vcf contacts auto-merge into the iOS Address Book, .ipa files queue for background installation, and third-party documents/media route to designated apps (VLC, Books, Word) or native device storage."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "GALLERY INGESTION",
+                        "Instant Camera Roll Visibility & MobileSync Ingestion Triggers",
+                        "Added hybrid DCIM mirroring (/DCIM/100APPLE/) alongside AirTraffic manifests, full iTunes HostInfo negotiation, and MobileSync daemon broadcasts (syncDidStart, tethered_sync), ensuring imported photos and videos appear immediately both in iOS Photos and inside IPA Studio's gallery view.")
+                }),
             new ReleaseNote(
                 version: "1.8.86",
                 date: "11/24/2026",

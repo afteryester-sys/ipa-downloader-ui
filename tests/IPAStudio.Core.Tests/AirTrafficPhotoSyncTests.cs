@@ -253,6 +253,7 @@ public static class AirTrafficPhotoSyncTests
         AssertEqual(xml.Contains(assetUuid), true, "Xml contains asset uuid");
         AssertEqual(xml.Contains("IPA Studio"), true, "Xml contains album name");
         AssertEqual(xml.Contains("public.jpeg"), true, "Xml contains uti");
+        AssertEqual(xml.Contains("<key>Directory</key>") && xml.Contains("<string>100SYNCD</string>"), true, "Xml contains Directory 100SYNCD for iOS assetsd");
 
         // Parse XML to verify well-formedness
         var doc = XDocument.Parse(xml);

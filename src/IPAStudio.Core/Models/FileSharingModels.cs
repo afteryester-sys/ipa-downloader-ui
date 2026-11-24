@@ -56,3 +56,24 @@ public sealed record AppMatchScore(
     public string DisplayName => App.Name;
     public string BundleId => App.BundleId;
 }
+
+/// <summary>
+/// Result of a Quick Transfer operation across all file types.
+/// </summary>
+public sealed record QuickTransferResult(
+    int PhotosCopied,
+    int ContactsCopied,
+    int AppFilesCopied,
+    IReadOnlyList<string> IpaFiles,
+    bool Success,
+    string? ErrorMessage = null);
+
+/// <summary>
+/// Live progress reported during Quick Transfer.
+/// </summary>
+public sealed record QuickTransferProgress(
+    string CurrentFile,
+    int CompletedCount,
+    int TotalCount,
+    double Percent,
+    string SpeedText = "");

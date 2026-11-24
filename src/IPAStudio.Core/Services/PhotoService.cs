@@ -488,6 +488,11 @@ public sealed class PhotoService
         string[] notifications =
         [
             "com.apple.itunes-mobdev.syncWillStart",
+            "com.apple.itunes-mobdev.syncDidStart",
+            "com.apple.mobile.data_sync",
+            "com.apple.mobile.data_sync.domain_changed",
+            "com.apple.mobile.sync_data_class",
+            "com.apple.mobile.tethered_sync",
             "com.apple.mobile.lockdown.device_name_changed",
             "com.apple.itunes-mobdev.syncDidFinish",
         ];

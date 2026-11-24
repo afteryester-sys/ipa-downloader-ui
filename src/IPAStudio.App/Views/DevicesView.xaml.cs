@@ -1,9 +1,12 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using IPAStudio.App.Services;
 using IPAStudio.App.ViewModels;
+using IPAStudio.Core.Models;
 using IPAStudio.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,16 +23,64 @@ public partial class DevicesView : UserControl
     private void OnQuickTransferClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: DeviceViewModel device }) return;
+        OpenQuickTransfer(device.Device, null);
+    }
 
+    public void OpenQuickTransfer(Device device, IEnumerable<string>? initialFiles = null)
+    {
         var dialog = new QuickTransferDialog(
-            device.Device,
+            device,
             App.Services.GetRequiredService<FileSharingService>(),
             App.Services.GetRequiredService<OperationService>(),
-            App.Services.GetService<PhotoService>())
+            App.Services.GetService<PhotoService>(),
+            App.Services.GetService<QuickTransferService>(),
+            initialFiles)
         {
             Owner = Window.GetWindow(this),
         };
         dialog.ShowDialog();
+    }
+
+    private void OnDeviceCardDragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnDeviceCardDrop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0) return;
+
+        if (sender is FrameworkElement { Tag: DeviceViewModel dvm })
+        {
+            OpenQuickTransfer(dvm.Device, paths);
+            e.Handled = true;
+        }
+    }
+
+    private void OnViewDragOver(object sender, DragEventArgs e)
+    {
+        var vm = DataContext as DevicesViewModel;
+        var hasDevices = vm != null && vm.Devices.Count > 0;
+        e.Effects = (hasDevices && e.Data.GetDataPresent(DataFormats.FileDrop))
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnViewDrop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0) return;
+
+        var vm = DataContext as DevicesViewModel;
+        var targetDevice = vm?.Devices.FirstOrDefault()?.Device;
+        if (targetDevice != null)
+        {
+            OpenQuickTransfer(targetDevice, paths);
+            e.Handled = true;
+        }
     }
 
     /// <summary>

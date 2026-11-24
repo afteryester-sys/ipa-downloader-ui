@@ -1494,27 +1494,36 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
             if (syncRes is null) return;
 
-            if (!syncRes.Success)
+            if (syncRes.Success)
             {
-                var errorMsg = syncRes.ErrorMessage ?? Loc.Get("L.Photos.TransferFailed");
-                StatusText = errorMsg;
-                ModernDialog.Show(
-                    errorMsg,
-                    Loc.Get("L.Photos.SyncTitle"),
-                    ModernDialogButtons.Ok,
-                    ModernDialogType.Error);
+                if (syncRes.Copied > 0)
+                {
+                    StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
+                    ModernDialog.Show(
+                        Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
+                        Loc.Get("L.Photos.SyncTitle"),
+                        ModernDialogButtons.Ok,
+                        ModernDialogType.Information);
+
+                    await LoadAsync(forceRefresh: true);
+                }
                 return;
             }
 
-            if (syncRes.Copied == 0) return;
+            var errorMsg = syncRes.ErrorMessage ?? Loc.Get("L.Photos.TransferFailed");
+            AppLog.Warn($"AirTraffic photo sync failed: {errorMsg}");
+        }
 
-            StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
-            ModernDialog.Show(
-                Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
-                Loc.Get("L.Photos.SyncTitle"),
-                ModernDialogButtons.Ok,
-                ModernDialogType.Information);
+        // Direct import fallback via PhotoService (AFC + Notification triggers)
+        PhotoImportResult? importRes = null;
+        await RunTransferAsync(async (progress, ct) =>
+        {
+            importRes = await _photos.ImportAsync(_device.Udid, files, progress, ct);
+        }, "L.Ops.Photos.Import");
 
+        if (importRes != null && importRes.Copied > 0)
+        {
+            StatusText = Loc.Format("L.Photos.Imported", importRes.Copied, importRes.Total);
             await LoadAsync(forceRefresh: true);
             return;
         }

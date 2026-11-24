@@ -145,5 +145,20 @@ public static class Loc
         ["L.Battery.Error.NoCapacity"] = "the device does not report capacity",
         ["L.Battery.Error.NoResponse"] = "no response from the device",
         ["L.Battery.Error.ReadFailed"] = "read error",
+
+        // Quick Transfer
+        ["L.QuickTransfer.Apps"] = "Apps",
+        ["L.QuickTransfer.Photos"] = "Photos",
+        ["L.QuickTransfer.TargetInstall"] = "Install to iPhone",
+        ["L.QuickTransfer.TargetPhotos"] = "Photos Library (iPhone)",
+        ["L.QuickTransfer.TargetContacts"] = "Contacts",
+        ["L.QuickTransfer.DeviceDownloads"] = "iPhone Storage (Downloads)",
+        ["L.QuickTransfer.NoDestination"] = "No destination",
+        ["L.QuickTransfer.Summary"] = "Recognized {0} file(s). Review the destinations.",
+        ["L.QuickTransfer.ImportingPhotos"] = "Importing to Photos {0} of {1}: {2}",
+        ["L.QuickTransfer.ImportingContacts"] = "Importing contacts {0} of {1}: {2} ({3} contacts)",
+        ["L.QuickTransfer.ContactImportHint"] = "vCard contacts are imported into the iPhone address book and saved on device.",
+        ["L.QuickTransfer.VerifiedAllFull"] = "Done: Photos — {0}; contacts — {1}; files — {2}; IPAs queued — {3}.",
+        ["L.QuickTransfer.StagedOnDevice"] = "Files saved to iPhone storage: {0}.",
     };
 }

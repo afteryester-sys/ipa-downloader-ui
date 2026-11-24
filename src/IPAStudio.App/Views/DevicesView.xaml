@@ -310,6 +310,7 @@
 
             <!-- Connected device cards -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          AllowDrop="True" DragOver="OnViewDragOver" Drop="OnViewDrop"
                           Visibility="{Binding HasDevices, Converter={StaticResource BoolToVis}}">
                 <ItemsControl ItemsSource="{Binding Devices}">
                     <ItemsControl.ItemsPanel>
@@ -320,7 +321,9 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource Card}" Width="300" Margin="0,0,16,16"
-                                    RenderTransformOrigin="0.5,0.5">
+                                    RenderTransformOrigin="0.5,0.5"
+                                    AllowDrop="True" DragOver="OnDeviceCardDragOver" Drop="OnDeviceCardDrop"
+                                    Tag="{Binding}">
                                 <Border.RenderTransform>
                                     <ScaleTransform />
                                 </Border.RenderTransform>

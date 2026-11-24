@@ -30,6 +30,7 @@ public partial class QuickTransferDialog : Window
     private readonly FileSharingService _sharing;
     private readonly OperationService _operations;
     private readonly PhotoService? _photos;
+    private QuickTransferService? _quickTransfer;
     private readonly CancellationTokenSource _cts = new();
 
     private List<string> _rawFilePaths = new();
@@ -42,14 +43,21 @@ public partial class QuickTransferDialog : Window
         Device device,
         FileSharingService sharing,
         OperationService operations,
-        PhotoService? photos = null)
+        PhotoService? photos = null,
+        QuickTransferService? quickTransfer = null,
+        IEnumerable<string>? initialFiles = null)
     {
         InitializeComponent();
         _device = device;
         _sharing = sharing;
         _operations = operations;
         _photos = photos ?? App.Services?.GetService(typeof(PhotoService)) as PhotoService;
+        _quickTransfer = quickTransfer ?? App.Services?.GetService(typeof(QuickTransferService)) as QuickTransferService;
         DeviceLine.Text = Loc.Format("L.QuickTransfer.Device", device.Name);
+        if (initialFiles != null)
+        {
+            SetFiles(initialFiles);
+        }
         Loaded += OnLoaded;
     }
 
@@ -192,17 +200,17 @@ public partial class QuickTransferDialog : Window
                 {
                     targetName = Loc.Get("L.QuickTransfer.TargetInstall");
                 }
-                else if (FileClassifier.IsCameraRollMedia(path) && _photos != null && _userSelectedApp == null)
+                else if (category == FileCategory.Contact)
+                {
+                    targetName = Loc.Get("L.QuickTransfer.TargetContacts");
+                }
+                else if (FileClassifier.IsCameraRollMedia(path))
                 {
                     targetName = Loc.Get("L.QuickTransfer.TargetPhotos");
                 }
-                else if (category == FileCategory.Contact && _userSelectedApp == null)
-                {
-                    targetName = activeApp?.Name ?? Loc.Get("L.QuickTransfer.TargetContacts");
-                }
                 else
                 {
-                    targetName = activeApp?.Name ?? Loc.Get("L.QuickTransfer.NoDestination");
+                    targetName = activeApp?.Name ?? Loc.Get("L.QuickTransfer.DeviceDownloads");
                 }
 
                 finalPayloads.Add(FileClassifier.Describe(path, targetName));
@@ -235,10 +243,9 @@ public partial class QuickTransferDialog : Window
             {
                 DestinationHint.Text = Loc.Get("L.QuickTransfer.TargetPhotos") + " — " + Loc.Get("L.QuickTransfer.Supported");
             }
-            else if (hasOnlyContacts)
+            else if (hasOnlyContacts && _userSelectedApp == null)
             {
-                DestinationHint.Text = string.Format(Loc.Get("L.QuickTransfer.RecommendedFor"),
-                    Loc.Get("L.QuickTransfer.TypeContact"), activeApp?.Name ?? "iOS");
+                DestinationHint.Text = Loc.Get("L.QuickTransfer.TargetContacts") + " — " + Loc.Get("L.QuickTransfer.ContactImportHint");
             }
             else if (DestinationPicker.SelectedItem is AppMatchScore selectedScore)
             {
@@ -264,9 +271,7 @@ public partial class QuickTransferDialog : Window
             EmptyState.Visibility = finalPayloads.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
             ResultState.Visibility = finalPayloads.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
 
-            var canTransferNative = hasOnlyIpa || (hasOnlyCameraRoll && _photos != null);
-            var hasDestination = activeApp != null || DestinationPicker.SelectedItem != null;
-            TransferButton.IsEnabled = !_isBusy && finalPayloads.Count > 0 && (canTransferNative || hasDestination);
+            TransferButton.IsEnabled = !_isBusy && finalPayloads.Count > 0;
         }
         finally
         {
@@ -283,81 +288,51 @@ public partial class QuickTransferDialog : Window
         ResultState.Visibility = Visibility.Collapsed;
         ProgressState.Visibility = Visibility.Visible;
 
-        var ipaFiles = _rawFilePaths.Where(p => FileClassifier.Classify(p) == FileCategory.App).ToList();
-        var cameraRollFiles = _rawFilePaths.Where(p =>
-            FileClassifier.Classify(p) != FileCategory.App &&
-            FileClassifier.IsCameraRollMedia(p) &&
-            (_userSelectedApp == null && _photos != null)).ToList();
-        var appFiles = _rawFilePaths.Where(p =>
-            !ipaFiles.Contains(p) && !cameraRollFiles.Contains(p)).ToList();
-
-        // 1. IPAs to installd
-        if (ipaFiles.Count > 0)
-        {
-            _operations.StartQueueOperation(OperationKind.Install, ViewModels.Page.Devices,
-                Loc.Get("L.Ops.Kind.Install"), _device.Name, _device,
-                q => q.BuildFromIpaFiles(ipaFiles, _device));
-        }
-
         try
         {
-            int photosDone = 0;
-            // 2. Photos to Camera Roll
-            if (cameraRollFiles.Count > 0 && _photos != null)
+            var destination = _userSelectedApp ?? (DestinationPicker.SelectedItem as AppMatchScore)?.App;
+            var quickTransfer = _quickTransfer ??= new QuickTransferService(
+                _sharing,
+                _photos,
+                App.Services?.GetService(typeof(AirTrafficPhotoSyncService)) as AirTrafficPhotoSyncService);
+
+            var transferProgress = new Progress<QuickTransferProgress>(p =>
             {
-                var photoProgress = new Progress<PhotoTransferProgress>(p =>
+                ProgressBarControl.Value = p.Percent;
+                var currentNum = Math.Min(p.CompletedCount + 1, p.TotalCount);
+                if (!string.IsNullOrWhiteSpace(p.SpeedText))
                 {
-                    ProgressBarControl.Value = p.Total > 0 ? (double)p.Completed / p.Total * 100 : 0;
-                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.ImportingPhotos", p.Completed, p.Total, p.CurrentFile);
-                });
-                var result = await _photos.ImportAsync(_device.Udid, cameraRollFiles, photoProgress, _cts.Token);
-                photosDone = result.Copied;
-            }
-
-            int appFilesDone = 0;
-            // 3. Document / Media / Contact files to destination app
-            if (appFiles.Count > 0)
-            {
-                var destination = (_userSelectedApp ?? (DestinationPicker.SelectedItem as AppMatchScore)?.App)
-                    ?? throw new InvalidOperationException(Loc.Get("L.QuickTransfer.NoFileSharingApps"));
-
-                for (var index = 0; index < appFiles.Count; index++)
-                {
-                    _cts.Token.ThrowIfCancellationRequested();
-                    var fileNumber = index + 1;
-                    var filePath = appFiles[index];
-                    var sw = Stopwatch.StartNew();
-                    long lastBytes = 0;
-                    long lastTickMs = 0;
-
-                    var progress = new Progress<FileSharingProgress>(p =>
-                    {
-                        ProgressBarControl.Value = p.Percent;
-                        ProgressLabel.Text = Loc.Format("L.QuickTransfer.CopyingFile", fileNumber,
-                            appFiles.Count, p.FileName, destination.Name);
-
-                        var elapsedMs = sw.ElapsedMilliseconds;
-                        var dtSeconds = (elapsedMs - lastTickMs) / 1000.0;
-                        if (dtSeconds >= 0.2 || p.BytesWritten == p.TotalBytes)
-                        {
-                            var bytesDiff = p.BytesWritten - lastBytes;
-                            var speed = dtSeconds > 0 ? bytesDiff / dtSeconds : 0;
-                            var speedText = FormatSpeed(speed);
-                            var bytesText = $"{FormatBytes(p.BytesWritten)} / {FormatBytes(p.TotalBytes)}";
-                            ProgressSpeedLabel.Text = $"{speedText} • {bytesText}";
-                            lastBytes = p.BytesWritten;
-                            lastTickMs = elapsedMs;
-                        }
-                    });
-
-                    await _sharing.UploadAsync(_device.Udid, destination, filePath, progress, _cts.Token);
-                    appFilesDone++;
+                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.CopyingFile", currentNum, p.TotalCount, p.CurrentFile, destination?.Name ?? Loc.Get("L.QuickTransfer.DeviceDownloads"));
+                    ProgressSpeedLabel.Text = p.SpeedText;
                 }
+                else
+                {
+                    ProgressLabel.Text = Loc.Format("L.QuickTransfer.ImportingFile", currentNum, p.TotalCount);
+                    ProgressSpeedLabel.Text = p.CurrentFile;
+                }
+            });
+
+            var result = await quickTransfer.TransferAsync(
+                _device.Udid,
+                _rawFilePaths,
+                destination,
+                transferProgress,
+                _cts.Token);
+
+            if (result.IpaFiles.Count > 0)
+            {
+                _operations.StartQueueOperation(OperationKind.Install, ViewModels.Page.Devices,
+                    Loc.Get("L.Ops.Kind.Install"), _device.Name, _device,
+                    q => q.BuildFromIpaFiles(result.IpaFiles, _device));
             }
 
             ProgressBarControl.Value = 100;
             ProgressSpeedLabel.Text = string.Empty;
-            ProgressLabel.Text = Loc.Format("L.QuickTransfer.VerifiedAll", photosDone, appFilesDone, ipaFiles.Count);
+            ProgressLabel.Text = Loc.Format("L.QuickTransfer.VerifiedAllFull",
+                result.PhotosCopied,
+                result.ContactsCopied,
+                result.AppFilesCopied,
+                result.IpaFiles.Count);
             CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
             CancelButton.IsEnabled = true;
         }

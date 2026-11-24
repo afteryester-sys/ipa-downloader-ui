@@ -19,9 +19,11 @@ public static class AirTrafficHostApi
 
     // AirTrafficHost delegates
     private static ATHostConnectionCreateWithLibraryDelegate? _createWithLibrary;
+    private static ATHostConnectionSendHostInfoDelegate? _sendHostInfo;
     private static ATHostConnectionSendSyncRequestDelegate? _sendSyncRequest;
     private static ATHostConnectionSendMetadataSyncFinishedDelegate? _sendMetadataSyncFinished;
     private static ATHostConnectionDestroyDelegate? _destroy;
+    private static ATHostWaitForQueueToDrainDelegate? _waitForQueueToDrain;
     private static ATAddAppleSearchPathsToEnvironmentFromRegDelegate? _addSearchPaths;
 
     // CoreFoundation delegates
@@ -29,6 +31,7 @@ public static class AirTrafficHostApi
     private static CFArrayCreateMutableDelegate? _cfArrayCreateMutable;
     private static CFArrayAppendValueDelegate? _cfArrayAppendValue;
     private static CFDictionaryCreateMutableDelegate? _cfDictionaryCreateMutable;
+    private static CFDictionarySetValueDelegate? _cfDictionarySetValue;
     private static CFReleaseDelegate? _cfRelease;
 
     private static IntPtr _kCFTypeArrayCallBacks = IntPtr.Zero;
@@ -39,13 +42,19 @@ public static class AirTrafficHostApi
     private delegate IntPtr ATHostConnectionCreateWithLibraryDelegate(IntPtr libraryName, IntPtr udid, int options);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate int ATHostConnectionSendHostInfoDelegate(IntPtr connection, IntPtr hostInfoDict);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int ATHostConnectionSendSyncRequestDelegate(IntPtr connection, IntPtr dataclassesArray, IntPtr optionsDict, IntPtr hostInfoDict);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int ATHostConnectionSendMetadataSyncFinishedDelegate(IntPtr connection, IntPtr indicatorsDict, IntPtr optionsDict);
+    private delegate int ATHostConnectionSendMetadataSyncFinishedDelegate(IntPtr connection, IntPtr syncTypesArray, IntPtr dataclassAnchorsDict);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void ATHostConnectionDestroyDelegate(IntPtr connection);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void ATHostWaitForQueueToDrainDelegate(IntPtr connection);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void ATAddAppleSearchPathsToEnvironmentFromRegDelegate();
@@ -63,10 +72,16 @@ public static class AirTrafficHostApi
     private delegate IntPtr CFDictionaryCreateMutableDelegate(IntPtr alloc, long capacity, IntPtr keyCallbacks, IntPtr valueCallbacks);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void CFDictionarySetValueDelegate(IntPtr dict, IntPtr key, IntPtr value);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void CFReleaseDelegate(IntPtr cfType);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool SetDllDirectory(string? lpPathName);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr AddDllDirectory(string lpPathName);
 
     /// <summary>
     /// Gets whether AirTrafficHost.dll and CoreFoundation.dll are present and initialized.
@@ -104,6 +119,7 @@ public static class AirTrafficHostApi
                 if (!string.IsNullOrEmpty(athDir))
                 {
                     SetDllDirectory(athDir);
+                    try { AddDllDirectory(athDir); } catch { }
                 }
 
                 // Locate CoreFoundation.dll
@@ -115,6 +131,10 @@ public static class AirTrafficHostApi
                 }
 
                 var cfDir = Path.GetDirectoryName(cfPath);
+                if (!string.IsNullOrEmpty(cfDir))
+                {
+                    try { AddDllDirectory(cfDir); } catch { }
+                }
 
                 // Ensure both directories are present in the PATH environment variable
                 try
@@ -149,12 +169,23 @@ public static class AirTrafficHostApi
                 // AirTrafficHost exports
                 _createWithLibrary = Marshal.GetDelegateForFunctionPointer<ATHostConnectionCreateWithLibraryDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionCreateWithLibrary"));
+
+                if (NativeLibrary.TryGetExport(_athModule, "ATHostConnectionSendHostInfo", out var hostInfoPtr))
+                {
+                    _sendHostInfo = Marshal.GetDelegateForFunctionPointer<ATHostConnectionSendHostInfoDelegate>(hostInfoPtr);
+                }
+
                 _sendSyncRequest = Marshal.GetDelegateForFunctionPointer<ATHostConnectionSendSyncRequestDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionSendSyncRequest"));
                 _sendMetadataSyncFinished = Marshal.GetDelegateForFunctionPointer<ATHostConnectionSendMetadataSyncFinishedDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionSendMetadataSyncFinished"));
                 _destroy = Marshal.GetDelegateForFunctionPointer<ATHostConnectionDestroyDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionDestroy"));
+
+                if (NativeLibrary.TryGetExport(_athModule, "ATHostWaitForQueueToDrain", out var drainPtr))
+                {
+                    _waitForQueueToDrain = Marshal.GetDelegateForFunctionPointer<ATHostWaitForQueueToDrainDelegate>(drainPtr);
+                }
 
                 // CoreFoundation exports
                 _cfStringCreate = Marshal.GetDelegateForFunctionPointer<CFStringCreateWithCharactersDelegate>(
@@ -165,6 +196,12 @@ public static class AirTrafficHostApi
                     NativeLibrary.GetExport(_cfModule, "CFArrayAppendValue"));
                 _cfDictionaryCreateMutable = Marshal.GetDelegateForFunctionPointer<CFDictionaryCreateMutableDelegate>(
                     NativeLibrary.GetExport(_cfModule, "CFDictionaryCreateMutable"));
+
+                if (NativeLibrary.TryGetExport(_cfModule, "CFDictionarySetValue", out var setValPtr))
+                {
+                    _cfDictionarySetValue = Marshal.GetDelegateForFunctionPointer<CFDictionarySetValueDelegate>(setValPtr);
+                }
+
                 _cfRelease = Marshal.GetDelegateForFunctionPointer<CFReleaseDelegate>(
                     NativeLibrary.GetExport(_cfModule, "CFRelease"));
 
@@ -194,8 +231,9 @@ public static class AirTrafficHostApi
     /// </summary>
     /// <param name="udid">Device UDID.</param>
     /// <param name="libraryName">Target sync library name, default "Photos".</param>
+    /// <param name="libraryId">Sync library UUID.</param>
     /// <returns>True if the sync signals were accepted by AirTrafficHost.</returns>
-    public static bool TriggerSync(string udid, string libraryName = "Photos")
+    public static bool TriggerSync(string udid, string libraryName = "Photos", string? libraryId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(udid);
         if (!IsAvailable)
@@ -205,24 +243,41 @@ public static class AirTrafficHostApi
         }
 
         IntPtr libStr = IntPtr.Zero;
+        IntPtr itunesStr = IntPtr.Zero;
         IntPtr udidStr = IntPtr.Zero;
         IntPtr conn = IntPtr.Zero;
         IntPtr arr = IntPtr.Zero;
         IntPtr options = IntPtr.Zero;
         IntPtr hostInfo = IntPtr.Zero;
+        var cfAllocations = new List<IntPtr>();
 
         try
         {
             libStr = CreateCFString(libraryName);
+            itunesStr = CreateCFString("iTunes");
             udidStr = CreateCFString(udid);
 
+            // Attempt 1: Target library name (e.g. "Photos")
             conn = _createWithLibrary!(libStr, udidStr, 0);
+
+            // Attempt 2: Target library without hyphens in UDID (older iOS/AMDS compatibility)
             if (conn == IntPtr.Zero && udid.Contains('-'))
             {
-                // Fallback: try UDID without hyphens for older AMDS/atc compatibility
                 ReleaseCF(udidStr);
                 udidStr = CreateCFString(udid.Replace("-", string.Empty));
                 conn = _createWithLibrary!(libStr, udidStr, 0);
+            }
+
+            // Attempt 3: "iTunes" host library identifier
+            if (conn == IntPtr.Zero)
+            {
+                conn = _createWithLibrary!(itunesStr, udidStr, 0);
+            }
+
+            // Attempt 4: Null library identifier (default host connection)
+            if (conn == IntPtr.Zero)
+            {
+                conn = _createWithLibrary!(IntPtr.Zero, udidStr, 0);
             }
 
             if (conn == IntPtr.Zero)
@@ -231,20 +286,48 @@ public static class AirTrafficHostApi
                 return false;
             }
 
-            // Create array with library name
+            // Create array with sync data classes (e.g. "Photos")
             arr = _cfArrayCreateMutable!(IntPtr.Zero, 0, _kCFTypeArrayCallBacks);
             _cfArrayAppendValue!(arr, libStr);
 
-            // Empty options and host info dictionaries
+            // Create options dictionary
             options = _cfDictionaryCreateMutable!(IntPtr.Zero, 0, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks);
+
+            // Create and populate HostInfo dictionary for atc daemon handshake
             hostInfo = _cfDictionaryCreateMutable!(IntPtr.Zero, 0, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks);
+            SetCFDictValue(hostInfo, "Type", "iTunes", cfAllocations);
+            SetCFDictValue(hostInfo, "Version", "13.7.0.161", cfAllocations);
+            SetCFDictValue(hostInfo, "SyncHostName", Environment.MachineName, cfAllocations);
+            SetCFDictValue(hostInfo, "SyncedDataclasses", arr, cfAllocations);
+            SetCFDictValue(hostInfo, "LibraryID", libraryId ?? Guid.NewGuid().ToString().ToUpperInvariant(), cfAllocations);
 
+            // Step 1: Send HostInfo to initialize AirTraffic connection state machine
+            int hostInfoRes = 0;
+            if (_sendHostInfo != null)
+            {
+                try
+                {
+                    hostInfoRes = _sendHostInfo(conn, hostInfo);
+                }
+                catch (Exception ex)
+                {
+                    AppLog.Info($"AirTraffic: sendHostInfo notice: {ex.Message}");
+                }
+            }
+
+            // Step 2: Send sync request for dataclasses
             var reqRes = _sendSyncRequest!(conn, arr, options, hostInfo);
-            var finRes = _sendMetadataSyncFinished!(conn, options, hostInfo);
 
-            AppLog.Info($"AirTraffic: sync signaled for {udid} (req={reqRes}, fin={finRes})");
+            // Step 3: Send metadata sync finished with dataclass array and anchors
+            var finRes = _sendMetadataSyncFinished!(conn, arr, options);
 
-            // Allow pending socket IPC messages to flush over usbmux before teardown
+            AppLog.Info($"AirTraffic: sync signaled for {udid} (hostInfo={hostInfoRes}, req={reqRes}, fin={finRes})");
+
+            // Step 4: Drain queued async operations to ensure messages flush across usbmux
+            if (_waitForQueueToDrain != null)
+            {
+                try { _waitForQueueToDrain(conn); } catch { }
+            }
             Thread.Sleep(300);
             return true;
         }
@@ -259,11 +342,40 @@ public static class AirTrafficHostApi
             {
                 try { _destroy!(conn); } catch { /* best effort */ }
             }
+            foreach (var cfPtr in cfAllocations)
+            {
+                ReleaseCF(cfPtr);
+            }
             ReleaseCF(arr);
             ReleaseCF(options);
             ReleaseCF(hostInfo);
             ReleaseCF(libStr);
+            ReleaseCF(itunesStr);
             ReleaseCF(udidStr);
+        }
+    }
+
+    private static void SetCFDictValue(IntPtr dict, string key, string value, List<IntPtr> toRelease)
+    {
+        if (dict == IntPtr.Zero || _cfDictionarySetValue == null) return;
+        var keyRef = CreateCFString(key);
+        var valRef = CreateCFString(value);
+        if (keyRef != IntPtr.Zero) toRelease.Add(keyRef);
+        if (valRef != IntPtr.Zero) toRelease.Add(valRef);
+        if (keyRef != IntPtr.Zero && valRef != IntPtr.Zero)
+        {
+            _cfDictionarySetValue(dict, keyRef, valRef);
+        }
+    }
+
+    private static void SetCFDictValue(IntPtr dict, string key, IntPtr value, List<IntPtr> toRelease)
+    {
+        if (dict == IntPtr.Zero || value == IntPtr.Zero || _cfDictionarySetValue == null) return;
+        var keyRef = CreateCFString(key);
+        if (keyRef != IntPtr.Zero)
+        {
+            toRelease.Add(keyRef);
+            _cfDictionarySetValue(dict, keyRef, value);
         }
     }
 

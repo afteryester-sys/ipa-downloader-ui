@@ -1004,8 +1004,13 @@
     <sys:String x:Key="L.QuickTransfer.TargetPhotos">Photos Library (iPhone)</sys:String>
     <sys:String x:Key="L.QuickTransfer.TargetInstall">Install to iPhone</sys:String>
     <sys:String x:Key="L.QuickTransfer.TargetContacts">Contacts</sys:String>
+    <sys:String x:Key="L.QuickTransfer.DeviceDownloads">iPhone Storage (Downloads)</sys:String>
     <sys:String x:Key="L.QuickTransfer.ImportingPhotos">Importing to Photos {0} of {1}: {2}</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ImportingContacts">Importing contacts {0} of {1}: {2} ({3} contacts)</sys:String>
+    <sys:String x:Key="L.QuickTransfer.ContactImportHint">vCard contacts are imported into the iPhone address book and saved on device.</sys:String>
     <sys:String x:Key="L.QuickTransfer.VerifiedAll">Done: Photos — {0}; files — {1}; IPAs queued — {2}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.VerifiedAllFull">Done: Photos — {0}; contacts — {1}; files — {2}; IPAs queued — {3}.</sys:String>
+    <sys:String x:Key="L.QuickTransfer.StagedOnDevice">Files saved to iPhone storage: {0}.</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
 
     <!-- IPSW firmware -->

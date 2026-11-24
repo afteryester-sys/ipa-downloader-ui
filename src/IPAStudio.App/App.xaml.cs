@@ -99,6 +99,7 @@ public partial class App : Application
         services.AddSingleton<MediaExportService>();
         services.AddSingleton<StatisticsService>();
         services.AddSingleton<FileSharingService>();
+        services.AddSingleton<QuickTransferService>();
         services.AddSingleton<ReleaseNotesService>();
 
         // The iTunes 12.6.5.3 fallback route. Shared, so the catalog and direct-download
