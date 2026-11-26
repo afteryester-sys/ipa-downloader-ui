@@ -145,6 +145,11 @@ public partial class BugReportDialog : Window
                 StatusLabel.Text = string.IsNullOrWhiteSpace(res.ReportId)
                     ? Loc.Get("L.BugReport.SiteSuccess")
                     : Loc.Format("L.BugReport.SiteSuccessWithId", res.ReportId);
+
+                if (App.Services?.GetService(typeof(ViewModels.ShellViewModel)) is ViewModels.ShellViewModel shell)
+                {
+                    shell.ShowToast(Loc.Get("L.BugReport.MenuTitle"), StatusLabel.Text, "✓");
+                }
             }
             else
             {

@@ -812,9 +812,19 @@ public sealed class AirTrafficPhotoSyncService
 
     private static void WriteAfcLocalFile(IAfcApi afc, AfcClientHandle client, string localPath, string remotePath)
     {
+        var parent = Path.GetDirectoryName(remotePath)?.Replace('\\', '/');
+        if (!string.IsNullOrEmpty(parent))
+        {
+            EnsureDirectory(afc, client, parent);
+        }
+
         ulong handle = 0;
         var openErr = afc.afc_file_open(client, remotePath, AfcFileMode.FopenWronly, ref handle);
-        if (openErr != AfcError.Success) return;
+        if (openErr != AfcError.Success)
+        {
+            AppLog.Warn($"AirTraffic: cannot open destination '{remotePath}' for writing ({openErr})");
+            return;
+        }
 
         try
         {
@@ -826,7 +836,11 @@ public sealed class AirTrafficPhotoSyncService
                 uint written = 0;
                 var chunk = read == buffer.Length ? buffer : buffer[..read];
                 var writeErr = afc.afc_file_write(client, handle, chunk, (uint)read, ref written);
-                if (writeErr != AfcError.Success || written != (uint)read) break;
+                if (writeErr != AfcError.Success || written != (uint)read)
+                {
+                    AppLog.Warn($"AirTraffic: write failure on '{remotePath}' ({writeErr})");
+                    break;
+                }
             }
         }
         finally

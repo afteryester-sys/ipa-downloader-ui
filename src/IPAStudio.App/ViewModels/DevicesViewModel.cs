@@ -289,6 +289,12 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
             Devices.Add(vm);
             HasDevices = Devices.Count > 0;
 
+            if (App.Services?.GetService(typeof(ShellViewModel)) is ShellViewModel shell)
+            {
+                var connType = device.IsNetworkLink ? "Wi-Fi" : "USB";
+                shell.ShowToast(Loc.Get("L.Devices.Connected"), $"{device.Name} ({device.Model}, {connType})", "📱");
+            }
+
             // Clear the "just connected" flag after the entry animation window.
             _ = Task.Delay(2500).ContinueWith(_ =>
                 RunOnUi(() => vm.JustConnected = false));

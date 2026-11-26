@@ -189,6 +189,10 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     [ObservableProperty] private string _toastTitle = "";
     [ObservableProperty] private string _toastMessage = "";
     [ObservableProperty] private string _toastIcon = "✓";
+    [ObservableProperty] private string _toastGlyph = "\uE73E";
+    [ObservableProperty] private System.Windows.Media.Brush _toastForegroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x10, 0xB9, 0x81));
+    [ObservableProperty] private System.Windows.Media.Brush _toastBackgroundBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(0x28, 0x10, 0xB9, 0x81));
+    private Action? _lastToastAction;
 
     private DispatcherTimer? _toastDismissTimer;
 
@@ -261,43 +265,162 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
                     : (!string.IsNullOrWhiteSpace(op.Title) ? op.Title : op.Subtitle);
             }
 
-            ShowToast(title, msg);
+            string icon = op.Kind switch
+            {
+                OperationKind.Photos => "📷",
+                OperationKind.MediaExport => "📷",
+                OperationKind.Download => "📥",
+                OperationKind.Firmware => "⚙",
+                _ => "✓"
+            };
+
+            ShowToast(title, msg, icon, () => GoToOperation(op));
         };
 
         Updater.UpdateFound += ver =>
         {
             var verStr = $"{ver.Major}.{ver.Minor}.{ver.Build}";
-            ShowToast(Loc.Get("L.Update.Title"), Loc.Format("L.Update.Available", verStr), "🔄");
+            ShowToast(Loc.Get("L.Update.Title"), Loc.Format("L.Update.Available", verStr), "🔄", () =>
+            {
+                Updater.IsOpen = true;
+            });
         };
 
         Updater.UpdateDownloaded += () =>
         {
-            ShowToast(Loc.Get("L.Update.Title"), Loc.Get("L.Update.Ready"), "✓");
+            ShowToast(Loc.Get("L.Update.Title"), Loc.Get("L.Update.Ready"), "✓", () =>
+            {
+                Updater.IsOpen = true;
+            });
         };
 
         GoTo(Page.Setup);
     }
 
-    public void ShowToast(string title, string message, string icon = "✓")
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    private static bool IsWindowForegroundAndActive(System.Windows.Window? window)
     {
+        if (window is null) return false;
+        if (window.WindowState == System.Windows.WindowState.Minimized) return false;
+        if (!window.IsActive) return false;
+
+        var helper = new System.Windows.Interop.WindowInteropHelper(window);
+        var fg = GetForegroundWindow();
+        return fg != IntPtr.Zero && fg == helper.Handle;
+    }
+
+    private void UpdateToastTheme(string icon)
+    {
+        string glyph;
+        System.Windows.Media.Color color;
+
+        switch (icon?.ToLowerInvariant())
+        {
+            case "🔄":
+            case "update":
+                glyph = "\uE895";
+                color = System.Windows.Media.Color.FromRgb(0x3B, 0x82, 0xF6); // Accent blue
+                break;
+            case "📱":
+            case "device":
+                glyph = "\uE8EA";
+                color = System.Windows.Media.Color.FromRgb(0x8B, 0x5C, 0xF6); // Purple
+                break;
+            case "📥":
+            case "download":
+                glyph = "\uE896";
+                color = System.Windows.Media.Color.FromRgb(0x06, 0xB6, 0xD4); // Cyan
+                break;
+            case "⚠":
+            case "warning":
+                glyph = "\uE7BA";
+                color = System.Windows.Media.Color.FromRgb(0xF5, 0x9E, 0x0B); // Amber
+                break;
+            case "✕":
+            case "error":
+                glyph = "\uEA39";
+                color = System.Windows.Media.Color.FromRgb(0xEF, 0x44, 0x44); // Red
+                break;
+            case "📷":
+            case "photos":
+                glyph = "\uEB9F";
+                color = System.Windows.Media.Color.FromRgb(0x0E, 0xA5, 0xE9); // Sky blue
+                break;
+            case "⚙":
+            case "firmware":
+                glyph = "\uE713";
+                color = System.Windows.Media.Color.FromRgb(0x63, 0x66, 0xF1); // Indigo
+                break;
+            default:
+                glyph = "\uE73E";
+                color = System.Windows.Media.Color.FromRgb(0x10, 0xB9, 0x81); // Emerald
+                break;
+        }
+
+        ToastGlyph = glyph;
+        ToastForegroundBrush = new System.Windows.Media.SolidColorBrush(color);
+        ToastBackgroundBrush = new System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromArgb(0x28, color.R, color.G, color.B));
+    }
+
+    public void ShowToast(string title, string message, string icon = "✓", Action? onClick = null)
+    {
+        if (!_settings.Current.TaskCompletionNotificationsEnabled) return;
+
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
         {
             ToastTitle = title;
             ToastMessage = message;
             ToastIcon = icon;
-            IsToastVisible = true;
+            _lastToastAction = onClick;
+            UpdateToastTheme(icon);
 
-            _toastDismissTimer?.Stop();
-            _toastDismissTimer = new DispatcherTimer
+            var main = System.Windows.Application.Current?.MainWindow;
+            bool isForeground = IsWindowForegroundAndActive(main);
+
+            if (!isForeground)
             {
-                Interval = TimeSpan.FromSeconds(4.5)
-            };
-            _toastDismissTimer.Tick += (_, _) =>
+                // Minimized or behind another window: show floating desktop toast in bottom-right corner
+                Views.DesktopToastWindow.ShowToast(title, message, icon, () =>
+                {
+                    if (main is not null)
+                    {
+                        if (main.WindowState == System.Windows.WindowState.Minimized)
+                            main.WindowState = System.Windows.WindowState.Normal;
+                        main.Activate();
+                        main.Focus();
+                    }
+                    if (_lastToastAction != null)
+                    {
+                        var act = _lastToastAction;
+                        _lastToastAction = null;
+                        act.Invoke();
+                    }
+                    else
+                    {
+                        ToastClick();
+                    }
+                });
+            }
+            else
             {
-                _toastDismissTimer.Stop();
-                DismissToast();
-            };
-            _toastDismissTimer.Start();
+                // Active in foreground: show in-app animated toast card
+                IsToastVisible = true;
+
+                _toastDismissTimer?.Stop();
+                _toastDismissTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(4.5)
+                };
+                _toastDismissTimer.Tick += (_, _) =>
+                {
+                    _toastDismissTimer.Stop();
+                    DismissToast();
+                };
+                _toastDismissTimer.Start();
+            }
         });
     }
 
@@ -311,7 +434,13 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
     [RelayCommand]
     public void ToastClick()
     {
-        if (Updater.UpdateAvailable || Updater.UpdateReady)
+        if (_lastToastAction != null)
+        {
+            var act = _lastToastAction;
+            _lastToastAction = null;
+            act.Invoke();
+        }
+        else if (Updater.UpdateAvailable || Updater.UpdateReady)
         {
             Updater.IsOpen = true;
         }

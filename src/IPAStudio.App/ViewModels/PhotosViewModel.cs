@@ -1531,6 +1531,11 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         if (syncRes is { Success: true, Copied: > 0 })
         {
             StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
+            if (App.Services?.GetService(typeof(ShellViewModel)) is ShellViewModel shell)
+            {
+                shell.ShowToast(Loc.Get("L.Photos.SyncTitle"), StatusText, "📷");
+            }
+
             ModernDialog.Show(
                 Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
                 Loc.Get("L.Photos.SyncTitle"),
@@ -1546,6 +1551,12 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             StatusText = importRes.AppearedInLibrary
                 ? Loc.Format("L.Photos.Imported", importRes.Copied, importRes.Total)
                 : Loc.Format("L.Photos.ImportedNotInLibrary", importRes.Copied, importRes.Total);
+
+            if (App.Services?.GetService(typeof(ShellViewModel)) is ShellViewModel shell)
+            {
+                shell.ShowToast(Loc.Get("L.Photos.Import"), StatusText, "📷");
+            }
+
             await LoadAsync(forceRefresh: true);
             return;
         }

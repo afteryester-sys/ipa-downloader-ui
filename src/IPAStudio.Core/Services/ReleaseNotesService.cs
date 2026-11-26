@@ -56,6 +56,33 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.90",
+                    date: "26.11.2026",
+                    title: "Унифицированные всплывающие уведомления, всплывающее окно в углу экрана и улучшенная синхронизация фото",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "УВЕДОМЛЕНИЯ",
+                            "Всплывающее окно уведомлений в правом нижнем углу экрана",
+                            "Все уведомления приложения приведены к единому современному стилю баннера обновлений. Если окно программы свёрнуто или находится позади других окон, уведомления о завершении операций (установка, загрузка, перенос, подключение устройств) плавно всплывают в правом нижнем углу экрана над панелью задач Windows с возможностью перехода в один клик."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ОХВАТ ОПЕРАЦИЙ",
+                            "Уведомления на завершение ключевых действий",
+                            "Подключены информативные уведомления на завершение быстрого переноса файлов, импорта фото, извлечения и удаления приложений, подключения устройств и отправки багрепортов."),
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ФОТО И МЕДИАТЕКА",
+                            "Исправлена блокировка базы данных и надёжная запись в DCIM",
+                            "Устранена ошибка «Access to the path is denied» при обновлении локального кэша Photos.sqlite за счёт отключения пулинга SQLite. Фотографии гарантированно записываются напрямую в активную папку DCIM (100APPLE/102APPLE), а в интерфейсе отображается честный статус доступности в галерее iOS."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ОБНОВЛЕНИЯ",
+                            "Повышена надёжность автообнаружения новых версий",
+                            "Добавлен обязательный заголовок User-Agent и автоматический анонимный резервный запрос при истечении токена, что гарантирует бесперебойную проверку обновлений через GitHub Releases API.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.89",
                     date: "26.11.2026",
                     title: "Исправлен вылет при передаче фото и добавлена отправка баг-репортов",
@@ -918,6 +945,33 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.90",
+                date: "11/26/2026",
+                title: "Unified Toast Notifications, Desktop Corner Popup, and Reliable Photo Sync",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "NOTIFICATIONS",
+                        "Desktop Corner Toast Notifications When Inactive",
+                        "All application notifications now share the sleek liquid-glass design previously featured on the update banner. When the main window is minimized or behind other applications, task completion notifications pop up smoothly in the bottom-right corner of the desktop above the taskbar."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "TASK COVERAGE",
+                        "Completion Notifications Across All Major Operations",
+                        "Added responsive toast notifications for Quick Transfer completion, photo imports, app installs, IPA extractions, device connection events, and bug report submissions."),
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "PHOTOS & DATABASE",
+                        "Resolved SQLite Cache Lock and Direct DCIM Staging",
+                        "Eliminated the 'Access to the path is denied' error by disabling SQLite connection pooling when updating local database caches. Photos are reliably placed into the active DCIM camera roll folder with accurate library status reporting."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "UPDATES",
+                        "Hardened Automatic Update Detection",
+                        "Added explicit User-Agent headers and an anonymous public API fallback if embedded tokens expire, ensuring 100% reliable background update checks.")
+                }),
             new ReleaseNote(
                 version: "1.8.89",
                 date: "11/26/2026",

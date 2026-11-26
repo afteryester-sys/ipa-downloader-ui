@@ -363,6 +363,11 @@ public partial class QuickTransferDialog : Window
                 result.IpaFiles.Count);
             CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
             CancelButton.IsEnabled = true;
+
+            if (App.Services?.GetService(typeof(ViewModels.ShellViewModel)) is ViewModels.ShellViewModel shell)
+            {
+                shell.ShowToast(Loc.Get("L.QuickTransfer.Title"), ProgressLabel.Text, "✓");
+            }
         }
         catch (OperationCanceledException)
         {

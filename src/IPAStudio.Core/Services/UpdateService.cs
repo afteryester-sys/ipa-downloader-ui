@@ -98,6 +98,7 @@ public sealed class UpdateService
             ? "application/octet-stream"
             : "application/vnd.github+json");
         req.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
+        req.Headers.UserAgent.ParseAdd("IPAStudio/1.0");
         if (HasToken)
             req.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", UpdateSecrets.GitHubToken);
@@ -138,6 +139,16 @@ public sealed class UpdateService
         {
             using var request = BuildRequest(LatestReleaseApi);
             response = await _http.SendAsync(request, ct);
+
+            // If an embedded token failed with 401 Unauthorized, retry anonymously on public repository
+            if (response.StatusCode == HttpStatusCode.Unauthorized && HasToken)
+            {
+                AppLog.Warn("Update check: embedded token returned 401 Unauthorized, retrying anonymously.");
+                response.Dispose();
+                using var retryReq = BuildRequest(LatestReleaseApi);
+                retryReq.Headers.Authorization = null;
+                response = await _http.SendAsync(retryReq, ct);
+            }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -514,24 +525,36 @@ public sealed class UpdateService
         try
         {
             using var request = BuildRequest(ReleasesListApi);
-            using var response = await _http.SendAsync(request, ct);
-            if (!response.IsSuccessStatusCode)
+            var response = await _http.SendAsync(request, ct);
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized && HasToken)
             {
-                AppLog.Warn($"ListReleasesAsync: HTTP {(int)response.StatusCode}.");
-                return [];
+                response.Dispose();
+                using var retryReq = BuildRequest(ReleasesListApi);
+                retryReq.Headers.Authorization = null;
+                response = await _http.SendAsync(retryReq, ct);
             }
 
-            var releases = await response.Content.ReadFromJsonAsync<List<GitHubRelease>>(cancellationToken: ct);
-            if (releases is null) return [];
-
-            var result = new List<ReleaseSummary>();
-            foreach (var r in releases)
+            using (response)
             {
-                if (string.IsNullOrWhiteSpace(r.TagName)) continue;
-                if (PickAsset(r) is null) continue; // nothing installable in this release
-                result.Add(new ReleaseSummary(r.TagName, ParseVersion(r.TagName), r.PublishedAt));
+                if (!response.IsSuccessStatusCode)
+                {
+                    AppLog.Warn($"ListReleasesAsync: HTTP {(int)response.StatusCode}.");
+                    return [];
+                }
+
+                var releases = await response.Content.ReadFromJsonAsync<List<GitHubRelease>>(cancellationToken: ct);
+                if (releases is null) return [];
+
+                var result = new List<ReleaseSummary>();
+                foreach (var r in releases)
+                {
+                    if (string.IsNullOrWhiteSpace(r.TagName)) continue;
+                    if (PickAsset(r) is null) continue; // nothing installable in this release
+                    result.Add(new ReleaseSummary(r.TagName, ParseVersion(r.TagName), r.PublishedAt));
+                }
+                return result;
             }
-            return result;
         }
         catch (Exception ex)
         {

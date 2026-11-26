@@ -545,7 +545,7 @@ public sealed class PhotoService
 
         try
         {
-            using var conn = new SqliteConnection($"Data Source={localDb};Mode=ReadOnly;Cache=Private");
+            using var conn = new SqliteConnection($"Data Source={localDb};Mode=ReadOnly;Cache=Private;Pooling=False;");
             conn.Open();
 
             using var command = conn.CreateCommand();
@@ -923,6 +923,11 @@ public sealed class PhotoService
 
             try
             {
+                SqliteConnection.ClearAllPools();
+                if (File.Exists(persisted))
+                {
+                    try { File.Delete(persisted); } catch { /* best effort */ }
+                }
                 File.Move(staging, persisted, overwrite: true);
             }
             catch (Exception ex)
@@ -1039,7 +1044,7 @@ public sealed class PhotoService
         // Immutable, not just ReadOnly: the copy was taken while iOS may have been writing,
         // so the journal can look dirty. ReadOnly alone makes SQLite try to recover it and
         // fail the open outright, discarding names we could still have read.
-        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Private;");
+        using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Private;Pooling=False;");
         conn.DefaultTimeout = 5;
         conn.Open();
 
