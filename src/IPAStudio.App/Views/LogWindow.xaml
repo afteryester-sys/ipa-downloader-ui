@@ -32,6 +32,8 @@
                     Command="{Binding OpenFileCommand}" MinWidth="150" Margin="0,0,8,0" />
             <Button Content="{DynamicResource L.Logs.Clear}" Style="{StaticResource Button.Secondary}"
                     Command="{Binding ClearLogCommand}" MinWidth="90" />
+            <Button Content="{DynamicResource L.BugReport.Title}" Style="{StaticResource Button.Secondary}"
+                    Click="OpenBugReport_Click" MinWidth="150" Margin="8,0,0,0" />
             <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Caption}"
                        VerticalAlignment="Center" Margin="14,0,0,0" />
         </StackPanel>

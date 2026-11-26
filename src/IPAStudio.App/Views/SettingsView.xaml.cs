@@ -16,4 +16,13 @@ public partial class SettingsView : UserControl
         Loaded += (_, _) => (DataContext as SettingsViewModel)?.StartLoadMonitor();
         Unloaded += (_, _) => (DataContext as SettingsViewModel)?.StopLoadMonitor();
     }
+
+    private void OpenBugReport_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dialog = new BugReportDialog
+        {
+            Owner = System.Windows.Window.GetWindow(this)
+        };
+        dialog.ShowDialog();
+    }
 }

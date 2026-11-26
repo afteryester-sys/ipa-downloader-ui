@@ -38,6 +38,8 @@ public partial class QuickTransferDialog : Window
     private FileSharingApp? _userSelectedApp;
     private bool _isBusy;
     private bool _isRefreshing;
+    private bool _isClosed;
+    private int _activeAsyncOps;
 
     public QuickTransferDialog(
         Device device,
@@ -65,9 +67,11 @@ public partial class QuickTransferDialog : Window
     {
         DestinationPicker.IsEnabled = false;
         DestinationHint.Text = Loc.Get("L.QuickTransfer.ScanningApps");
+        _activeAsyncOps++;
         try
         {
             var scan = await _sharing.GetAvailableAppsAsync(_device.Udid, _cts.Token);
+            if (_isClosed) return;
             _availableApps = scan.Apps;
 
             DestinationPicker.IsEnabled = _availableApps.Count > 0;
@@ -86,9 +90,14 @@ public partial class QuickTransferDialog : Window
             }
         }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
         catch (Exception ex)
         {
-            DestinationHint.Text = Loc.Format("L.QuickTransfer.ScanFailed", ex.Message);
+            if (!_isClosed) DestinationHint.Text = Loc.Format("L.QuickTransfer.ScanFailed", ex.Message);
+        }
+        finally
+        {
+            ReleaseAsyncOp();
         }
     }
 
@@ -281,8 +290,9 @@ public partial class QuickTransferDialog : Window
 
     private async void OnTransferClicked(object sender, RoutedEventArgs e)
     {
-        if (_isBusy) return;
+        if (_isBusy || _isClosed) return;
         _isBusy = true;
+        _activeAsyncOps++;
         TransferButton.IsEnabled = false;
         DestinationPicker.IsEnabled = false;
         ResultState.Visibility = Visibility.Collapsed;
@@ -298,9 +308,15 @@ public partial class QuickTransferDialog : Window
 
             var transferProgress = new Progress<QuickTransferProgress>(p =>
             {
+                if (_isClosed) return;
                 ProgressBarControl.Value = p.Percent;
-                var currentNum = Math.Min(p.CompletedCount + 1, p.TotalCount);
-                if (!string.IsNullOrWhiteSpace(p.SpeedText))
+                var currentNum = Math.Min(p.CompletedCount + 1, Math.Max(1, p.TotalCount));
+                if (!string.IsNullOrWhiteSpace(p.StatusDetail))
+                {
+                    ProgressLabel.Text = p.StatusDetail;
+                    ProgressSpeedLabel.Text = p.SpeedText;
+                }
+                else if (!string.IsNullOrWhiteSpace(p.SpeedText))
                 {
                     ProgressLabel.Text = Loc.Format("L.QuickTransfer.CopyingFile", currentNum, p.TotalCount, p.CurrentFile, destination?.Name ?? Loc.Get("L.QuickTransfer.DeviceDownloads"));
                     ProgressSpeedLabel.Text = p.SpeedText;
@@ -319,11 +335,23 @@ public partial class QuickTransferDialog : Window
                 transferProgress,
                 _cts.Token);
 
+            if (_isClosed) return;
+
             if (result.IpaFiles.Count > 0)
             {
                 _operations.StartQueueOperation(OperationKind.Install, ViewModels.Page.Devices,
                     Loc.Get("L.Ops.Kind.Install"), _device.Name, _device,
                     q => q.BuildFromIpaFiles(result.IpaFiles, _device));
+            }
+
+            if (!result.Success && !string.IsNullOrWhiteSpace(result.ErrorMessage))
+            {
+                ProgressBarControl.Value = 0;
+                ProgressSpeedLabel.Text = string.Empty;
+                ProgressLabel.Text = Loc.Format("L.QuickTransfer.TransferFailed", result.ErrorMessage);
+                CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
+                CancelButton.IsEnabled = true;
+                return;
             }
 
             ProgressBarControl.Value = 100;
@@ -338,19 +366,28 @@ public partial class QuickTransferDialog : Window
         }
         catch (OperationCanceledException)
         {
-            Close();
+            if (!_isClosed) Close();
+        }
+        catch (ObjectDisposedException)
+        {
+            if (!_isClosed) Close();
         }
         catch (Exception ex)
         {
-            ProgressBarControl.Value = 0;
-            ProgressSpeedLabel.Text = string.Empty;
-            ProgressLabel.Text = Loc.Format("L.QuickTransfer.TransferFailed", ex.Message);
-            CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
-            CancelButton.IsEnabled = true;
+            IPAStudio.Core.Diagnostics.AppLog.Warn($"QuickTransfer dialog error: {ex.Message}");
+            if (!_isClosed)
+            {
+                ProgressBarControl.Value = 0;
+                ProgressSpeedLabel.Text = string.Empty;
+                ProgressLabel.Text = Loc.Format("L.QuickTransfer.TransferFailed", ex.Message);
+                CancelButton.Content = Loc.Get("L.QuickTransfer.CloseAfterError");
+                CancelButton.IsEnabled = true;
+            }
         }
         finally
         {
             _isBusy = false;
+            ReleaseAsyncOp();
         }
     }
 
@@ -371,14 +408,27 @@ public partial class QuickTransferDialog : Window
 
     private void OnCancelClicked(object sender, RoutedEventArgs e)
     {
-        _cts.Cancel();
+        try { _cts.Cancel(); } catch (ObjectDisposedException) { }
         Close();
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _cts.Cancel();
-        _cts.Dispose();
+        _isClosed = true;
+        try { _cts.Cancel(); } catch (ObjectDisposedException) { }
+        if (_activeAsyncOps <= 0)
+        {
+            _cts.Dispose();
+        }
         base.OnClosed(e);
+    }
+
+    private void ReleaseAsyncOp()
+    {
+        if (_activeAsyncOps > 0) _activeAsyncOps--;
+        if (_isClosed && _activeAsyncOps <= 0)
+        {
+            try { _cts.Dispose(); } catch (ObjectDisposedException) { }
+        }
     }
 }

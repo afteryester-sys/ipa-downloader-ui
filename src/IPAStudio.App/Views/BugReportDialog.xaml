@@ -1,0 +1,125 @@
+<Window x:Class="IPAStudio.App.Views.BugReportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource L.BugReport.Title}"
+        Width="700" Height="710" MinWidth="580" MinHeight="560"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Brush.Background}">
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto" />
+            <!-- Form body -->
+            <RowDefinition Height="*" />
+            <!-- Footer -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
+                    Background="{DynamicResource Brush.AccentSoft}" Margin="0,0,14,0" VerticalAlignment="Center">
+                <TextBlock Text="&#xEBE8;" FontFamily="Segoe MDL2 Assets" FontSize="20"
+                           Foreground="{DynamicResource Brush.Accent}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{DynamicResource L.BugReport.Title}" Style="{StaticResource Text.Body}"
+                           FontSize="18" FontWeight="SemiBold" />
+                <TextBlock Text="{DynamicResource L.BugReport.Subtitle}" Style="{StaticResource Text.Caption}"
+                           TextWrapping="Wrap" Margin="0,3,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Form Body -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,14">
+            <StackPanel>
+                <!-- Subject / Title -->
+                <TextBlock Text="{DynamicResource L.BugReport.Subject}" Style="{StaticResource Text.Caption}"
+                           FontWeight="SemiBold" Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,14">
+                    <TextBox x:Name="SubjectBox" Height="42" Style="{StaticResource Input.TextBox}"
+                             TextChanged="OnInputChanged" />
+                    <TextBlock x:Name="SubjectPlaceholder" Text="{DynamicResource L.BugReport.SubjectHint}"
+                               Style="{StaticResource Text.Caption}" IsHitTestVisible="False"
+                               Margin="14,0,14,0" VerticalAlignment="Center" Opacity="0.55" />
+                </Grid>
+
+                <!-- Description -->
+                <TextBlock Text="{DynamicResource L.BugReport.Description}" Style="{StaticResource Text.Caption}"
+                           FontWeight="SemiBold" Margin="0,0,0,6" />
+                <Grid Margin="0,0,0,14">
+                    <TextBox x:Name="DescriptionBox" MinHeight="110" MaxHeight="180" AcceptsReturn="True"
+                             TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                             Style="{StaticResource Input.TextBox}" Padding="10"
+                             TextChanged="OnInputChanged" />
+                    <TextBlock x:Name="DescriptionPlaceholder" Text="{DynamicResource L.BugReport.DescriptionHint}"
+                               Style="{StaticResource Text.Caption}" IsHitTestVisible="False"
+                               Margin="12,12,12,0" VerticalAlignment="Top" Opacity="0.55" TextWrapping="Wrap" />
+                </Grid>
+
+                <!-- Checkbox to attach logs & system info -->
+                <CheckBox x:Name="IncludeLogsCheck" Content="{DynamicResource L.BugReport.IncludeLogs}"
+                          IsChecked="True" Foreground="{DynamicResource Brush.Text}"
+                          Checked="OnIncludeLogsChanged" Unchecked="OnIncludeLogsChanged"
+                          Margin="0,0,0,10" />
+
+                <!-- System diagnostics info preview -->
+                <Border x:Name="DiagnosticsPanel" CornerRadius="8" Background="{DynamicResource Brush.Surface}"
+                        BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1" Padding="12" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="{Binding SystemSummaryText, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   Style="{StaticResource Text.Caption}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                        <TextBlock Text="{DynamicResource L.BugReport.LogExcerpt}" Style="{StaticResource Text.Caption}"
+                                   Opacity="0.7" Margin="0,0,0,4" />
+                        <TextBox x:Name="LogPreviewBox" Height="120" IsReadOnly="True"
+                                 Background="{DynamicResource Brush.Background}"
+                                 BorderBrush="{DynamicResource Brush.Border}" BorderThickness="1"
+                                 Foreground="{DynamicResource Brush.TextMuted}"
+                                 FontFamily="Consolas, Cascadia Mono, monospace" FontSize="11"
+                                 TextWrapping="NoWrap" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 Padding="6" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Status message -->
+            <TextBlock x:Name="StatusLabel" Grid.Row="0" VerticalAlignment="Center"
+                       Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                       Margin="0,0,0,10" Foreground="{DynamicResource Brush.Accent}" />
+
+            <!-- Action buttons -->
+            <Grid Grid.Row="1">
+                <Button Content="{DynamicResource L.BugReport.CopyReport}" Style="{StaticResource Button.Ghost}"
+                        HorizontalAlignment="Left" Click="OnCopyClicked" Padding="12,8" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="SendSiteButton" Content="{DynamicResource L.BugReport.SendSite}" Style="{StaticResource Button.Secondary}"
+                            Click="OnSendSiteClicked" Margin="0,0,8,0" Padding="14,8" />
+                    <Button x:Name="SendGitHubButton" Content="{DynamicResource L.BugReport.SendGitHub}" Style="{StaticResource Button.Primary}"
+                            Click="OnSendGitHubClicked" Margin="0,0,8,0" Padding="16,8" />
+                    <Button Content="{DynamicResource L.Dialog.Close}" Style="{StaticResource Button.Ghost}"
+                            Click="OnCloseClicked" Padding="14,8" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

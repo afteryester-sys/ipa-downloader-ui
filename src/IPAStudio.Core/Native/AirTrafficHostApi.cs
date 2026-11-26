@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using IPAStudio.Core.Diagnostics;
 using Microsoft.Win32;
@@ -22,8 +24,8 @@ public static class AirTrafficHostApi
     private static ATHostConnectionSendHostInfoDelegate? _sendHostInfo;
     private static ATHostConnectionSendSyncRequestDelegate? _sendSyncRequest;
     private static ATHostConnectionSendMetadataSyncFinishedDelegate? _sendMetadataSyncFinished;
+    private static ATHostConnectionInvalidateDelegate? _invalidate;
     private static ATHostConnectionDestroyDelegate? _destroy;
-    private static ATHostWaitForQueueToDrainDelegate? _waitForQueueToDrain;
     private static ATAddAppleSearchPathsToEnvironmentFromRegDelegate? _addSearchPaths;
 
     // CoreFoundation delegates
@@ -37,24 +39,26 @@ public static class AirTrafficHostApi
     private static IntPtr _kCFTypeArrayCallBacks = IntPtr.Zero;
     private static IntPtr _kCFTypeDictionaryKeyCallBacks = IntPtr.Zero;
     private static IntPtr _kCFTypeDictionaryValueCallBacks = IntPtr.Zero;
+    private static IntPtr _kCFBooleanFalse = IntPtr.Zero;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate IntPtr ATHostConnectionCreateWithLibraryDelegate(IntPtr libraryName, IntPtr udid, int options);
+    private delegate IntPtr ATHostConnectionCreateWithLibraryDelegate(IntPtr libraryName, IntPtr udid, IntPtr reserved);
+
+    // Note: ATHostConnectionSendHostInfo and ATHostConnectionSendMetadataSyncFinished return void in AirTrafficHost.dll.
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void ATHostConnectionSendHostInfoDelegate(IntPtr connection, IntPtr hostInfoDict);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int ATHostConnectionSendHostInfoDelegate(IntPtr connection, IntPtr hostInfoDict);
+    private delegate int ATHostConnectionSendSyncRequestDelegate(IntPtr connection, IntPtr dataclassesArray, IntPtr anchorsDict, IntPtr hostInfoDict);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int ATHostConnectionSendSyncRequestDelegate(IntPtr connection, IntPtr dataclassesArray, IntPtr optionsDict, IntPtr hostInfoDict);
+    private delegate void ATHostConnectionSendMetadataSyncFinishedDelegate(IntPtr connection, IntPtr syncTypesArray, IntPtr dataclassAnchorsDict);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate int ATHostConnectionSendMetadataSyncFinishedDelegate(IntPtr connection, IntPtr syncTypesArray, IntPtr dataclassAnchorsDict);
+    private delegate void ATHostConnectionInvalidateDelegate(IntPtr connection);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void ATHostConnectionDestroyDelegate(IntPtr connection);
-
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    private delegate void ATHostWaitForQueueToDrainDelegate(IntPtr connection);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate void ATAddAppleSearchPathsToEnvironmentFromRegDelegate();
@@ -84,19 +88,24 @@ public static class AirTrafficHostApi
     private static extern IntPtr AddDllDirectory(string lpPathName);
 
     /// <summary>
-    /// Gets whether AirTrafficHost.dll and CoreFoundation.dll are present and initialized.
+    /// Gets whether AirTrafficHost.dll and CoreFoundation.dll exist on this machine.
+    /// Checked without loading the native libraries into the caller process so the main
+    /// UI process never carries unmanaged Apple sync DLLs directly.
     /// </summary>
     public static bool IsAvailable
     {
         get
         {
-            EnsureInitialized();
-            return _available;
+            if (_initialized) return _available;
+            var athPath = LocateAirTrafficHostDll();
+            if (string.IsNullOrWhiteSpace(athPath) || !File.Exists(athPath)) return false;
+            var cfPath = LocateCoreFoundationDll(Path.GetDirectoryName(athPath));
+            return !string.IsNullOrWhiteSpace(cfPath) && File.Exists(cfPath);
         }
     }
 
     /// <summary>
-    /// Ensures native libraries are loaded and delegates bound.
+    /// Ensures native libraries are loaded and delegates bound in the current process.
     /// </summary>
     public static void EnsureInitialized()
     {
@@ -122,7 +131,6 @@ public static class AirTrafficHostApi
                     try { AddDllDirectory(athDir); } catch { }
                 }
 
-                // Locate CoreFoundation.dll
                 var cfPath = LocateCoreFoundationDll(athDir);
                 if (string.IsNullOrWhiteSpace(cfPath) || !File.Exists(cfPath))
                 {
@@ -136,7 +144,6 @@ public static class AirTrafficHostApi
                     try { AddDllDirectory(cfDir); } catch { }
                 }
 
-                // Ensure both directories are present in the PATH environment variable
                 try
                 {
                     var curPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
@@ -159,14 +166,12 @@ public static class AirTrafficHostApi
                 _cfModule = NativeLibrary.Load(cfPath);
                 _athModule = NativeLibrary.Load(athPath);
 
-                // Optional search paths initialization
                 if (NativeLibrary.TryGetExport(_athModule, "ATAddAppleSearchPathsToEnvironmentFromReg", out var addPathsPtr))
                 {
                     _addSearchPaths = Marshal.GetDelegateForFunctionPointer<ATAddAppleSearchPathsToEnvironmentFromRegDelegate>(addPathsPtr);
                     try { _addSearchPaths(); } catch { /* best effort */ }
                 }
 
-                // AirTrafficHost exports
                 _createWithLibrary = Marshal.GetDelegateForFunctionPointer<ATHostConnectionCreateWithLibraryDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionCreateWithLibrary"));
 
@@ -179,15 +184,18 @@ public static class AirTrafficHostApi
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionSendSyncRequest"));
                 _sendMetadataSyncFinished = Marshal.GetDelegateForFunctionPointer<ATHostConnectionSendMetadataSyncFinishedDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionSendMetadataSyncFinished"));
+
+                if (NativeLibrary.TryGetExport(_athModule, "ATHostConnectionInvalidate", out var invalidatePtr))
+                {
+                    _invalidate = Marshal.GetDelegateForFunctionPointer<ATHostConnectionInvalidateDelegate>(invalidatePtr);
+                }
+
                 _destroy = Marshal.GetDelegateForFunctionPointer<ATHostConnectionDestroyDelegate>(
                     NativeLibrary.GetExport(_athModule, "ATHostConnectionDestroy"));
 
-                if (NativeLibrary.TryGetExport(_athModule, "ATHostWaitForQueueToDrain", out var drainPtr))
-                {
-                    _waitForQueueToDrain = Marshal.GetDelegateForFunctionPointer<ATHostWaitForQueueToDrainDelegate>(drainPtr);
-                }
+                // NOTE: ATHostWaitForQueueToDrain takes a libdispatch dispatch_queue_t (tail-calling
+                // dispatch_barrier_sync_f), NOT an ATHostConnection*. Never pass conn to it.
 
-                // CoreFoundation exports
                 _cfStringCreate = Marshal.GetDelegateForFunctionPointer<CFStringCreateWithCharactersDelegate>(
                     NativeLibrary.GetExport(_cfModule, "CFStringCreateWithCharacters"));
                 _cfArrayCreateMutable = Marshal.GetDelegateForFunctionPointer<CFArrayCreateMutableDelegate>(
@@ -205,10 +213,10 @@ public static class AirTrafficHostApi
                 _cfRelease = Marshal.GetDelegateForFunctionPointer<CFReleaseDelegate>(
                     NativeLibrary.GetExport(_cfModule, "CFRelease"));
 
-                // Global callbacks
                 NativeLibrary.TryGetExport(_cfModule, "kCFTypeArrayCallBacks", out _kCFTypeArrayCallBacks);
                 NativeLibrary.TryGetExport(_cfModule, "kCFTypeDictionaryKeyCallBacks", out _kCFTypeDictionaryKeyCallBacks);
                 NativeLibrary.TryGetExport(_cfModule, "kCFTypeDictionaryValueCallBacks", out _kCFTypeDictionaryValueCallBacks);
+                NativeLibrary.TryGetExport(_cfModule, "kCFBooleanFalse", out _kCFBooleanFalse);
 
                 _available = true;
                 AppLog.Info($"AirTraffic: native engine loaded successfully from {athPath}");
@@ -226,19 +234,77 @@ public static class AirTrafficHostApi
     }
 
     /// <summary>
-    /// Executes the native AirTraffic synchronization handshake to notify iOS atc daemon
-    /// of newly staged media manifests in Photos.
+    /// Runs <see cref="TriggerSync"/> in an isolated child process when invoked from IPAStudio.exe,
+    /// ensuring an unmanaged fault in Apple's native DLL can never crash the main application.
     /// </summary>
-    /// <param name="udid">Device UDID.</param>
-    /// <param name="libraryName">Target sync library name, default "Photos".</param>
-    /// <param name="libraryId">Sync library UUID.</param>
-    /// <returns>True if the sync signals were accepted by AirTrafficHost.</returns>
-    public static bool TriggerSync(string udid, string libraryName = "Photos", string? libraryId = null)
+    public static bool TriggerSyncIsolated(string udid, string libraryName = "Photos", string? libraryId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(udid);
         if (!IsAvailable)
         {
-            AppLog.Warn("AirTraffic: native engine not available for TriggerSync");
+            AppLog.Info("AirTraffic: native DLLs not found on system; relying on AFC staging and notification proxy.");
+            return false;
+        }
+
+        var procPath = Environment.ProcessPath;
+        var entryName = Assembly.GetEntryAssembly()?.GetName().Name;
+        if (string.Equals(entryName, "IPAStudio", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(procPath)
+            && File.Exists(procPath))
+        {
+            try
+            {
+                var psi = new ProcessStartInfo(procPath)
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                };
+                psi.ArgumentList.Add("--ath-sync");
+                psi.ArgumentList.Add(udid);
+                psi.ArgumentList.Add(libraryName);
+                psi.ArgumentList.Add(libraryId ?? string.Empty);
+
+                using var proc = Process.Start(psi);
+                if (proc is null) return false;
+
+                if (!proc.WaitForExit(6000))
+                {
+                    try { proc.Kill(entireProcessTree: true); } catch { }
+                    AppLog.Warn($"AirTraffic: isolated sync helper timed out for {udid}");
+                    return false;
+                }
+
+                if (proc.ExitCode == 0)
+                {
+                    AppLog.Info($"AirTraffic: isolated sync helper completed for {udid}");
+                    return true;
+                }
+
+                AppLog.Warn($"AirTraffic: isolated sync helper exited with code {proc.ExitCode} (0x{proc.ExitCode:X8}) for {udid}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"AirTraffic: failed to run isolated sync helper: {ex.Message}");
+                return false;
+            }
+        }
+
+        return TriggerSync(udid, libraryName, libraryId);
+    }
+
+    /// <summary>
+    /// Executes the native AirTraffic synchronization handshake to notify iOS atc daemon
+    /// of newly staged media manifests in Photos.
+    /// </summary>
+    public static bool TriggerSync(string udid, string libraryName = "Photos", string? libraryId = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+        EnsureInitialized();
+        if (!_available || _createWithLibrary is null || _sendSyncRequest is null || _sendMetadataSyncFinished is null)
+        {
+            AppLog.Info("AirTraffic: native engine unavailable; relying on notification proxy for photo sync.");
             return false;
         }
 
@@ -257,27 +323,23 @@ public static class AirTrafficHostApi
             itunesStr = CreateCFString("iTunes");
             udidStr = CreateCFString(udid);
 
-            // Attempt 1: Target library name (e.g. "Photos")
-            conn = _createWithLibrary!(libStr, udidStr, 0);
+            conn = _createWithLibrary(libStr, udidStr, IntPtr.Zero);
 
-            // Attempt 2: Target library without hyphens in UDID (older iOS/AMDS compatibility)
             if (conn == IntPtr.Zero && udid.Contains('-'))
             {
                 ReleaseCF(udidStr);
                 udidStr = CreateCFString(udid.Replace("-", string.Empty));
-                conn = _createWithLibrary!(libStr, udidStr, 0);
+                conn = _createWithLibrary(libStr, udidStr, IntPtr.Zero);
             }
 
-            // Attempt 3: "iTunes" host library identifier
             if (conn == IntPtr.Zero)
             {
-                conn = _createWithLibrary!(itunesStr, udidStr, 0);
+                conn = _createWithLibrary(itunesStr, udidStr, IntPtr.Zero);
             }
 
-            // Attempt 4: Null library identifier (default host connection)
             if (conn == IntPtr.Zero)
             {
-                conn = _createWithLibrary!(IntPtr.Zero, udidStr, 0);
+                conn = _createWithLibrary(IntPtr.Zero, udidStr, IntPtr.Zero);
             }
 
             if (conn == IntPtr.Zero)
@@ -286,28 +348,31 @@ public static class AirTrafficHostApi
                 return false;
             }
 
-            // Create array with sync data classes (e.g. "Photos")
             arr = _cfArrayCreateMutable!(IntPtr.Zero, 0, _kCFTypeArrayCallBacks);
             _cfArrayAppendValue!(arr, libStr);
 
-            // Create options dictionary
             options = _cfDictionaryCreateMutable!(IntPtr.Zero, 0, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks);
 
-            // Create and populate HostInfo dictionary for atc daemon handshake
             hostInfo = _cfDictionaryCreateMutable!(IntPtr.Zero, 0, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks);
             SetCFDictValue(hostInfo, "Type", "iTunes", cfAllocations);
             SetCFDictValue(hostInfo, "Version", "13.7.0.161", cfAllocations);
             SetCFDictValue(hostInfo, "SyncHostName", Environment.MachineName, cfAllocations);
             SetCFDictValue(hostInfo, "SyncedDataclasses", arr, cfAllocations);
             SetCFDictValue(hostInfo, "LibraryID", libraryId ?? Guid.NewGuid().ToString().ToUpperInvariant(), cfAllocations);
+            if (_kCFBooleanFalse != IntPtr.Zero)
+            {
+                var boolFalse = Marshal.ReadIntPtr(_kCFBooleanFalse);
+                if (boolFalse != IntPtr.Zero)
+                {
+                    SetCFDictValue(hostInfo, "LocalCloudSupport", boolFalse, cfAllocations);
+                }
+            }
 
-            // Step 1: Send HostInfo to initialize AirTraffic connection state machine
-            int hostInfoRes = 0;
             if (_sendHostInfo != null)
             {
                 try
                 {
-                    hostInfoRes = _sendHostInfo(conn, hostInfo);
+                    _sendHostInfo(conn, hostInfo);
                 }
                 catch (Exception ex)
                 {
@@ -315,20 +380,13 @@ public static class AirTrafficHostApi
                 }
             }
 
-            // Step 2: Send sync request for dataclasses
-            var reqRes = _sendSyncRequest!(conn, arr, options, hostInfo);
+            var reqRes = _sendSyncRequest(conn, arr, options, hostInfo);
+            _sendMetadataSyncFinished(conn, arr, options);
 
-            // Step 3: Send metadata sync finished with dataclass array and anchors
-            var finRes = _sendMetadataSyncFinished!(conn, arr, options);
+            AppLog.Info($"AirTraffic: sync signaled for {udid} (req={reqRes})");
 
-            AppLog.Info($"AirTraffic: sync signaled for {udid} (hostInfo={hostInfoRes}, req={reqRes}, fin={finRes})");
-
-            // Step 4: Drain queued async operations to ensure messages flush across usbmux
-            if (_waitForQueueToDrain != null)
-            {
-                try { _waitForQueueToDrain(conn); } catch { }
-            }
-            Thread.Sleep(300);
+            // Give the async connection dispatch queue a moment to flush IPC over usbmux
+            Thread.Sleep(500);
             return true;
         }
         catch (Exception ex)
@@ -340,7 +398,8 @@ public static class AirTrafficHostApi
         {
             if (conn != IntPtr.Zero)
             {
-                try { _destroy!(conn); } catch { /* best effort */ }
+                try { _invalidate?.Invoke(conn); } catch { /* best effort */ }
+                try { _destroy?.Invoke(conn); } catch { /* best effort */ }
             }
             foreach (var cfPtr in cfAllocations)
             {

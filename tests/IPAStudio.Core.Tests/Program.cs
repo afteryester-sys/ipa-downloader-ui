@@ -21,6 +21,9 @@ public static class Program
             Console.WriteLine("\n--- MediaExportAndIconTests ---");
             MediaExportAndIconTests.RunAll();
 
+            Console.WriteLine("\n--- BugReportTests ---");
+            BugReportTests.RunAll();
+
             Console.WriteLine("\n[ALL C# TESTS PASSED SUCCESSFULLY]");
             return 0;
         }

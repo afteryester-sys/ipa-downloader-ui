@@ -23,4 +23,13 @@ public partial class LogWindow : Window
         Loaded += (_, _) => LogBox.ScrollToEnd();
         Closed += (_, _) => _vm.Dispose();
     }
+
+    private void OpenBugReport_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new BugReportDialog
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
 }

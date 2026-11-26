@@ -320,33 +320,6 @@ public sealed class PhotoService
         CancellationToken ct = default)
         => Task.Run(async () =>
         {
-            if (_airTrafficSync is { IsAvailable: true } syncService)
-            {
-                try
-                {
-                    var res = await syncService.SyncPhotosAsync(udid, localFiles, "IPA Studio", progress, ct).ConfigureAwait(false);
-                    if (res.Success && res.Copied > 0)
-                    {
-                        return new PhotoImportResult
-                        {
-                            Copied = res.Copied,
-                            Total = res.Total,
-                            IndexingRequested = res.AirTrafficNotified,
-                            AppearedInLibrary = res.Success,
-                            PhotoSyncAvailable = true
-                        };
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    AppLog.Warn($"AirTraffic photo sync failed ({ex.Message}), falling back to direct AFC import.");
-                }
-            }
-
             // Names of the files actually written, used to confirm ingestion afterwards.
             var written = new List<string>();
             var done = 0;

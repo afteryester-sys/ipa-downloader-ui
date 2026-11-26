@@ -28,17 +28,29 @@ public partial class DevicesView : UserControl
 
     public void OpenQuickTransfer(Device device, IEnumerable<string>? initialFiles = null)
     {
-        var dialog = new QuickTransferDialog(
-            device,
-            App.Services.GetRequiredService<FileSharingService>(),
-            App.Services.GetRequiredService<OperationService>(),
-            App.Services.GetService<PhotoService>(),
-            App.Services.GetService<QuickTransferService>(),
-            initialFiles)
+        try
         {
-            Owner = Window.GetWindow(this),
-        };
-        dialog.ShowDialog();
+            var dialog = new QuickTransferDialog(
+                device,
+                App.Services.GetRequiredService<FileSharingService>(),
+                App.Services.GetRequiredService<OperationService>(),
+                App.Services.GetService<PhotoService>(),
+                App.Services.GetService<QuickTransferService>(),
+                initialFiles)
+            {
+                Owner = Window.GetWindow(this),
+            };
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            IPAStudio.Core.Diagnostics.AppLog.Error("QuickTransfer dialog failed to open.", ex);
+            ModernDialog.Show(
+                ex.Message,
+                IPAStudio.Core.Localization.Loc.Get("L.QuickTransfer.Title"),
+                ModernDialogButtons.Ok,
+                ModernDialogType.Error);
+        }
     }
 
     private void OnDeviceCardDragOver(object sender, DragEventArgs e)

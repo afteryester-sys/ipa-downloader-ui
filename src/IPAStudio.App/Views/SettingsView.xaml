@@ -533,6 +533,18 @@
                 </StackPanel>
             </Border>
 
+            <!-- Bug Report & Feedback -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.BugReport.Title}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="{DynamicResource L.BugReport.Subtitle}"
+                               Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <Button Content="{DynamicResource L.BugReport.MenuTitle}" Style="{StaticResource Button.Secondary}"
+                            HorizontalAlignment="Left" Click="OpenBugReport_Click" />
+                </StackPanel>
+            </Border>
+
             <!-- Account -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,24">
                 <StackPanel>

@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.89",
+                    date: "26.11.2026",
+                    title: "Исправлен вылет при передаче фото и добавлена отправка баг-репортов",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "СТАБИЛЬНОСТЬ",
+                            "Устранён критический вылет при переносе фото и синхронизации",
+                            "Исправлена ошибка вызова AirTrafficHost.dll (ATHostWaitForQueueToDrain и несовпадение типов возврата нативных функций), вызывавшая немедленное закрытие приложения при переносе фотографий в режиме «Быстрый перенос» и во вкладке «Фото». Дополнительно нативная синхронизация вынесена в изолированный процесс-помощник, а отмена и резервный перенос через AFC переработаны без конфликтов."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "ИНТЕРФЕЙС",
+                            "Кнопка «+» для добавления фотографий",
+                            "Надпись «Синхронизация фото» на панели инструментов раздела «Фото» заменена на аккуратную кнопку со значком плюса (+), подсказкой и корректной блокировкой во время активной передачи."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ОБРАТНАЯ СВЯЗЬ",
+                            "Встроенная отправка баг-репортов на сайт и GitHub",
+                            "Добавлено окно «Сообщить об ошибке» (в меню настроек, журнале работы, разделе настроек и в окне восстановления после ошибки). Отчёт автоматически собирает версию программы, модель iPhone/iOS (без личных данных) и фрагмент лога, позволяя отправить его на сайт разработчика или одной кнопкой на GitHub Issues.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.88",
                     date: "25.11.2026",
                     title: "Полноценный режим Быстрого переноса (Quick Transfer) и надёжное появление фото в галерее iPhone",
@@ -896,6 +918,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.89",
+                date: "11/26/2026",
+                title: "Fixed Photo Transfer Crashes, Updated Add Button (+), and Built-in Bug Reporting",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "STABILITY",
+                        "Eliminated Native Crash During Quick Transfer & Photo Import",
+                        "Fixed invalid native P/Invoke calls into AirTrafficHost.dll (ATHostWaitForQueueToDrain and void return signatures) that triggered uncatchable AccessViolationExceptions when transferring photos in Quick Transfer or the Photos tab. Isolated the native sync handshake in a dedicated helper process and fixed cancellation/fallback handling."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "INTERFACE",
+                        "Minimal Plus (+) Icon Button for Adding Photos",
+                        "Replaced the 'Sync photos' text button in the Photos toolbar with a clean plus (+) icon button with tooltip and active-transfer command state."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "FEEDBACK",
+                        "Direct Website & GitHub Bug Report Submission",
+                        "Added a built-in Bug Report dialog (accessible from the main menu, Settings, Log Viewer, and error recovery dialogs) that packages app version, OS details, connected iPhone model/iOS summary, and sanitized logs for direct submission to the developer website or GitHub Issues.")
+                }),
             new ReleaseNote(
                 version: "1.8.88",
                 date: "11/25/2026",

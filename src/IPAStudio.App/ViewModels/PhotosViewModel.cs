@@ -321,6 +321,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     [NotifyCanExecuteChangedFor(nameof(ExportSelectedCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportAlbumCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportCommand))]
     [NotifyPropertyChangedFor(nameof(CanAcceptDrop))]
     private bool _isTransferring;
 
@@ -599,10 +600,10 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     {
         _device = device;
 
-        // Whether a drop is accepted depends on there being a device, so the overlay has to
-        // hear about this — otherwise the page stays refusing drops until something else
-        // happens to raise a notification.
+        // Whether a drop or import is accepted depends on there being a device, so the overlay
+        // and toolbar command have to hear about this — otherwise the controls stay stale.
         OnPropertyChanged(nameof(CanAcceptDrop));
+        ImportCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -1443,7 +1444,9 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         }, "L.Ops.Photos.Delete");
     }
 
-    [RelayCommand]
+    private bool CanImport() => _device is not null && !IsTransferring;
+
+    [RelayCommand(CanExecute = nameof(CanImport))]
     private async Task Import()
     {
         if (_device is null || IsTransferring) return;
@@ -1462,7 +1465,7 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
 
     /// <summary>
     /// Synchronizes local media directly into a native album on the iOS device via AirTraffic,
-    /// or stages in a persistent folder if the native sync engine is unavailable.
+    /// falling back to direct AFC DCIM import or Apple client staging cleanly on failure.
     /// </summary>
     public async Task ImportFilesAsync(IEnumerable<string> paths)
     {
@@ -1477,82 +1480,96 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             return;
         }
 
-        if (_airTrafficSync.IsAvailable)
+        AirTrafficSyncResult? syncRes = null;
+        PhotoImportResult? importRes = null;
+        ApplePhotoSyncResult? appleSyncRes = null;
+
+        var albumTitle = (!IsAlbumMode && CurrentAlbum != null && !CurrentAlbum.IsEverything)
+            ? CurrentAlbum.Name
+            : Loc.Get("L.Photos.SyncDefaultAlbum");
+
+        if (string.IsNullOrWhiteSpace(albumTitle) || albumTitle == "L.Photos.SyncDefaultAlbum")
+            albumTitle = "IPA Studio";
+
+        var transferOutcome = await RunTransferAsync(async (progress, ct) =>
         {
-            AirTrafficSyncResult? syncRes = null;
-            var albumTitle = (!IsAlbumMode && CurrentAlbum != null && !CurrentAlbum.IsEverything)
-                ? CurrentAlbum.Name
-                : Loc.Get("L.Photos.SyncDefaultAlbum");
-
-            if (string.IsNullOrWhiteSpace(albumTitle) || albumTitle == "L.Photos.SyncDefaultAlbum")
-                albumTitle = "IPA Studio";
-
-            await RunTransferAsync(async (progress, ct) =>
+            // 1. Primary path: AirTraffic sync staging (/PhotoData/Sync + /DCIM + manifests + isolated AirTrafficHost)
+            try
             {
                 syncRes = await _airTrafficSync.SyncPhotosAsync(_device.Udid, files, albumTitle, progress, ct);
-            }, "L.Ops.Photos.Import");
+                if (syncRes is { Success: true, Copied: > 0 })
+                    return;
 
-            if (syncRes is null) return;
-
-            if (syncRes.Success)
+                AppLog.Warn($"AirTraffic photo sync returned copied=0 ({syncRes?.ErrorMessage}), falling back to direct AFC import.");
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
             {
-                if (syncRes.Copied > 0)
-                {
-                    StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
-                    ModernDialog.Show(
-                        Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
-                        Loc.Get("L.Photos.SyncTitle"),
-                        ModernDialogButtons.Ok,
-                        ModernDialogType.Information);
-
-                    await LoadAsync(forceRefresh: true);
-                }
-                return;
+                AppLog.Warn($"AirTraffic photo sync failed ({ex.Message}), falling back to direct AFC import.");
             }
 
-            var errorMsg = syncRes.ErrorMessage ?? Loc.Get("L.Photos.TransferFailed");
-            AppLog.Warn($"AirTraffic photo sync failed: {errorMsg}");
-        }
+            // 2. Direct AFC import fallback to DCIM
+            try
+            {
+                importRes = await _photos.ImportAsync(_device.Udid, files, progress, ct);
+                if (importRes is { Copied: > 0 })
+                    return;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                AppLog.Warn($"Direct AFC photo import fallback failed: {ex.Message}");
+                if (_applePhotoSync is null) throw;
+            }
 
-        // Direct import fallback via PhotoService (AFC + Notification triggers)
-        PhotoImportResult? importRes = null;
-        await RunTransferAsync(async (progress, ct) =>
-        {
-            importRes = await _photos.ImportAsync(_device.Udid, files, progress, ct);
+            // 3. Final fallback: prepare folder for Apple Devices / iTunes
+            appleSyncRes = await _applePhotoSync.PrepareAsync(_device.Udid, files, progress, ct);
         }, "L.Ops.Photos.Import");
 
-        if (importRes != null && importRes.Copied > 0)
+        if (transferOutcome != TransferOutcome.Completed) return;
+
+        if (syncRes is { Success: true, Copied: > 0 })
         {
-            StatusText = Loc.Format("L.Photos.Imported", importRes.Copied, importRes.Total);
+            StatusText = Loc.Format("L.Photos.SyncSuccess", syncRes.Copied, syncRes.Total, syncRes.AlbumName);
+            ModernDialog.Show(
+                Loc.Format("L.Photos.SyncSuccessMessage", syncRes.Copied, syncRes.Total, syncRes.AlbumName),
+                Loc.Get("L.Photos.SyncTitle"),
+                ModernDialogButtons.Ok,
+                ModernDialogType.Information);
+
             await LoadAsync(forceRefresh: true);
             return;
         }
 
-        ApplePhotoSyncResult? result = null;
-        await RunTransferAsync(async (progress, ct) =>
+        if (importRes is { Copied: > 0 })
         {
-            result = await _applePhotoSync.PrepareAsync(_device.Udid, files, progress, ct);
-        }, "L.Ops.Photos.Import");
-        if (result is null || result.Prepared == 0) return;
+            StatusText = importRes.AppearedInLibrary
+                ? Loc.Format("L.Photos.Imported", importRes.Copied, importRes.Total)
+                : Loc.Format("L.Photos.ImportedNotInLibrary", importRes.Copied, importRes.Total);
+            await LoadAsync(forceRefresh: true);
+            return;
+        }
 
-        var clientName = result.Client switch
+        if (appleSyncRes is null || appleSyncRes.Prepared == 0) return;
+
+        var clientName = appleSyncRes.Client switch
         {
             ApplePhotoClient.AppleDevices => Loc.Get("L.Photos.AppleDevices"),
             ApplePhotoClient.ITunes => "iTunes",
             _ => Loc.Get("L.Photos.AppleClient"),
         };
-        StatusText = Loc.Format("L.Photos.SyncPrepared", result.Prepared, result.Total);
+        StatusText = Loc.Format("L.Photos.SyncPrepared", appleSyncRes.Prepared, appleSyncRes.Total);
 
-        var bodyKey = result.Client == ApplePhotoClient.None
+        var bodyKey = appleSyncRes.Client == ApplePhotoClient.None
             ? "L.Photos.SyncClientMissing"
-            : result.ClientOpened
+            : appleSyncRes.ClientOpened
                 ? "L.Photos.SyncInstructions"
                 : "L.Photos.SyncClientOpenFailed";
         ModernDialog.Show(
-            Loc.Format(bodyKey, result.Prepared, result.Total, result.Folder, clientName),
+            Loc.Format(bodyKey, appleSyncRes.Prepared, appleSyncRes.Total, appleSyncRes.Folder, clientName),
             Loc.Get("L.Photos.SyncTitle"),
             ModernDialogButtons.Ok,
-            result.Client == ApplePhotoClient.None ? ModernDialogType.Warning : ModernDialogType.Information);
+            appleSyncRes.Client == ApplePhotoClient.None ? ModernDialogType.Warning : ModernDialogType.Information);
     }
 
     private static IEnumerable<string> ExpandImportPaths(IEnumerable<string> paths)
@@ -1589,7 +1606,14 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     /// transfer cannot forget to appear in the corner circle. The title says which kind of
     /// transfer it is, since the list shows several operations side by side.
     /// </summary>
-    private async Task RunTransferAsync(
+    private enum TransferOutcome
+    {
+        Completed,
+        Cancelled,
+        Failed
+    }
+
+    private async Task<TransferOutcome> RunTransferAsync(
         Func<IProgress<PhotoTransferProgress>, CancellationToken, Task> work,
         string titleKey = "L.Ops.Photos.Export")
     {
@@ -1620,16 +1644,19 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
             });
             await work(progress, cts.Token);
             operation.Finish(OperationState.Done, StatusText);
+            return TransferOutcome.Completed;
         }
         catch (OperationCanceledException)
         {
             StatusText = Loc.Get("L.Photos.Cancelled");
             operation.Finish(OperationState.Cancelled);
+            return TransferOutcome.Cancelled;
         }
         catch (Exception ex)
         {
             StatusText = Loc.Format("L.Photos.TransferFailed", ex.Message);
             operation.Finish(OperationState.Failed, ex.Message);
+            return TransferOutcome.Failed;
         }
         finally
         {

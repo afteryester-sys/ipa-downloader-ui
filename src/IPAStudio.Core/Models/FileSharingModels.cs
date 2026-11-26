@@ -76,4 +76,5 @@ public sealed record QuickTransferProgress(
     int CompletedCount,
     int TotalCount,
     double Percent,
-    string SpeedText = "");
+    string SpeedText = "",
+    string StatusDetail = "");

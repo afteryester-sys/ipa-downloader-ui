@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Photos.Refresh">Обновить</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Выбрать все</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Снять выбор</sys:String>
-    <sys:String x:Key="L.Photos.Import">Синхронизировать фото</sys:String>
+    <sys:String x:Key="L.Photos.Import">Добавить фото</sys:String>
     <sys:String x:Key="L.Photos.Export">Сохранить на ПК</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Отменить</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Выбрано:</sys:String>
@@ -1010,6 +1010,28 @@
     <sys:String x:Key="L.QuickTransfer.VerifiedAllFull">Готово: в «Фото» — {0}; контактов — {1}; файлов — {2}; IPA в очереди — {3}.</sys:String>
     <sys:String x:Key="L.QuickTransfer.StagedOnDevice">Файлы сохранены в памяти iPhone: {0}.</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Прямой импорт в системную медиатеку «Фото» недоступен через открытый протокол Apple на этой версии iOS. Используйте «Быстрый перенос» и выберите совместимое приложение; фиктивное копирование в DCIM отключено.</sys:String>
+
+    <!-- Баг-репорты -->
+    <sys:String x:Key="L.BugReport.Title">Сообщить об ошибке</sys:String>
+    <sys:String x:Key="L.BugReport.MenuTitle">Отправить багрепорт</sys:String>
+    <sys:String x:Key="L.BugReport.Subtitle">Опишите проблему и отправьте отчёт разработчику на сайт или на GitHub</sys:String>
+    <sys:String x:Key="L.BugReport.Subject">Тема / Кратко</sys:String>
+    <sys:String x:Key="L.BugReport.SubjectHint">Например: Ошибка при передаче фото</sys:String>
+    <sys:String x:Key="L.BugReport.Description">Подробное описание проблемы</sys:String>
+    <sys:String x:Key="L.BugReport.DescriptionHint">Что вы делали, что пошло не так и что ожидали увидеть...</sys:String>
+    <sys:String x:Key="L.BugReport.IncludeLogs">Приложить системную информацию и фрагмент лога</sys:String>
+    <sys:String x:Key="L.BugReport.LogExcerpt">Фрагмент журнала работы (Log excerpt):</sys:String>
+    <sys:String x:Key="L.BugReport.EmptyLog">Журнал пуст</sys:String>
+    <sys:String x:Key="L.BugReport.SendSite">Отправить на сайт</sys:String>
+    <sys:String x:Key="L.BugReport.SendingSite">Отправка отчёта на сайт…</sys:String>
+    <sys:String x:Key="L.BugReport.SiteSuccess">Багрепорт успешно отправлен разработчику на сайт!</sys:String>
+    <sys:String x:Key="L.BugReport.SiteSuccessWithId">Багрепорт отправлен на сайт (ID: {0}).</sys:String>
+    <sys:String x:Key="L.BugReport.SiteUnavailable">Сайт сейчас не принял отчёт ({0}). Полный текст уже скопирован в буфер — нажмите «Отправить на GitHub».</sys:String>
+    <sys:String x:Key="L.BugReport.NeedDescription">Пожалуйста, укажите тему или описание ошибки.</sys:String>
+    <sys:String x:Key="L.BugReport.SendGitHub">Отправить на GitHub</sys:String>
+    <sys:String x:Key="L.BugReport.CopyReport">Скопировать отчёт</sys:String>
+    <sys:String x:Key="L.BugReport.Copied">Отчёт скопирован в буфер обмена</sys:String>
+    <sys:String x:Key="L.BugReport.OpenedBrowser">Отчёт скопирован в буфер обмена. Открывается браузер для создания Issue на GitHub.</sys:String>
 
     <!-- Прошивки IPSW -->
     <sys:String x:Key="L.Firmware.Title">Прошивки</sys:String>

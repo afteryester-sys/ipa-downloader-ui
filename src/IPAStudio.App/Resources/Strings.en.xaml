@@ -99,7 +99,7 @@
     <sys:String x:Key="L.Photos.Refresh">Refresh</sys:String>
     <sys:String x:Key="L.Photos.SelectAll">Select All</sys:String>
     <sys:String x:Key="L.Photos.ClearAll">Clear Selection</sys:String>
-    <sys:String x:Key="L.Photos.Import">Sync photos</sys:String>
+    <sys:String x:Key="L.Photos.Import">Add photos</sys:String>
     <sys:String x:Key="L.Photos.Export">Save to PC</sys:String>
     <sys:String x:Key="L.Photos.Cancel">Cancel</sys:String>
     <sys:String x:Key="L.Photos.SelectedCount">Selected:</sys:String>
@@ -1012,6 +1012,28 @@
     <sys:String x:Key="L.QuickTransfer.VerifiedAllFull">Done: Photos — {0}; contacts — {1}; files — {2}; IPAs queued — {3}.</sys:String>
     <sys:String x:Key="L.QuickTransfer.StagedOnDevice">Files saved to iPhone storage: {0}.</sys:String>
     <sys:String x:Key="L.Photos.SystemImportUnavailable">Direct import into the system Photos library is unavailable through Apple's public device protocol on this iOS version. Use Quick Transfer and choose a compatible app; unregistered DCIM copying has been disabled.</sys:String>
+
+    <!-- Bug reports -->
+    <sys:String x:Key="L.BugReport.Title">Report a Bug</sys:String>
+    <sys:String x:Key="L.BugReport.MenuTitle">Report a Bug</sys:String>
+    <sys:String x:Key="L.BugReport.Subtitle">Describe the issue and send a report directly to our website or on GitHub</sys:String>
+    <sys:String x:Key="L.BugReport.Subject">Subject / Summary</sys:String>
+    <sys:String x:Key="L.BugReport.SubjectHint">e.g. Crash when syncing photos</sys:String>
+    <sys:String x:Key="L.BugReport.Description">Detailed description of the issue</sys:String>
+    <sys:String x:Key="L.BugReport.DescriptionHint">What were you doing, what happened, and what was expected...</sys:String>
+    <sys:String x:Key="L.BugReport.IncludeLogs">Include system info and log excerpt</sys:String>
+    <sys:String x:Key="L.BugReport.LogExcerpt">Log excerpt:</sys:String>
+    <sys:String x:Key="L.BugReport.EmptyLog">Log is empty</sys:String>
+    <sys:String x:Key="L.BugReport.SendSite">Send to Website</sys:String>
+    <sys:String x:Key="L.BugReport.SendingSite">Sending report to website…</sys:String>
+    <sys:String x:Key="L.BugReport.SiteSuccess">Bug report submitted directly to developer website!</sys:String>
+    <sys:String x:Key="L.BugReport.SiteSuccessWithId">Bug report submitted to website (ID: {0}).</sys:String>
+    <sys:String x:Key="L.BugReport.SiteUnavailable">Website endpoint unavailable ({0}). Full report copied to clipboard — click “Submit on GitHub”.</sys:String>
+    <sys:String x:Key="L.BugReport.NeedDescription">Please enter a subject or description of the issue.</sys:String>
+    <sys:String x:Key="L.BugReport.SendGitHub">Submit on GitHub</sys:String>
+    <sys:String x:Key="L.BugReport.CopyReport">Copy Report</sys:String>
+    <sys:String x:Key="L.BugReport.Copied">Report copied to clipboard</sys:String>
+    <sys:String x:Key="L.BugReport.OpenedBrowser">Report copied to clipboard. Opening GitHub Issue page in your browser.</sys:String>
 
     <!-- IPSW firmware -->
     <sys:String x:Key="L.Firmware.Title">Firmware</sys:String>

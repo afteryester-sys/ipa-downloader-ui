@@ -47,202 +47,238 @@ public sealed class AirTrafficPhotoSyncService
         CancellationToken ct = default)
         => Task.Run(() =>
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(udid);
-            ArgumentNullException.ThrowIfNull(localFiles);
-
-            var validFiles = localFiles
-                .Where(f => !string.IsNullOrWhiteSpace(f) && File.Exists(f) && IsSupportedMedia(f))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (validFiles.Count == 0)
-            {
-                return new AirTrafficSyncResult
-                {
-                    Copied = 0,
-                    Total = localFiles.Count,
-                    Success = false,
-                    AlbumName = albumName,
-                    ErrorMessage = "No valid media files found to synchronize."
-                };
-            }
-
-            var stagedNames = new List<string>(validFiles.Count);
-            var stagedAssets = new List<StagedAssetEntry>(validFiles.Count);
-
-            using var session = OpenAfcSession(udid);
-            var afc = session.Afc;
-            var client = session.Client;
-
-            // 1. Ensure required directory hierarchy on device
-            EnsureDirectory(afc, client, "/Airlock");
-            EnsureDirectory(afc, client, "/Airlock/Photo");
-            EnsureDirectory(afc, client, "/DCIM");
-            EnsureDirectory(afc, client, "/DCIM/100APPLE");
-            EnsureDirectory(afc, client, "/Photos");
-            EnsureDirectory(afc, client, "/Photos/Sync");
-            EnsureDirectory(afc, client, "/Photos/Sync/100SYNCD");
-            EnsureDirectory(afc, client, "/PhotoData");
-            EnsureDirectory(afc, client, "/PhotoData/Sync");
-            EnsureDirectory(afc, client, "/PhotoData/Sync/100SYNCD");
-
-            // 2. Resolve Library UUID and DCIM camera roll target directory
-            var libraryUuid = ReadExistingLibraryUuid(afc, client) ?? Guid.NewGuid().ToString().ToUpperInvariant();
-            var dcimFolder = ResolveDcimImportFolder(afc, client);
-            var takenDcimNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (afc.afc_read_directory(client, dcimFolder, out var existingDcim) == AfcError.Success && existingDcim is not null)
-            {
-                foreach (var name in existingDcim) takenDcimNames.Add(name);
-            }
-
-            // 3. Stage each media file into /PhotoData/Sync/100SYNCD/<UUID>.<ext> and mirror across sync & DCIM directories
-            var done = 0;
-            foreach (var localPath in validFiles)
-            {
-                ct.ThrowIfCancellationRequested();
-                var fileName = Path.GetFileName(localPath);
-                var ext = Path.GetExtension(localPath).ToLowerInvariant();
-                var assetUuid = Guid.NewGuid().ToString().ToUpperInvariant();
-                var remoteFileName = $"{assetUuid}{ext}";
-                var primaryRemotePath = $"/PhotoData/Sync/100SYNCD/{remoteFileName}";
-
-                progress?.Report(new PhotoTransferProgress(done, validFiles.Count, fileName));
-
-                var fileInfo = new FileInfo(localPath);
-                var fileSize = fileInfo.Length;
-
-                ulong handle = 0;
-                var openErr = afc.afc_file_open(client, primaryRemotePath, AfcFileMode.FopenWronly, ref handle);
-                if (openErr != AfcError.Success)
-                {
-                    // Fallback to Airlock if PhotoData/Sync isn't directly writable on older firmware
-                    primaryRemotePath = $"/Airlock/Photo/{remoteFileName}";
-                    openErr = afc.afc_file_open(client, primaryRemotePath, AfcFileMode.FopenWronly, ref handle);
-                    if (openErr != AfcError.Success)
-                    {
-                        throw new IOException($"AFC failed to create '{primaryRemotePath}' ({openErr}). Unlock device and confirm trust.");
-                    }
-                }
-
-                var writeCompleted = false;
-                try
-                {
-                    using var stream = File.OpenRead(localPath);
-                    var buffer = new byte[ChunkSize];
-                    int read;
-                    while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        uint written = 0;
-                        var chunk = read == buffer.Length ? buffer : buffer[..read];
-                        var writeErr = afc.afc_file_write(client, handle, chunk, (uint)read, ref written);
-                        if (writeErr != AfcError.Success || written != (uint)read)
-                        {
-                            throw new IOException($"AFC write failure on '{fileName}' ({writeErr}).");
-                        }
-                    }
-                    writeCompleted = true;
-                }
-                finally
-                {
-                    afc.afc_file_close(client, handle);
-                    if (!writeCompleted)
-                    {
-                        // Clean up partially written file
-                        try { afc.afc_remove_path(client, primaryRemotePath); } catch { }
-                    }
-                }
-
-                // Verify file size on device
-                var remoteSize = ReadFileSize(afc, client, primaryRemotePath);
-                if (remoteSize != fileSize)
-                {
-                    AppLog.Warn($"AirTraffic: size mismatch for '{primaryRemotePath}': remote={remoteSize}, expected={fileSize}");
-                    try { afc.afc_remove_path(client, primaryRemotePath); } catch { }
-                    continue;
-                }
-
-                // Mirror/hardlink to all standard iOS photo sync locations so assetsd and atc can both access it
-                LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Photos/Sync/100SYNCD/{remoteFileName}", localPath);
-                LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/PhotoData/Sync/{remoteFileName}", localPath);
-                LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Photos/Sync/{remoteFileName}", localPath);
-                LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Airlock/Photo/{remoteFileName}", localPath);
-
-                // Mirror to native DCIM Camera Roll so photos immediately appear in Recents / Gallery
-                var dcimPath = NextDcimImportPath(dcimFolder, ext, takenDcimNames);
-                LinkOrCopyAfcFile(afc, client, primaryRemotePath, dcimPath, localPath);
-
-                var (w, h) = ProbeDimensions(localPath);
-                var uti = GetUtiForExtension(ext);
-                var dateCreated = fileInfo.CreationTimeUtc;
-
-                stagedAssets.Add(new StagedAssetEntry(assetUuid, fileName, remoteFileName, uti, fileSize, dateCreated, w, h));
-                stagedNames.Add(fileName);
-                done++;
-            }
-
-            if (done == 0)
-            {
-                return new AirTrafficSyncResult
-                {
-                    Copied = 0,
-                    Total = validFiles.Count,
-                    Success = false,
-                    AlbumName = albumName,
-                    ErrorMessage = "No files were successfully written to the device."
-                };
-            }
-
-            progress?.Report(new PhotoTransferProgress(done, validFiles.Count, "Committing manifests..."));
-
-            // 4. Generate and commit sync manifests (mirroring to /Photos/Sync and /PhotoData/Sync for cross-iOS compatibility)
-            var existingLibrary = ReadExistingPhotoLibraryPlist(afc, client);
-            var mergedLibraryPlist = GeneratePhotoLibraryPlist(libraryUuid, albumName, stagedAssets, existingLibrary);
-            var currentLibPlist = GenerateCurrentLibraryUuidPlist(libraryUuid);
-            var syncInfoPlist = GenerateSyncInfoPlist(libraryUuid);
-
-            WriteAfcTextFile(afc, client, "/Photos/Sync/CurrentLibraryUUID.plist", currentLibPlist);
-            WriteAfcTextFile(afc, client, "/Photos/Sync/PhotoLibrary.plist", mergedLibraryPlist);
-            WriteAfcTextFile(afc, client, "/Photos/Sync/syncInfo.plist", syncInfoPlist);
-
-            // Mirror to /PhotoData/Sync and /PhotoData as well
             try
             {
-                WriteAfcTextFile(afc, client, "/PhotoData/Sync/CurrentLibraryUUID.plist", currentLibPlist);
-                WriteAfcTextFile(afc, client, "/PhotoData/Sync/PhotoLibrary.plist", mergedLibraryPlist);
-                WriteAfcTextFile(afc, client, "/PhotoData/Sync/syncInfo.plist", syncInfoPlist);
-                WriteAfcTextFile(afc, client, "/PhotoData/syncInfo.plist", syncInfoPlist);
+                ArgumentException.ThrowIfNullOrWhiteSpace(udid);
+                ArgumentNullException.ThrowIfNull(localFiles);
+
+                var validFiles = localFiles
+                    .Where(f => !string.IsNullOrWhiteSpace(f) && File.Exists(f) && IsSupportedMedia(f))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (validFiles.Count == 0)
+                {
+                    return new AirTrafficSyncResult
+                    {
+                        Copied = 0,
+                        Total = localFiles.Count,
+                        Success = false,
+                        AlbumName = albumName,
+                        ErrorMessage = "No valid media files found to synchronize."
+                    };
+                }
+
+                var stagedNames = new List<string>(validFiles.Count);
+                var stagedAssets = new List<StagedAssetEntry>(validFiles.Count);
+
+                using var session = OpenAfcSession(udid);
+                var afc = session.Afc;
+                var client = session.Client;
+
+                // 1. Ensure required directory hierarchy on device
+                EnsureDirectory(afc, client, "/Airlock");
+                EnsureDirectory(afc, client, "/Airlock/Photo");
+                EnsureDirectory(afc, client, "/DCIM");
+                EnsureDirectory(afc, client, "/DCIM/100APPLE");
+                EnsureDirectory(afc, client, "/Photos");
+                EnsureDirectory(afc, client, "/Photos/Sync");
+                EnsureDirectory(afc, client, "/Photos/Sync/100SYNCD");
+                EnsureDirectory(afc, client, "/PhotoData");
+                EnsureDirectory(afc, client, "/PhotoData/Sync");
+                EnsureDirectory(afc, client, "/PhotoData/Sync/100SYNCD");
+
+                // 2. Resolve Library UUID and DCIM camera roll target directory
+                var libraryUuid = ReadExistingLibraryUuid(afc, client) ?? Guid.NewGuid().ToString().ToUpperInvariant();
+                var dcimFolder = ResolveDcimImportFolder(afc, client);
+                var takenDcimNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (afc.afc_read_directory(client, dcimFolder, out var existingDcim) == AfcError.Success && existingDcim is not null)
+                {
+                    foreach (var name in existingDcim) takenDcimNames.Add(name);
+                }
+
+                // 3. Stage each media file into /PhotoData/Sync/100SYNCD/<UUID>.<ext> and mirror across sync & DCIM directories
+                var done = 0;
+                foreach (var localPath in validFiles)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var fileName = Path.GetFileName(localPath);
+                    var ext = Path.GetExtension(localPath).ToLowerInvariant();
+                    var assetUuid = Guid.NewGuid().ToString().ToUpperInvariant();
+                    var remoteFileName = $"{assetUuid}{ext}";
+                    var primaryRemotePath = $"/PhotoData/Sync/100SYNCD/{remoteFileName}";
+
+                    progress?.Report(new PhotoTransferProgress(done, validFiles.Count, fileName));
+
+                    var fileInfo = new FileInfo(localPath);
+                    var fileSize = fileInfo.Length;
+
+                    ulong handle = 0;
+                    var openErr = afc.afc_file_open(client, primaryRemotePath, AfcFileMode.FopenWronly, ref handle);
+                    if (openErr != AfcError.Success)
+                    {
+                        // Fallback to Airlock if PhotoData/Sync isn't directly writable on older firmware
+                        primaryRemotePath = $"/Airlock/Photo/{remoteFileName}";
+                        openErr = afc.afc_file_open(client, primaryRemotePath, AfcFileMode.FopenWronly, ref handle);
+                        if (openErr != AfcError.Success)
+                        {
+                            // Fallback directly to DCIM Camera Roll
+                            var directDcimPath = NextDcimImportPath(dcimFolder, ext, takenDcimNames);
+                            primaryRemotePath = directDcimPath;
+                            openErr = afc.afc_file_open(client, primaryRemotePath, AfcFileMode.FopenWronly, ref handle);
+                            if (openErr != AfcError.Success)
+                            {
+                                throw new IOException($"AFC failed to create '{primaryRemotePath}' ({openErr}). Unlock device and confirm trust.");
+                            }
+                        }
+                    }
+
+                    var writeCompleted = false;
+                    try
+                    {
+                        using var stream = File.OpenRead(localPath);
+                        var buffer = new byte[ChunkSize];
+                        int read;
+                        while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            uint written = 0;
+                            var chunk = read == buffer.Length ? buffer : buffer[..read];
+                            var writeErr = afc.afc_file_write(client, handle, chunk, (uint)read, ref written);
+                            if (writeErr != AfcError.Success || written != (uint)read)
+                            {
+                                throw new IOException($"AFC write failure on '{fileName}' ({writeErr}).");
+                            }
+                        }
+                        writeCompleted = true;
+                    }
+                    finally
+                    {
+                        afc.afc_file_close(client, handle);
+                        if (!writeCompleted)
+                        {
+                            // Clean up partially written file
+                            try { afc.afc_remove_path(client, primaryRemotePath); } catch { }
+                        }
+                    }
+
+                    // Verify file size on device
+                    var remoteSize = ReadFileSize(afc, client, primaryRemotePath);
+                    if (remoteSize != fileSize)
+                    {
+                        AppLog.Warn($"AirTraffic: size mismatch for '{primaryRemotePath}': remote={remoteSize}, expected={fileSize}");
+                        try { afc.afc_remove_path(client, primaryRemotePath); } catch { }
+                        continue;
+                    }
+
+                    // Mirror/hardlink to all standard iOS photo sync locations so assetsd and atc can both access it
+                    LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Photos/Sync/100SYNCD/{remoteFileName}", localPath);
+                    LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/PhotoData/Sync/{remoteFileName}", localPath);
+                    LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Photos/Sync/{remoteFileName}", localPath);
+                    LinkOrCopyAfcFile(afc, client, primaryRemotePath, $"/Airlock/Photo/{remoteFileName}", localPath);
+
+                    // Mirror to native DCIM Camera Roll so photos immediately appear in Recents / Gallery
+                    if (!primaryRemotePath.StartsWith("/DCIM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var dcimPath = NextDcimImportPath(dcimFolder, ext, takenDcimNames);
+                        LinkOrCopyAfcFile(afc, client, primaryRemotePath, dcimPath, localPath);
+                    }
+
+                    var (w, h) = ProbeDimensions(localPath);
+                    var uti = GetUtiForExtension(ext);
+                    var dateCreated = fileInfo.CreationTimeUtc;
+
+                    stagedAssets.Add(new StagedAssetEntry(assetUuid, fileName, remoteFileName, uti, fileSize, dateCreated, w, h));
+                    stagedNames.Add(fileName);
+                    done++;
+                }
+
+                if (done == 0)
+                {
+                    return new AirTrafficSyncResult
+                    {
+                        Copied = 0,
+                        Total = validFiles.Count,
+                        Success = false,
+                        AlbumName = albumName,
+                        ErrorMessage = "No files were successfully written to the device."
+                    };
+                }
+
+                progress?.Report(new PhotoTransferProgress(done, validFiles.Count, "Committing manifests..."));
+
+                // 4. Generate and commit sync manifests (mirroring to /Photos/Sync and /PhotoData/Sync for cross-iOS compatibility)
+                var existingLibrary = ReadExistingPhotoLibraryPlist(afc, client);
+                var mergedLibraryPlist = GeneratePhotoLibraryPlist(libraryUuid, albumName, stagedAssets, existingLibrary);
+                var currentLibPlist = GenerateCurrentLibraryUuidPlist(libraryUuid);
+                var syncInfoPlist = GenerateSyncInfoPlist(libraryUuid);
+
+                WriteAfcTextFile(afc, client, "/Photos/Sync/CurrentLibraryUUID.plist", currentLibPlist);
+                WriteAfcTextFile(afc, client, "/Photos/Sync/PhotoLibrary.plist", mergedLibraryPlist);
+                WriteAfcTextFile(afc, client, "/Photos/Sync/syncInfo.plist", syncInfoPlist);
+
+                // Mirror to /PhotoData/Sync and /PhotoData as well
+                try
+                {
+                    WriteAfcTextFile(afc, client, "/PhotoData/Sync/CurrentLibraryUUID.plist", currentLibPlist);
+                    WriteAfcTextFile(afc, client, "/PhotoData/Sync/PhotoLibrary.plist", mergedLibraryPlist);
+                    WriteAfcTextFile(afc, client, "/PhotoData/Sync/syncInfo.plist", syncInfoPlist);
+                    WriteAfcTextFile(afc, client, "/PhotoData/syncInfo.plist", syncInfoPlist);
+                }
+                catch { /* best effort mirror */ }
+
+                AppLog.Info($"AirTraffic: staged {done} items, manifests committed for library {libraryUuid}");
+
+                // 5. Trigger sync via AirTrafficHost (isolated subprocess in GUI app)
+                var athNotified = false;
+                if (AirTrafficHostApi.IsAvailable)
+                {
+                    progress?.Report(new PhotoTransferProgress(done, validFiles.Count, "Triggering device sync..."));
+                    try
+                    {
+                        athNotified = AirTrafficHostApi.TriggerSyncIsolated(udid, "Photos", libraryUuid);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLog.Warn($"AirTraffic: TriggerSync failed: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    AppLog.Info("AirTraffic: native engine not found; relying on AFC manifests and notification proxy");
+                }
+
+                // 6. Post standard iTunes sync notifications via NotificationProxy
+                PostSyncNotifications(udid);
+
+                progress?.Report(new PhotoTransferProgress(done, validFiles.Count, string.Empty));
+
+                return new AirTrafficSyncResult
+                {
+                    Copied = done,
+                    Total = validFiles.Count,
+                    AirTrafficNotified = athNotified,
+                    Success = true,
+                    AlbumName = albumName,
+                    StagedFiles = stagedNames
+                };
             }
-            catch { /* best effort mirror */ }
-
-            AppLog.Info($"AirTraffic: staged {done} items, manifests committed for library {libraryUuid}");
-
-            // 5. Trigger sync via AirTrafficHost
-            var athNotified = false;
-            if (AirTrafficHostApi.IsAvailable)
+            catch (OperationCanceledException)
             {
-                progress?.Report(new PhotoTransferProgress(done, validFiles.Count, "Triggering device sync..."));
-                athNotified = AirTrafficHostApi.TriggerSync(udid, "Photos", libraryUuid);
+                throw;
             }
-            else
+            catch (Exception ex)
             {
-                AppLog.Warn("AirTraffic: native engine not available, relying on notification proxy");
+                AppLog.Warn($"AirTraffic: photo sync exception for {udid}: {ex.Message}");
+                return new AirTrafficSyncResult
+                {
+                    Copied = 0,
+                    Total = localFiles?.Count ?? 0,
+                    Success = false,
+                    AlbumName = albumName,
+                    ErrorMessage = ex.Message
+                };
             }
-
-            // 6. Post standard iTunes sync notifications via NotificationProxy
-            PostSyncNotifications(udid);
-
-            progress?.Report(new PhotoTransferProgress(done, validFiles.Count, string.Empty));
-
-            return new AirTrafficSyncResult
-            {
-                Copied = done,
-                Total = validFiles.Count,
-                AirTrafficNotified = athNotified,
-                Success = true,
-                AlbumName = albumName,
-                StagedFiles = stagedNames
-            };
         }, ct);
 
     private static void EnsureDirectory(IAfcApi afc, AfcClientHandle client, string path)

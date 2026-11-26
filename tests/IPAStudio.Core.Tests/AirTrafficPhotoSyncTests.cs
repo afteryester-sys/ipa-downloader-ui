@@ -285,6 +285,12 @@ public static class AirTrafficPhotoSyncTests
         // Must not throw or crash on invocation
         var available = AirTrafficHostApi.IsAvailable;
         AssertEqual(available == true || available == false, true, "IsAvailable returns a valid boolean");
+
+        if (available)
+        {
+            var res = AirTrafficHostApi.TriggerSync("00000000-0000000000000000", "Photos", "LIB-TEST");
+            AssertEqual(res == true || res == false, true, "TriggerSync handles invocation safely");
+        }
     }
 
     private static void AssertEqual<T>(T actual, T expected, string testName)

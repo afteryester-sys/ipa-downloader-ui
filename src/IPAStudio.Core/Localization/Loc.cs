@@ -160,5 +160,6 @@ public static class Loc
         ["L.QuickTransfer.ContactImportHint"] = "vCard contacts are imported into the iPhone address book and saved on device.",
         ["L.QuickTransfer.VerifiedAllFull"] = "Done: Photos — {0}; contacts — {1}; files — {2}; IPAs queued — {3}.",
         ["L.QuickTransfer.StagedOnDevice"] = "Files saved to iPhone storage: {0}.",
+        ["L.Photos.ImportNothingCopied"] = "No files could be copied",
     };
 }

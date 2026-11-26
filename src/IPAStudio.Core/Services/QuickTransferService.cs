@@ -161,35 +161,78 @@ public sealed class QuickTransferService
         // 1. Photos and Native Videos to Photos Library
         if (cameraRollFiles.Count > 0)
         {
-            if (_airTraffic != null && _airTraffic.IsAvailable)
+            var photoSynced = false;
+            if (_airTraffic != null)
             {
-                var photoProgress = new Progress<PhotoTransferProgress>(p =>
+                try
                 {
-                    var percent = p.Total > 0 ? (double)p.Completed / p.Total * 100.0 : 0;
-                    progress?.Report(new QuickTransferProgress(
-                        p.CurrentFile,
-                        currentOp + p.Completed,
-                        totalOperations,
-                        percent));
-                });
+                    var photoProgress = new Progress<PhotoTransferProgress>(p =>
+                    {
+                        var percent = totalOperations > 0
+                            ? (double)(currentOp + p.Completed) / totalOperations * 100.0
+                            : (p.Total > 0 ? (double)p.Completed / p.Total * 100.0 : 0);
+                        var detail = string.IsNullOrWhiteSpace(p.CurrentFile)
+                            ? string.Empty
+                            : Loc.Format("L.QuickTransfer.ImportingPhotos", Math.Min(p.Completed + 1, p.Total), p.Total, p.CurrentFile);
+                        progress?.Report(new QuickTransferProgress(
+                            p.CurrentFile,
+                            currentOp + p.Completed,
+                            totalOperations,
+                            percent,
+                            StatusDetail: detail));
+                    });
 
-                var syncRes = await _airTraffic.SyncPhotosAsync(udid, cameraRollFiles, "IPA Studio", photoProgress, ct).ConfigureAwait(false);
-                photosCopied = syncRes.Copied;
+                    var syncRes = await _airTraffic.SyncPhotosAsync(udid, cameraRollFiles, "IPA Studio", photoProgress, ct).ConfigureAwait(false);
+                    if (syncRes.Success && syncRes.Copied > 0)
+                    {
+                        photosCopied = syncRes.Copied;
+                        photoSynced = true;
+                    }
+                    else
+                    {
+                        AppLog.Warn($"QuickTransfer: AirTraffic sync returned success=false ({syncRes.ErrorMessage}), falling back to direct AFC import.");
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    AppLog.Warn($"QuickTransfer: AirTraffic photo sync failed ({ex.Message}), falling back to direct AFC import.");
+                }
             }
-            else if (_photos != null)
-            {
-                var photoProgress = new Progress<PhotoTransferProgress>(p =>
-                {
-                    var percent = p.Total > 0 ? (double)p.Completed / p.Total * 100.0 : 0;
-                    progress?.Report(new QuickTransferProgress(
-                        p.CurrentFile,
-                        currentOp + p.Completed,
-                        totalOperations,
-                        percent));
-                });
 
-                var importRes = await _photos.ImportAsync(udid, cameraRollFiles, photoProgress, ct).ConfigureAwait(false);
-                photosCopied = importRes.Copied;
+            if (!photoSynced && _photos != null)
+            {
+                try
+                {
+                    var photoProgress = new Progress<PhotoTransferProgress>(p =>
+                    {
+                        var percent = totalOperations > 0
+                            ? (double)(currentOp + p.Completed) / totalOperations * 100.0
+                            : (p.Total > 0 ? (double)p.Completed / p.Total * 100.0 : 0);
+                        var detail = string.IsNullOrWhiteSpace(p.CurrentFile)
+                            ? string.Empty
+                            : Loc.Format("L.QuickTransfer.ImportingPhotos", Math.Min(p.Completed + 1, p.Total), p.Total, p.CurrentFile);
+                        progress?.Report(new QuickTransferProgress(
+                            p.CurrentFile,
+                            currentOp + p.Completed,
+                            totalOperations,
+                            percent,
+                            StatusDetail: detail));
+                    });
+
+                    var importRes = await _photos.ImportAsync(udid, cameraRollFiles, photoProgress, ct).ConfigureAwait(false);
+                    photosCopied = importRes.Copied;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    AppLog.Warn($"QuickTransfer: Photo import fallback failed: {ex.Message}");
+                    throw;
+                }
+            }
+            else if (!photoSynced && _photos == null)
+            {
+                throw new InvalidOperationException("Photo transfer service is unavailable.");
             }
             currentOp += cameraRollFiles.Count;
         }
@@ -256,12 +299,15 @@ public sealed class QuickTransferService
         }
 
         // IPAs are returned in result for execution by the queue
+        var anythingMoved = photosCopied + contactsCopied + appFilesCopied + ipaFiles.Count > 0;
+        var success = totalOperations == 0 || anythingMoved;
         return new QuickTransferResult(
             photosCopied,
             contactsCopied,
             appFilesCopied,
             ipaFiles,
-            true);
+            success,
+            success ? null : Loc.Get("L.Photos.ImportNothingCopied"));
     }
 
     /// <summary>
@@ -299,7 +345,7 @@ public sealed class QuickTransferService
                 baseOpCount + i,
                 Math.Max(totalOpCount, contactFiles.Count),
                 (double)(i + 1) / contactFiles.Count * 100.0,
-                cardCount.ToString()));
+                StatusDetail: Loc.Format("L.QuickTransfer.ImportingContacts", i + 1, contactFiles.Count, fileName, cardCount)));
 
             // Optional upload to selected destination app (e.g. Outlook, Documents)
             if (destinationApp != null)

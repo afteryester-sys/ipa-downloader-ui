@@ -208,6 +208,20 @@ public partial class MainWindow : Window
         shell.GoTo(Page.Settings);
     }
 
+    private void OpenBugReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is ShellViewModel shell)
+        {
+            shell.Updater.IsOpen = false;
+        }
+
+        var dialog = new Views.BugReportDialog
+        {
+            Owner = this
+        };
+        dialog.ShowDialog();
+    }
+
     private void UpdateButton_PreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (DataContext is ShellViewModel shell && shell.Updater.IsOpen)

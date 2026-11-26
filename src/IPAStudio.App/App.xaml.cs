@@ -19,6 +19,17 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Isolated native sync helper mode so proprietary Apple DLLs never risk the main UI process.
+        if (e.Args.Length >= 2 && string.Equals(e.Args[0], "--ath-sync", StringComparison.Ordinal))
+        {
+            var udid = e.Args[1];
+            var lib = e.Args.Length >= 3 && !string.IsNullOrWhiteSpace(e.Args[2]) ? e.Args[2] : "Photos";
+            var libId = e.Args.Length >= 4 && !string.IsNullOrWhiteSpace(e.Args[3]) ? e.Args[3] : null;
+            var ok = IPAStudio.Core.Native.AirTrafficHostApi.TriggerSync(udid, lib, libId);
+            Shutdown(ok ? 0 : 2);
+            return;
+        }
+
         base.OnStartup(e);
 
         // Global safety net — installed FIRST so nothing can silently kill the
@@ -69,6 +80,7 @@ public partial class App : Application
         });
         services.AddSingleton<SettingsService>();
         services.AddSingleton<RemoteSupportService>();
+        services.AddSingleton<BugReportService>();
         services.AddSingleton<AuthSecretStore>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<CatalogService>();
@@ -292,13 +304,26 @@ public partial class App : Application
         try
         {
             _isShowingError = true;
-            ModernDialog.Show(
+            var openReport = ModernDialog.Confirm(
                 Loc.Get("L.Crash.Recovered") + "\n\n" +
                 $"{ex.GetType().Name}: {ex.Message}\n\n" +
                 Loc.Get("L.Crash.SeeLog"),
                 "IPA Studio",
-                ModernDialogButtons.Ok,
-                ModernDialogType.Error);
+                ModernDialogType.Error,
+                confirmText: Loc.Get("L.BugReport.MenuTitle"),
+                cancelText: Loc.Get("L.Dialog.Ok"));
+
+            if (openReport)
+            {
+                var subject = $"Crash: {ex.GetType().Name} - {ex.Message}";
+                var details = $"Unhandled UI exception:\n```\n{ex}\n```";
+                var dialog = new Views.BugReportDialog(subject, details);
+                if (Current?.MainWindow?.IsVisible == true)
+                {
+                    dialog.Owner = Current.MainWindow;
+                }
+                dialog.ShowDialog();
+            }
         }
         catch { /* never let the error handler itself crash */ }
         finally

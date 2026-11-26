@@ -99,6 +99,16 @@ public static class AppLog
         }
     }
 
+    /// <summary>Returns the last <paramref name="count"/> lines of the in-memory log buffer.</summary>
+    public static string GetRecentLines(int count = 50)
+    {
+        lock (_sync)
+        {
+            var lines = _buffer.TakeLast(count);
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
+
     /// <summary>Clears the in-memory buffer and truncates the log file.</summary>
     public static void Clear()
     {
