@@ -650,6 +650,7 @@
     <sys:String x:Key="L.Photos.ReadFailed">Не удалось прочитать медиатеку: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Выберите папку для сохранения</sys:String>
     <sys:String x:Key="L.Photos.Exported">Скопировано на компьютер: {0} из {1}</sys:String>
+    <sys:String x:Key="L.Photos.Exporting">Сохранение фотографий на компьютер…</sys:String>
     <sys:String x:Key="L.Photos.ExportAlbum">Скачать альбом</sys:String>
     <sys:String x:Key="L.Photos.ExportAlbumTooltip">Сохранить все файлы альбома «{0}» на компьютер</sys:String>
     <sys:String x:Key="L.Photos.ExportingAlbum">Сохранение альбома «{0}»…</sys:String>
@@ -1275,4 +1276,72 @@
     <sys:String x:Key="L.Tools.ICloud">iCloud</sys:String>
     <sys:String x:Key="L.Tools.MediaExport">Фото с носителя</sys:String>
     <sys:String x:Key="L.Tools.Statistics">Статистика</sys:String>
+
+    <!-- Media Converter & HEIC Conversion -->
+    <sys:String x:Key="L.Tools.MediaConverter">Конвертер</sys:String>
+    <sys:String x:Key="L.Notification.MediaConverterCompleted">Конвертация завершена</sys:String>
+
+    <!-- HEIC Export Prompt Dialog -->
+    <sys:String x:Key="L.Photos.HeicPromptTitle">Конвертация HEIC в JPEG</sys:String>
+    <sys:String x:Key="L.Photos.HeicPromptSubtitle">Среди выбранных файлов обнаружены фото в формате Apple HEIC</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePrompt">Спрашивать при экспорте</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePost">Конвертировать постфактум (после копирования на ПК)</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePostHint">Файлы сначала скопируются на компьютер, после чего iPhone можно сразу отключить. Конвертация продолжится на ПК в фоне.</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDuring">Конвертировать во время переноса фото</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDuringHint">Конвертация «на лету» во время копирования. Телефон должен оставаться подключенным до полного завершения.</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDisabled">Не конвертировать (оставить оригиналы HEIC)</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDisabledHint">Файлы сохранятся в исходном виде .heic/.heif без перекодирования.</sys:String>
+    <sys:String x:Key="L.Photos.HeicRecommended">Рекомендуется</sys:String>
+    <sys:String x:Key="L.Photos.HeicDeleteOriginals">Удалять исходные HEIC после успешной конвертации</sys:String>
+    <sys:String x:Key="L.Photos.HeicRememberChoice">Запомнить мой выбор и больше не спрашивать</sys:String>
+    <sys:String x:Key="L.Photos.TransferCompleted">Копирование на ПК завершено</sys:String>
+    <sys:String x:Key="L.Photos.TransferDoneDisconnectAllowed">Копирование на ПК завершено! Телефон можно отключить. Начинается конвертация HEIC в JPEG...</sys:String>
+    <sys:String x:Key="L.Photos.DisconnectDeviceAllowed">Телефон можно безопасно отключить!</sys:String>
+    <sys:String x:Key="L.Photos.ExportCompletedToast">Экспорт фото завершён</sys:String>
+    <sys:String x:Key="L.Photos.ExportedToastDetail">Успешно экспортировано {0} файлов в {1}</sys:String>
+
+    <!-- Settings HEIC -->
+    <sys:String x:Key="L.Settings.HeicTitle">Экспорт и конвертация фото (HEIC)</sys:String>
+    <sys:String x:Key="L.Settings.HeicSubtitle">Настройки автоматической конвертации фотографий Apple HEIC/HEIF в универсальный JPEG формат при копировании на ПК.</sys:String>
+    <sys:String x:Key="L.Settings.HeicModeLabel">Режим конвертации HEIC:</sys:String>
+
+    <!-- Standalone Media Converter Page -->
+    <sys:String x:Key="L.MediaConverter.Title">Конвертер медиа</sys:String>
+    <sys:String x:Key="L.MediaConverter.Subtitle">Пакетная конвертация HEIC/HEIF фото, видео и Live Photos в универсальные форматы</sys:String>
+    <sys:String x:Key="L.MediaConverter.ModeTitle">Режим конвертера</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabPhotos">📷 Фото (HEIC → JPG)</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabVideos">🎬 Видео (→ MP4)</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabLivePhotos">💫 Live Photos</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabAll">📁 Все форматы</sys:String>
+    <sys:String x:Key="L.MediaConverter.SourceLabel">Исходные файлы</sys:String>
+    <sys:String x:Key="L.MediaConverter.SourceHint">Выберите папку или отдельные файлы, либо просто перетащите их в окно программы.</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickFolder">Выбрать папку…</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickFiles">Выбрать файлы…</sys:String>
+    <sys:String x:Key="L.MediaConverter.IncludeSubdirs">Включая вложенные папки</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickSourceFolderTitle">Выберите папку с медиафайлами для конвертации</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickSourceFilesTitle">Выберите файлы для конвертации</sys:String>
+    <sys:String x:Key="L.MediaConverter.DestLabel">Куда сохранять</sys:String>
+    <sys:String x:Key="L.MediaConverter.DestHint">Выберите, сохранять готовые файлы рядом с исходными или в отдельную папку.</sys:String>
+    <sys:String x:Key="L.MediaConverter.SaveInSource">Сохранять рядом с исходными файлами</sys:String>
+    <sys:String x:Key="L.MediaConverter.SaveInCustom">Сохранять в выбранную папку</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickDestFolderTitle">Выберите папку для сохранения сконвертированных файлов</sys:String>
+    <sys:String x:Key="L.MediaConverter.PreserveSubdirs">Сохранять структуру подпапок</sys:String>
+    <sys:String x:Key="L.MediaConverter.DeleteOriginals">Удалять исходные файлы после успешной конвертации</sys:String>
+    <sys:String x:Key="L.MediaConverter.OptionsLabel">Параметры качества</sys:String>
+    <sys:String x:Key="L.MediaConverter.JpegQuality">Качество JPEG:</sys:String>
+    <sys:String x:Key="L.MediaConverter.VideoPreset">Профиль видео:</sys:String>
+    <sys:String x:Key="L.MediaConverter.LivePhotoMode">Формат для Live Photos:</sys:String>
+    <sys:String x:Key="L.MediaConverter.ItemsList">Список файлов к обработке</sys:String>
+    <sys:String x:Key="L.MediaConverter.ClearList">Очистить список</sys:String>
+    <sys:String x:Key="L.MediaConverter.DropzoneTitle">Перетащите файлы или папку сюда</sys:String>
+    <sys:String x:Key="L.MediaConverter.DropzoneHint">Поддерживаются папки с фото HEIC/HEIF, видео MOV/MP4/MKV и пары Live Photos</sys:String>
+    <sys:String x:Key="L.MediaConverter.StartConvert">Конвертировать</sys:String>
+    <sys:String x:Key="L.MediaConverter.Starting">Запуск конвертации…</sys:String>
+    <sys:String x:Key="L.MediaConverter.LoadedItems">Загружено файлов: {0}</sys:String>
+    <sys:String x:Key="L.MediaConverter.CompletedSummary">Конвертация завершена: успешно сконвертировано {0} из {1} файлов.</sys:String>
+    <sys:String x:Key="L.MediaConverter.Cancelled">Конвертация отменена пользователем.</sys:String>
+    <sys:String x:Key="L.MediaConverter.Failed">Ошибка конвертации: {0}</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpenDest">Открыть папку с файлами</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpTitle">Конвертация медиа</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpDetail">Обработка {0} файлов</sys:String>
 </ResourceDictionary>

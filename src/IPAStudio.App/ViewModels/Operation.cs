@@ -26,6 +26,9 @@ public enum OperationKind
 
     /// <summary>Downloading an Apple IPSW firmware archive.</summary>
     Firmware,
+
+    /// <summary>Batch converting HEIC, video, or Live Photos.</summary>
+    MediaConverter,
 }
 
 public enum OperationState

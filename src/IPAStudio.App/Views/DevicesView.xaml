@@ -189,7 +189,7 @@
         </Border>
 
         <!-- ===== Tools Toolbar ===== -->
-        <UniformGrid Grid.Row="2" Columns="5" Rows="1" Margin="-4,0,-4,20">
+        <UniformGrid Grid.Row="2" Columns="6" Rows="1" Margin="-4,0,-4,20">
             <!-- 1. Download IPA -->
             <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenDirectDownloadCommand}">
                 <Grid>
@@ -262,7 +262,25 @@
                 </Grid>
             </Button>
 
-            <!-- 5. Statistics -->
+            <!-- 5. Media Converter -->
+            <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenMediaConverterCommand}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Grid.Column="0" Width="32" Height="32" CornerRadius="8" Background="{DynamicResource Brush.AccentSoft}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{DynamicResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Grid.Column="1" Text="{DynamicResource L.Tools.MediaConverter}"
+                               Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" Margin="9,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+
+            <!-- 6. Statistics -->
             <Button Style="{StaticResource ToolCardButton}" Command="{Binding OpenStatisticsCommand}">
                 <Grid>
                     <Grid.ColumnDefinitions>

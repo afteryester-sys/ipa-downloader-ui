@@ -186,6 +186,27 @@
                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                         <TextBlock Text="{DynamicResource L.MediaExport.SkipJunkHint}"
                                    Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <!-- Section 4: HEIC to JPEG conversion -->
+                        <Rectangle Height="1" Fill="{StaticResource Brush.Border}" Margin="0,12,0,12" Opacity="0.5" />
+                        <CheckBox Content="{DynamicResource L.Photos.HeicPromptTitle}"
+                                  Foreground="{StaticResource Brush.Text}"
+                                  IsChecked="{Binding ConvertHeicToJpeg}"
+                                  IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        <StackPanel Margin="24,8,0,0" Visibility="{Binding ConvertHeicToJpeg, Converter={StaticResource BoolToVis}}">
+                            <RadioButton Content="{DynamicResource L.Photos.HeicModePost}" GroupName="MediaExportHeicMode"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding ConvertPostFactum}" Margin="0,0,0,6"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="{DynamicResource L.Photos.HeicModeDuring}" GroupName="MediaExportHeicMode"
+                                         Foreground="{StaticResource Brush.Text}"
+                                         IsChecked="{Binding ConvertPostFactum, Converter={StaticResource InverseBool}}" Margin="0,0,0,8"
+                                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                            <CheckBox Content="{DynamicResource L.Photos.HeicDeleteOriginals}"
+                                      Foreground="{StaticResource Brush.Text}"
+                                      IsChecked="{Binding DeleteOriginalHeic}"
+                                      IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

@@ -109,6 +109,8 @@ public partial class App : Application
         services.AddSingleton<CleanupService>();
         services.AddSingleton<IpaCatalogService>();
         services.AddSingleton<MediaExportService>();
+        services.AddSingleton<MediaConverterService>();
+        services.AddSingleton<VideoTranscoder>();
         services.AddSingleton<StatisticsService>();
         services.AddSingleton<FileSharingService>();
         services.AddSingleton<QuickTransferService>();
@@ -140,6 +142,7 @@ public partial class App : Application
         services.AddSingleton<MediaExportViewModel>();
         services.AddSingleton<FirmwareViewModel>();
         services.AddSingleton<StatisticsViewModel>();
+        services.AddSingleton<MediaConverterViewModel>();
 
         Services = services.BuildServiceProvider();
 

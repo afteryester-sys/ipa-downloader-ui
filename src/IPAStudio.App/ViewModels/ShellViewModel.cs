@@ -56,12 +56,16 @@ public enum Page
 
     /// <summary>Application installation, downloads and devices analytics dashboard.</summary>
     Statistics,
+
+    /// <summary>Batch media converter for HEIC, video, and Live Photos.</summary>
+    MediaConverter,
 }
 
 /// <summary>Simple page-based navigation used by all viewmodels.</summary>
 public interface INavigator
 {
     void GoTo(Page page);
+    void GoToMediaConverter();
     void GoToAppPicker(Device device);
 
     /// <summary>Opens the login screen for a device chosen before signing in.</summary>
@@ -228,6 +232,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
                 OperationKind.Transfer => Loc.Get("L.Notification.TransferCompleted"),
                 OperationKind.Photos => Loc.Get("L.Notification.PhotosCompleted"),
                 OperationKind.MediaExport => Loc.Get("L.Notification.MediaExportCompleted"),
+                OperationKind.MediaConverter => Loc.Get("L.Notification.MediaConverterCompleted"),
                 _ => Loc.Get("L.Notification.TaskCompleted")
             };
 
@@ -269,6 +274,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             {
                 OperationKind.Photos => "📷",
                 OperationKind.MediaExport => "📷",
+                OperationKind.MediaConverter => "🔄",
                 OperationKind.Download => "📥",
                 OperationKind.Firmware => "⚙",
                 _ => "✓"
@@ -468,6 +474,8 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         // device list, which would strand the corner circle's "return" action.
         else if (operation.ReturnPage == Page.MediaExport)
             GoTo(Page.MediaExport);
+        else if (operation.ReturnPage == Page.MediaConverter)
+            GoTo(Page.MediaConverter);
         else
             GoTo(Page.Devices);
 
@@ -548,6 +556,7 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
             Page.MediaExport => Resolve<MediaExportViewModel>(),
             Page.Firmware => Resolve<FirmwareViewModel>(),
             Page.Statistics => Resolve<StatisticsViewModel>(),
+            Page.MediaConverter => Resolve<MediaConverterViewModel>(),
             _ => CurrentViewModel,
         };
 
@@ -610,6 +619,8 @@ public sealed partial class ShellViewModel : ObservableObject, INavigator
         _pendingDevice = device;
         GoTo(Page.IpaCatalogs);
     }
+
+    public void GoToMediaConverter() => GoTo(Page.MediaConverter);
 
     public void GoBack()
     {

@@ -1309,18 +1309,16 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
     {
         if (_device is null) return;
 
+        var selected = Photos.Where(p => p.IsSelected).Select(p => p.Item).ToList();
+        if (selected.Count == 0) return;
+
         var dialog = new OpenFolderDialog
         {
             Title = Loc.Get("L.Photos.PickExportFolder"),
         };
         if (dialog.ShowDialog() != true) return;
 
-        var selected = Photos.Where(p => p.IsSelected).Select(p => p.Item).ToList();
-        await RunTransferAsync(async (progress, ct) =>
-        {
-            var count = await _photos.ExportAsync(_device.Udid, selected, dialog.FolderName, progress, ct);
-            StatusText = Loc.Format("L.Photos.Exported", count, selected.Count);
-        });
+        await PromptAndExportAsync(selected, dialog.FolderName, null);
     }
 
     /// <summary>
@@ -1358,13 +1356,77 @@ public sealed partial class PhotosViewModel : ObservableObject, IPageAware
         // Into a sub-folder named after the album, so several albums can be saved into the
         // same place without their files mixing together.
         var target = Path.Combine(dialog.FolderName, SafeFolderName(album.Name));
+        await PromptAndExportAsync(items, target, album.Name);
+    }
+
+    private async Task PromptAndExportAsync(IReadOnlyList<PhotoItem> items, string targetFolder, string? albumName)
+    {
+        if (_device is null) return;
+
+        bool hasHeic = items.Any(i => MediaConverterService.IsHeic(i.FileName));
+        var conversionMode = (HeicExportConversionMode)_settings.Current.HeicExportConversionMode;
+        var deleteOriginals = _settings.Current.HeicExportDeleteOriginals;
+        var quality = _settings.Current.HeicConversionQuality;
+
+        if (hasHeic && conversionMode == HeicExportConversionMode.Prompt)
+        {
+            var prompt = new Views.HeicExportPromptDialog(HeicExportConversionMode.PostTransfer, deleteOriginals);
+            if (prompt.ShowDialog() != true)
+            {
+                return;
+            }
+
+            conversionMode = prompt.SelectedMode;
+            deleteOriginals = prompt.DeleteOriginals;
+
+            if (prompt.RememberChoice)
+            {
+                _settings.Current.HeicExportConversionMode = (int)conversionMode;
+                _settings.Current.HeicExportDeleteOriginals = deleteOriginals;
+                _settings.Save();
+            }
+        }
+
+        Directory.CreateDirectory(targetFolder);
 
         await RunTransferAsync(async (progress, ct) =>
         {
-            StatusText = Loc.Format("L.Photos.ExportingAlbum", album.Name);
-            Directory.CreateDirectory(target);
-            var count = await _photos.ExportAsync(_device.Udid, items, target, progress, ct);
-            StatusText = Loc.Format("L.Photos.ExportedAlbum", album.Name, count, items.Count, target);
+            if (!string.IsNullOrEmpty(albumName))
+            {
+                StatusText = Loc.Format("L.Photos.ExportingAlbum", albumName);
+            }
+            else
+            {
+                StatusText = Loc.Get("L.Photos.Exporting");
+            }
+
+            void OnPhoneFinished()
+            {
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    StatusText = Loc.Get("L.Photos.TransferDoneDisconnectAllowed");
+                    var shell = System.Windows.Application.Current?.MainWindow?.DataContext as ShellViewModel;
+                    shell?.ShowToast(
+                        Loc.Get("L.Photos.TransferCompleted"),
+                        Loc.Get("L.Photos.TransferDoneDisconnectAllowed"),
+                        "📱");
+                });
+            }
+
+            var count = await _photos.ExportAsync(
+                _device.Udid,
+                items,
+                targetFolder,
+                progress,
+                conversionMode,
+                deleteOriginals,
+                quality,
+                OnPhoneFinished,
+                ct);
+
+            StatusText = !string.IsNullOrEmpty(albumName)
+                ? Loc.Format("L.Photos.ExportedAlbum", albumName, count, items.Count, targetFolder)
+                : Loc.Format("L.Photos.Exported", count, items.Count);
         });
     }
 

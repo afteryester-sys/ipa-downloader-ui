@@ -302,6 +302,37 @@ public sealed class AppSettings
     public int MediaExportJunkThresholdKb { get; set; } = 20;
 
     /// <summary>
+    /// Preferred HEIC to JPEG conversion mode during photo export:
+    /// 0 = Prompt, 1 = PostTransfer (recommended, phone can be disconnected), 2 = DuringTransfer, 3 = Disabled.
+    /// </summary>
+    public int HeicExportConversionMode { get; set; } = 0;
+
+    /// <summary>
+    /// Whether to delete original HEIC files after successful conversion during export.
+    /// </summary>
+    public bool HeicExportDeleteOriginals { get; set; } = true;
+
+    /// <summary>
+    /// JPEG quality for HEIC conversion (1-100, default 92).
+    /// </summary>
+    public int HeicConversionQuality { get; set; } = 92;
+
+    /// <summary>
+    /// Standalone Media Converter: last selected source folder or path.
+    /// </summary>
+    public string? LastMediaConverterSource { get; set; }
+
+    /// <summary>
+    /// Standalone Media Converter: last selected destination folder.
+    /// </summary>
+    public string? LastMediaConverterDestination { get; set; }
+
+    /// <summary>
+    /// Standalone Media Converter: active tab/mode index (0 = Photos, 1 = Video, 2 = LivePhotos, 3 = BatchFolder).
+    /// </summary>
+    public int MediaConverterTab { get; set; } = 0;
+
+    /// <summary>
     /// App Store ids the signed-in Apple ID is known to own, learned from successful
     /// downloads. Persisted so the app picker can show ownership immediately on the
     /// next launch instead of paying an Apple round-trip per app.

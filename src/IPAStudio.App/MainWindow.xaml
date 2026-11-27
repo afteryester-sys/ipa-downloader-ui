@@ -72,6 +72,9 @@
         <DataTemplate DataType="{x:Type vm:StatisticsViewModel}">
             <views:StatisticsView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:MediaConverterViewModel}">
+            <views:MediaConverterView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>

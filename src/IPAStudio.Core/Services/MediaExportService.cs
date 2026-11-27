@@ -24,6 +24,7 @@ namespace IPAStudio.Core.Services;
 /// </summary>
 public sealed class MediaExportService
 {
+    private readonly MediaConverterService _mediaConverter = new();
     private static readonly HashSet<string> PhotoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".heic", ".heif", ".gif", ".bmp", ".webp",
@@ -984,7 +985,7 @@ public sealed class MediaExportService
 
     /// <summary>
     /// Copies every matched file to <paramref name="destinationRoot"/> organized according
-    /// to <paramref name="organization"/>.
+    /// to <paramref name="organization"/>, with optional HEIC to JPEG conversion.
     /// </summary>
     public Task<int> CopyAsync(
         MediaExportScanResult scan,
@@ -992,13 +993,18 @@ public sealed class MediaExportService
         MediaExportOrganization organization,
         string rootGroupLabel,
         IProgress<MediaExportProgress>? progress = null,
+        HeicExportConversionMode conversionMode = HeicExportConversionMode.Disabled,
+        bool deleteOriginalHeic = false,
+        int jpegQuality = 92,
+        Action? onDeviceTransferCompleted = null,
         CancellationToken ct = default)
-        => Task.Run(() =>
+        => Task.Run(async () =>
         {
             Directory.CreateDirectory(destinationRoot);
 
             var done = 0;
             var total = scan.Files.Count;
+            var hasHeic = false;
 
             foreach (var file in scan.Files)
             {
@@ -1027,19 +1033,34 @@ public sealed class MediaExportService
                 try
                 {
                     Directory.CreateDirectory(targetDir);
-                    var destination = MakeUniquePath(Path.Combine(targetDir, name));
+                    bool isHeic = MediaConverterService.IsHeic(name);
+                    if (isHeic) hasHeic = true;
 
-                    if (File.Exists(file.FullPath))
+                    if (isHeic && conversionMode == HeicExportConversionMode.DuringTransfer && File.Exists(file.FullPath))
                     {
-                        File.Copy(file.FullPath, destination, overwrite: false);
-                        done++;
-                    }
-                    else if (OperatingSystem.IsWindows())
-                    {
-                        // Try Shell COM copy for virtual MTP items
-                        if (CopyViaShell(file.ShellItem ?? file.FullPath, targetDir, name))
+                        var destName = Path.GetFileNameWithoutExtension(name) + ".jpg";
+                        var destination = MakeUniquePath(Path.Combine(targetDir, destName));
+                        if (MediaConverterService.ConvertImageToJpeg(file.FullPath, destination, jpegQuality))
                         {
                             done++;
+                        }
+                    }
+                    else
+                    {
+                        var destination = MakeUniquePath(Path.Combine(targetDir, name));
+
+                        if (File.Exists(file.FullPath))
+                        {
+                            File.Copy(file.FullPath, destination, overwrite: false);
+                            done++;
+                        }
+                        else if (OperatingSystem.IsWindows())
+                        {
+                            // Try Shell COM copy for virtual MTP items
+                            if (CopyViaShell(file.ShellItem ?? file.FullPath, targetDir, name))
+                            {
+                                done++;
+                            }
                         }
                     }
                 }
@@ -1047,6 +1068,18 @@ public sealed class MediaExportService
                 {
                     AppLog.Warn($"media export: copy failed for '{file.FullPath}': {ex.Message}");
                 }
+            }
+
+            if (conversionMode == HeicExportConversionMode.PostTransfer && hasHeic)
+            {
+                onDeviceTransferCompleted?.Invoke();
+                progress?.Report(new MediaExportProgress(done, total, "Конвертация HEIC в JPEG..."));
+                await _mediaConverter.ConvertPostExportFolderAsync(
+                    destinationRoot,
+                    deleteOriginalHeic,
+                    jpegQuality,
+                    null,
+                    ct).ConfigureAwait(false);
             }
 
             progress?.Report(new MediaExportProgress(done, total, ""));

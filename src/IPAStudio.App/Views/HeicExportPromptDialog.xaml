@@ -1,0 +1,154 @@
+<Window x:Class="IPAStudio.App.Views.HeicExportPromptDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        SnapsToDevicePixels="True"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextRenderingMode="ClearType"
+        MinWidth="460"
+        MaxWidth="540">
+
+    <Grid Margin="24">
+        <!-- Shadow Layer -->
+        <Border CornerRadius="16"
+                Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="32" Direction="270"
+                                  RenderingBias="Quality" ShadowDepth="6"
+                                  Color="#000000" Opacity="0.45" />
+            </Border.Effect>
+        </Border>
+
+        <!-- Main Card -->
+        <Border Background="{DynamicResource Brush.Surface}"
+                BorderBrush="{DynamicResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="16"
+                Padding="24,20,24,22">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20"
+                            Background="{DynamicResource Brush.AccentSoft}"
+                            Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                   Foreground="{DynamicResource Brush.Accent}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource L.Photos.HeicPromptTitle}"
+                                   Style="{StaticResource Text.Body}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Brush.Text}" />
+                        <TextBlock Text="{DynamicResource L.Photos.HeicPromptSubtitle}"
+                                   Style="{StaticResource Text.Muted}"
+                                   FontSize="12" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Style="{StaticResource Button.Ghost}"
+                            Width="28" Height="28" Padding="0"
+                            VerticalAlignment="Center" Cursor="Hand"
+                            Click="OnCancelClick">
+                        <TextBlock Text="✕" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                </Grid>
+
+                <!-- Conversion Modes -->
+                <Border Grid.Row="1" Background="{DynamicResource Brush.SurfaceElevated}"
+                        BorderBrush="{DynamicResource Brush.Border}"
+                        BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,0,0,16">
+                    <StackPanel>
+                        <!-- Option 1: Post-transfer (Recommended) -->
+                        <RadioButton x:Name="RadioPostTransfer" IsChecked="True" GroupName="HeicMode" Margin="0,0,0,12" Cursor="Hand">
+                            <StackPanel Margin="6,-2,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{DynamicResource L.Photos.HeicModePost}" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Brush.Text}" FontSize="13" />
+                                    <Border Margin="8,0,0,0" CornerRadius="4" Background="{DynamicResource Brush.AccentSoft}" Padding="5,1">
+                                        <TextBlock Text="{DynamicResource L.Photos.HeicRecommended}" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Brush.Accent}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{DynamicResource L.Photos.HeicModePostHint}"
+                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <Rectangle Height="1" Fill="{DynamicResource Brush.Border}" Margin="0,2,0,10" Opacity="0.6" />
+
+                        <!-- Option 2: During transfer -->
+                        <RadioButton x:Name="RadioDuringTransfer" GroupName="HeicMode" Margin="0,0,0,12" Cursor="Hand">
+                            <StackPanel Margin="6,-2,0,0">
+                                <TextBlock Text="{DynamicResource L.Photos.HeicModeDuring}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Brush.Text}" FontSize="13" />
+                                <TextBlock Text="{DynamicResource L.Photos.HeicModeDuringHint}"
+                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+
+                        <Rectangle Height="1" Fill="{DynamicResource Brush.Border}" Margin="0,2,0,10" Opacity="0.6" />
+
+                        <!-- Option 3: Do not convert -->
+                        <RadioButton x:Name="RadioDisabled" GroupName="HeicMode" Cursor="Hand">
+                            <StackPanel Margin="6,-2,0,0">
+                                <TextBlock Text="{DynamicResource L.Photos.HeicModeDisabled}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Brush.Text}" FontSize="13" />
+                                <TextBlock Text="{DynamicResource L.Photos.HeicModeDisabledHint}"
+                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </Border>
+
+                <!-- Checkboxes -->
+                <StackPanel Grid.Row="2" Margin="4,0,4,18">
+                    <CheckBox x:Name="ChkDeleteOriginals"
+                              Content="{DynamicResource L.Photos.HeicDeleteOriginals}"
+                              IsChecked="True"
+                              Margin="0,0,0,8" />
+                    <CheckBox x:Name="ChkRememberChoice"
+                              Content="{DynamicResource L.Photos.HeicRememberChoice}"
+                              IsChecked="False" />
+                </StackPanel>
+
+                <!-- Actions -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource Button.Ghost}"
+                            Content="{DynamicResource L.Cancel}"
+                            MinWidth="100" Margin="0,0,10,0"
+                            IsCancel="True"
+                            Click="OnCancelClick" />
+                    <Button Style="{StaticResource Button.Primary}"
+                            Content="{DynamicResource L.Photos.Export}"
+                            MinWidth="120"
+                            IsDefault="True"
+                            Click="OnConfirmClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -178,6 +178,17 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
         set { if (value) SetOrganization(MediaExportOrganization.SingleFolder); }
     }
 
+    // ---- HEIC Conversion ----
+
+    [ObservableProperty]
+    private bool _convertHeicToJpeg;
+
+    [ObservableProperty]
+    private bool _convertPostFactum = true;
+
+    [ObservableProperty]
+    private bool _deleteOriginalHeic;
+
     /// <summary>Backwards-compatible wrapper for settings and bindings.</summary>
     public bool ByFolder
     {
@@ -477,12 +488,32 @@ public sealed partial class MediaExportViewModel : ObservableObject, IPageAware
                 operation.Detail = StatusText ?? "";
             });
 
+            var mode = !ConvertHeicToJpeg ? HeicExportConversionMode.Disabled :
+                       ConvertPostFactum ? HeicExportConversionMode.PostTransfer : HeicExportConversionMode.DuringTransfer;
+
+            void OnDeviceFinished()
+            {
+                System.Windows.Application.Current?.Dispatcher.InvokeAsync(() =>
+                {
+                    StatusText = Loc.Get("L.Photos.TransferDoneDisconnectAllowed");
+                    var shell = System.Windows.Application.Current?.MainWindow?.DataContext as ShellViewModel;
+                    shell?.ShowToast(
+                        Loc.Get("L.Photos.TransferCompleted"),
+                        Loc.Get("L.Photos.TransferDoneDisconnectAllowed"),
+                        "📱");
+                });
+            }
+
             var copied = await _mediaExport.CopyAsync(
                 scan,
                 DestinationPath,
                 Organization,
                 Loc.Get("L.MediaExport.RootGroup"),
                 progress,
+                mode,
+                DeleteOriginalHeic,
+                _settings.Current.HeicConversionQuality,
+                OnDeviceFinished,
                 _cts.Token).ConfigureAwait(true);
 
             ExportProgress = 100;

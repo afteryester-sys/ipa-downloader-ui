@@ -262,6 +262,9 @@ public sealed partial class DevicesViewModel : ObservableObject, IPageAware
     private void OpenMediaExport() => _navigator?.GoTo(Page.MediaExport);
 
     [RelayCommand]
+    private void OpenMediaConverter() => _navigator?.GoTo(Page.MediaConverter);
+
+    [RelayCommand]
     private void OpenStatistics() => _navigator?.GoTo(Page.Statistics);
 
     [RelayCommand]

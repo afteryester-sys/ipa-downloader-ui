@@ -736,6 +736,7 @@
     <sys:String x:Key="L.Photos.ReadFailed">Couldn't read the media library: {0}</sys:String>
     <sys:String x:Key="L.Photos.PickExportFolder">Choose a folder to save into</sys:String>
     <sys:String x:Key="L.Photos.Exported">Copied to the computer: {0} of {1}</sys:String>
+    <sys:String x:Key="L.Photos.Exporting">Exporting photos to computer…</sys:String>
     <sys:String x:Key="L.Photos.ExportAlbum">Save album</sys:String>
     <sys:String x:Key="L.Photos.ExportAlbumTooltip">Save every file in "{0}" to the computer</sys:String>
     <sys:String x:Key="L.Photos.ExportingAlbum">Saving "{0}"…</sys:String>
@@ -1277,4 +1278,72 @@
     <sys:String x:Key="L.Tools.ICloud">iCloud</sys:String>
     <sys:String x:Key="L.Tools.MediaExport">Media Export</sys:String>
     <sys:String x:Key="L.Tools.Statistics">Statistics</sys:String>
+
+    <!-- Media Converter & HEIC Conversion -->
+    <sys:String x:Key="L.Tools.MediaConverter">Converter</sys:String>
+    <sys:String x:Key="L.Notification.MediaConverterCompleted">Conversion completed</sys:String>
+
+    <!-- HEIC Export Prompt Dialog -->
+    <sys:String x:Key="L.Photos.HeicPromptTitle">Convert HEIC to JPEG</sys:String>
+    <sys:String x:Key="L.Photos.HeicPromptSubtitle">Apple HEIC photos detected among selected items</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePrompt">Ask during export</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePost">Convert post-factum (after copying to PC)</sys:String>
+    <sys:String x:Key="L.Photos.HeicModePostHint">Files are first copied to PC disk, then the iPhone can be disconnected immediately. Conversion proceeds locally on PC.</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDuring">Convert on-the-fly during transfer</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDuringHint">Convert during download. Device must remain connected until completely finished.</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDisabled">Do not convert (keep original HEIC)</sys:String>
+    <sys:String x:Key="L.Photos.HeicModeDisabledHint">Files remain in their original .heic/.heif format without transcoding.</sys:String>
+    <sys:String x:Key="L.Photos.HeicRecommended">Recommended</sys:String>
+    <sys:String x:Key="L.Photos.HeicDeleteOriginals">Delete original HEIC after successful conversion</sys:String>
+    <sys:String x:Key="L.Photos.HeicRememberChoice">Remember my choice and don't ask again</sys:String>
+    <sys:String x:Key="L.Photos.TransferCompleted">Copy to PC Complete</sys:String>
+    <sys:String x:Key="L.Photos.TransferDoneDisconnectAllowed">Copy to PC complete! Phone can now be disconnected. Starting HEIC to JPEG conversion...</sys:String>
+    <sys:String x:Key="L.Photos.DisconnectDeviceAllowed">Phone can be safely disconnected now!</sys:String>
+    <sys:String x:Key="L.Photos.ExportCompletedToast">Photo export completed</sys:String>
+    <sys:String x:Key="L.Photos.ExportedToastDetail">Successfully exported {0} files to {1}</sys:String>
+
+    <!-- Settings HEIC -->
+    <sys:String x:Key="L.Settings.HeicTitle">Photo Export &amp; Conversion (HEIC)</sys:String>
+    <sys:String x:Key="L.Settings.HeicSubtitle">Settings for automatic conversion of Apple HEIC/HEIF photos to universal JPEG when exporting to PC.</sys:String>
+    <sys:String x:Key="L.Settings.HeicModeLabel">HEIC conversion mode:</sys:String>
+
+    <!-- Standalone Media Converter Page -->
+    <sys:String x:Key="L.MediaConverter.Title">Media Converter</sys:String>
+    <sys:String x:Key="L.MediaConverter.Subtitle">Batch convert HEIC/HEIF photos, videos, and Live Photos to universal formats</sys:String>
+    <sys:String x:Key="L.MediaConverter.ModeTitle">Converter Mode</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabPhotos">📷 Photos (HEIC → JPG)</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabVideos">🎬 Videos (→ MP4)</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabLivePhotos">💫 Live Photos</sys:String>
+    <sys:String x:Key="L.MediaConverter.TabAll">📁 All Formats</sys:String>
+    <sys:String x:Key="L.MediaConverter.SourceLabel">Source Files</sys:String>
+    <sys:String x:Key="L.MediaConverter.SourceHint">Choose a folder, select files, or simply drag and drop them here.</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickFolder">Choose Folder…</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickFiles">Choose Files…</sys:String>
+    <sys:String x:Key="L.MediaConverter.IncludeSubdirs">Include subdirectories</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickSourceFolderTitle">Select folder containing media files to convert</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickSourceFilesTitle">Select media files to convert</sys:String>
+    <sys:String x:Key="L.MediaConverter.DestLabel">Destination</sys:String>
+    <sys:String x:Key="L.MediaConverter.DestHint">Choose whether to save converted files alongside originals or in a separate folder.</sys:String>
+    <sys:String x:Key="L.MediaConverter.SaveInSource">Save alongside source files</sys:String>
+    <sys:String x:Key="L.MediaConverter.SaveInCustom">Save to selected destination folder</sys:String>
+    <sys:String x:Key="L.MediaConverter.PickDestFolderTitle">Select destination folder for converted files</sys:String>
+    <sys:String x:Key="L.MediaConverter.PreserveSubdirs">Preserve folder hierarchy</sys:String>
+    <sys:String x:Key="L.MediaConverter.DeleteOriginals">Delete originals after successful conversion</sys:String>
+    <sys:String x:Key="L.MediaConverter.OptionsLabel">Quality Settings</sys:String>
+    <sys:String x:Key="L.MediaConverter.JpegQuality">JPEG Quality:</sys:String>
+    <sys:String x:Key="L.MediaConverter.VideoPreset">Video Quality Preset:</sys:String>
+    <sys:String x:Key="L.MediaConverter.LivePhotoMode">Live Photo Output Format:</sys:String>
+    <sys:String x:Key="L.MediaConverter.ItemsList">Files Queue</sys:String>
+    <sys:String x:Key="L.MediaConverter.ClearList">Clear List</sys:String>
+    <sys:String x:Key="L.MediaConverter.DropzoneTitle">Drag and drop files or folders here</sys:String>
+    <sys:String x:Key="L.MediaConverter.DropzoneHint">Supports folders with HEIC/HEIF photos, MOV/MP4/MKV videos, and Live Photo pairs</sys:String>
+    <sys:String x:Key="L.MediaConverter.StartConvert">Convert</sys:String>
+    <sys:String x:Key="L.MediaConverter.Starting">Starting conversion…</sys:String>
+    <sys:String x:Key="L.MediaConverter.LoadedItems">Loaded files: {0}</sys:String>
+    <sys:String x:Key="L.MediaConverter.CompletedSummary">Conversion finished: {0} of {1} files converted successfully.</sys:String>
+    <sys:String x:Key="L.MediaConverter.Cancelled">Conversion cancelled by user.</sys:String>
+    <sys:String x:Key="L.MediaConverter.Failed">Conversion error: {0}</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpenDest">Open Output Folder</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpTitle">Media Conversion</sys:String>
+    <sys:String x:Key="L.MediaConverter.OpDetail">Processing {0} items</sys:String>
 </ResourceDictionary>

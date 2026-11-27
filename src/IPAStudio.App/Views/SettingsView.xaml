@@ -429,6 +429,39 @@
                 </StackPanel>
             </Border>
 
+            <!-- HEIC Export & Conversion -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="{DynamicResource L.Settings.HeicTitle}" Style="{StaticResource Text.Body}"
+                               FontWeight="SemiBold" Margin="0,0,0,6" />
+                    <TextBlock Text="{DynamicResource L.Settings.HeicSubtitle}" Style="{StaticResource Text.Caption}"
+                               TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                    <TextBlock Text="{DynamicResource L.Settings.HeicModeLabel}" Style="{StaticResource Text.Caption}" Margin="0,0,0,6" />
+                    <ComboBox SelectedIndex="{Binding HeicExportConversionMode, Mode=TwoWay}" Margin="0,0,0,12">
+                        <ComboBoxItem Content="{DynamicResource L.Photos.HeicModePrompt}" />
+                        <ComboBoxItem Content="{DynamicResource L.Photos.HeicModePost}" />
+                        <ComboBoxItem Content="{DynamicResource L.Photos.HeicModeDuring}" />
+                        <ComboBoxItem Content="{DynamicResource L.Photos.HeicModeDisabled}" />
+                    </ComboBox>
+
+                    <CheckBox Style="{StaticResource Check.Base}" Margin="0,0,0,8"
+                              Content="{DynamicResource L.Photos.HeicDeleteOriginals}"
+                              IsChecked="{Binding HeicExportDeleteOriginals}" />
+
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource L.MediaConverter.JpegQuality}" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding HeicConversionQuality, StringFormat='{}{0}%'}" FontWeight="SemiBold" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+                    </Grid>
+                    <Slider Minimum="60" Maximum="100" Value="{Binding HeicConversionQuality}"
+                            SmallChange="1" LargeChange="5" IsSnapToTickEnabled="True" TickFrequency="1" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
             <!-- Diagnostics / logging -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>

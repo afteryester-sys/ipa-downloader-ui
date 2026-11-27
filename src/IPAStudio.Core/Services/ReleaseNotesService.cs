@@ -56,6 +56,28 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.91",
+                    date: "27.11.2026",
+                    title: "Встроенный конвертер медиа, конвертация HEIC в JPEG и отключение iPhone до завершения",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "КОНВЕРТАЦИЯ",
+                            "Предложение конвертации HEIC в JPEG при сохранении на ПК",
+                            "При экспорте фотографий с устройства появляется диалог с выбором: конвертировать файлы HEIC/HEIF в универсальный JPEG или оставить оригиналы. Доступен выбор режима: конвертировать на лету во время скачивания либо постфактум на ПК, что позволяет безопасно отключить телефон сразу после завершения копирования."),
+                        new ReleaseItem(
+                            ReleaseCategory.Feature,
+                            "ИНСТРУМЕНТЫ",
+                            "Отдельный инструмент «Конвертер медиа»",
+                            "Добавлен полноценный раздел для пакетной конвертации файлов целыми папками с сохранением структуры подкаталогов и имен файлов: конвертация фото HEIC/HEIF в JPEG/PNG, транскодирование видео (MOV/MKV/AVI/WebM в MP4/H.264) и интеллектуальная обработка Live Photos (в JPEG + MP4, анимированный GIF, только фото или только видео)."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "НАСТРОЙКИ И УВЕДОМЛЕНИЯ",
+                            "Управление режимом конвертации и системные уведомления",
+                            "В настройках добавлен блок выбора поведения HEIC по умолчанию (с возможностью запомнить выбор). При завершении переноса перед началом пост-конвертации программа уведомляет пользователя о возможности отключить телефон, а по завершению конвертации присылает итоговое уведомление.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.90",
                     date: "26.11.2026",
                     title: "Унифицированные всплывающие уведомления, всплывающее окно в углу экрана и улучшенная синхронизация фото",
@@ -945,6 +967,28 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.91",
+                date: "11/27/2026",
+                title: "Built-in Media Converter, HEIC to JPEG Options, and Post-Transfer Phone Disconnect",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "CONVERSION",
+                        "HEIC to JPEG Conversion Prompt on PC Export",
+                        "When saving photos from iOS devices to PC, an intuitive prompt offers to convert Apple HEIC/HEIF files to universal JPEG format. Users can choose to convert on-the-fly during transfer or post-factum on PC disk, allowing the iPhone to be safely unplugged as soon as file copying finishes."),
+                    new ReleaseItem(
+                        ReleaseCategory.Feature,
+                        "TOOLS",
+                        "Dedicated Media Converter Tool",
+                        "Introduced a comprehensive standalone Media Converter: batch convert entire folders with directory hierarchy preservation, transcode videos into universal MP4/H.264 formats, and convert Live Photos into Animated GIFs, universal JPEG + MP4 pairs, photo-only, or video-only."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "SETTINGS & NOTIFICATIONS",
+                        "Customizable Conversion Defaults & Timely Toasts",
+                        "Configurable defaults in Settings (with 'Remember choice' option), timely desktop notification alerting when the phone can be safely disconnected, and completion toasts across all conversion operations.")
+                }),
             new ReleaseNote(
                 version: "1.8.90",
                 date: "11/26/2026",

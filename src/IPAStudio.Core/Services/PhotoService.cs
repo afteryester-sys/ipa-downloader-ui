@@ -32,11 +32,16 @@ public sealed class PhotoService
 {
     private readonly ToolLocator _tools;
     private readonly AirTrafficPhotoSyncService? _airTrafficSync;
+    private readonly MediaConverterService _mediaConverter;
 
-    public PhotoService(ToolLocator tools, AirTrafficPhotoSyncService? airTrafficSync = null)
+    public PhotoService(
+        ToolLocator tools,
+        AirTrafficPhotoSyncService? airTrafficSync = null,
+        MediaConverterService? mediaConverter = null)
     {
         _tools = tools;
         _airTrafficSync = airTrafficSync;
+        _mediaConverter = mediaConverter ?? new MediaConverterService();
     }
 
     private static readonly string[] VideoExtensions = { ".mov", ".mp4", ".m4v", ".avi" };
@@ -250,54 +255,128 @@ public sealed class PhotoService
             return done;
         }, ct);
 
-    /// <summary>Copies the selected items from the device to a local folder.</summary>
+    /// <summary>Copies the selected items from the device to a local folder, with optional HEIC conversion.</summary>
     public Task<int> ExportAsync(
         string udid,
         IReadOnlyList<PhotoItem> items,
         string destinationFolder,
         IProgress<PhotoTransferProgress>? progress = null,
+        HeicExportConversionMode conversionMode = HeicExportConversionMode.Disabled,
+        bool deleteOriginalHeic = true,
+        int jpegQuality = 92,
+        Action? onDeviceTransferCompleted = null,
         CancellationToken ct = default)
-        => Task.Run(() =>
+        => Task.Run(async () =>
         {
             Directory.CreateDirectory(destinationFolder);
 
-            using var session = OpenSession(udid);
-            var afc = session.Afc;
-            var client = session.Client;
-
             var done = 0;
-            foreach (var item in items)
+            var exportedHeicPaths = new List<string>();
+
+            // 1. Device Transfer Phase
             {
-                ct.ThrowIfCancellationRequested();
-                progress?.Report(new PhotoTransferProgress(done, items.Count, item.FileName));
+                using var session = OpenSession(udid);
+                var afc = session.Afc;
+                var client = session.Client;
 
-                var localPath = MakeUniquePath(Path.Combine(destinationFolder, item.FileName));
-
-                ulong handle = 0;
-                if (afc.afc_file_open(client, item.RemotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
-                    continue;
-
-                try
+                foreach (var item in items)
                 {
-                    using var output = File.Create(localPath);
-                    var buffer = new byte[ChunkSize];
-                    uint read;
-                    do
+                    ct.ThrowIfCancellationRequested();
+                    progress?.Report(new PhotoTransferProgress(done, items.Count, item.FileName));
+
+                    bool isHeic = MediaConverterService.IsHeic(item.FileName);
+
+                    if (isHeic && conversionMode == HeicExportConversionMode.DuringTransfer)
                     {
-                        ct.ThrowIfCancellationRequested();
-                        read = 0;
-                        var err = afc.afc_file_read(client, handle, buffer, ChunkSize, ref read);
-                        if (err != AfcError.Success) break;
-                        if (read > 0) output.Write(buffer, 0, (int)read);
-                    }
-                    while (read > 0);
-                }
-                finally
-                {
-                    afc.afc_file_close(client, handle);
-                }
+                        var baseName = Path.GetFileNameWithoutExtension(item.FileName);
+                        var localJpeg = MakeUniquePath(Path.Combine(destinationFolder, $"{baseName}.jpg"));
 
-                done++;
+                        ulong handle = 0;
+                        if (afc.afc_file_open(client, item.RemotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
+                            continue;
+
+                        try
+                        {
+                            using var ms = new MemoryStream();
+                            var buffer = new byte[ChunkSize];
+                            uint read;
+                            do
+                            {
+                                ct.ThrowIfCancellationRequested();
+                                read = 0;
+                                var err = afc.afc_file_read(client, handle, buffer, ChunkSize, ref read);
+                                if (err != AfcError.Success) break;
+                                if (read > 0) ms.Write(buffer, 0, (int)read);
+                            }
+                            while (read > 0);
+
+                            var heicBytes = ms.ToArray();
+                            var jpegBytes = MediaConverterService.ConvertHeicBytesToJpeg(heicBytes, jpegQuality);
+                            if (jpegBytes.Length > 0)
+                            {
+                                File.WriteAllBytes(localJpeg, jpegBytes);
+                            }
+                            else
+                            {
+                                File.WriteAllBytes(MakeUniquePath(Path.Combine(destinationFolder, item.FileName)), heicBytes);
+                            }
+                        }
+                        finally
+                        {
+                            afc.afc_file_close(client, handle);
+                        }
+                    }
+                    else
+                    {
+                        var localPath = MakeUniquePath(Path.Combine(destinationFolder, item.FileName));
+
+                        ulong handle = 0;
+                        if (afc.afc_file_open(client, item.RemotePath, AfcFileMode.FopenRdonly, ref handle) != AfcError.Success)
+                            continue;
+
+                        try
+                        {
+                            using var output = File.Create(localPath);
+                            var buffer = new byte[ChunkSize];
+                            uint read;
+                            do
+                            {
+                                ct.ThrowIfCancellationRequested();
+                                read = 0;
+                                var err = afc.afc_file_read(client, handle, buffer, ChunkSize, ref read);
+                                if (err != AfcError.Success) break;
+                                if (read > 0) output.Write(buffer, 0, (int)read);
+                            }
+                            while (read > 0);
+                        }
+                        finally
+                        {
+                            afc.afc_file_close(client, handle);
+                        }
+
+                        if (isHeic)
+                        {
+                            exportedHeicPaths.Add(localPath);
+                        }
+                    }
+
+                    done++;
+                }
+            } // Session is closed here! iPhone connection is released.
+
+            // 2. Post-Transfer Phase (if requested)
+            if (conversionMode == HeicExportConversionMode.PostTransfer && exportedHeicPaths.Count > 0)
+            {
+                // Signal that device copy is completely finished and device may be disconnected before conversion begins
+                onDeviceTransferCompleted?.Invoke();
+
+                progress?.Report(new PhotoTransferProgress(done, items.Count, "Конвертация HEIC в JPEG..."));
+                await _mediaConverter.ConvertPostExportFolderAsync(
+                    destinationFolder,
+                    deleteOriginalHeic,
+                    jpegQuality,
+                    null,
+                    ct).ConfigureAwait(false);
             }
 
             progress?.Report(new PhotoTransferProgress(done, items.Count, ""));

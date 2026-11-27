@@ -94,6 +94,8 @@ def test(name, condition):
         print(f"  [FAIL] {name}")
         failed += 1
 
+test.__test__ = False
+
 print("--- Testing Media Classification & Category Detection ---")
 
 test("Detect MP4 as Video", detect_category("C:/Photos/video.mp4", True, "") == "Видеозаписи")

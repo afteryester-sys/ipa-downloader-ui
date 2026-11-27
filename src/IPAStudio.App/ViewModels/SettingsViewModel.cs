@@ -432,6 +432,15 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
     private bool _catalogCtrlSelects = true;
 
     [ObservableProperty]
+    private int _heicExportConversionMode;
+
+    [ObservableProperty]
+    private bool _heicExportDeleteOriginals = true;
+
+    [ObservableProperty]
+    private int _heicConversionQuality = 92;
+
+    [ObservableProperty]
     private string _accountEmail = "";
 
     [ObservableProperty]
@@ -614,6 +623,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         PhotosCtrlSelects = _settings.Current.PhotosCtrlSelects;
         OnDeviceCtrlSelects = _settings.Current.OnDeviceCtrlSelects;
         CatalogCtrlSelects = _settings.Current.CatalogCtrlSelects;
+        HeicExportConversionMode = _settings.Current.HeicExportConversionMode;
+        HeicExportDeleteOriginals = _settings.Current.HeicExportDeleteOriginals;
+        HeicConversionQuality = _settings.Current.HeicConversionQuality > 0 ? _settings.Current.HeicConversionQuality : 92;
         FirmwareFolder = _settings.Current.FirmwareFolder ?? System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "IPA Studio", "Firmwares");
         FirmwareDownloadThreads = Math.Clamp(_settings.Current.FirmwareDownloadThreads, 1, 16);
@@ -945,6 +957,9 @@ public sealed partial class SettingsViewModel : ObservableObject, IPageAware
         _settings.Current.PhotosCtrlSelects = PhotosCtrlSelects;
         _settings.Current.OnDeviceCtrlSelects = OnDeviceCtrlSelects;
         _settings.Current.CatalogCtrlSelects = CatalogCtrlSelects;
+        _settings.Current.HeicExportConversionMode = HeicExportConversionMode;
+        _settings.Current.HeicExportDeleteOriginals = HeicExportDeleteOriginals;
+        _settings.Current.HeicConversionQuality = Math.Clamp(HeicConversionQuality, 50, 100);
         _settings.Current.WifiDeviceConnection = WifiDeviceConnection;
         _settings.Current.VerboseLogging = VerboseLogging;
         _settings.Current.HideDevicePollingLogs = HideDevicePollingLogs;
