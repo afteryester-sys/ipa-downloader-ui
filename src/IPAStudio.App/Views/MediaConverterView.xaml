@@ -189,7 +189,7 @@
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{DynamicResource L.MediaConverter.ItemsList}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                        <Border Margin="10,0,0,0" CornerRadius="10" Background="{DynamicResource Brush.SurfaceElevated}" Padding="8,2">
+                        <Border Margin="10,0,0,0" CornerRadius="10" Background="{DynamicResource Brush.SurfaceHover}" Padding="8,2">
                             <TextBlock Text="{Binding VisibleItems.Count, StringFormat='{}{0}'}" Style="{StaticResource Text.Caption}" FontWeight="SemiBold" />
                         </Border>
                     </StackPanel>
@@ -218,7 +218,7 @@
                                            Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="15"
                                            HorizontalAlignment="Center" Margin="0,0,0,4" />
                                 <TextBlock Text="{DynamicResource L.MediaConverter.DropzoneHint}"
-                                           Style="{StaticResource Text.Muted}" FontSize="12"
+                                           Style="{StaticResource Text.Caption}" FontSize="12"
                                            HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="360" />
                             </StackPanel>
                         </Grid>
@@ -241,7 +241,7 @@
 
                                             <!-- Kind Icon -->
                                             <Border Grid.Column="0" Width="32" Height="32" CornerRadius="6"
-                                                    Background="{DynamicResource Brush.SurfaceElevated}" Margin="0,0,12,0"
+                                                    Background="{DynamicResource Brush.SurfaceHover}" Margin="0,0,12,0"
                                                     VerticalAlignment="Center">
                                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14"
                                                            Foreground="{DynamicResource Brush.Accent}"
@@ -266,18 +266,18 @@
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding FileName}" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource Brush.Text}" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding SourcePath}" Style="{StaticResource Text.Muted}"
+                                                <TextBlock Text="{Binding SourcePath}" Style="{StaticResource Text.Caption}"
                                                            FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,1,0,0" />
                                             </StackPanel>
 
                                             <!-- Size -->
                                             <TextBlock Grid.Column="2" Text="{Binding FormattedSize}"
-                                                       Style="{StaticResource Text.Muted}" FontSize="12"
+                                                       Style="{StaticResource Text.Caption}" FontSize="12"
                                                        VerticalAlignment="Center" Margin="12,0,16,0" />
 
                                             <!-- Status -->
                                             <Border Grid.Column="3" CornerRadius="4" Padding="6,2" VerticalAlignment="Center"
-                                                    Background="{DynamicResource Brush.SurfaceElevated}">
+                                                    Background="{DynamicResource Brush.SurfaceHover}">
                                                 <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource Brush.TextMuted}" />
                                             </Border>
                                         </Grid>

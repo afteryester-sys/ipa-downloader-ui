@@ -27,6 +27,7 @@
     <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
     <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
     <SolidColorBrush x:Key="Brush.SurfaceHover" Color="{StaticResource Color.SurfaceHover}" />
+    <SolidColorBrush x:Key="Brush.SurfaceElevated" Color="{StaticResource Color.SurfaceHover}" />
     <SolidColorBrush x:Key="Brush.SurfaceActive" Color="{StaticResource Color.SurfaceActive}" />
     <SolidColorBrush x:Key="Brush.Hover" Color="{StaticResource Color.SurfaceHover}" />
     <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />

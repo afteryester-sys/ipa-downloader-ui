@@ -51,6 +51,12 @@
         <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
     </Style>
 
+    <Style x:Key="Text.Muted" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}" />
+    </Style>
+
     <!-- ============ Buttons ============ -->
     <Style x:Key="Button.Primary" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />

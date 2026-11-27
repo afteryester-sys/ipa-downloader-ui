@@ -56,6 +56,23 @@ public sealed class ReleaseNotesService
             return new List<ReleaseNote>
             {
                 new ReleaseNote(
+                    version: "1.8.92",
+                    date: "27.11.2026",
+                    title: "Исправление отображения Конвертера медиа и стилей диалоговых окон",
+                    items: new List<ReleaseItem>
+                    {
+                        new ReleaseItem(
+                            ReleaseCategory.Fix,
+                            "ИНТЕРФЕЙС",
+                            "Исправлено зависание и пустой экран при открытии Конвертера медиа",
+                            "Устранено исключение XamlParseException при переходе на экран «Конвертер медиа», вызванное отсутствующим стилем Text.Muted. Ресурсы стилей текста и поверхностей нормализованы в общую тему приложения."),
+                        new ReleaseItem(
+                            ReleaseCategory.Improvement,
+                            "СТАБИЛЬНОСТЬ",
+                            "Защита от отсутствующих ресурсов XAML",
+                            "В глобальную тему приложения добавлены псевдонимы Text.Muted и Brush.SurfaceElevated, гарантируя корректное отображение диалогов экспорта и экранов конвертации без сбоев рендеринга.")
+                    }),
+                new ReleaseNote(
                     version: "1.8.91",
                     date: "27.11.2026",
                     title: "Встроенный конвертер медиа, конвертация HEIC в JPEG и отключение iPhone до завершения",
@@ -967,6 +984,23 @@ public sealed class ReleaseNotesService
 
         return new List<ReleaseNote>
         {
+            new ReleaseNote(
+                version: "1.8.92",
+                date: "11/27/2026",
+                title: "Fix Media Converter Rendering and Dialog Resource Styles",
+                items: new List<ReleaseItem>
+                {
+                    new ReleaseItem(
+                        ReleaseCategory.Fix,
+                        "UI",
+                        "Fix Blank Screen on Media Converter Launch",
+                        "Resolved a XamlParseException when opening the Media Converter view caused by an undefined Text.Muted style. Normalized all text and surface brush resources across application themes."),
+                    new ReleaseItem(
+                        ReleaseCategory.Improvement,
+                        "STABILITY",
+                        "Resource Key Aliases in Global Theme",
+                        "Registered Text.Muted and Brush.SurfaceElevated fallbacks in application theme dictionaries, preventing potential UI rendering halts across all export and conversion views.")
+                }),
             new ReleaseNote(
                 version: "1.8.91",
                 date: "11/27/2026",

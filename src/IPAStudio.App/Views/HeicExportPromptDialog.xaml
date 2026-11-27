@@ -64,7 +64,7 @@
                                    FontSize="16" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Brush.Text}" />
                         <TextBlock Text="{DynamicResource L.Photos.HeicPromptSubtitle}"
-                                   Style="{StaticResource Text.Muted}"
+                                   Style="{StaticResource Text.Caption}"
                                    FontSize="12" Margin="0,2,0,0" />
                     </StackPanel>
 
@@ -78,7 +78,7 @@
                 </Grid>
 
                 <!-- Conversion Modes -->
-                <Border Grid.Row="1" Background="{DynamicResource Brush.SurfaceElevated}"
+                <Border Grid.Row="1" Background="{DynamicResource Brush.SurfaceHover}"
                         BorderBrush="{DynamicResource Brush.Border}"
                         BorderThickness="1" CornerRadius="12" Padding="14,12" Margin="0,0,0,16">
                     <StackPanel>
@@ -94,7 +94,7 @@
                                     </Border>
                                 </StackPanel>
                                 <TextBlock Text="{DynamicResource L.Photos.HeicModePostHint}"
-                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                           Style="{StaticResource Text.Caption}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </RadioButton>
 
@@ -106,7 +106,7 @@
                                 <TextBlock Text="{DynamicResource L.Photos.HeicModeDuring}" FontWeight="SemiBold"
                                            Foreground="{DynamicResource Brush.Text}" FontSize="13" />
                                 <TextBlock Text="{DynamicResource L.Photos.HeicModeDuringHint}"
-                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                           Style="{StaticResource Text.Caption}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </RadioButton>
 
@@ -118,7 +118,7 @@
                                 <TextBlock Text="{DynamicResource L.Photos.HeicModeDisabled}" FontWeight="SemiBold"
                                            Foreground="{DynamicResource Brush.Text}" FontSize="13" />
                                 <TextBlock Text="{DynamicResource L.Photos.HeicModeDisabledHint}"
-                                           Style="{StaticResource Text.Muted}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                           Style="{StaticResource Text.Caption}" FontSize="11.5" Margin="0,2,0,0" TextWrapping="Wrap" />
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
